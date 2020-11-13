@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -113,5 +114,13 @@ func ParseScantype(Info *HostInfo){
 			fmt.Println("   ["+name+"]")
 		}
 		os.Exit(0)
+	}
+	if Info.Scantype != "all" && Info.Ports != DefaultPorts{
+		ScanPort := ParsePort(Info.Ports)[0]
+		Info.Ports = strconv.Itoa(ScanPort)
+		fmt.Println("if -m and -p only scan the first port:",Info.Ports)
+		for name,_:=range PORTList{
+			PORTList[name] = ScanPort
+		}
 	}
 }

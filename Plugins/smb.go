@@ -34,7 +34,7 @@ func SmblConn(info *common.HostInfo,user string,pass string)(flag bool,err error
 	Host,Port,Username,Password := info.Host, common.PORTList["smb"],user, pass
 	options := smb.Options{
 		Host:        Host,
-		Port:        Port,
+		Port:        445,
 		User:        Username,
 		Password:    Password,
 		Domain:      "",
