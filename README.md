@@ -25,6 +25,12 @@ fscan.exe -h 192.168.1.1/24 -c whoami (ssh 爆破成功后，命令执行)
 fscan.exe -h 192.168.1.1/24 -m ssh -p 2222 (指定模块ssh和端口)
 fscan.exe -h 192.168.1.1/24 -m ms17010 (指定模块)
 ```
+```
+-h 192.168.1.1/24 (C段)  
+-h 192.168.1.1/16 (B段)
+-h 192.168.1.1/8  (A段的192.x.x.1和192.x.x.254,方便快速查看网段信息 )
+```
+
 
 完整参数
 ```
@@ -60,20 +66,23 @@ fscan.exe -h 192.168.1.1/24 -m ms17010 (指定模块)
         username file
 ```
 
+## 运行截图
 
-`fscan.exe -h 192.168.x.x`
+`fscan.exe -h 192.168.x.x  (全功能、ms17010、读取网卡信息)`
 ![](image/1.png)
+
+![](image/4.png)
 
 `fscan.exe -h 192.168.x.x -rf id_rsa.pub (redis 写私钥)`
 ![](image/2.png)
 
-
 `fscan.exe -h 192.168.x.x -c "whoami;id" (ssh 命令)`
 ![](image/3.png)
 
-
-`fscan.exe -h 192.168.x.x (ms17010、读取网卡信息)`
-![](image/4.png)
+## 未来计划
+[*] 增加内网常见高危漏洞  
+[*] 增加高危web漏洞扫描  
+[*] 师傅们觉得有必要加的漏洞，也可以提issue  
 
 
 ## 参考链接
