@@ -35,7 +35,7 @@ func IsContain(items []string, item string) bool {
 }
 
 func Scan(info *common.HostInfo)  {
-	Hosts,_ :=  common.ParseIP(info.Host)
+	Hosts,_ :=  common.ParseIP(info.Host,info.HostFile)
 	if info.Isping == false{
 		Hosts =  ICMPRun(Hosts)
 	}
@@ -72,9 +72,6 @@ func Scan(info *common.HostInfo)  {
 			port,_:=common.PORTList[info.Scantype]
 			scantype = strconv.Itoa(port)
 			AddScan(scantype,info,ch,&wg)
-			//wg.Add(1)
-			//go scan_func(PluginList,scantype,info,ch,&wg)
-			//ch <- 1
 		}
 	}
 	wg.Wait()

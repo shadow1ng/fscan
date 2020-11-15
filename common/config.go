@@ -39,6 +39,7 @@ var DefaultPorts = "21,22,23,80,135,443,445,1433,1521,3306,5432,6379,7001,8080,8
 
 type HostInfo struct {
 	Host string
+	HostFile string
 	Ports string
 	Url string
 	Timeout int64

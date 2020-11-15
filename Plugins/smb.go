@@ -15,7 +15,6 @@ Loop:
 	for _,user:=range common.Userdict["smb"]{
 		for _,pass:=range common.Passwords{
 			pass = strings.Replace(pass, "{user}", string(user), -1)
-			//fmt.Println(user,pass)
 			//flag,err := SmblConn(info,user,pass)
 			flag,err := doWithTimeOut(info,user,pass)
 			//fmt.Println(user,pass,flag,err)

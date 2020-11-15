@@ -1,8 +1,8 @@
 package main
 
 import (
-	"./Plugins"
 	"./common"
+	"./Plugins"
 	"fmt"
 )
 

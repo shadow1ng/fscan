@@ -1,21 +1,57 @@
 package common
 
 import (
+	"bufio"
 	"errors"
+	"fmt"
 	"net"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
 )
 
-var ParseIPErr error =errors.New("host parsing error\n" +
+var ParseIPErr  =errors.New("host parsing error\n" +
 	"format: \n"+
-	"192.168.1.1/24\n"+
 	"192.168.1.1\n" +
+	"192.168.1.1/8\n"+
+	"192.168.1.1/16\n"+
+	"192.168.1.1/24\n"+
 	"192.168.1.1,192.168.1.2\n" +
 	"192.168.1.1-255")
 
-func ParseIP(ip string)([]string,error){
+func ParseIP(ip string,filename string)(hosts []string,err error){
+
+	if ip != ""{
+		hosts,err = ParseIPs(ip)
+	}
+	if filename != ""{
+		var filehost []string
+		filehost,_ = Readipfile(filename)
+		hosts = append(hosts,filehost...)
+	}
+	hosts = RemoveDuplicate(hosts)
+	return hosts,err
+}
+
+func ParseIPs(ip string)(hosts []string,err error){
+	if strings.Contains(ip,","){
+		IPList:=strings.Split(ip,",")
+		var ips []string
+		for _,ip:=range IPList{
+			ips,err = ParseIPone(ip)
+			CheckErr(ip,err)
+			hosts = append(hosts,ips...)
+		}
+		return hosts,err
+	}else {
+		hosts,err = ParseIPone(ip)
+		CheckErr(ip,err)
+		return hosts,err
+	}
+}
+
+func ParseIPone(ip string)([]string,error){
 	reg:=regexp.MustCompile(`[a-zA-Z]+`)
 	switch {
 	case strings.Contains(ip[len(ip)-3:len(ip)],"/24"):
@@ -24,8 +60,6 @@ func ParseIP(ip string)([]string,error){
 		return ParseIPD(ip)
 	case strings.Contains(ip[len(ip)-2:len(ip)],"/8"):
 		return ParseIPE(ip)
-	case strings.Contains(ip,","):
-		return ParseIPB(ip)
 	case strings.Count(ip,"-")==1:
 		return ParseIPC(ip)
 	case reg.MatchString(ip):
@@ -42,7 +76,6 @@ func ParseIP(ip string)([]string,error){
 		return []string{ip},nil
 	}
 }
-
 //Parsing CIDR IP
 func ParseIPA(ip string)([]string,error){
 	realIP:=ip[:len(ip)-3]
@@ -129,3 +162,38 @@ func ParseIPE(ip string)([]string,error){
 	}
 	return AllIP,nil
 }
+
+func Readipfile(filename string)([]string,error){
+	file, err := os.Open(filename)
+	if err!=nil{
+		fmt.Println("Open %s error, %v", filename,err)
+		os.Exit(0)
+	}
+	defer file.Close()
+	var content []string
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanLines)
+	for scanner.Scan() {
+		text := strings.TrimSpace(scanner.Text())
+		if text != "" {
+			host,err := ParseIPs(text)
+			CheckErr(text,err)
+			content=append(content,host...)
+		}
+	}
+	return content,nil
+}
+
+
+func RemoveDuplicate(old []string) ([]string) {
+	result := make([]string, 0, len(old))
+	temp := map[string]struct{}{}
+	for _, item := range old {
+		if _, ok := temp[item]; !ok {
+			temp[item] = struct{}{}
+			result = append(result, item)
+		}
+	}
+	return result
+}
+

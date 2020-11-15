@@ -36,13 +36,13 @@ func geturl(info *common.HostInfo) (err error, result string) {
 			body, _ := ioutil.ReadAll(resp.Body)
 			re :=regexp.MustCompile("<title>(.*)</title>")
 			find := re.FindAllStringSubmatch(string(body),-1)
-			if len(find) > 1{
+			if len(find) > 0{
 				title = find[0][1]
 			}else {
 				title = "None"
 			}
-			if len(title) > 20{
-				title = title[:20]
+			if len(title) > 50{
+				title = title[:50]
 			}
 			if resp.StatusCode == 400 &&  string(url[5]) != "https"{
 				info.Url = strings.Replace(url, "http://", "https://", 1)

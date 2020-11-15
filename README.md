@@ -38,6 +38,8 @@ fscan.exe -h 192.168.1.1/24 -m ms17010 (指定模块)
         exec command (ssh)
   -h string
         IP address of the host you want to scan,for example: 192.168.11.11 | 192.168.11.11-255 | 192.168.11.11,192.168.11.12
+  -hf string
+        host file, -hs ip.txt
   -m string
         Select scan type ,as: -m ssh (default "all")
   -no
@@ -64,6 +66,7 @@ fscan.exe -h 192.168.1.1/24 -m ms17010 (指定模块)
         username
   -userf string
         username file
+
 ```
 
 ## 运行截图
@@ -78,6 +81,11 @@ fscan.exe -h 192.168.1.1/24 -m ms17010 (指定模块)
 
 `fscan.exe -h 192.168.x.x -c "whoami;id" (ssh 命令)`
 ![](image/3.png)
+
+
+## 最近更新
+2020/11/15  
+[+] 支持ip以文件导入,-hs ip.txt
 
 ## 未来计划
 [*] 增加内网常见高危漏洞  

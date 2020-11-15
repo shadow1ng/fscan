@@ -131,7 +131,7 @@ func MS17010Scan(info *common.HostInfo) {
 		}
 
 	} else {
-		result := fmt.Sprintf("%s\t        \t(%s)\n", ip, os)
+		result := fmt.Sprintf("%s  (%s)", ip, os)
 		common.LogSuccess(result)
 	}
 

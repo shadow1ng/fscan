@@ -74,7 +74,7 @@ func Readfile(filename string)([]string,error){
 	file, err := os.Open(filename)
 	if err!=nil{
 		fmt.Println("Open %s error, %v", filename,err)
-		return nil,err
+		os.Exit(0)
 	}
 	defer file.Close()
 	var content []string
@@ -92,7 +92,7 @@ func Readfile(filename string)([]string,error){
 
 
 func ParseInput(Info *HostInfo){
-	if Info.Host==""{
+	if Info.Host=="" && Info.HostFile ==""{
 		fmt.Println("Host is none")
 		flag.Usage()
 		os.Exit(0)
@@ -122,5 +122,13 @@ func ParseScantype(Info *HostInfo){
 		for name,_:=range PORTList{
 			PORTList[name] = ScanPort
 		}
+	}
+}
+
+
+func CheckErr(text string,err error){
+	if err!=nil{
+		fmt.Println(text,err.Error())
+		os.Exit(0)
 	}
 }
