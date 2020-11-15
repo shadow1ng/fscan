@@ -70,7 +70,6 @@ func read(text []byte,host string)  {
 			return
 		}
 		result += "\n   [->]"+string(host)
-		//result += "\n   ["+string(host)+"]"
 	}
 	common.LogSuccess(result)
 }

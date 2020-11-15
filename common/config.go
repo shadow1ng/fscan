@@ -25,10 +25,10 @@ var PORTList = map[string]int{
 	"smb": 445,
 	"ms17010": 1000001,
 	"cve20200796":1000002,
+	"webtitle": 1000003,
 	"elastic": 9200,
 	"findnet": 135,
 	"all":0,
-	//"wenscan": 17010,
 }
 
 var Outputfile = "result.txt"

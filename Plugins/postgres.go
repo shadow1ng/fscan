@@ -15,7 +15,7 @@ Loop:
 	for _,user:=range common.Userdict["postgresql"]{
 		for _,pass:=range common.Passwords{
 			pass = strings.Replace(pass, "{user}", string(user), -1)
-			flag,err := PostgresConn(info,user,pass,ch,wg)
+			flag,err := PostgresConn(info,user,pass)
 			if flag==true && err==nil {
 				break Loop
 			}
@@ -25,7 +25,7 @@ Loop:
 	<- ch
 }
 
-func PostgresConn(info *common.HostInfo,user string,pass string,ch chan int,wg *sync.WaitGroup)(flag bool,err error){
+func PostgresConn(info *common.HostInfo,user string,pass string)(flag bool,err error){
 	flag = false
 	Host,Port,Username,Password := info.Host, common.PORTList["psql"],user, pass
 	dataSourceName := fmt.Sprintf("postgres://%v:%v@%v:%v/%v?sslmode=%v", Username, Password, Host,Port, "postgres", "disable")

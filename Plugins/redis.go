@@ -22,7 +22,7 @@ func RedisScan(info *common.HostInfo,ch chan int,wg *sync.WaitGroup) {
 Loop:
 		for _,pass:=range common.Passwords{
 			pass = strings.Replace(pass, "{user}", string("redis"), -1)
-			flag,err := RedisConn(info,pass,ch,wg)
+			flag,err := RedisConn(info,pass)
 			if flag==true && err==nil {
 				break Loop
 			}
@@ -31,7 +31,7 @@ Loop:
 	<- ch
 }
 
-func RedisConn(info *common.HostInfo,pass string,ch chan int,wg *sync.WaitGroup)(flag bool,err error){
+func RedisConn(info *common.HostInfo,pass string)(flag bool,err error){
 	flag = false
 	realhost:=fmt.Sprintf("%s:%d",info.Host,common.PORTList["redis"])
 	conn,err := net.DialTimeout("tcp",realhost,time.Duration(info.Timeout)*time.Second)
@@ -41,7 +41,6 @@ func RedisConn(info *common.HostInfo,pass string,ch chan int,wg *sync.WaitGroup)
 	defer conn.Close()
 	conn.Write([]byte(fmt.Sprintf("auth %s\r\n",pass)))
 	reply,err := readreply(conn)
-	//common.LogSuccess(result)
 	if strings.Contains(reply,"+OK"){
 		result := fmt.Sprintf("Redis:%s %s",realhost,pass)
 		common.LogSuccess(result)
@@ -164,10 +163,8 @@ func Readfile(filename string)(string,error){
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
-	//scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
-		//text := strings.TrimSpace(scanner.Text())
-		text := scanner.Text()
+		text := strings.TrimSpace(scanner.Text())
 		if text != "" {
 			return text,nil
 		}

@@ -51,21 +51,4 @@ func geturl2(info *common.HostInfo) (flag bool,err error) {
 		}
 	}
 	return flag,err
-
-	//fmt.Print("\n")
 }
-
-
-//if info.Cookie!=""{
-//	res.Header.Add("Cookie",info.Cookie)
-//}
-//if info.Header!=""{
-//	var header = make(map[string]string)
-//	err:=json.Unmarshal([]byte(info.Header),&header)
-//	if err!=nil{
-//		Misc.CheckErr(err)
-//	}
-//	for k,v:=range header{
-//		res.Header.Add(k,v)
-//	}
-//}

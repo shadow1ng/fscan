@@ -16,8 +16,8 @@ func MysqlScan(info *common.HostInfo,ch chan int,wg *sync.WaitGroup) {
 Loop:
 	for _,user:=range common.Userdict["mysql"]{
 		for _,pass:=range common.Passwords{
-			pass = strings.Replace(pass, "{user}", string(user), -1)
-			flag,err := MysqlConn(info,user,pass,ch,wg)
+			pass = strings.Replace(pass, "{user}", user, -1)
+			flag,err := MysqlConn(info,user,pass)
 			if flag==true && err==nil {
 				break Loop
 			}
@@ -27,7 +27,7 @@ Loop:
 	<- ch
 }
 
-func MysqlConn(info *common.HostInfo,user string,pass string,ch chan int,wg *sync.WaitGroup)(flag bool,err error){
+func MysqlConn(info *common.HostInfo,user string,pass string)(flag bool,err error){
 	flag = false
 	Host,Port,Username,Password := info.Host, common.PORTList["mysql"],user, pass
 	dataSourceName := fmt.Sprintf("%v:%v@tcp(%v:%v)/%v?charset=utf8", Username, Password, Host,Port, "mysql")

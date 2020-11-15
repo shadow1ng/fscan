@@ -15,7 +15,6 @@ func scan_func(m map[string]interface{}, name string, infos ...interface{}) (res
 		err = errors.New("The number of infos is not adapted.")
 		if err != nil {
 			fmt.Println(err.Error())
-		//	//os.Exit(0)
 		}
 	}
 	in := make([]reflect.Value, len(infos))
@@ -34,17 +33,17 @@ func IsContain(items []string, item string) bool {
 	return false
 }
 
-func Scan(info *common.HostInfo)  {
+func Scan(info common.HostInfo)  {
 	Hosts,_ :=  common.ParseIP(info.Host,info.HostFile)
 	if info.Isping == false{
 		Hosts =  ICMPRun(Hosts)
 	}
 	_,AlivePorts := TCPportScan(Hosts,info.Ports,"icmp",3)   //return AliveHosts,AlivePorts
-	var severports  []string         	//severports := []string{"21","22","135"."445","1433","3306","5432","6379","9200","11211","27017"}
+	var severports  []string         	//severports := []string{"21","22","135"."445","1433","3306","5432","6379","9200","11211","27017"...}
 	for _,port:=range common.PORTList{
 		severports = append(severports,strconv.Itoa(port))
 	}
-	severports1 := []string{"1521"}
+	severports1 := []string{"1521"}  //no scan these server
 	var ch = make(chan int,info.Threads)
 	var wg = sync.WaitGroup{}
 	var scantype string
@@ -53,12 +52,11 @@ func Scan(info *common.HostInfo)  {
 		info.Host = scan_ip
 		if info.Scantype == "all"{
 			if IsContain(severports,scan_port){
-				//scantype = scan_port
 				AddScan(scan_port,info,ch,&wg)
 			}else {
 				if !IsContain(severports1,scan_port){
-					info.Url = fmt.Sprintf("http://%s",targetIP)
 					wg.Add(1)
+					info.Ports = scan_port
 					go WebTitle(info,ch,&wg)  					//go scan_func(PluginList,"WebTitle",info,ch,&wg)
 					ch <- 1
 				}
@@ -77,8 +75,9 @@ func Scan(info *common.HostInfo)  {
 	wg.Wait()
 }
 
-func AddScan(scantype string,info *common.HostInfo,ch chan int,wg *sync.WaitGroup)  {
+func AddScan(scantype string,info common.HostInfo,ch chan int,wg *sync.WaitGroup)  {
 	wg.Add(1)
-	go scan_func(PluginList,scantype,info,ch,wg)
+	if info.Scantype == "webtitle"{scantype = "1000003"}
+	go scan_func(PluginList,scantype,&info,ch,wg)
 	ch <- 1
 }

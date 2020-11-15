@@ -11,7 +11,8 @@ import (
 	"time"
 )
 
-func WebTitle(info *common.HostInfo,ch chan int,wg *sync.WaitGroup) (err error, result string) {
+func WebTitle(info common.HostInfo,ch chan int,wg *sync.WaitGroup) (err error, result string) {
+	info.Url = fmt.Sprintf("http://%s:%s",info.Host,info.Ports)
 	err,result = geturl(info)
     wg.Done()
 	<-ch
@@ -19,7 +20,7 @@ func WebTitle(info *common.HostInfo,ch chan int,wg *sync.WaitGroup) (err error, 
 }
 
 
-func geturl(info *common.HostInfo) (err error, result string) {
+func geturl(info common.HostInfo) (err error, result string) {
 	url := info.Url
 	var client = &http.Client{Timeout:time.Duration(info.Timeout)*time.Second }
 	res,err:=http.NewRequest("GET",url,nil)
@@ -55,8 +56,6 @@ func geturl(info *common.HostInfo) (err error, result string) {
 		}
 	}
 	return err, ""
-
-	//fmt.Print("\n")
 }
 //var client = &http.Client{
 //	Transport:&http.Transport{

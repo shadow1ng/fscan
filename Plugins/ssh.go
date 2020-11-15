@@ -10,18 +10,11 @@ import (
 	"time"
 )
 func SshScan(info *common.HostInfo,ch chan int,wg *sync.WaitGroup) {
-	//SshConn(info,"oracle","oracle",ch,wg)
 Loop:
 	for _,user:=range common.Userdict["ssh"]{
 		for _,pass:=range common.Passwords{
-			pass = strings.Replace(pass, "{user}", string(user), -1)
-			//wg.Add(1)
-			//var good bool
-			//go SshConn(info,user,pass,ch,wg)
-			//if good == true{
-			//	break Loop
-			//}
-			flag,err := SshConn(info,user,pass,ch,wg)
+			pass = strings.Replace(pass, "{user}", user, -1)
+			flag,err := SshConn(info,user,pass)
 			if flag==true && err==nil {
 				break Loop
 			}
@@ -31,10 +24,9 @@ Loop:
 	<- ch
 }
 
-func SshConn(info *common.HostInfo,user string,pass string,ch chan int,wg *sync.WaitGroup)(flag bool,err error){
+func SshConn(info *common.HostInfo,user string,pass string)(flag bool,err error){
 	flag = false
 	Host,Port,Username,Password := info.Host, common.PORTList["ssh"],user, pass
-	//fmt.Println(Host,Port,Username,Password)
 	config := &ssh.ClientConfig{
 		User: Username,
 		Auth: []ssh.AuthMethod{
@@ -50,7 +42,7 @@ func SshConn(info *common.HostInfo,user string,pass string,ch chan int,wg *sync.
 	if err == nil {
 		defer client.Close()
 		session, err := client.NewSession()
-		if err == nil  { //if err == nil && errRet == nil {
+		if err == nil  {
 			defer session.Close()
 			flag = true
 			if info.Command != ""{

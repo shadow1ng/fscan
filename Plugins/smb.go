@@ -43,7 +43,6 @@ func SmblConn(info *common.HostInfo,user string,pass string)(flag bool,err error
 	}
 
 	session, err := smb.NewSession(options, false)
-	//fmt.Println(err)
 	if err == nil {
 		defer session.Close()
 		if session.IsAuthenticated {
@@ -57,7 +56,6 @@ func SmblConn(info *common.HostInfo,user string,pass string)(flag bool,err error
 
 func doWithTimeOut(info *common.HostInfo,user string,pass string)(flag bool,err error){
 	ctx,cancel := context.WithTimeout(context.Background(),time.Duration(info.Timeout)*time.Second)
-	//ctx,cancel := context.WithTimeout(context.Background(),1*time.Second)
 	defer cancel()
 	signal := make(chan int,1)
 	go func() {
