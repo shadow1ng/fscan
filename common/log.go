@@ -17,7 +17,7 @@ func LogSuccess(result string){
 }
 func WriteFile(result string,filename string)  {
 	var text = []byte(result+"\n")
-	fl, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE, 0777)
+	fl, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0777)
 	if err != nil {
 		fmt.Println(err)
 		return
