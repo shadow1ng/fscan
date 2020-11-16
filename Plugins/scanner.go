@@ -38,6 +38,7 @@ func Scan(info common.HostInfo)  {
 	Hosts,_ :=  common.ParseIP(info.Host,info.HostFile)
 	if info.Isping == false{
 		Hosts =  ICMPRun(Hosts,info.IcmpThreads)
+		fmt.Println("icmp alive hosts len is:",len(Hosts))
 	}
 	_,AlivePorts := TCPportScan(Hosts,info.Ports,"icmp",3)   //return AliveHosts,AlivePorts
 	var severports  []string         	//severports := []string{"21","22","135"."445","1433","3306","5432","6379","9200","11211","27017"...}
