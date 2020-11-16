@@ -15,9 +15,7 @@ Loop:
 	for _,user:=range common.Userdict["smb"]{
 		for _,pass:=range common.Passwords{
 			pass = strings.Replace(pass, "{user}", string(user), -1)
-			//flag,err := SmblConn(info,user,pass)
 			flag,err := doWithTimeOut(info,user,pass)
-			//fmt.Println(user,pass,flag,err)
 			if flag==true && err==nil {
 				break Loop
 			}
@@ -38,7 +36,6 @@ func SmblConn(info *common.HostInfo,user string,pass string)(flag bool,err error
 		Password:    Password,
 		Domain:      "",
 		Workstation: "",
-		Timeout:     info.Timeout,
 
 	}
 

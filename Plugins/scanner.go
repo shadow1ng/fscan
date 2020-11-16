@@ -43,7 +43,7 @@ func Scan(info common.HostInfo)  {
 	for _,port:=range common.PORTList{
 		severports = append(severports,strconv.Itoa(port))
 	}
-	severports1 := []string{"1521"}  //no scan these server
+	severports1 := []string{"1521"}  //no scan these service
 	var ch = make(chan int,info.Threads)
 	var wg = sync.WaitGroup{}
 	var scantype string
@@ -55,17 +55,14 @@ func Scan(info common.HostInfo)  {
 				AddScan(scan_port,info,ch,&wg)
 			}else {
 				if !IsContain(severports1,scan_port){
-					wg.Add(1)
 					info.Ports = scan_port
-					go WebTitle(info,ch,&wg)  					//go scan_func(PluginList,"WebTitle",info,ch,&wg)
-					ch <- 1
+					AddScan("1000003",info,ch,&wg) //webtitle
 				}
 			}
-			if scan_port == "445"{
+			if scan_port == "445"{   //scan more vul
 				AddScan("1000001",info,ch,&wg)
 				AddScan("1000002",info,ch,&wg)
 			}
-
 		}else {
 			port,_:=common.PORTList[info.Scantype]
 			scantype = strconv.Itoa(port)
