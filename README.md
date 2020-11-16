@@ -13,6 +13,9 @@
 答：  
    因为用习惯了f-scrack，习惯一条命令跑完所有模块，省去一个个模块单独调用的时间，当然我附加了-m 指定模块的功能。
 
+## 最近更新
+[+] 2020/11/16 对icmp模块进行优化,增加-it 参数(IcmpThreads),默认3000,适合扫B段  
+[+] 2020/11/15 支持ip以文件导入,-hs ip.txt,并对去重做了处理
 
 ## usege
 简单用法
@@ -41,6 +44,8 @@ fscan.exe -h 192.168.1.1/24 -m ms17010 (指定模块)
         IP address of the host you want to scan,for example: 192.168.11.11 | 192.168.11.11-255 | 192.168.11.11,192.168.11.12
   -hf string
         host file, -hs ip.txt
+  -it int
+        Icmp Threads nums (default 3000)
   -m string
         Select scan type ,as: -m ssh (default "all")
   -no
@@ -60,7 +65,7 @@ fscan.exe -h 192.168.1.1/24 -m ms17010 (指定模块)
   -rs string
         redis shell to write cron file (as: -rs 192.168.1.1:6666)
   -t int
-        Thread nums (default 100)
+        Thread nums (default 200)
   -time int
         Set timeout (default 3)
   -user string
@@ -84,11 +89,8 @@ fscan.exe -h 192.168.1.1/24 -m ms17010 (指定模块)
 ![](image/3.png)
 
 
-## 最近更新
-2020/11/15  
-[+] 支持ip以文件导入,-hs ip.txt
-
 ## 未来计划
+[*] 合理输出当前扫描进度  
 [*] 增加内网常见高危漏洞  
 [*] 增加高危web漏洞扫描  
 [*] 师傅们觉得有必要加的漏洞，也可以提issue  
