@@ -25,7 +25,8 @@ func Flag(Info *HostInfo)  {
 	flag.StringVar(&Info.HostFile,"hf","","host file, -hs ip.txt")
 	flag.StringVar(&Info.Ports,"p",DefaultPorts,"Select a port,for example: 22 | 1-65535 | 22,80,3306")
 	flag.StringVar(&Info.Command,"c","","exec command (ssh)")
-	flag.IntVar(&Info.Threads,"t",100,"Thread nums")
+	flag.IntVar(&Info.Threads,"t",200,"Thread nums")
+	flag.IntVar(&Info.IcmpThreads,"it",3000,"Icmp Threads nums")
 	flag.BoolVar(&Info.Isping,"np",false,"not to ping")
 	flag.BoolVar(&Info.IsSave,"no",false,"not to save output log")
 	flag.StringVar(&Info.Username,"user","","username")
@@ -36,6 +37,6 @@ func Flag(Info *HostInfo)  {
 	flag.Int64Var(&Info.Timeout,"time",3,"Set timeout")
 	flag.StringVar(&Info.Scantype,"m","all","Select scan type ,as: -m ssh")
 	flag.StringVar(&Info.RedisFile,"rf","","redis file to write sshkey file (as: -rf id_rsa.pub) ")
-	flag.StringVar(&Info.RedisFile,"rs","","redis shell to write cron file (as: -rs 192.168.1.1:6666) ")
+	flag.StringVar(&Info.RedisShell,"rs","","redis shell to write cron file (as: -rs 192.168.1.1:6666) ")
 	flag.Parse()
 }

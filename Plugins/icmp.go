@@ -71,7 +71,7 @@ func isping(ip string) bool {
 	buffer.Reset()
 	binary.Write(&buffer, binary.BigEndian, icmp)
 
-	Time, _ := time.ParseDuration("2s")
+	Time, _ := time.ParseDuration("3s")
 	conn, err := net.DialTimeout("ip4:icmp", ip, Time)
 	if err != nil {
 		return false
@@ -80,7 +80,7 @@ func isping(ip string) bool {
 	if err != nil {
 		return false
 	}
-	conn.SetReadDeadline(time.Now().Add(time.Second * 2))
+	conn.SetReadDeadline(time.Now().Add(time.Second * 3))
 	num, err := conn.Read(recvBuf)
 	if err != nil {
 		return false
@@ -115,11 +115,13 @@ func CheckSum(data []byte) uint16 {
 	return uint16(^sum)
 }
 
-func IcmpCheck(hostslist []string) {
+func IcmpCheck(hostslist []string,IcmpThreads int) {
 	var wg sync.WaitGroup
 	mutex := &sync.Mutex{}
+	limiter := make(chan int, IcmpThreads)
 	for _,host :=range hostslist{
 		wg.Add(1)
+		limiter <- 1
 		go func(host string) {
 			defer wg.Done()
 			if isping(host){
@@ -127,10 +129,13 @@ func IcmpCheck(hostslist []string) {
 				AliveHosts = append(AliveHosts, host)
 				mutex.Unlock()
 			}
+			<- limiter
 		}(host)
+
 	}
 	wg.Wait()
 }
+
 
 func ExecCommandPing(ip string,bsenv string) bool {
 	command := exec.Command(bsenv, "-c", "ping -c 1 -w 1 "+ip+" >/dev/null && echo true || echo false")  //ping -c 1 -i 0.5 -t 4 -W 2 -w 5 "+ip+" >/dev/null && echo true || echo false"
@@ -156,12 +161,6 @@ func PingCMDcheck(hostslist []string,bsenv string) {
 	var wg sync.WaitGroup
 	mutex := &sync.Mutex{}
 	limiter := make(chan struct{}, 40)
-	//aliveHost := make(chan string, 20)
-	//go func() {
-	//	for s := range aliveHost {
-	//		fmt.Println(s)
-	//	}
-	//}()
 	for _,host :=range hostslist{
 		wg.Add(1)
 		limiter <- struct{}{}
@@ -177,24 +176,23 @@ func PingCMDcheck(hostslist []string,bsenv string) {
 		}(host)
 	}
 	wg.Wait()
-	//close(aliveHost)
 }
 
-func ICMPRun(hostslist []string)  []string{
+func ICMPRun(hostslist []string,IcmpThreads int)  []string{
 	var sysinfo SystemInfo
 	sysinfo = GetSys()
 
 	if sysinfo.OS == "windows" {
-		IcmpCheck(hostslist)
+		IcmpCheck(hostslist,IcmpThreads)
 	}else if sysinfo.OS == "linux" {
 		if (sysinfo.Groupid == "0" || sysinfo.Userid == "0" || sysinfo.Username == "root") {
-			IcmpCheck(hostslist)
+			IcmpCheck(hostslist,IcmpThreads)
 		}else {
 			PingCMDcheck(hostslist,"/bin/bash")
 		}
 	}else if sysinfo.OS == "darwin" {
 		if (sysinfo.Groupid == "0" || sysinfo.Userid == "0" || sysinfo.Username == "root") {
-			IcmpCheck(hostslist)
+			IcmpCheck(hostslist,IcmpThreads)
 		}else {
 			PingCMDcheck(hostslist,"/usr/local/bin/bash")
 		}

@@ -31,6 +31,24 @@ var PORTList = map[string]int{
 	"all":0,
 }
 
+var PORTList_bak = map[string]int{
+	"ftp": 21,
+	"ssh": 22,
+	"mem": 11211,
+	"mgo": 27017,
+	"mssql": 1433,
+	"psql": 5432,
+	"redis": 6379,
+	"mysql": 3306,
+	"smb": 445,
+	"ms17010": 1000001,
+	"cve20200796":1000002,
+	"webtitle": 1000003,
+	"elastic": 9200,
+	"findnet": 135,
+	"all":0,
+}
+
 var Outputfile = "result.txt"
 var IsSave = true
 
@@ -46,6 +64,7 @@ type HostInfo struct {
 	Scantype string
 	Isping bool
 	Threads int
+	IcmpThreads int
 	Command string
 	Username string
 	Password string

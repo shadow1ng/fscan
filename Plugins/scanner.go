@@ -34,9 +34,10 @@ func IsContain(items []string, item string) bool {
 }
 
 func Scan(info common.HostInfo)  {
+	fmt.Println("scan start")
 	Hosts,_ :=  common.ParseIP(info.Host,info.HostFile)
 	if info.Isping == false{
-		Hosts =  ICMPRun(Hosts)
+		Hosts =  ICMPRun(Hosts,info.IcmpThreads)
 	}
 	_,AlivePorts := TCPportScan(Hosts,info.Ports,"icmp",3)   //return AliveHosts,AlivePorts
 	var severports  []string         	//severports := []string{"21","22","135"."445","1433","3306","5432","6379","9200","11211","27017"...}
@@ -64,7 +65,7 @@ func Scan(info common.HostInfo)  {
 				AddScan("1000002",info,ch,&wg)
 			}
 		}else {
-			port,_:=common.PORTList[info.Scantype]
+			port,_:=common.PORTList_bak[info.Scantype]
 			scantype = strconv.Itoa(port)
 			AddScan(scantype,info,ch,&wg)
 		}

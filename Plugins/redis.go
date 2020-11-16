@@ -81,7 +81,7 @@ func Expoilt(info *common.HostInfo,realhost string,conn net.Conn)  {
 				result := fmt.Sprintf("%v SSH public key was written successfully",realhost)
 				common.LogSuccess(result)
 			}else {
-				fmt.Println(realhost,"SSHPUB write failed",text)
+				fmt.Println("Redis:",realhost,"SSHPUB write failed",text)
 			}
 		}
 	}
@@ -94,7 +94,7 @@ func Expoilt(info *common.HostInfo,realhost string,conn net.Conn)  {
 				result := fmt.Sprintf("%v /var/spool/cron/root was written successfully",realhost)
 				common.LogSuccess(result)
 			}else {
-				fmt.Println(realhost,"cron write failed",text)
+				fmt.Println("Redis:",realhost,"cron write failed",text)
 			}
 		}
 	}
@@ -121,6 +121,7 @@ func writekey(conn  net.Conn,filename string) (flag bool,text string) {
 			}
 		}
 	}
+	text = strings.TrimSpace(text)
 	if len(text) > 50{
 		text = text[:50]
 	}
@@ -145,10 +146,11 @@ func writecron(conn  net.Conn,host string) (flag bool,text string) {
 				text,_ = readreply(conn)
 				if strings.Contains(text,"OK") {
 					flag = true
-				}
-			}
-		}
-	}
+				}//else {fmt.Println(text)}
+			}//else {fmt.Println(text)}
+		}//else {fmt.Println(text)}
+	}//else {fmt.Println(text)}
+	text = strings.TrimSpace(text)
 	if len(text) > 50{
 		text = text[:50]
 	}
