@@ -1,8 +1,8 @@
 package main
 
 import (
-	"./common"
-	"./Plugins"
+	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/Plugins"
 	"fmt"
 )
 

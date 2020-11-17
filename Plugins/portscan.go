@@ -2,13 +2,13 @@ package Plugins
 
 import (
 	"fmt"
+	"github.com/shadow1ng/fscan/common"
 	"net"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-	"../common"
 )
 
 func ParsePort(ports string) []int {
@@ -37,14 +37,14 @@ func ParsePort(ports string) []int {
 
 func ProbeHosts(host string, ports <-chan int, respondingHosts chan<- string, done chan<- bool, model string, adjustedTimeout int) {
 	Timeout := time.Duration(adjustedTimeout) * time.Second
-	for port := range ports{
+	for port := range ports {
 		start := time.Now()
-		con, err := net.DialTimeout("tcp4", fmt.Sprintf("%s:%d", host, port), time.Duration(adjustedTimeout) * time.Second)
+		con, err := net.DialTimeout("tcp4", fmt.Sprintf("%s:%d", host, port), time.Duration(adjustedTimeout)*time.Second)
 		duration := time.Now().Sub(start)
 		if err == nil {
 			defer con.Close()
 			address := host + ":" + strconv.Itoa(port)
-			result := fmt.Sprintf("%s open",address)
+			result := fmt.Sprintf("%s open", address)
 			common.LogSuccess(result)
 			respondingHosts <- address
 		}
@@ -65,7 +65,7 @@ func ScanAllports(address string, probePorts []int, threads int, timeout time.Du
 		go ProbeHosts(address, ports, results, done, model, adjustedTimeout)
 	}
 
-	for _,port := range probePorts{
+	for _, port := range probePorts {
 		ports <- port
 	}
 	close(ports)
@@ -86,34 +86,34 @@ func ScanAllports(address string, probePorts []int, threads int, timeout time.Du
 	}
 }
 
-func TCPportScan(hostslist []string,ports string,model string,timeout int)  ([]string,[]string){
+func TCPportScan(hostslist []string, ports string, model string, timeout int) ([]string, []string) {
 	var AliveAddress []string
 	var aliveHosts []string
 	probePorts := ParsePort(ports)
 	lm := 20
-	if (len(hostslist)>5 && len(hostslist)<=50) {
+	if len(hostslist) > 5 && len(hostslist) <= 50 {
 		lm = 40
-	}else if(len(hostslist)>50 && len(hostslist)<=100){
+	} else if len(hostslist) > 50 && len(hostslist) <= 100 {
 		lm = 50
-	}else if(len(hostslist)>100 && len(hostslist)<=150){
+	} else if len(hostslist) > 100 && len(hostslist) <= 150 {
 		lm = 60
-	}else if(len(hostslist)>150 && len(hostslist)<=200){
+	} else if len(hostslist) > 150 && len(hostslist) <= 200 {
 		lm = 70
-	}else if(len(hostslist)>200){
+	} else if len(hostslist) > 200 {
 		lm = 75
 	}
 
 	thread := 5
-	if (len(probePorts)>500 && len(probePorts)<=4000) {
-		thread = len(probePorts)/100
-	}else if (len(probePorts)>4000 && len(probePorts)<=6000) {
-		thread = len(probePorts)/200
-	}else if (len(probePorts)>6000 && len(probePorts)<=10000) {
-		thread = len(probePorts)/350
-	}else if (len(probePorts)>10000 && len(probePorts)<50000){
-		thread = len(probePorts)/400
-	}else if (len(probePorts)>=50000 && len(probePorts)<=65535){
-		thread = len(probePorts)/500
+	if len(probePorts) > 500 && len(probePorts) <= 4000 {
+		thread = len(probePorts) / 100
+	} else if len(probePorts) > 4000 && len(probePorts) <= 6000 {
+		thread = len(probePorts) / 200
+	} else if len(probePorts) > 6000 && len(probePorts) <= 10000 {
+		thread = len(probePorts) / 350
+	} else if len(probePorts) > 10000 && len(probePorts) < 50000 {
+		thread = len(probePorts) / 400
+	} else if len(probePorts) >= 50000 && len(probePorts) <= 65535 {
+		thread = len(probePorts) / 500
 	}
 
 	var wg sync.WaitGroup
@@ -125,16 +125,16 @@ func TCPportScan(hostslist []string,ports string,model string,timeout int)  ([]s
 			fmt.Println(s)
 		}
 	}()
-	for _,host :=range hostslist{
+	for _, host := range hostslist {
 		wg.Add(1)
 		limiter <- struct{}{}
 		go func(host string) {
 			defer wg.Done()
-			if aliveAdd, err := ScanAllports(host, probePorts,thread, 5*time.Second,model,timeout);err == nil && len(aliveAdd)>0{
+			if aliveAdd, err := ScanAllports(host, probePorts, thread, 5*time.Second, model, timeout); err == nil && len(aliveAdd) > 0 {
 				mutex.Lock()
-				aliveHosts = append(aliveHosts,host)
-				for _,addr :=range aliveAdd{
-					AliveAddress = append(AliveAddress,addr)
+				aliveHosts = append(aliveHosts, host)
+				for _, addr := range aliveAdd {
+					AliveAddress = append(AliveAddress, addr)
 				}
 				mutex.Unlock()
 			}
@@ -143,5 +143,5 @@ func TCPportScan(hostslist []string,ports string,model string,timeout int)  ([]s
 	}
 	wg.Wait()
 	close(aliveHost)
-	return aliveHosts,AliveAddress
+	return aliveHosts, AliveAddress
 }
