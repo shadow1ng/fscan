@@ -1,5 +1,5 @@
 package common
-//fscan version 1.2
+//fscan version 1.3
 var Userdict = map[string][]string{
 	"ftp":  {"www","admin","root","db","wwwroot","data","web","ftp"},
 	"mysql": {"root"},
