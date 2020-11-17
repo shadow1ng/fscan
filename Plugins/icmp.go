@@ -142,8 +142,10 @@ func ExecCommandPing(ip string, bsenv string) bool {
 	var command *exec.Cmd
 	if SysInfo.OS == "windows" {
 		command = exec.Command("cmd", "/c", "ping -n 1 -w 1 "+ip+" && echo true || echo false") //ping -c 1 -i 0.5 -t 4 -W 2 -w 5 "+ip+" >/dev/null && echo true || echo false"
-	} else {
+	} else if SysInfo.OS == "linux" {
 		command = exec.Command(bsenv, "-c", "ping -c 1 -w 1 "+ip+" >/dev/null && echo true || echo false") //ping -c 1 -i 0.5 -t 4 -W 2 -w 5 "+ip+" >/dev/null && echo true || echo false"
+	} else if SysInfo.OS == "darwin" {
+		command = exec.Command(bsenv, "-c", "ping -c 1 -W 1 "+ip+" >/dev/null && echo true || echo false") //ping -c 1 -i 0.5 -t 4 -W 2 -w 5 "+ip+" >/dev/null && echo true || echo false"
 	}
 	outinfo := bytes.Buffer{}
 	command.Stdout = &outinfo
