@@ -4,25 +4,24 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/shadow1ng/fscan/WebScan"
+	"github.com/shadow1ng/fscan/common"
 	"io/ioutil"
 	"net/http"
 	"regexp"
 	"sync"
 	"time"
-
-	"github.com/shadow1ng/fscan/common"
 )
 
 func WebTitle(info *common.HostInfo, ch chan int, wg *sync.WaitGroup) (err error, result string) {
 	info.Url = fmt.Sprintf("http://%s:%s", info.Host, info.Ports)
 	err, result = geturl(info)
-	if err == nil{
+	if err == nil {
 		WebScan.WebScan(info)
 	}
 
 	info.Url = fmt.Sprintf("https://%s:%s", info.Host, info.Ports)
 	err, result = geturl(info)
-	if err == nil{
+	if err == nil {
 		WebScan.WebScan(info)
 	}
 
@@ -33,7 +32,6 @@ func WebTitle(info *common.HostInfo, ch chan int, wg *sync.WaitGroup) (err error
 
 func geturl(info *common.HostInfo) (err error, result string) {
 	url := info.Url
-	info.Timeout = 20
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}

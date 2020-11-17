@@ -15,9 +15,7 @@ func scan_func(m map[string]interface{}, name string, infos ...interface{}) (res
 	f := reflect.ValueOf(m[name])
 	if len(infos) != f.Type().NumIn() {
 		err = errors.New("The number of infos is not adapted.")
-		if err != nil {
-			fmt.Println(err.Error())
-		}
+		fmt.Println(err.Error())
 	}
 	in := make([]reflect.Value, len(infos))
 	for k, info := range infos {
@@ -39,7 +37,7 @@ func Scan(info common.HostInfo) {
 	fmt.Println("scan start")
 	Hosts, _ := common.ParseIP(info.Host, info.HostFile)
 	if info.Isping == false {
-		Hosts = ICMPRun(Hosts, info.IcmpThreads)
+		Hosts = ICMPRun(Hosts, info.IcmpThreads, info.Ping)
 		fmt.Println("icmp alive hosts len is:", len(Hosts))
 	}
 	_, AlivePorts := TCPportScan(Hosts, info.Ports, "icmp", 3) //return AliveHosts,AlivePorts

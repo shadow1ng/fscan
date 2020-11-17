@@ -14,6 +14,7 @@
    因为用习惯了f-scrack，习惯一条命令跑完所有模块，省去一个个模块单独调用的时间，当然我附加了-m 指定模块的功能。
 
 ## 最近更新
+[+] 2020/11/17 增加-ping 参数,作用是存活探测模块用ping代替icmp发包。 
 [+] 2020/11/17 增加WebScan模块,新增shiro简单识别。https访问时,跳过证书认证。将服务模块和web模块的超时分开,增加-wt 参数(WebTimeout)。    
 [+] 2020/11/16 对icmp模块进行优化,增加-it 参数(IcmpThreads),默认11000,适合扫B段  
 [+] 2020/11/15 支持ip以文件导入,-hs ip.txt,并对去重做了处理
@@ -46,7 +47,7 @@ fscan.exe -h 192.168.1.1/24 -m ms17010 (指定模块)
   -hf string
         host file, -hs ip.txt
   -it int
-        Icmp Threads nums (default 3000)
+        Icmp Threads nums (default 11000)
   -m string
         Select scan type ,as: -m ssh (default "all")
   -no
@@ -57,6 +58,8 @@ fscan.exe -h 192.168.1.1/24 -m ms17010 (指定模块)
         Outputfile (default "result.txt")
   -p string
         Select a port,for example: 22 | 1-65535 | 22,80,3306 (default "21,22,23,80,135,443,445,1433,1521,3306,5432,6379,7001,8080,8089,9000,9200,11211,27017")
+  -ping
+        using ping replace icmp
   -pwd string
         password
   -pwdf string
@@ -73,6 +76,8 @@ fscan.exe -h 192.168.1.1/24 -m ms17010 (指定模块)
         username
   -userf string
         username file
+  -wt int
+        Set web timeout (default 3)
 
 ```
 
