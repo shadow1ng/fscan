@@ -198,6 +198,8 @@ func ICMPRun(hostslist []string, IcmpThreads int, Ping bool) []string {
 				PingCMDcheck(hostslist, "/bin/bash")
 			}
 		} else {
+			fmt.Println("The current user permissions unable to send icmp packets")
+			fmt.Println("start ping")
 			PingCMDcheck(hostslist, "/bin/bash")
 		}
 	} else if SysInfo.OS == "darwin" {
@@ -205,10 +207,12 @@ func ICMPRun(hostslist []string, IcmpThreads int, Ping bool) []string {
 			if Ping == false {
 				IcmpCheck(hostslist, IcmpThreads)
 			} else {
-				PingCMDcheck(hostslist, "/usr/local/bin/bash")
+				PingCMDcheck(hostslist, "/bin/bash")
 			}
 		} else {
-			PingCMDcheck(hostslist, "/usr/local/bin/bash")
+			fmt.Println("The current user permissions unable to send icmp packets")
+			fmt.Println("start ping")
+			PingCMDcheck(hostslist, "/bin/bash")
 		}
 	}
 	return AliveHosts
