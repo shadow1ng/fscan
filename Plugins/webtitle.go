@@ -1,11 +1,12 @@
 package Plugins
 
 import (
+	"crypto/tls"
 	"fmt"
+	"github.com/shadow1ng/fscan/WebScan"
 	"io/ioutil"
 	"net/http"
 	"regexp"
-	"strings"
 	"sync"
 	"time"
 
@@ -15,6 +16,16 @@ import (
 func WebTitle(info *common.HostInfo, ch chan int, wg *sync.WaitGroup) (err error, result string) {
 	info.Url = fmt.Sprintf("http://%s:%s", info.Host, info.Ports)
 	err, result = geturl(info)
+	if err == nil{
+		WebScan.WebScan(info)
+	}
+
+	info.Url = fmt.Sprintf("https://%s:%s", info.Host, info.Ports)
+	err, result = geturl(info)
+	if err == nil{
+		WebScan.WebScan(info)
+	}
+
 	wg.Done()
 	<-ch
 	return err, result
@@ -22,7 +33,11 @@ func WebTitle(info *common.HostInfo, ch chan int, wg *sync.WaitGroup) (err error
 
 func geturl(info *common.HostInfo) (err error, result string) {
 	url := info.Url
-	var client = &http.Client{Timeout: time.Duration(info.Timeout) * time.Second}
+	info.Timeout = 20
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	var client = &http.Client{Timeout: time.Duration(info.Timeout) * time.Second, Transport: tr}
 	res, err := http.NewRequest("GET", url, nil)
 	if err == nil {
 		res.Header.Add("User-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1468.0 Safari/537.36")
@@ -45,40 +60,11 @@ func geturl(info *common.HostInfo) (err error, result string) {
 			if len(title) > 50 {
 				title = title[:50]
 			}
-			if resp.StatusCode == 400 && string(url[5]) != "https" {
-				info.Url = strings.Replace(url, "http://", "https://", 1)
-				return geturl(info)
-			} else {
-				result = fmt.Sprintf("WebTitle:%v %v %v", url, resp.StatusCode, title)
-				common.LogSuccess(result)
-			}
+			result = fmt.Sprintf("WebTitle:%v %v %v", url, resp.StatusCode, title)
+			common.LogSuccess(result)
 			return err, result
 		}
+		return err, ""
 	}
 	return err, ""
 }
-
-//var client = &http.Client{
-//	Transport:&http.Transport{
-//		DialContext:(&net.Dialer{
-//			Timeout:time.Duration(info.Timeout)*time.Second,
-//		}).DialContext,
-//	},
-//	CheckRedirect:func(req *http.Request, via []*http.Request) error{
-//		return http.ErrUseLastResponse
-//	},
-//}
-
-//if info.Cookie!=""{
-//	res.Header.Add("Cookie",info.Cookie)
-//}
-//if info.Header!=""{
-//	var header = make(map[string]string)
-//	err:=json.Unmarshal([]byte(info.Header),&header)
-//	if err!=nil{
-//		Misc.CheckErr(err)
-//	}
-//	for k,v:=range header{
-//		res.Header.Add(k,v)
-//	}
-//}

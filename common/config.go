@@ -61,6 +61,7 @@ type HostInfo struct {
 	Ports string
 	Url string
 	Timeout int64
+	WebTimeout int64
 	Scantype string
 	Isping bool
 	Threads int
