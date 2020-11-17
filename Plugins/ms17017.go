@@ -8,8 +8,10 @@ import (
 	//"flag"
 	"fmt"
 	"net"
-	"../common"
 	"strings"
+
+	"github.com/shadow1ng/fscan/common"
+
 	//"sync"
 	"time"
 )
@@ -22,10 +24,10 @@ var (
 	trans2SessionSetupRequest, _ = hex.DecodeString("0000004eff534d4232000000001807c00000000000000000000000000008fffe000841000f0c0000000100000000000000a6d9a40000000c00420000004e0001000e000d0000000000000000000000000000")
 )
 
-func MS17010(info *common.HostInfo,ch chan int,wg *sync.WaitGroup) {
+func MS17010(info *common.HostInfo, ch chan int, wg *sync.WaitGroup) {
 	MS17010Scan(info)
 	wg.Done()
-	<- ch
+	<-ch
 }
 
 func MS17010Scan(info *common.HostInfo) {
@@ -39,7 +41,7 @@ func MS17010Scan(info *common.HostInfo) {
 	}
 	defer conn.Close()
 
-	conn.SetDeadline(time.Now().Add(time.Duration(info.Timeout)*time.Second))
+	conn.SetDeadline(time.Now().Add(time.Duration(info.Timeout) * time.Second))
 	conn.Write(negotiateProtocolRequest)
 	reply := make([]byte, 1024)
 	// let alone half packet
@@ -78,7 +80,7 @@ func MS17010Scan(info *common.HostInfo) {
 			for i := 10; i < len(sessionSetupResponse)-1; i++ {
 				if sessionSetupResponse[i] == 0 && sessionSetupResponse[i+1] == 0 {
 					os = string(sessionSetupResponse[10:i])
-					os = strings.Replace(os, string([]byte{0x00}), "",-1)
+					os = strings.Replace(os, string([]byte{0x00}), "", -1)
 					break
 				}
 			}
@@ -136,4 +138,3 @@ func MS17010Scan(info *common.HostInfo) {
 	}
 
 }
-
