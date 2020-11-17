@@ -37,7 +37,7 @@ func geturl(info *common.HostInfo) (err error, result string) {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
-	var client = &http.Client{Timeout: time.Duration(info.Timeout) * time.Second, Transport: tr}
+	var client = &http.Client{Timeout: time.Duration(info.WebTimeout) * time.Second, Transport: tr}
 	res, err := http.NewRequest("GET", url, nil)
 	if err == nil {
 		res.Header.Add("User-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1468.0 Safari/537.36")
