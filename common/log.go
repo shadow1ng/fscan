@@ -1,33 +1,45 @@
 package common
 
 import (
-	"fmt"
 	"os"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 )
 
-func LogSuccess(result string){
+func init() {
+	log.SetFormatter(&log.TextFormatter{
+		DisableColors: false,
+		FullTimestamp: true})
+}
+
+func LogPrint(args ...interface{}) {
+	log.Println(args...)
+}
+
+func LogSuccess(result string) {
 	mutex := &sync.Mutex{}
 	mutex.Lock()
-	fmt.Println(result)
+	log.Println(result)
 	if IsSave {
-		WriteFile(result,Outputfile)
+		WriteFile(result, Outputfile)
 	}
 	mutex.Unlock()
 }
-func WriteFile(result string,filename string)  {
-	var text = []byte(result+"\n")
+func WriteFile(result string, filename string) {
+	var text = []byte(result + "\n")
 	fl, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0777)
 	if err != nil {
-		fmt.Println(err)
+		log.Println("open file error : ", err)
 		return
 	}
 	defer fl.Close()
 	_, err = fl.Write(text)
-	if err!= nil{
-		fmt.Println(err)
+	if err != nil {
+		log.Println("write file error ", err)
 	}
 }
+
 //err := ioutil.WriteFile(filename, text, 0666)
 //if err!= nil{
 //	fmt.Println(err)

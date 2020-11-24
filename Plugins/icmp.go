@@ -3,7 +3,6 @@ package Plugins
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"net"
 	"os"
 	"os/exec"
@@ -12,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/shadow1ng/fscan/common"
 )
 
 var icmp ICMP
@@ -91,7 +92,7 @@ func isping(ip string) bool {
 	conn.SetReadDeadline(time.Time{})
 
 	if string(recvBuf[0:num]) != "" {
-		fmt.Printf("(ICMP) Target '%s' is alive\n", ip)
+		common.LogPrint("(ICMP) Target '", ip, "' is alive")
 		return true
 	}
 	return false
@@ -175,7 +176,7 @@ func PingCMDcheck(hostslist []string, bsenv string) {
 			defer wg.Done()
 			if ExecCommandPing(host, bsenv) {
 				mutex.Lock()
-				fmt.Printf("(Ping) Target '%s' is alive\n", host)
+				common.LogPrint("(Ping) Target '", host, "' is alive")
 				AliveHosts = append(AliveHosts, host)
 				mutex.Unlock()
 			}
@@ -200,8 +201,8 @@ func ICMPRun(hostslist []string, IcmpThreads int, Ping bool) []string {
 				PingCMDcheck(hostslist, "/bin/bash")
 			}
 		} else {
-			fmt.Println("The current user permissions unable to send icmp packets")
-			fmt.Println("start ping")
+			common.LogPrint("The current user permissions unable to send icmp packets")
+			common.LogPrint("start ping")
 			PingCMDcheck(hostslist, "/bin/bash")
 		}
 	} else if SysInfo.OS == "darwin" {
@@ -212,8 +213,8 @@ func ICMPRun(hostslist []string, IcmpThreads int, Ping bool) []string {
 				PingCMDcheck(hostslist, "/bin/bash")
 			}
 		} else {
-			fmt.Println("The current user permissions unable to send icmp packets")
-			fmt.Println("start ping")
+			common.LogPrint("The current user permissions unable to send icmp packets")
+			common.LogPrint("start ping")
 			PingCMDcheck(hostslist, "/bin/bash")
 		}
 	}
