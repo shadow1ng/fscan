@@ -52,12 +52,12 @@ func Scan(info common.HostInfo) {
 	for _, targetIP := range AlivePorts {
 		scan_ip, scan_port := strings.Split(targetIP, ":")[0], strings.Split(targetIP, ":")[1]
 		info.Host = scan_ip
+		info.Ports = scan_port
 		if info.Scantype == "all" {
 			if IsContain(severports, scan_port) {
 				AddScan(scan_port, info, ch, &wg)
 			} else {
 				if !IsContain(severports1, scan_port) {
-					info.Ports = scan_port
 					AddScan("1000003", info, ch, &wg) //webtitle
 				}
 			}
@@ -76,9 +76,6 @@ func Scan(info common.HostInfo) {
 
 func AddScan(scantype string, info common.HostInfo, ch chan int, wg *sync.WaitGroup) {
 	wg.Add(1)
-	if info.Scantype == "webtitle" {
-		scantype = "1000003"
-	}
 	go scan_func(PluginList, scantype, &info, ch, wg)
 	ch <- 1
 }
