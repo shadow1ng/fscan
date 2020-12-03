@@ -35,12 +35,9 @@ func ParsePort(ports string) []int {
 	return scanPorts
 }
 
-func ProbeHosts(host string, ports <-chan int, respondingHosts chan<- string, done chan<- bool, model string, adjustedTimeout int) {
-	Timeout := time.Duration(adjustedTimeout) * time.Second
+func ProbeHosts(host string, ports <-chan int, respondingHosts chan<- string, done chan<- bool, adjustedTimeout int) {
 	for port := range ports {
-		start := time.Now()
 		con, err := net.DialTimeout("tcp4", fmt.Sprintf("%s:%d", host, port), time.Duration(adjustedTimeout)*time.Second)
-		duration := time.Now().Sub(start)
 		if err == nil {
 			defer con.Close()
 			address := host + ":" + strconv.Itoa(port)
@@ -48,21 +45,17 @@ func ProbeHosts(host string, ports <-chan int, respondingHosts chan<- string, do
 			common.LogSuccess(result)
 			respondingHosts <- address
 		}
-		if duration < Timeout {
-			difference := Timeout - duration
-			Timeout = Timeout - (difference / 2)
-		}
 	}
 	done <- true
 }
 
-func ScanAllports(address string, probePorts []int, threads int, timeout time.Duration, model string, adjustedTimeout int) ([]string, error) {
+func ScanAllports(address string, probePorts []int, threads int, adjustedTimeout int) ([]string, error) {
 	ports := make(chan int, 20)
 	results := make(chan string, 10)
 	done := make(chan bool, threads)
 
 	for worker := 0; worker < threads; worker++ {
-		go ProbeHosts(address, ports, results, done, model, adjustedTimeout)
+		go ProbeHosts(address, ports, results, done, adjustedTimeout)
 	}
 
 	for _, port := range probePorts {
@@ -80,13 +73,11 @@ func ScanAllports(address string, probePorts []int, threads int, timeout time.Du
 			if threads == 0 {
 				return responses, nil
 			}
-		case <-time.After(timeout):
-			return responses, nil
 		}
 	}
 }
 
-func TCPportScan(hostslist []string, ports string, model string, timeout int) ([]string, []string) {
+func TCPportScan(hostslist []string, ports string, timeout int) ([]string, []string) {
 	var AliveAddress []string
 	var aliveHosts []string
 	probePorts := ParsePort(ports)
@@ -119,18 +110,12 @@ func TCPportScan(hostslist []string, ports string, model string, timeout int) ([
 	var wg sync.WaitGroup
 	mutex := &sync.Mutex{}
 	limiter := make(chan struct{}, lm)
-	aliveHost := make(chan string, lm/2)
-	go func() {
-		for s := range aliveHost {
-			fmt.Println(s)
-		}
-	}()
 	for _, host := range hostslist {
 		wg.Add(1)
 		limiter <- struct{}{}
 		go func(host string) {
 			defer wg.Done()
-			if aliveAdd, err := ScanAllports(host, probePorts, thread, 5*time.Second, model, timeout); err == nil && len(aliveAdd) > 0 {
+			if aliveAdd, err := ScanAllports(host, probePorts, thread, timeout); err == nil && len(aliveAdd) > 0 {
 				mutex.Lock()
 				aliveHosts = append(aliveHosts, host)
 				for _, addr := range aliveAdd {
@@ -142,6 +127,5 @@ func TCPportScan(hostslist []string, ports string, model string, timeout int) ([
 		}(host)
 	}
 	wg.Wait()
-	close(aliveHost)
 	return aliveHosts, AliveAddress
 }

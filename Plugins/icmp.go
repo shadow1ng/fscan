@@ -78,6 +78,7 @@ func isping(ip string) bool {
 	if err != nil {
 		return false
 	}
+	defer conn.Close()
 	_, err = conn.Write(buffer.Bytes())
 	if err != nil {
 		return false
