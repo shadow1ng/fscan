@@ -53,7 +53,7 @@ var PORTList_bak = map[string]int{
 var Outputfile = "result.txt"
 var IsSave = true
 
-var DefaultPorts = "21,22,23,80,135,443,445,1433,1521,3306,5432,6379,7001,8080,8089,9000,9200,11211,27017"
+var DefaultPorts = "21,22,80,81,135,443,445,1433,1521,3306,5432,6379,7001,8000,8080,8089,11211,27017"
 
 type HostInfo struct {
 	Host        string

@@ -2,7 +2,6 @@ package Plugins
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"net"
 	"os"
@@ -14,19 +13,9 @@ import (
 	"time"
 )
 
-var icmp ICMP
-
 var AliveHosts []string
 
 var SysInfo = GetSys()
-
-type ICMP struct {
-	Type        uint8
-	Code        uint8
-	Checksum    uint16
-	Identifier  uint16
-	SequenceNum uint16
-}
 
 type SystemInfo struct {
 	OS          string
@@ -58,39 +47,31 @@ func GetSys() SystemInfo {
 }
 
 func isping(ip string) bool {
-	icmp.Type = 8
-	icmp.Code = 0
-	icmp.Checksum = 0
-	icmp.Identifier = 0
-	icmp.SequenceNum = 0
-
-	recvBuf := make([]byte, 32)
-	var buffer bytes.Buffer
-
-	binary.Write(&buffer, binary.BigEndian, icmp)
-	icmp.Checksum = CheckSum(buffer.Bytes())
-
-	buffer.Reset()
-	binary.Write(&buffer, binary.BigEndian, icmp)
-
+	IcmpByte := []byte{8, 0, 247, 255, 0, 0, 0, 0}
 	Time, _ := time.ParseDuration("3s")
 	conn, err := net.DialTimeout("ip4:icmp", ip, Time)
 	if err != nil {
 		return false
 	}
 	defer conn.Close()
-	_, err = conn.Write(buffer.Bytes())
+	_, err = conn.Write(IcmpByte)
 	if err != nil {
 		return false
 	}
-	conn.SetReadDeadline(time.Now().Add(time.Second * 3))
+
+	if err := conn.SetReadDeadline(time.Now().Add(time.Second * 3)); err != nil {
+		return false
+	}
+
+	recvBuf := make([]byte, 32)
 	num, err := conn.Read(recvBuf)
 	if err != nil {
 		return false
 	}
 
-	conn.SetReadDeadline(time.Time{})
-
+	if err := conn.SetReadDeadline(time.Time{}); err != nil {
+		return false
+	}
 	if string(recvBuf[0:num]) != "" {
 		fmt.Printf("(ICMP) Target '%s' is alive\n", ip)
 		return true
@@ -99,32 +80,13 @@ func isping(ip string) bool {
 
 }
 
-func CheckSum(data []byte) uint16 {
-	var (
-		sum    uint32
-		length int = len(data)
-		index  int
-	)
-	for length > 1 {
-		sum += uint32(data[index])<<8 + uint32(data[index+1])
-		index += 2
-		length -= 2
-	}
-	if length > 0 {
-		sum += uint32(data[index])
-	}
-	sum += (sum >> 16)
-
-	return uint16(^sum)
-}
-
 func IcmpCheck(hostslist []string, IcmpThreads int) {
 	var wg sync.WaitGroup
 	mutex := &sync.Mutex{}
-	limiter := make(chan int, IcmpThreads)
+	limiter := make(chan struct{}, IcmpThreads)
 	for _, host := range hostslist {
 		wg.Add(1)
-		limiter <- 1
+		limiter <- struct{}{}
 		go func(host string) {
 			defer wg.Done()
 			if isping(host) {
