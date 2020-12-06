@@ -63,12 +63,11 @@ func isping(ip string) bool {
 		return false
 	}
 
-	recvBuf := make([]byte, 32)
-	num, err := conn.Read(recvBuf)
+	recvBuf := make([]byte, 40)
+	num, err := conn.Read(recvBuf[0:40])
 	if err != nil {
 		return false
 	}
-
 	if err := conn.SetReadDeadline(time.Time{}); err != nil {
 		return false
 	}

@@ -27,6 +27,7 @@ func Flag(Info *HostInfo) {
 	flag.BoolVar(&Info.Isping, "np", false, "not to ping")
 	flag.BoolVar(&Info.Ping, "ping", false, "using ping replace icmp")
 	flag.BoolVar(&Info.IsSave, "no", false, "not to save output log")
+	flag.StringVar(&Info.Domain, "domain", "", "smb domain")
 	flag.StringVar(&Info.Username, "user", "", "username")
 	flag.StringVar(&Info.Userfile, "userf", "", "username file")
 	flag.StringVar(&Info.Password, "pwd", "", "password")

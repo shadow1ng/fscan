@@ -59,6 +59,7 @@ type HostInfo struct {
 	Host        string
 	HostFile    string
 	Ports       string
+	Domain      string
 	Url         string
 	Timeout     int64
 	WebTimeout  int64

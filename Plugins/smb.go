@@ -27,7 +27,7 @@ Loop:
 
 }
 
-func SmblConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
+func SmblConn(info *common.HostInfo, user string, pass string, Domain string) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, common.PORTList["smb"], user, pass
 	options := smb.Options{
@@ -35,7 +35,7 @@ func SmblConn(info *common.HostInfo, user string, pass string) (flag bool, err e
 		Port:        445,
 		User:        Username,
 		Password:    Password,
-		Domain:      "",
+		Domain:      Domain,
 		Workstation: "",
 	}
 
@@ -43,7 +43,13 @@ func SmblConn(info *common.HostInfo, user string, pass string) (flag bool, err e
 	if err == nil {
 		defer session.Close()
 		if session.IsAuthenticated {
-			result := fmt.Sprintf("SMB:%v:%v:%v %v", Host, Port, Username, Password)
+			var result string
+			if Domain != "" {
+				result = fmt.Sprintf("SMB:%v:%v:%v\\%v %v", Host, Port, Domain, Username, Password)
+			} else {
+				result = fmt.Sprintf("SMB:%v:%v:%v %v", Host, Port, Username, Password)
+			}
+
 			common.LogSuccess(result)
 			flag = true
 		}
@@ -56,7 +62,7 @@ func doWithTimeOut(info *common.HostInfo, user string, pass string) (flag bool, 
 	defer cancel()
 	signal := make(chan int, 1)
 	go func() {
-		flag, err = SmblConn(info, user, pass)
+		flag, err = SmblConn(info, user, pass, info.Domain)
 		signal <- 1
 	}()
 
