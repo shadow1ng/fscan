@@ -3,16 +3,11 @@ package Plugins
 import (
 	"encoding/binary"
 	"encoding/hex"
-	"sync"
-
-	//"flag"
 	"fmt"
+	"github.com/shadow1ng/fscan/common"
 	"net"
 	"strings"
-
-	"github.com/shadow1ng/fscan/common"
-
-	//"sync"
+	"sync"
 	"time"
 )
 
@@ -112,7 +107,7 @@ func MS17010Scan(info *common.HostInfo) {
 		//fmt.Printf("%s\tMS17-010\t(%s)\n", ip, os)
 		//if runtime.GOOS=="windows" {fmt.Printf("%s\tMS17-010\t(%s)\n", ip, os)
 		//} else{fmt.Printf("\033[33m%s\tMS17-010\t(%s)\033[0m\n", ip, os)}
-		result := fmt.Sprintf("%s\tMS17-010\t(%s)", ip, os)
+		result := fmt.Sprintf("[+] %s\tMS17-010\t(%s)", ip, os)
 		common.LogSuccess(result)
 		// detect present of DOUBLEPULSAR SMB implant
 		trans2SessionSetupRequest[28] = treeID[0]

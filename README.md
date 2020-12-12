@@ -1,8 +1,8 @@
 # fscan
 
 # 简介
-一款内网扫描工具，方便一键大保健。  
-支持主机存活探测、端口扫描、常见服务的爆破、ms17010、redis批量写私钥、计划任务反弹shell、读取win网卡信息等。  
+一款内网扫描工具，方便一键大保健。    
+支持主机存活探测、端口扫描、常见服务的爆破、ms17010、redis批量写私钥、计划任务反弹shell、读取win网卡信息、web漏洞扫描等。  
 趁着最近有空，用go把f-scrack重构了一遍。使用go来编写，也有更好的扩展性及兼容性。  
 还在逐步增加功能，欢迎各位师傅提意见。
 
@@ -14,6 +14,7 @@
    因为用习惯了f-scrack，习惯一条命令跑完所有模块，省去一个个模块单独调用的时间，当然我附加了-m 指定模块的功能。
 
 ## 最近更新
+[+] 2020/12/12 已加入yaml解析引擎,支持xray的Poc,默认使用所有Poc(已对xray的poc进行了筛选),可以使用-pocname weblogic,只使用某种或某个poc。需要go版本1.16以上,只能自行编译最新版go来进行测试    
 [+] 2020/12/6 优化icmp模块,新增-domain 参数(用于smb爆破模块,适用于域用户)  
 [+] 2020/12/03 优化ip段处理模块、icmp、端口扫描模块。新增支持192.168.1.1-192.168.255.255。  
 [+] 2020/11/17 增加-ping 参数,作用是存活探测模块用ping代替icmp发包。   
@@ -42,8 +43,12 @@ fscan.exe -h 192.168.1.1/24 -m ms17010 (指定模块)
 
 完整参数
 ```
+  -Num int
+        poc rate (default 20)
   -c string
         exec command (ssh)
+  -domain string
+        smb domain
   -h string
         IP address of the host you want to scan,for example: 192.168.11.11 | 192.168.11.11-255 | 192.168.11.11,192.168.11.12
   -hf string
@@ -54,14 +59,20 @@ fscan.exe -h 192.168.1.1/24 -m ms17010 (指定模块)
         Select scan type ,as: -m ssh (default "all")
   -no
         not to save output log
+  -nopoc
+        not to scan web vul
   -np
         not to ping
   -o string
         Outputfile (default "result.txt")
   -p string
-        Select a port,for example: 22 | 1-65535 | 22,80,3306 (default "21,22,23,80,135,443,445,1433,1521,3306,5432,6379,7001,8080,8089,9000,9200,11211,27017")
+        Select a port,for example: 22 | 1-65535 | 22,80,3306 (default "21,22,80,81,135,443,445,1433,1521,3306,5432,6379,7001,8000,8080,8089,11211,27017")
   -ping
         using ping replace icmp
+  -pocname string
+        use the pocs these contain pocname, -pocname weblogic
+  -proxy string
+        set poc proxy, -proxy http://127.0.0.1:8080
   -pwd string
         password
   -pwdf string
@@ -96,6 +107,8 @@ fscan.exe -h 192.168.1.1/24 -m ms17010 (指定模块)
 `fscan.exe -h 192.168.x.x -c "whoami;id" (ssh 命令)`
 ![](image/3.png)
 
+`fscan.exe -h 192.168.x.x -p80 -proxy http://127.0.0.1:8080 一键支持xray的poc`
+![](image/2020-12-12-13-34-44.png)
 
 ## 未来计划
 [*] 合理输出当前扫描进度  
@@ -109,3 +122,4 @@ https://github.com/Adminisme/ServerScan
 https://github.com/netxfly/x-crack  
 https://github.com/hack2fun/Gscan  
 https://github.com/k8gege/LadonGo   
+https://github.com/jjf012/gopoc

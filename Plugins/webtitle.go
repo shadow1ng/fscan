@@ -15,13 +15,13 @@ import (
 func WebTitle(info *common.HostInfo, ch chan int, wg *sync.WaitGroup) (err error, result string) {
 	info.Url = fmt.Sprintf("http://%s:%s", info.Host, info.Ports)
 	err, result = geturl(info)
-	if err == nil {
+	if err == nil && info.IsWebCan == false {
 		WebScan.WebScan(info)
 	}
 
 	info.Url = fmt.Sprintf("https://%s:%s", info.Host, info.Ports)
 	err, result = geturl(info)
-	if err == nil {
+	if err == nil && info.IsWebCan == false {
 		WebScan.WebScan(info)
 	}
 

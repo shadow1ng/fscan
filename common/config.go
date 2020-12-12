@@ -79,4 +79,22 @@ type HostInfo struct {
 	IsSave      bool
 	RedisFile   string
 	RedisShell  string
+	IsWebCan    bool
+	PocInfo     PocInfo
+}
+
+type PocInfo struct {
+	Num        int
+	Rate       int
+	Timeout    int64
+	Proxy      string
+	PocName    string
+	PocDir     string
+	Target     string
+	TargetFile string
+	RawFile    string
+	Cookie     string
+	ForceSSL   bool
+	ApiKey     string
+	CeyeDomain string
 }

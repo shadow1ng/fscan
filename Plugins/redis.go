@@ -42,7 +42,7 @@ func RedisConn(info *common.HostInfo, pass string) (flag bool, err error) {
 	conn.Write([]byte(fmt.Sprintf("auth %s\r\n", pass)))
 	reply, err := readreply(conn)
 	if strings.Contains(reply, "+OK") {
-		result := fmt.Sprintf("Redis:%s %s", realhost, pass)
+		result := fmt.Sprintf("[+] Redis:%s %s", realhost, pass)
 		common.LogSuccess(result)
 		flag = true
 		Expoilt(info, realhost, conn)
@@ -62,7 +62,7 @@ func RedisUnauth(info *common.HostInfo) (flag bool, err error) {
 	conn.Write([]byte("info\r\n"))
 	reply, err := readreply(conn)
 	if strings.Contains(reply, "redis_version") {
-		result := fmt.Sprintf("Redis:%s unauthorized", realhost)
+		result := fmt.Sprintf("[+] Redis:%s unauthorized", realhost)
 		common.LogSuccess(result)
 		flag = true
 		Expoilt(info, realhost, conn)
