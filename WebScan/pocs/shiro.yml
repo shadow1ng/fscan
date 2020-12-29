@@ -1,0 +1,12 @@
+name: poc-yaml-shiro
+rules:
+  - method: GET
+    path: /
+    headers:
+      Cookie: rememberMe=1
+    expression: |
+      "Set-Cookie" in response.headers && response.headers["Set-Cookie"].contains("rememberMe")
+detail:
+  author: test
+  links:
+    - https://baidu.com/shiro

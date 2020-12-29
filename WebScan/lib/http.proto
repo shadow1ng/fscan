@@ -1,0 +1,35 @@
+syntax = "proto3";
+package lib;
+
+message UrlType {
+  string scheme = 1;
+  string domain = 2;
+  string host = 3;
+  string port = 4;
+  string path = 5;
+  string query = 6;
+  string fragment = 7;
+}
+
+message Request {
+  UrlType url = 1;
+  string method = 2;
+  map<string, string> headers = 3;
+  string content_type = 4;
+  bytes body = 5;
+}
+
+message Response {
+  UrlType url = 1;
+  int32 status = 2 ;
+  map<string, string> headers = 3;
+  string content_type = 4;
+  bytes body = 5;
+}
+
+message Reverse {
+  UrlType url = 1;
+  string domain = 2;
+  string ip = 3;
+  bool is_domain_name_server = 4;
+}

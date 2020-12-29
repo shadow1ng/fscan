@@ -1,0 +1,17 @@
+name: poc-yaml-ueditor-cnvd-2017-20077-file-upload
+rules:
+  - method: GET
+    path: /ueditor/net/controller.ashx?action=catchimage&encode=utf-8
+    headers:
+      Accept-Encoding: 'deflate'
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(string("没有指定抓取源")))
+detail:
+  author: 清风明月(www.secbook.info)
+  influence_version: 'UEditor v1.4.3.3'
+  links:
+    - https://zhuanlan.zhihu.com/p/85265552
+    - https://www.freebuf.com/vuls/181814.html
+  exploit: >-
+    http://localhost/ueditor/net/controller.ashx?action=catchimage&encode=utf-8

