@@ -29,6 +29,7 @@ var PORTList = map[string]int{
 	"findnet":     135,
 	"all":         0,
 	"portscan":    0,
+	"icmp":        0,
 }
 
 var PortlistBack = map[string]int{
@@ -48,9 +49,11 @@ var PortlistBack = map[string]int{
 	"findnet":     135,
 	"all":         0,
 	"portscan":    0,
+	"icmp":        0,
 }
 
-var Outputfile = "result.txt"
+var Outputfile = getpath() + "result.txt"
+
 var IsSave = true
 
 var DefaultPorts = "21,22,80,81,135,443,445,1433,3306,5432,6379,7001,8000,8080,8089,9200,11211,27017"

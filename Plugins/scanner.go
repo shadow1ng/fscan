@@ -17,6 +17,9 @@ func Scan(info common.HostInfo) {
 		Hosts = ICMPRun(Hosts, info.IcmpThreads, info.Ping)
 		fmt.Println("icmp alive hosts len is:", len(Hosts))
 	}
+	if info.Scantype == "icmp" {
+		return
+	}
 	AlivePorts := TCPportScan(Hosts, info.Ports, info.Timeout)
 	if info.Scantype == "portscan" {
 		return
@@ -32,13 +35,13 @@ func Scan(info common.HostInfo) {
 		if info.Scantype == "all" {
 			if IsContain(severports, info.Ports) {
 				AddScan(info.Ports, info, ch, &wg)
+			} else if info.Ports == "445" { //scan more vul
+				AddScan("1000001", info, ch, &wg)
+				AddScan("1000002", info, ch, &wg)
 			} else {
 				AddScan("1000003", info, ch, &wg) //webtitle
 			}
-			if info.Ports == "445" { //scan more vul
-				AddScan("1000001", info, ch, &wg)
-				AddScan("1000002", info, ch, &wg)
-			}
+
 		} else {
 			port, _ := common.PortlistBack[info.Scantype]
 			scantype := strconv.Itoa(port)

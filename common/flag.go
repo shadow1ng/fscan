@@ -23,7 +23,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&Info.Ports, "p", DefaultPorts, "Select a port,for example: 22 | 1-65535 | 22,80,3306")
 	flag.StringVar(&Info.Command, "c", "", "exec command (ssh)")
 	flag.IntVar(&Info.Threads, "t", 200, "Thread nums")
-	flag.IntVar(&Info.IcmpThreads, "it", 11000, "Icmp Threads nums")
+	flag.IntVar(&Info.IcmpThreads, "it", 3300, "Icmp Threads nums")
 	flag.BoolVar(&Info.Isping, "np", false, "not to ping")
 	flag.BoolVar(&Info.Ping, "ping", false, "using ping replace icmp")
 	flag.BoolVar(&Info.IsSave, "no", false, "not to save output log")

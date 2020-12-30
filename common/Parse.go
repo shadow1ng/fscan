@@ -94,7 +94,11 @@ func ParseInput(Info *HostInfo) {
 		os.Exit(0)
 	}
 	if Info.Outputfile != "" {
-		Outputfile = Info.Outputfile
+		if !strings.Contains(Outputfile, "/") && !strings.Contains(Outputfile, `\`) {
+			Outputfile = getpath() + Info.Outputfile
+		} else {
+			Outputfile = Info.Outputfile
+		}
 	}
 	if Info.IsSave == true {
 		IsSave = false
@@ -116,6 +120,10 @@ func ParseScantype(Info *HostInfo) {
 			switch Info.Scantype {
 			case "webtitle":
 				Info.Ports = "80,81,443,7001,8000,8080,8089,9200"
+			case "ms17010":
+				Info.Ports = "445"
+			case "cve20200796":
+				Info.Ports = "445"
 			case "portscan":
 			default:
 				port, _ := PORTList[Info.Scantype]
@@ -131,4 +139,19 @@ func CheckErr(text string, err error) {
 		fmt.Println(text, err.Error())
 		os.Exit(0)
 	}
+}
+
+func getpath() string {
+	filename := os.Args[0]
+	var path string
+	if strings.Contains(filename, "/") {
+		tmp := strings.Split(filename, `/`)
+		tmp[len(tmp)-1] = ``
+		path = strings.Join(tmp, `/`)
+	} else if strings.Contains(filename, `\`) {
+		tmp := strings.Split(filename, `\`)
+		tmp[len(tmp)-1] = ``
+		path = strings.Join(tmp, `\`)
+	}
+	return path
 }

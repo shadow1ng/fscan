@@ -30,10 +30,25 @@ func FtpConn(info *common.HostInfo, user string, pass string) (flag bool, err er
 	if err == nil {
 		err = conn.Login(Username, Password)
 		if err == nil {
-			defer conn.Logout()
-			result := fmt.Sprintf("FTP:%v:%v:%v %v", Host, Port, Username, Password)
-			common.LogSuccess(result)
 			flag = true
+			result := fmt.Sprintf("FTP:%v:%v:%v %v", Host, Port, Username, Password)
+			dirs, err := conn.List("")
+			//defer conn.Logout()
+			if err == nil {
+				if len(dirs) > 0 {
+					for i := 0; i < len(dirs); i++ {
+						if len(dirs[i].Name) > 50 {
+							result += "\n   [->]" + dirs[i].Name[:50]
+						} else {
+							result += "\n   [->]" + dirs[i].Name
+						}
+						if i == 5 {
+							break
+						}
+					}
+				}
+			}
+			common.LogSuccess(result)
 		}
 	}
 	return flag, err
