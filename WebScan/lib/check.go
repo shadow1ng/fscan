@@ -24,50 +24,34 @@ type Task struct {
 	Poc *Poc
 }
 
-
-
-func checkVul(tasks []Task, ticker *time.Ticker) <-chan Task {
+func CheckMultiPoc(req *http.Request, Pocs embed.FS, workers int, pocname string) {
+	tasks := make(chan Task)
 	var wg sync.WaitGroup
-	results := make(chan Task)
-	for _, task := range tasks {
-		wg.Add(1)
-		go func(task Task) {
-			defer wg.Done()
-			<-ticker.C
-			isVul, err := executePoc(task.Req, task.Poc)
-			if err != nil {
-				return
+	for i := 0; i < workers; i++ {
+		go func() {
+			wg.Add(1)
+			for task := range tasks {
+				isVul, err := executePoc(task.Req, task.Poc)
+				if err != nil {
+					continue
+				}
+				if isVul {
+					result := fmt.Sprintf("%s %s", task.Req.URL, task.Poc.Name)
+					common.LogSuccess(result)
+				}
 			}
-			if isVul {
-				results <- task
-			}
-		}(task)
+			wg.Done()
+		}()
 	}
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
-	return results
-}
-
-
-
-func CheckMultiPoc(req *http.Request, Pocs embed.FS, rate int,pocname string) {
-	rateLimit := time.Second / time.Duration(rate)
-	ticker := time.NewTicker(rateLimit)
-	defer ticker.Stop()
-	var tasks []Task
-	for _, poc := range LoadMultiPoc(Pocs,pocname) {
+	for _, poc := range LoadMultiPoc(Pocs, pocname) {
 		task := Task{
 			Req: req,
 			Poc: poc,
 		}
-		tasks = append(tasks, task)
+		tasks <- task
 	}
-	for result := range checkVul(tasks, ticker) {
-		result := fmt.Sprintf("%s %s", result.Req.URL, result.Poc.Name)
-		common.LogSuccess(result)
-	}
+	close(tasks)
+	wg.Wait()
 }
 
 func executePoc(oReq *http.Request, p *Poc) (bool, error) {

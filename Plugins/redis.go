@@ -217,10 +217,10 @@ func writecron(conn net.Conn, host string) (flag bool, text string, err error) {
 				}
 				if strings.Contains(text, "OK") {
 					flag = true
-				} //else {fmt.Println(text)}
-			} //else {fmt.Println(text)}
-		} //else {fmt.Println(text)}
-	} //else {fmt.Println(text)}
+				}
+			}
+		}
+	}
 	text = strings.TrimSpace(text)
 	if len(text) > 50 {
 		text = text[:50]
