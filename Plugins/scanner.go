@@ -33,15 +33,14 @@ func Scan(info common.HostInfo) {
 	for _, targetIP := range AlivePorts {
 		info.Host, info.Ports = strings.Split(targetIP, ":")[0], strings.Split(targetIP, ":")[1]
 		if info.Scantype == "all" {
-			if IsContain(severports, info.Ports) {
-				AddScan(info.Ports, info, ch, &wg)
-			} else if info.Ports == "445" { //scan more vul
+			if info.Ports == "445" { //scan more vul
 				AddScan("1000001", info, ch, &wg)
 				AddScan("1000002", info, ch, &wg)
+			} else if IsContain(severports, info.Ports) {
+				AddScan(info.Ports, info, ch, &wg)
 			} else {
 				AddScan("1000003", info, ch, &wg) //webtitle
 			}
-
 		} else {
 			port, _ := common.PortlistBack[info.Scantype]
 			scantype := strconv.Itoa(port)

@@ -14,6 +14,13 @@ func SmbScan(info *common.HostInfo) (tmperr error) {
 			pass = strings.Replace(pass, "{user}", user, -1)
 			flag, err := doWithTimeOut(info, user, pass)
 			if flag == true && err == nil {
+				var result string
+				if info.Domain != "" {
+					result = fmt.Sprintf("SMB:%v:%v:%v\\%v %v", info.Host, info.Ports, info.Domain, user, pass)
+				} else {
+					result = fmt.Sprintf("SMB:%v:%v:%v %v", info.Host, info.Ports, user, pass)
+				}
+				common.LogSuccess(result)
 				return err
 			} else {
 				tmperr = err
@@ -25,7 +32,7 @@ func SmbScan(info *common.HostInfo) (tmperr error) {
 
 func SmblConn(info *common.HostInfo, user string, pass string, Domain string, signal chan struct{}) (flag bool, err error) {
 	flag = false
-	Host, Port, Username, Password := info.Host, common.PORTList["smb"], user, pass
+	Host, Username, Password := info.Host, user, pass
 	options := smb.Options{
 		Host:        Host,
 		Port:        445,
@@ -39,13 +46,6 @@ func SmblConn(info *common.HostInfo, user string, pass string, Domain string, si
 	if err == nil {
 		session.Close()
 		if session.IsAuthenticated {
-			var result string
-			if Domain != "" {
-				result = fmt.Sprintf("SMB:%v:%v:%v\\%v %v", Host, Port, Domain, Username, Password)
-			} else {
-				result = fmt.Sprintf("SMB:%v:%v:%v %v", Host, Port, Username, Password)
-			}
-			common.LogSuccess(result)
 			flag = true
 		}
 	}
@@ -64,5 +64,4 @@ func doWithTimeOut(info *common.HostInfo, user string, pass string) (flag bool, 
 	case <-time.After(time.Duration(info.Timeout) * time.Second):
 		return false, err
 	}
-
 }
