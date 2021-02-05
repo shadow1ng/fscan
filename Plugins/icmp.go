@@ -87,11 +87,12 @@ func IcmpCheck(hostslist []string) {
 		write(host, conn)
 	}
 
-	if len(hostslist) > 100 {
+	if len(hostslist) > 255 {
 		time.Sleep(6 * time.Second)
 	} else {
 		time.Sleep(3 * time.Second)
 	}
+
 	endflag = true
 	close(chanHosts)
 	conn.Close()
