@@ -53,12 +53,13 @@ func GetSys() SystemInfo {
 }
 
 func IcmpCheck(hostslist []string) {
+	TmpHosts := make(map[string]struct{})
+	var chanHosts = make(chan string)
 	conn, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
 	endflag := false
 	if err != nil {
 		log.Fatal(err)
 	}
-	var chanHosts = make(chan string)
 	go func() {
 		for {
 			if endflag == true {
@@ -74,7 +75,8 @@ func IcmpCheck(hostslist []string) {
 
 	go func() {
 		for ip := range chanHosts {
-			if !IsContain(AliveHosts, ip) {
+			if _, ok := TmpHosts[ip]; !ok {
+				TmpHosts[ip] = struct{}{}
 				fmt.Printf("(icmp) Target '%s' is alive\n", ip)
 				AliveHosts = append(AliveHosts, ip)
 			}
@@ -84,7 +86,8 @@ func IcmpCheck(hostslist []string) {
 	for _, host := range hostslist {
 		write(host, conn)
 	}
-	if len(hostslist) > 10 {
+
+	if len(hostslist) > 100 {
 		time.Sleep(6 * time.Second)
 	} else {
 		time.Sleep(3 * time.Second)
