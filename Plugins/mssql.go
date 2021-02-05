@@ -17,6 +17,8 @@ func MssqlScan(info *common.HostInfo) (tmperr error) {
 			if flag == true && err == nil {
 				return err
 			} else {
+				errlog := fmt.Sprintf("[-] mssql %v %v %v %v %v", info.Host, common.PORTList["mssql"], user, pass, err)
+				common.LogError(errlog)
 				tmperr = err
 			}
 		}

@@ -17,6 +17,8 @@ func PostgresScan(info *common.HostInfo) (tmperr error) {
 			if flag == true && err == nil {
 				return err
 			} else {
+				errlog := fmt.Sprintf("[-] psql %v %v %v %v %v", info.Host, common.PORTList["psql"], user, pass, err)
+				common.LogError(errlog)
 				tmperr = err
 			}
 		}

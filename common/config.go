@@ -53,38 +53,23 @@ var PortlistBack = map[string]int{
 }
 
 var Outputfile = getpath() + "result.txt"
-
 var IsSave = true
 
 var DefaultPorts = "21,22,80,81,135,443,445,1433,3306,5432,6379,7001,8000,8080,8089,9200,11211,27017"
 
 type HostInfo struct {
-	Host        string
-	HostFile    string
-	Ports       string
-	Domain      string
-	Url         string
-	Timeout     int64
-	WebTimeout  int64
-	Scantype    string
-	Ping        bool
-	Isping      bool
-	Threads     int
-	IcmpThreads int
-	Command     string
-	Username    string
-	Password    string
-	Userfile    string
-	Passfile    string
-	Usernames   []string
-	Passwords   []string
-	Outputfile  string
-	IsSave      bool
-	RedisFile   string
-	RedisShell  string
-	IsWebCan    bool
-	Debug       bool
-	PocInfo     PocInfo
+	Host       string
+	Ports      string
+	Domain     string
+	Url        string
+	Timeout    int64
+	WebTimeout int64
+	Scantype   string
+	Command    string
+	Username   string
+	Password   string
+	Usernames  []string
+	Passwords  []string
 }
 
 type PocInfo struct {
@@ -102,3 +87,16 @@ type PocInfo struct {
 	ApiKey     string
 	CeyeDomain string
 }
+
+var TmpOutputfile string
+var TmpSave bool
+var IsPing bool
+var Ping bool
+var Pocinfo PocInfo
+var IsWebCan bool
+var RedisFile string
+var RedisShell string
+var Userfile string
+var Passfile string
+var HostFile string
+var Threads int

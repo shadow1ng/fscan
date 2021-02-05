@@ -12,9 +12,9 @@ import (
 
 func Scan(info common.HostInfo) {
 	fmt.Println("scan start")
-	Hosts, _ := common.ParseIP(info.Host, info.HostFile)
-	if info.Isping == false {
-		Hosts = ICMPRun(Hosts, info.IcmpThreads, info.Ping)
+	Hosts, _ := common.ParseIP(info.Host, common.HostFile)
+	if common.IsPing == false {
+		Hosts = ICMPRun(Hosts, common.Ping)
 		fmt.Println("icmp alive hosts len is:", len(Hosts))
 	}
 	if info.Scantype == "icmp" {
@@ -28,7 +28,7 @@ func Scan(info common.HostInfo) {
 	for _, port := range common.PORTList {
 		severports = append(severports, strconv.Itoa(port))
 	}
-	var ch = make(chan struct{}, info.Threads)
+	var ch = make(chan struct{}, common.Threads)
 	var wg = sync.WaitGroup{}
 	for _, targetIP := range AlivePorts {
 		info.Host, info.Ports = strings.Split(targetIP, ":")[0], strings.Split(targetIP, ":")[1]
@@ -55,12 +55,12 @@ func AddScan(scantype string, info common.HostInfo, ch chan struct{}, wg *sync.W
 	wg.Add(1)
 	go func() {
 		err, _ := ScanFunc(PluginList, scantype, &info)
-		if info.Debug {
+		if common.LogErr {
 			tmperr := err[0].Interface()
 			if tmperr != nil {
 				tmperr1 := err[0].Interface().(error)
 				errtext := strings.Replace(tmperr1.Error(), "\n", "", -1)
-				fmt.Println(info.Host+":"+info.Ports, errtext)
+				fmt.Println("[-] ", info.Host+":"+info.Ports, errtext)
 			}
 		}
 		wg.Done()

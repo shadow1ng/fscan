@@ -28,8 +28,8 @@ func ParseUser(Info *HostInfo) {
 			Userdict[name] = Info.Usernames
 		}
 	}
-	if Info.Userfile != "" {
-		uesrs, err := Readfile(Info.Userfile)
+	if Userfile != "" {
+		uesrs, err := Readfile(Userfile)
 		if err == nil {
 			for _, uesr := range uesrs {
 				if uesr != "" {
@@ -54,8 +54,8 @@ func ParsePass(Info *HostInfo) {
 		}
 		Passwords = Info.Passwords
 	}
-	if Info.Passfile != "" {
-		passs, err := Readfile(Info.Passfile)
+	if Passfile != "" {
+		passs, err := Readfile(Passfile)
 		if err == nil {
 			for _, pass := range passs {
 				if pass != "" {
@@ -88,19 +88,20 @@ func Readfile(filename string) ([]string, error) {
 }
 
 func ParseInput(Info *HostInfo) {
-	if Info.Host == "" && Info.HostFile == "" {
+	if Info.Host == "" && HostFile == "" {
 		fmt.Println("Host is none")
 		flag.Usage()
 		os.Exit(0)
 	}
-	if Info.Outputfile != "" {
+	//LogErr = Info.Debug
+	if TmpOutputfile != "" {
 		if !strings.Contains(Outputfile, "/") && !strings.Contains(Outputfile, `\`) {
-			Outputfile = getpath() + Info.Outputfile
+			Outputfile = getpath() + TmpOutputfile
 		} else {
-			Outputfile = Info.Outputfile
+			Outputfile = TmpOutputfile
 		}
 	}
-	if Info.IsSave == true {
+	if TmpSave == true {
 		IsSave = false
 	}
 }

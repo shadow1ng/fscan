@@ -13,9 +13,10 @@ import (
 var Pocs embed.FS
 
 func WebScan(info *common.HostInfo) {
-	info.PocInfo.Target = info.Url
-	err := Execute(info.PocInfo)
-	if err != nil && info.Debug {
+	var pocinfo = common.Pocinfo
+	pocinfo.Target = info.Url
+	err := Execute(pocinfo)
+	if err != nil && common.LogErr {
 		fmt.Println(info.Url, err)
 	}
 }

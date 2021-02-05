@@ -23,6 +23,8 @@ func SmbScan(info *common.HostInfo) (tmperr error) {
 				common.LogSuccess(result)
 				return err
 			} else {
+				errlog := fmt.Sprintf("[-] smb %v %v %v %v %v", info.Host, 445, user, pass, err)
+				common.LogError(errlog)
 				tmperr = err
 			}
 		}

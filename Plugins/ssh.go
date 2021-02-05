@@ -17,6 +17,8 @@ func SshScan(info *common.HostInfo) (tmperr error) {
 			if flag == true && err == nil {
 				return err
 			} else {
+				errlog := fmt.Sprintf("[-] ssh", info.Host, common.PORTList["ssh"], user, pass, err)
+				common.LogError(errlog)
 				tmperr = err
 			}
 		}

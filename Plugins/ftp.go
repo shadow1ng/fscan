@@ -16,6 +16,8 @@ func FtpScan(info *common.HostInfo) (tmperr error) {
 			if flag == true && err == nil {
 				return err
 			} else {
+				errlog := fmt.Sprintf("[-] ftp %v %v %v %v %v", info.Host, common.PORTList["ftp"], user, pass, err)
+				common.LogError(errlog)
 				tmperr = err
 			}
 		}

@@ -3,6 +3,8 @@ package Plugins
 import (
 	"bytes"
 	"fmt"
+	"golang.org/x/net/icmp"
+	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -50,58 +52,52 @@ func GetSys() SystemInfo {
 	return sysinfo
 }
 
-func isping(ip string) bool {
-	IcmpByte := []byte{8, 0, 247, 255, 0, 0, 0, 0}
-	Time, _ := time.ParseDuration("3s")
-	conn, err := net.DialTimeout("ip4:icmp", ip, Time)
+func IcmpCheck(hostslist []string) {
+	conn, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
+	endflag := false
 	if err != nil {
-		return false
+		log.Fatal(err)
 	}
-	defer conn.Close()
-	_, err = conn.Write(IcmpByte)
-	if err != nil {
-		return false
-	}
+	var chanHosts = make(chan string)
+	go func() {
+		for {
+			if endflag == true {
+				return
+			}
+			msg := make([]byte, 100)
+			_, sourceIP, _ := conn.ReadFrom(msg)
+			if sourceIP != nil {
+				chanHosts <- sourceIP.String()
+			}
+		}
+	}()
 
-	if err := conn.SetReadDeadline(time.Now().Add(time.Second * 3)); err != nil {
-		return false
-	}
+	go func() {
+		for ip := range chanHosts {
+			if !IsContain(AliveHosts, ip) {
+				fmt.Printf("(icmp) Target '%s' is alive\n", ip)
+				AliveHosts = append(AliveHosts, ip)
+			}
+		}
+	}()
 
-	recvBuf := make([]byte, 40)
-	num, err := conn.Read(recvBuf[0:40])
-	if err != nil {
-		return false
+	for _, host := range hostslist {
+		write(host, conn)
 	}
-	if err := conn.SetReadDeadline(time.Now().Add(time.Second * 3)); err != nil {
-		return false
+	if len(hostslist) > 10 {
+		time.Sleep(6 * time.Second)
+	} else {
+		time.Sleep(3 * time.Second)
 	}
-	if string(recvBuf[0:num]) != "" {
-		fmt.Printf("(ICMP) Target '%s' is alive\n", ip)
-		return true
-	}
-	return false
-
+	endflag = true
+	close(chanHosts)
+	conn.Close()
 }
 
-func IcmpCheck(hostslist []string, IcmpThreads int) {
-	var wg sync.WaitGroup
-	mutex := &sync.Mutex{}
-	limiter := make(chan struct{}, IcmpThreads)
-	for _, host := range hostslist {
-		wg.Add(1)
-		limiter <- struct{}{}
-		go func(host string) {
-			defer wg.Done()
-			if isping(host) {
-				mutex.Lock()
-				AliveHosts = append(AliveHosts, host)
-				mutex.Unlock()
-			}
-			<-limiter
-		}(host)
-
-	}
-	wg.Wait()
+func write(ip string, conn *icmp.PacketConn) {
+	dst, _ := net.ResolveIPAddr("ip", ip)
+	IcmpByte := []byte{8, 0, 247, 255, 0, 0, 0, 0}
+	conn.WriteTo(IcmpByte, dst)
 }
 
 func ExecCommandPing(ip string, bsenv string) bool {
@@ -133,7 +129,7 @@ func ExecCommandPing(ip string, bsenv string) bool {
 func PingCMDcheck(hostslist []string, bsenv string) {
 	var wg sync.WaitGroup
 	mutex := &sync.Mutex{}
-	limiter := make(chan struct{}, 40)
+	limiter := make(chan struct{}, 50)
 	for _, host := range hostslist {
 		wg.Add(1)
 		limiter <- struct{}{}
@@ -150,18 +146,17 @@ func PingCMDcheck(hostslist []string, bsenv string) {
 	}
 	wg.Wait()
 }
-func ICMPRun(hostslist []string, IcmpThreads int, Ping bool) []string {
-
+func ICMPRun(hostslist []string, Ping bool) []string {
 	if SysInfo.OS == "windows" {
 		if Ping == false {
-			IcmpCheck(hostslist, IcmpThreads)
+			IcmpCheck(hostslist)
 		} else {
 			PingCMDcheck(hostslist, "")
 		}
 	} else if SysInfo.OS == "linux" {
 		if SysInfo.Groupid == "0" || SysInfo.Userid == "0" || SysInfo.Username == "root" {
 			if Ping == false {
-				IcmpCheck(hostslist, IcmpThreads)
+				IcmpCheck(hostslist)
 			} else {
 				PingCMDcheck(hostslist, "/bin/bash")
 			}
@@ -173,7 +168,7 @@ func ICMPRun(hostslist []string, IcmpThreads int, Ping bool) []string {
 	} else if SysInfo.OS == "darwin" {
 		if SysInfo.Groupid == "0" || SysInfo.Userid == "0" || SysInfo.Username == "root" {
 			if Ping == false {
-				IcmpCheck(hostslist, IcmpThreads)
+				IcmpCheck(hostslist)
 			} else {
 				PingCMDcheck(hostslist, "/bin/bash")
 			}

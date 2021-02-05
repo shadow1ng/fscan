@@ -3,14 +3,19 @@ package common
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 var Results = make(chan string)
 var Woker = 0
 var Start = true
+var LogSucTime int64
+var LogErr bool
+var LogErrTime int64
 
 func LogSuccess(result string) {
 	Woker++
+	LogSucTime = time.Now().Unix()
 	if Start {
 		go SaveLog()
 		Start = false
@@ -47,6 +52,15 @@ func WaitSave() {
 		if Woker == 0 {
 			close(Results)
 			return
+		}
+	}
+}
+
+func LogError(errinfo interface{}) {
+	if LogErr {
+		if (time.Now().Unix()-LogSucTime) > 10 && (time.Now().Unix()-LogErrTime) > 10 {
+			fmt.Println(errinfo)
+			LogErrTime = time.Now().Unix()
 		}
 	}
 }

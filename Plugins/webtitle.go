@@ -23,7 +23,7 @@ func WebTitle(info *common.HostInfo) (err error, result string) {
 	}
 
 	err, result = geturl(info)
-	if info.IsWebCan || err != nil {
+	if common.IsWebCan || err != nil {
 		return
 	}
 
@@ -44,9 +44,15 @@ func geturl(info *common.HostInfo) (err error, result string) {
 		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
 		DisableKeepAlives: false,
 		DialContext: (&net.Dialer{
-			Timeout: time.Duration(info.WebTimeout) * time.Second,
+			Timeout:   time.Duration(info.WebTimeout) * time.Second,
+			KeepAlive: time.Duration(info.WebTimeout+3) * time.Second,
 		}).DialContext,
+		MaxIdleConns:        1000,
+		MaxIdleConnsPerHost: 1000,
+		IdleConnTimeout:     time.Duration(info.WebTimeout+3) * time.Second,
+		TLSHandshakeTimeout: 5 * time.Second,
 	}
+
 	var client = &http.Client{Timeout: time.Duration(info.WebTimeout) * time.Second, Transport: tr}
 	res, err := http.NewRequest("GET", url, nil)
 	if err == nil {
