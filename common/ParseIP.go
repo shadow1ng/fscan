@@ -117,7 +117,6 @@ func ParseIPC(ip string) ([]string, error) {
 	} else {
 		SplitIP1 := strings.Split(IPRange[0], ".")
 		SplitIP2 := strings.Split(IPRange[1], ".")
-		fmt.Println(SplitIP1, SplitIP2, len(SplitIP1), len(SplitIP2))
 		if len(SplitIP1) != 4 || len(SplitIP2) != 4 {
 			return nil, ParseIPErr
 		}
@@ -132,7 +131,6 @@ func ParseIPC(ip string) ([]string, error) {
 		}
 		startNum := start[0]<<24 | start[1]<<16 | start[2]<<8 | start[3]
 		endNum := end[0]<<24 | end[1]<<16 | end[2]<<8 | end[3]
-		fmt.Println(startNum, endNum)
 		for num := startNum; num < endNum; num++ {
 			ip := strconv.Itoa((num>>24)&0xff) + "." + strconv.Itoa((num>>16)&0xff) + "." + strconv.Itoa((num>>8)&0xff) + "." + strconv.Itoa((num)&0xff)
 			AllIP = append(AllIP, ip)
