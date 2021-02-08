@@ -94,6 +94,8 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error) {
 				variableMap[k] = UrlTypeToString(value)
 			case int64:
 				variableMap[k] = int(value)
+			case []uint8:
+				variableMap[k] = fmt.Sprintf("%s", out)
 			default:
 				variableMap[k] = fmt.Sprintf("%v", out)
 			}
