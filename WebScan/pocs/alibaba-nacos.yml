@@ -1,0 +1,13 @@
+name: poc-yaml-alibaba-nacos
+rules:
+  - method: GET
+    path: /nacos/
+    follow_redirects: true
+    expression: |
+      response.body.bcontains(bytes("<title>Nacos</title>"))
+detail:
+  author: AgeloVito
+  info: alibaba-nacos
+  login: nacos/nacos
+  links:
+    - https://blog.csdn.net/caiqiiqi/article/details/112005424

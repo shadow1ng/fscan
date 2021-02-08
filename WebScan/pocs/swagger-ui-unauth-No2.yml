@@ -1,0 +1,10 @@
+name: poc-yaml-druid-monitor-unauth
+rules:
+  - method: GET
+    path: /api/swagger-ui.html
+    expression: |
+      response.status == 200 && response.body.bcontains(b"Swagger UI") && response.body.bcontains(b"swagger-ui.min.js")
+detail:
+  author: AgeloVito
+  links:
+    - https://blog.csdn.net/u012206617/article/details/109107210

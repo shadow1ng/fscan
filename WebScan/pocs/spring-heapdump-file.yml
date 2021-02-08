@@ -1,0 +1,12 @@
+name: poc-yaml-spring-heapdump-file
+rules:
+  - method: HEAD
+    path: /heapdump
+    follow_redirects: true
+    expression: |
+      response.status == 200 && response.content_type.contains("application/octet-stream")
+detail:
+  author: AgeloVito
+  info: spring-heapdump-file
+  links:
+    - https://www.cnblogs.com/wyb628/p/8567610.html
