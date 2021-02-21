@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	client           *http.Client
+	Client           *http.Client
 	clientNoRedirect *http.Client
 	dialTimout       = 5 * time.Second
 	keepAlive        = 15 * time.Second
@@ -44,7 +44,7 @@ func InitHttpClient(ThreadsNum int, DownProxy string, Timeout time.Duration) err
 		tr.Proxy = http.ProxyURL(u)
 	}
 
-	client = &http.Client{
+	Client = &http.Client{
 		Transport: tr,
 		Timeout:   Timeout,
 	}
@@ -70,7 +70,7 @@ func DoRequest(req *http.Request, redirect bool) (*Response, error) {
 	var oResp *http.Response
 	var err error
 	if redirect {
-		oResp, err = client.Do(req)
+		oResp, err = Client.Do(req)
 	} else {
 		oResp, err = clientNoRedirect.Do(req)
 	}

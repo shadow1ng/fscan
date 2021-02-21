@@ -3,6 +3,7 @@ package Plugins
 import (
 	"errors"
 	"fmt"
+	"github.com/shadow1ng/fscan/WebScan"
 	"github.com/shadow1ng/fscan/common"
 	"reflect"
 	"strconv"
@@ -24,6 +25,7 @@ func Scan(info common.HostInfo) {
 	if info.Scantype == "portscan" {
 		return
 	}
+	WebScan.Inithttp(common.Pocinfo)
 	var severports []string //severports := []string{"21","22","135"."445","1433","3306","5432","6379","9200","11211","27017"...}
 	for _, port := range common.PORTList {
 		severports = append(severports, strconv.Itoa(port))

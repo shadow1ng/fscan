@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/shadow1ng/fscan/WebScan/lib"
 	"github.com/shadow1ng/fscan/common"
+	"log"
 	"net/http"
 	"time"
 )
@@ -22,11 +23,6 @@ func WebScan(info *common.HostInfo) {
 }
 
 func Execute(PocInfo common.PocInfo) error {
-	//PocInfo.Proxy = "http://127.0.0.1:8080"
-	err := lib.InitHttpClient(PocInfo.Num, PocInfo.Proxy, time.Duration(PocInfo.Timeout)*time.Second)
-	if err != nil {
-		return err
-	}
 	req, err := http.NewRequest("GET", PocInfo.Target, nil)
 	if err != nil {
 		return err
@@ -43,4 +39,12 @@ func Execute(PocInfo common.PocInfo) error {
 	}
 
 	return nil
+}
+
+func Inithttp(PocInfo common.PocInfo) {
+	//PocInfo.Proxy = "http://127.0.0.1:8080"
+	err := lib.InitHttpClient(PocInfo.Num, PocInfo.Proxy, time.Duration(PocInfo.Timeout)*time.Second)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
