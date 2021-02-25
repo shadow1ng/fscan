@@ -1,0 +1,11 @@
+name: poc-yaml-laravel-debug-info-leak
+rules:
+  - method: POST
+    path: /
+    follow_redirects: false
+    expression: >
+      response.status == 405 && response.body.bcontains(b"MethodNotAllowedHttpException") && response.body.bcontains(b"Environment &amp; details") && (response.body.bcontains(b"vendor\\laravel\\framework\\src\\Illuminate\\Routing\\RouteCollection.php") || response.body.bcontains(b"vendor/laravel/framework/src/Illuminate/Routing/RouteCollection.php"))
+detail:
+  author: Dem0ns (https://github.com/dem0ns)
+  links:
+    - https://github.com/dem0ns/improper/tree/master/laravel/5_debug

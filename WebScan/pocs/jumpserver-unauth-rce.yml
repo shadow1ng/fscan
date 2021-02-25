@@ -1,0 +1,33 @@
+name: poc-yaml-jumpserver-unauth-rce
+set:
+  r1: randomLowercase(5)
+groups:
+  users:
+    - method: GET
+      path: /api/v1/users/connection-token/
+      follow_redirects: false
+      expression: |
+        response.status == 401 && response.content_type.contains("application/json") && response.body.bcontains(b"not_authenticated")
+    - method: GET
+      path: /api/v1/users/connection-token/?user-only={{r1}}
+      follow_redirects: false
+      expression: |
+        response.status == 404 && response.content_type.contains("application/json") && response.body.bcontains(b"\"\"")
+  authentication:
+    - method: GET
+      path: /api/v1/authentication/connection-token/
+      follow_redirects: false
+      expression: |
+        response.status == 401 && response.content_type.contains("application/json") && response.body.bcontains(b"not_authenticated")
+    - method: GET
+      path: /api/v1/authentication/connection-token/?user-only={{r1}}
+      follow_redirects: false
+      expression: |
+        response.status == 404 && response.content_type.contains("application/json") && response.body.bcontains(b"\"\"")
+detail:
+  author: mvhz81
+  info: jumpserver unauth read logfile + jumpserver rce
+  links:
+    - https://s.tencent.com/research/bsafe/1228.html
+    - https://mp.weixin.qq.com/s/KGRU47o7JtbgOC9xwLJARw
+    - https://github.com/jumpserver/jumpserver/releases/download/v2.6.2/jms_bug_check.sh

@@ -1,0 +1,15 @@
+name: poc-yaml-springboot-env-unauth
+groups:
+  spring1:
+    - method: GET
+      path: /env
+      expression: |
+        response.status == 200 && response.content_type.contains("json") && response.body.bcontains(b"java.version") && response.body.bcontains(b"os.arch")
+  spring2:
+    - method: GET
+      path: /actuator/env
+      expression: |
+        response.status == 200 && response.content_type.contains("json") && response.body.bcontains(b"java.version") && response.body.bcontains(b"os.arch")
+detail:
+  links:
+    - https://github.com/LandGrey/SpringBootVulExploit

