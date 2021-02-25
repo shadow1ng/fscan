@@ -27,5 +27,18 @@ func ParsePort(ports string) []int {
 			scanPorts = append(scanPorts, i)
 		}
 	}
+	scanPorts = removeDuplicate(scanPorts)
 	return scanPorts
+}
+
+func removeDuplicate(old []int) []int {
+	result := make([]int, 0, len(old))
+	temp := map[int]struct{}{}
+	for _, item := range old {
+		if _, ok := temp[item]; !ok {
+			temp[item] = struct{}{}
+			result = append(result, item)
+		}
+	}
+	return result
 }

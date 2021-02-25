@@ -8,10 +8,11 @@ import (
 )
 
 type Poc struct {
-	Name   string            `yaml:"name"`
-	Set    map[string]string `yaml:"set"`
-	Rules  []Rules           `yaml:"rules"`
-	Detail Detail            `yaml:"detail"`
+	Name   string              `yaml:"name"`
+	Set    map[string]string   `yaml:"set"`
+	Sets   map[string][]string `yaml:"sets"`
+	Rules  []Rules             `yaml:"rules"`
+	Detail Detail              `yaml:"detail"`
 }
 
 type Rules struct {

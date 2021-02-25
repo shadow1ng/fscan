@@ -119,7 +119,8 @@ var RuleDatas = []RuleData{
 	{"weaver-ebridge", "code", "(e-Bridge,http://wx.weaver)"},
 	{"Laravel", "headers", "(laravel_session)"},
 	{"DWR", "code", "(dwr/engine.js)"},
-	{"swagger_ui", "code", "(swagger-ui/css|\"swagger\":)"},
+	{"swagger_ui", "code", "(swagger-ui/css|\"swagger\":|swagger-ui.min.js)"},
+	{"大汉版通发布系统", "code", "(大汉版通发布系统|大汉网络)"},
 }
 
 var Md5Datas = []Md5Data{

