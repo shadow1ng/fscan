@@ -63,6 +63,7 @@ var RuleDatas = []RuleData{
 	{"华为 MCU", "code", "(McuR5-min.js)"},
 	{"TP-LINK Wireless WDR3600", "code", "(TP-LINK Wireless WDR3600)"},
 	{"泛微协同办公OA", "headers", "(ecology_JSessionid)"},
+	{"泛微协同办公OA", "code", "(/spa/portal/public/index.js)"},
 	{"华为_HUAWEI_ASG2050", "code", "(HUAWEI ASG2050)"},
 	{"360网站卫士", "code", "(360wzb)"},
 	{"Citrix-XenServer", "code", "(Citrix Systems, Inc. XenServer)"},

