@@ -71,7 +71,7 @@ func ParsePass(Info *HostInfo) {
 func Readfile(filename string) ([]string, error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		fmt.Println("Open %s error, %v", filename, err)
+		fmt.Printf("Open %s error, %v\n", filename, err)
 		os.Exit(0)
 	}
 	defer file.Close()
