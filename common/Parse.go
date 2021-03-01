@@ -18,10 +18,10 @@ func Parse(Info *HostInfo) {
 
 func ParseUser(Info *HostInfo) {
 	if Info.Username != "" {
-		uesrs := strings.Split(Info.Username, ",")
-		for _, uesr := range uesrs {
-			if uesr != "" {
-				Info.Usernames = append(Info.Usernames, uesr)
+		users := strings.Split(Info.Username, ",")
+		for _, user := range users {
+			if user != "" {
+				Info.Usernames = append(Info.Usernames, user)
 			}
 		}
 		for name := range Userdict {
@@ -29,11 +29,11 @@ func ParseUser(Info *HostInfo) {
 		}
 	}
 	if Userfile != "" {
-		uesrs, err := Readfile(Userfile)
+		users, err := Readfile(Userfile)
 		if err == nil {
-			for _, uesr := range uesrs {
-				if uesr != "" {
-					Info.Usernames = append(Info.Usernames, uesr)
+			for _, user := range users {
+				if user != "" {
+					Info.Usernames = append(Info.Usernames, user)
 				}
 			}
 			for name := range Userdict {
