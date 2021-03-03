@@ -32,7 +32,7 @@ func Execute(PocInfo common.PocInfo) error {
 		req.Header.Set("Cookie", PocInfo.Cookie)
 	}
 
-	lib.CheckMultiPoc(req, Pocs, PocInfo.Num, "")
+	lib.CheckMultiPoc(req, Pocs, PocInfo.Num, PocInfo.PocName)
 
 	return nil
 }
