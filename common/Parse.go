@@ -63,7 +63,20 @@ func ParsePass(Info *HostInfo) {
 				}
 			}
 			Passwords = Info.Passwords
-
+		}
+	}
+	if UrlFile != "" {
+		urls, err := Readfile(UrlFile)
+		if err == nil {
+			TmpUrls := make(map[string]struct{})
+			for _, url := range urls {
+				if _, ok := TmpUrls[url]; !ok {
+					TmpUrls[url] = struct{}{}
+					if url != "" {
+						Urls = append(Urls, url)
+					}
+				}
+			}
 		}
 	}
 }
@@ -88,7 +101,7 @@ func Readfile(filename string) ([]string, error) {
 }
 
 func ParseInput(Info *HostInfo) {
-	if Info.Host == "" && HostFile == "" {
+	if Info.Host == "" && HostFile == "" && URL == "" && UrlFile == "" {
 		fmt.Println("Host is none")
 		flag.Usage()
 		os.Exit(0)

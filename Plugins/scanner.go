@@ -49,6 +49,16 @@ func Scan(info common.HostInfo) {
 			AddScan(scantype, info, ch, &wg)
 		}
 	}
+	if common.URL != "" {
+		info.Url = common.URL
+		AddScan("1000003", info, ch, &wg)
+	}
+	if len(common.Urls) > 0 {
+		for _, url := range common.Urls {
+			info.Url = url
+			AddScan("1000003", info, ch, &wg)
+		}
+	}
 	wg.Wait()
 	common.WaitSave()
 }

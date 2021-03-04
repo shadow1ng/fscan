@@ -13,19 +13,25 @@ import (
 
 func WebTitle(info *common.HostInfo) error {
 	var CheckData []WebScan.CheckDatas
-
-	if info.Ports == "80" {
-		info.Url = fmt.Sprintf("http://%s", info.Host)
-	} else if info.Ports == "443" {
-		info.Url = fmt.Sprintf("https://%s", info.Host)
+	if info.Url == "" {
+		if info.Ports == "80" {
+			info.Url = fmt.Sprintf("http://%s", info.Host)
+		} else if info.Ports == "443" {
+			info.Url = fmt.Sprintf("https://%s", info.Host)
+		} else {
+			info.Url = fmt.Sprintf("http://%s:%s", info.Host, info.Ports)
+		}
 	} else {
-		info.Url = fmt.Sprintf("http://%s:%s", info.Host, info.Ports)
+		if !strings.Contains(info.Url, "://") {
+			info.Url = fmt.Sprintf("http://%s", info.Url)
+		}
 	}
 
 	err, result, CheckData := geturl(info, true, CheckData)
 	if err != nil {
 		return err
 	}
+
 	if result == "https" {
 		err, _, CheckData = geturl(info, true, CheckData)
 		if err != nil {
@@ -43,7 +49,6 @@ func WebTitle(info *common.HostInfo) error {
 	if common.IsWebCan == false {
 		WebScan.WebScan(info)
 	}
-
 	return err
 }
 
@@ -58,8 +63,11 @@ func geturl(info *common.HostInfo, flag bool, CheckData []WebScan.CheckDatas) (e
 		res.Header.Set("Accept", "*/*")
 		res.Header.Set("Accept-Language", "zh-CN,zh;q=0.9")
 		res.Header.Set("Accept-Encoding", "gzip, deflate")
+		if common.Pocinfo.Cookie != "" {
+			res.Header.Set("Cookie", common.Pocinfo.Cookie)
+		}
 		if flag == true {
-			res.Header.Set("Cookie", "rememberMe=1")
+			res.Header.Set("Cookie", "rememberMe=1;"+common.Pocinfo.Cookie)
 		}
 		res.Header.Set("Connection", "close")
 		resp, err := lib.Client.Do(res)

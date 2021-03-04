@@ -37,6 +37,9 @@ func InitHttpClient(ThreadsNum int, DownProxy string, Timeout time.Duration) err
 		DisableKeepAlives:   false,
 	}
 	if DownProxy != "" {
+		if DownProxy == "1" {
+			DownProxy = "http://127.0.0.1:8080"
+		}
 		u, err := url.Parse(DownProxy)
 		if err != nil {
 			return err
@@ -144,7 +147,6 @@ func getRespBody(oResp *http.Response) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		defer gr.Close()
 		for {
 			buf := make([]byte, 1024)

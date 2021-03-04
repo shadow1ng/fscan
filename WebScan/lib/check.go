@@ -37,7 +37,7 @@ func CheckMultiPoc(req *http.Request, Pocs embed.FS, workers int, pocname string
 					continue
 				}
 				if isVul {
-					result := fmt.Sprintf("%s %s", task.Req.URL, task.Poc.Name)
+					result := fmt.Sprintf("[+] %s %s", task.Req.URL, task.Poc.Name)
 					common.LogSuccess(result)
 				}
 			}
@@ -183,6 +183,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error) {
 			for k, v := range rule.Headers {
 				newRequest.Header.Set(k, v)
 			}
+
 			resp, err := DoRequest(newRequest, rule.FollowRedirects)
 			if err != nil {
 				return false, err
@@ -200,7 +201,6 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error) {
 					return false, nil
 				}
 			}
-
 			out, err := Evaluate(env, rule.Expression, variableMap)
 			if err != nil {
 				return false, err
@@ -486,8 +486,8 @@ func clusterpoc1(oReq *http.Request, p *Poc, variableMap map[string]interface{},
 		if len(varset) == 2 {
 		look2:
 			//	(var1 tomcat ,keys[0] username)
-			for _, var1 := range p.Sets[varset[0]] {
-				for _, var2 := range p.Sets[varset[1]] {
+			for _, var1 := range p.Sets[varset[0]] { //username
+				for _, var2 := range p.Sets[varset[1]] { //password
 					setMap := cloneMap1(setMapbak)
 					setMap[varset[0]] = var1
 					setMap[varset[1]] = var2

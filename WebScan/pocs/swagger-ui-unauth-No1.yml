@@ -1,4 +1,4 @@
-name: poc-yaml-druid-monitor-unauth
+name: poc-yaml-swagger-ui-unauth1
 rules:
   - method: GET
     path: /swagger-ui.html
