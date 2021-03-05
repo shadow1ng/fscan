@@ -1,7 +1,6 @@
 package common
 
 import (
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -17,9 +16,17 @@ func ParsePort(ports string) []int {
 			if len(ranges) < 2 {
 				continue
 			}
-			sort.Strings(ranges)
-			port = ranges[0]
-			upper = ranges[1]
+
+			startPort, _ := strconv.Atoi(ranges[0])
+			endPort, _ := strconv.Atoi(ranges[1])
+			if startPort < endPort {
+				port = ranges[0]
+				upper = ranges[1]
+			} else {
+				port = ranges[1]
+				upper = ranges[0]
+			}
+
 		}
 		start, _ := strconv.Atoi(port)
 		end, _ := strconv.Atoi(upper)
