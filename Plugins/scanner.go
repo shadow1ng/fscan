@@ -14,39 +14,42 @@ import (
 func Scan(info common.HostInfo) {
 	fmt.Println("scan start")
 	Hosts, _ := common.ParseIP(info.Host, common.HostFile)
-	if common.IsPing == false {
-		Hosts = ICMPRun(Hosts, common.Ping)
-		fmt.Println("icmp alive hosts len is:", len(Hosts))
-	}
-	if info.Scantype == "icmp" {
-		return
-	}
-	AlivePorts := TCPportScan(Hosts, info.Ports, info.Timeout)
-	if info.Scantype == "portscan" {
-		return
-	}
 	WebScan.Inithttp(common.Pocinfo)
-	var severports []string //severports := []string{"21","22","135"."445","1433","3306","5432","6379","9200","11211","27017"...}
-	for _, port := range common.PORTList {
-		severports = append(severports, strconv.Itoa(port))
-	}
 	var ch = make(chan struct{}, common.Threads)
 	var wg = sync.WaitGroup{}
-	for _, targetIP := range AlivePorts {
-		info.Host, info.Ports = strings.Split(targetIP, ":")[0], strings.Split(targetIP, ":")[1]
-		if info.Scantype == "all" {
-			if info.Ports == "445" { //scan more vul
-				AddScan("1000001", info, ch, &wg)
-				AddScan("1000002", info, ch, &wg)
-			} else if IsContain(severports, info.Ports) {
-				AddScan(info.Ports, info, ch, &wg)
+	if len(Hosts) > 0 {
+		if common.IsPing == false {
+			Hosts = ICMPRun(Hosts, common.Ping)
+			fmt.Println("icmp alive hosts len is:", len(Hosts))
+		}
+		if info.Scantype == "icmp" {
+			return
+		}
+		AlivePorts := TCPportScan(Hosts, info.Ports, info.Timeout)
+		if info.Scantype == "portscan" {
+			return
+		}
+
+		var severports []string //severports := []string{"21","22","135"."445","1433","3306","5432","6379","9200","11211","27017"...}
+		for _, port := range common.PORTList {
+			severports = append(severports, strconv.Itoa(port))
+		}
+		for _, targetIP := range AlivePorts {
+			info.Host, info.Ports = strings.Split(targetIP, ":")[0], strings.Split(targetIP, ":")[1]
+			if info.Scantype == "all" {
+				if info.Ports == "445" { //scan more vul
+					AddScan("1000001", info, ch, &wg)
+					AddScan("1000002", info, ch, &wg)
+				} else if IsContain(severports, info.Ports) {
+					AddScan(info.Ports, info, ch, &wg)
+				} else {
+					AddScan("1000003", info, ch, &wg) //webtitle
+				}
 			} else {
-				AddScan("1000003", info, ch, &wg) //webtitle
+				port, _ := common.PortlistBack[info.Scantype]
+				scantype := strconv.Itoa(port)
+				AddScan(scantype, info, ch, &wg)
 			}
-		} else {
-			port, _ := common.PortlistBack[info.Scantype]
-			scantype := strconv.Itoa(port)
-			AddScan(scantype, info, ch, &wg)
 		}
 	}
 	if common.URL != "" {

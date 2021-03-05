@@ -58,18 +58,17 @@ var Webport = "9098,9448,8888,82,8858,1081,8879,21502,9097,8088,8090,8200,91,108
 var DefaultPorts = "21,22,80,81,135,443,445,1433,3306,5432,6379,7001,8000,8080,8089,9200,11211,27017"
 
 type HostInfo struct {
-	Host       string
-	Ports      string
-	Domain     string
-	Url        string
-	Timeout    int64
-	WebTimeout int64
-	Scantype   string
-	Command    string
-	Username   string
-	Password   string
-	Usernames  []string
-	Passwords  []string
+	Host      string
+	Ports     string
+	Domain    string
+	Url       string
+	Timeout   int64
+	Scantype  string
+	Command   string
+	Username  string
+	Password  string
+	Usernames []string
+	Passwords []string
 }
 
 type PocInfo struct {

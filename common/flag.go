@@ -26,7 +26,6 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&Info.Username, "user", "", "username")
 	flag.StringVar(&Info.Password, "pwd", "", "password")
 	flag.Int64Var(&Info.Timeout, "time", 3, "Set timeout")
-	flag.Int64Var(&Info.WebTimeout, "wt", 5, "Set web timeout")
 	flag.StringVar(&Info.Scantype, "m", "all", "Select scan type ,as: -m ssh")
 	flag.IntVar(&Threads, "t", 200, "Thread nums")
 	flag.StringVar(&HostFile, "hf", "", "host file, -hs ip.txt")
@@ -45,6 +44,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&Pocinfo.PocName, "pocname", "", "use the pocs these contain pocname, -pocname weblogic")
 	flag.StringVar(&Pocinfo.Proxy, "proxy", "", "set poc proxy, -proxy http://127.0.0.1:8080")
 	flag.StringVar(&Pocinfo.Cookie, "cookie", "", "set poc cookie")
+	flag.Int64Var(&Pocinfo.Timeout, "wt", 5, "Set web timeout")
 	flag.IntVar(&Pocinfo.Num, "Num", 20, "poc rate")
 	flag.Parse()
 }
