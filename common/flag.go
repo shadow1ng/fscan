@@ -27,7 +27,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&Info.Password, "pwd", "", "password")
 	flag.Int64Var(&Info.Timeout, "time", 3, "Set timeout")
 	flag.StringVar(&Info.Scantype, "m", "all", "Select scan type ,as: -m ssh")
-	flag.IntVar(&Threads, "t", 200, "Thread nums")
+	flag.IntVar(&Threads, "t", 600, "Thread nums")
 	flag.StringVar(&HostFile, "hf", "", "host file, -hs ip.txt")
 	flag.StringVar(&Userfile, "userf", "", "username file")
 	flag.StringVar(&Passfile, "pwdf", "", "password file")

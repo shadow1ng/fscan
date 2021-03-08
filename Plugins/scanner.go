@@ -25,7 +25,7 @@ func Scan(info common.HostInfo) {
 		if info.Scantype == "icmp" {
 			return
 		}
-		AlivePorts := TCPportScan(Hosts, info.Ports, info.Timeout)
+		AlivePorts := PortScan(Hosts, info.Ports, info.Timeout)
 		if info.Scantype == "portscan" {
 			return
 		}
