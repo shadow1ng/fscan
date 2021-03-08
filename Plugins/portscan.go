@@ -40,8 +40,8 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 	}
 
 	//添加扫描目标
-	for _, host := range hostslist {
-		for _, port := range probePorts {
+	for _, port := range probePorts {
+		for _, host := range hostslist {
 			Addrs <- Addr{host, port}
 			wg.Add(1)
 		}
