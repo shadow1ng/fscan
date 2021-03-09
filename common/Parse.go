@@ -10,10 +10,10 @@ import (
 )
 
 func Parse(Info *HostInfo) {
+	ParseScantype(Info)
 	ParseUser(Info)
 	ParsePass(Info)
 	ParseInput(Info)
-	ParseScantype(Info)
 }
 
 func ParseUser(Info *HostInfo) {
@@ -122,12 +122,7 @@ func ParseInput(Info *HostInfo) {
 func ParseScantype(Info *HostInfo) {
 	_, ok := PORTList[Info.Scantype]
 	if !ok {
-		fmt.Println("The specified scan type does not exist")
-		fmt.Println("-m")
-		for name := range PORTList {
-			fmt.Println("   [" + name + "]")
-		}
-		os.Exit(0)
+		showmode()
 	}
 	if Info.Scantype != "all" {
 		if Info.Ports == DefaultPorts {
@@ -168,4 +163,13 @@ func getpath() string {
 		path = strings.Join(tmp, `\`)
 	}
 	return path
+}
+
+func showmode() {
+	fmt.Println("The specified scan type does not exist")
+	fmt.Println("-m")
+	for name := range PORTList {
+		fmt.Println("   [" + name + "]")
+	}
+	os.Exit(0)
 }
