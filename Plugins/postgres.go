@@ -30,7 +30,7 @@ func PostgresConn(info *common.HostInfo, user string, pass string) (flag bool, e
 	flag = false
 	Host, Port, Username, Password := info.Host, common.PORTList["psql"], user, pass
 	dataSourceName := fmt.Sprintf("postgres://%v:%v@%v:%v/%v?sslmode=%v", Username, Password, Host, Port, "postgres", "disable")
-	db, err := sql.Open("mysql", dataSourceName)
+	db, err := sql.Open("postgres", dataSourceName)
 	if err == nil {
 		db.SetConnMaxLifetime(time.Duration(info.Timeout) * time.Second)
 		defer db.Close()
