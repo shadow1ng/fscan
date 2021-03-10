@@ -438,7 +438,6 @@ func clusterpoc1(oReq *http.Request, p *Poc, variableMap map[string]interface{},
 				}
 			}
 		}
-
 		if n == 0 {
 			success, err = clustersend(oReq, variableMap, req, env, rule)
 			if err != nil {
@@ -448,7 +447,6 @@ func clusterpoc1(oReq *http.Request, p *Poc, variableMap map[string]interface{},
 				break
 			}
 		}
-
 		if len(varset) == 1 {
 		look1:
 			//	(var1 tomcat ,keys[0] username)
@@ -508,7 +506,7 @@ func clusterpoc1(oReq *http.Request, p *Poc, variableMap map[string]interface{},
 						rule1.Path = strings.ReplaceAll(strings.TrimSpace(rule1.Path), "{{"+key+"}}", fmt.Sprintf("%v", setMap[key]))
 						rule1.Body = strings.ReplaceAll(strings.TrimSpace(rule1.Body), "{{"+key+"}}", fmt.Sprintf("%v", setMap[key]))
 					}
-					success, err = clustersend(oReq, variableMap, req, env, rule)
+					success, err = clustersend(oReq, variableMap, req, env, rule1)
 					if err != nil {
 						return false, err
 					}
