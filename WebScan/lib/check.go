@@ -473,6 +473,7 @@ func clusterpoc1(oReq *http.Request, p *Poc, variableMap map[string]interface{},
 				}
 
 				if success == true {
+					common.LogSuccess(fmt.Sprintf("[+] %s://%s%s %s", req.Url.Scheme, req.Url.Host, req.Url.Path, var1))
 					break look1
 				}
 			}
@@ -511,6 +512,7 @@ func clusterpoc1(oReq *http.Request, p *Poc, variableMap map[string]interface{},
 						return false, err
 					}
 					if success == true {
+						common.LogSuccess(fmt.Sprintf("[+] %s://%s%s %s %s", req.Url.Scheme, req.Url.Host, req.Url.Path, var1, var2))
 						break look2
 					}
 				}
