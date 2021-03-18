@@ -298,17 +298,29 @@ func getconfig(conn net.Conn) (dbfilename string, dir string, err error) {
 	if err != nil {
 		return
 	}
-	dbfilename, err = readreply(conn)
+	text, err := readreply(conn)
 	if err != nil {
 		return
+	}
+	text1 := strings.Split(text, "\n")
+	if len(text1) > 2 {
+		dbfilename = text1[len(text1)-2]
+	} else {
+		dbfilename = text1[0]
 	}
 	_, err = conn.Write([]byte(fmt.Sprintf("CONFIG GET dir\r\n")))
 	if err != nil {
 		return
 	}
-	dir, err = readreply(conn)
+	text, err = readreply(conn)
 	if err != nil {
 		return
+	}
+	text1 = strings.Split(text, "\n")
+	if len(text1) > 2 {
+		dir = text1[len(text1)-2]
+	} else {
+		dir = text1[0]
 	}
 	return
 }
