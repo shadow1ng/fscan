@@ -122,6 +122,8 @@ var RuleDatas = []RuleData{
 	{"DWR", "code", "(dwr/engine.js)"},
 	{"swagger_ui", "code", "(swagger-ui/css|\"swagger\":|swagger-ui.min.js)"},
 	{"大汉版通发布系统", "code", "(大汉版通发布系统|大汉网络)"},
+	{"druid", "code", "(druid.index|DruidDrivers|DruidVersion|Druid Stat Index)"},
+	{"Jenkins", "code", "(Jenkins)"},
 }
 
 var Md5Datas = []Md5Data{

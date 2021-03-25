@@ -40,7 +40,7 @@ func Flag(Info *HostInfo) {
 	flag.BoolVar(&TmpSave, "no", false, "not to save output log")
 	flag.BoolVar(&LogErr, "debug", false, "debug mode will print more error info")
 	flag.StringVar(&URL, "u", "", "url")
-	flag.StringVar(&UrlFile, "uf", "", "url")
+	flag.StringVar(&UrlFile, "uf", "", "urlfile")
 	flag.StringVar(&Pocinfo.PocName, "pocname", "", "use the pocs these contain pocname, -pocname weblogic")
 	flag.StringVar(&Pocinfo.Proxy, "proxy", "", "set poc proxy, -proxy http://127.0.0.1:8080")
 	flag.StringVar(&Pocinfo.Cookie, "cookie", "", "set poc cookie")
