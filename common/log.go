@@ -44,7 +44,7 @@ func WriteFile(result string, filename string) {
 	_, err = fl.Write(text)
 	fl.Close()
 	if err != nil {
-		fmt.Printf("write %s error, %v\n", filename, err)
+		fmt.Printf("Write %s error, %v\n", filename, err)
 	}
 }
 
