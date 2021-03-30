@@ -21,6 +21,10 @@ var (
 
 func MS17010(info *common.HostInfo) error {
 	err := MS17010Scan(info)
+	if err != nil {
+		errlog := fmt.Sprintf("[-] Ms17010 %v %v", info.Host, err)
+		common.LogError(errlog)
+	}
 	return err
 }
 
@@ -138,12 +142,12 @@ func MS17010Scan(info *common.HostInfo) error {
 
 		if reply[34] == 0x51 {
 			//fmt.Printf("DOUBLEPULSAR SMB IMPLANT in %s\n", ip)
-			result := fmt.Sprintf("DOUBLEPULSAR SMB IMPLANT in %s", ip)
+			result := fmt.Sprintf("[+] %s has DOUBLEPULSAR SMB IMPLANT", ip)
 			common.LogSuccess(result)
 		}
 
 	} else {
-		result := fmt.Sprintf("%s  (%s)", ip, os)
+		result := fmt.Sprintf("[*] %s  (%s)", ip, os)
 		common.LogSuccess(result)
 	}
 	return err

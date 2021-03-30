@@ -3,9 +3,12 @@ package common
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
+var Num int64
+var End int64
 var Results = make(chan string)
 var Worker = 0
 var Start = true
@@ -49,7 +52,7 @@ func WriteFile(result string, filename string) {
 
 func WaitSave() {
 	for {
-		if Worker == 0 {
+		if Worker <= 0 {
 			close(Results)
 			return
 		}
@@ -60,7 +63,27 @@ func LogError(errinfo interface{}) {
 	if LogErr {
 		if (time.Now().Unix()-LogSucTime) > 10 && (time.Now().Unix()-LogErrTime) > 10 {
 			fmt.Println(errinfo)
+			fmt.Println(fmt.Sprintf("已完成 %v/%v", End, Num))
+			LogErrTime = time.Now().Unix()
+		}
+	} else {
+		if (time.Now().Unix()-LogSucTime) > 60 && (time.Now().Unix()-LogErrTime) > 60 {
+			fmt.Println(errinfo)
+			fmt.Println(fmt.Sprintf("已完成 %v/%v", End, Num))
 			LogErrTime = time.Now().Unix()
 		}
 	}
+}
+
+func CheckErrs(err error) bool {
+	if err == nil {
+		return false
+	}
+	errs := []string{"closed by the remote host", "too many connections", "i/o timeout", "EOF", "A connection attempt failed", "established connection failed", "connection attempt failed", "Unable to read", "is not allowed to connect to this", "no pg_hba.conf entry"}
+	for _, key := range errs {
+		if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(key)) {
+			return true
+		}
+	}
+	return false
 }

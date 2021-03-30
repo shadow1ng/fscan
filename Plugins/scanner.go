@@ -66,19 +66,21 @@ func Scan(info common.HostInfo) {
 	common.WaitSave()
 }
 
+var Mutex = &sync.Mutex{}
+
 func AddScan(scantype string, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
-		err, _ := ScanFunc(PluginList, scantype, &info)
-		if common.LogErr {
-			tmperr := err[0].Interface()
-			if tmperr != nil {
-				tmperr1 := err[0].Interface().(error)
-				errtext := strings.Replace(tmperr1.Error(), "\n", "", -1)
-				fmt.Println("[-] ", info.Host+":"+info.Ports, errtext)
-			}
-		}
+		Mutex.Lock()
+		common.Num += 1
+		Mutex.Unlock()
+
+		ScanFunc(PluginList, scantype, &info)
 		wg.Done()
+
+		Mutex.Lock()
+		common.End += 1
+		Mutex.Unlock()
 		<-ch
 	}()
 	ch <- struct{}{}

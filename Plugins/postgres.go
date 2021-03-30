@@ -10,6 +10,7 @@ import (
 )
 
 func PostgresScan(info *common.HostInfo) (tmperr error) {
+	starttime := time.Now().Unix()
 	for _, user := range common.Userdict["postgresql"] {
 		for _, pass := range common.Passwords {
 			pass = strings.Replace(pass, "{user}", string(user), -1)
@@ -17,9 +18,15 @@ func PostgresScan(info *common.HostInfo) (tmperr error) {
 			if flag == true && err == nil {
 				return err
 			} else {
-				errlog := fmt.Sprintf("[-] psql %v %v %v %v %v", info.Host, common.PORTList["psql"], user, pass, err)
+				errlog := fmt.Sprintf("[-] psql %v:%v %v %v %v", info.Host, common.PORTList["psql"], user, pass, err)
 				common.LogError(errlog)
 				tmperr = err
+				if common.CheckErrs(err) {
+					return err
+				}
+				if time.Now().Unix()-starttime > 300 {
+					return err
+				}
 			}
 		}
 	}

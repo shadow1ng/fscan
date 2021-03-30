@@ -17,8 +17,9 @@ func WebScan(info *common.HostInfo) {
 	var pocinfo = common.Pocinfo
 	pocinfo.Target = info.Url
 	err := Execute(pocinfo)
-	if err != nil && common.LogErr {
-		fmt.Println(info.Url, err)
+	if err != nil {
+		errlog := fmt.Sprintf("[-] webtitle %v %v", info.Url, err)
+		common.LogError(errlog)
 	}
 }
 
@@ -33,7 +34,6 @@ func Execute(PocInfo common.PocInfo) error {
 	}
 
 	lib.CheckMultiPoc(req, Pocs, PocInfo.Num, PocInfo.PocName)
-
 	return nil
 }
 

@@ -10,6 +10,7 @@ import (
 )
 
 func MysqlScan(info *common.HostInfo) (tmperr error) {
+	starttime := time.Now().Unix()
 	for _, user := range common.Userdict["mysql"] {
 		for _, pass := range common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
@@ -17,9 +18,15 @@ func MysqlScan(info *common.HostInfo) (tmperr error) {
 			if flag == true && err == nil {
 				return err
 			} else {
-				errlog := fmt.Sprintf("[-] mysql %v %v %v %v %v", info.Host, common.PORTList["mysql"], user, pass, err)
+				errlog := fmt.Sprintf("[-] mysql %v:%v %v %v %v", info.Host, common.PORTList["mysql"], user, pass, err)
 				common.LogError(errlog)
 				tmperr = err
+				if common.CheckErrs(err) {
+					return err
+				}
+				if time.Now().Unix()-starttime > 300 {
+					return err
+				}
 			}
 		}
 	}

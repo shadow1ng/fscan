@@ -8,21 +8,28 @@ import (
 	"time"
 )
 
-func MemcachedScan(info *common.HostInfo) (err error, result string) {
+func MemcachedScan(info *common.HostInfo) (err error) {
 	realhost := fmt.Sprintf("%s:%d", info.Host, common.PORTList["mem"])
 	client, err := net.DialTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
 	if err == nil {
-		client.SetDeadline(time.Now().Add(time.Duration(info.Timeout) * time.Second))
-		client.Write([]byte("stats\n")) //Set the key randomly to prevent the key on the server from being overwritten
-		rev := make([]byte, 1024)
-		n, err := client.Read(rev)
+		err = client.SetDeadline(time.Now().Add(time.Duration(info.Timeout) * time.Second))
 		if err == nil {
-			if strings.Contains(string(rev[:n]), "STAT") {
-				defer client.Close()
-				result = fmt.Sprintf("Memcached:%s unauthorized", realhost)
-				common.LogSuccess(result)
+			_, err = client.Write([]byte("stats\n")) //Set the key randomly to prevent the key on the server from being overwritten
+			if err == nil {
+				rev := make([]byte, 1024)
+				n, err := client.Read(rev)
+				if err == nil {
+					if strings.Contains(string(rev[:n]), "STAT") {
+						result := fmt.Sprintf("[+] Memcached %s unauthorized", realhost)
+						common.LogSuccess(result)
+					}
+					client.Close()
+				} else {
+					errlog := fmt.Sprintf("[-] Memcached %v:%v %v", info.Host, common.PORTList["mem"], err)
+					common.LogError(errlog)
+				}
 			}
 		}
 	}
-	return err, result
+	return err
 }

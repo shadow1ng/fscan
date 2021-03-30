@@ -9,6 +9,7 @@ import (
 )
 
 func SmbScan(info *common.HostInfo) (tmperr error) {
+	starttime := time.Now().Unix()
 	for _, user := range common.Userdict["smb"] {
 		for _, pass := range common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
@@ -16,16 +17,22 @@ func SmbScan(info *common.HostInfo) (tmperr error) {
 			if flag == true && err == nil {
 				var result string
 				if info.Domain != "" {
-					result = fmt.Sprintf("SMB:%v:%v:%v\\%v %v", info.Host, info.Ports, info.Domain, user, pass)
+					result = fmt.Sprintf("[+] SMB:%v:%v:%v\\%v %v", info.Host, info.Ports, info.Domain, user, pass)
 				} else {
-					result = fmt.Sprintf("SMB:%v:%v:%v %v", info.Host, info.Ports, user, pass)
+					result = fmt.Sprintf("[+] SMB:%v:%v:%v %v", info.Host, info.Ports, user, pass)
 				}
 				common.LogSuccess(result)
 				return err
 			} else {
-				errlog := fmt.Sprintf("[-] smb %v %v %v %v %v", info.Host, 445, user, pass, err)
+				errlog := fmt.Sprintf("[-] smb %v:%v %v %v %v", info.Host, 445, user, pass, err)
 				common.LogError(errlog)
 				tmperr = err
+				if common.CheckErrs(err) {
+					return err
+				}
+				if time.Now().Unix()-starttime > 300 {
+					return err
+				}
 			}
 		}
 	}

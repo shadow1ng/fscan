@@ -12,6 +12,15 @@ import (
 )
 
 func WebTitle(info *common.HostInfo) error {
+	err := GOWebTitle(info)
+	if err != nil {
+		errlog := fmt.Sprintf("[-] webtitle %v %v", info.Url, err)
+		common.LogError(errlog)
+	}
+	return err
+}
+
+func GOWebTitle(info *common.HostInfo) error {
 	var CheckData []WebScan.CheckDatas
 	if info.Url == "" {
 		if info.Ports == "80" {

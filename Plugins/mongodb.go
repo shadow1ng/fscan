@@ -11,6 +11,10 @@ import (
 
 func MongodbScan(info *common.HostInfo) error {
 	_, err := MongodbUnauth(info)
+	if err != nil {
+		errlog := fmt.Sprintf("[-] Mongodb %v:%v %v", info.Host, common.PORTList["mgo"], err)
+		common.LogError(errlog)
+	}
 	return err
 }
 
@@ -46,7 +50,7 @@ func MongodbUnauth(info *common.HostInfo) (flag bool, err error) {
 		text := string(buf[0:count])
 		if strings.Contains(text, "totalLinesWritten") {
 			flag = true
-			result := fmt.Sprintf("Mongodb:%v unauthorized", realhost)
+			result := fmt.Sprintf("[+] Mongodb:%v unauthorized", realhost)
 			common.LogSuccess(result)
 		}
 	}

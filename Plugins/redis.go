@@ -11,6 +11,7 @@ import (
 )
 
 func RedisScan(info *common.HostInfo) (tmperr error) {
+	starttime := time.Now().Unix()
 	flag, err := RedisUnauth(info)
 	if flag == true && err == nil {
 		return err
@@ -21,9 +22,15 @@ func RedisScan(info *common.HostInfo) (tmperr error) {
 		if flag == true && err == nil {
 			return err
 		} else {
-			errlog := fmt.Sprintf("[-] redis %v %v %v %v %v", info.Host, common.PORTList["redis"], pass, err)
+			errlog := fmt.Sprintf("[-] redis %v:%v %v %v %v", info.Host, common.PORTList["redis"], pass, err)
 			common.LogError(errlog)
 			tmperr = err
+			if common.CheckErrs(err) {
+				return err
+			}
+			if time.Now().Unix()-starttime > 300 {
+				return err
+			}
 		}
 	}
 	return tmperr

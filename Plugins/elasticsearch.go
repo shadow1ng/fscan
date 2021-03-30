@@ -32,10 +32,13 @@ func geturl2(info *common.HostInfo) (flag bool, err error) {
 			defer resp.Body.Close()
 			body, _ := ioutil.ReadAll(resp.Body)
 			if strings.Contains(string(body), "/_cat/master") {
-				result := fmt.Sprintf("Elastic:%s unauthorized", url)
+				result := fmt.Sprintf("[+] Elastic:%s unauthorized", url)
 				common.LogSuccess(result)
 				flag = true
 			}
+		} else {
+			errlog := fmt.Sprintf("[-] Elastic:%s %v", url, err)
+			common.LogError(errlog)
 		}
 	}
 	return flag, err

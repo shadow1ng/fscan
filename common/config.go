@@ -1,16 +1,16 @@
 package common
 
 var Userdict = map[string][]string{
-	"ftp":        {"www", "admin", "root", "db", "wwwroot", "data", "web", "ftp"},
-	"mysql":      {"root"},
-	"mssql":      {"root", "sa"},
+	"ftp":        {"ftp", "admin", "www", "web", "root", "db", "wwwroot", "data"},
+	"mysql":      {"root", "mysql"},
+	"mssql":      {"sa", "root"},
 	"smb":        {"administrator", "guest"},
 	"postgresql": {"postgres", "admin"},
 	"ssh":        {"root", "admin"},
 	"mongodb":    {"root", "admin"},
 }
 
-var Passwords = []string{"admin123A", "admin123", "123456", "admin", "root", "password", "123123", "654321", "123", "1", "admin@123", "Admin@123", "{user}", "{user}123", "", "P@ssw0rd!", "qwa123", "12345678", "test", "123qwe!@#", "123456789", "123321", "666666", "fuckyou", "000000", "1234567890", "8888888", "qwerty", "1qaz2wsx", "abc123", "abc123456", "1qaz@WSX", "Aa123456", "sysadmin", "system", "huawei"}
+var Passwords = []string{"123456", "admin", "admin123", "root", "", "password", "123123", "654321", "123", "1", "admin@123", "Admin@123", "{user}", "{user}123", "P@ssw0rd!", "qwa123", "12345678", "test", "123qwe!@#", "123456789", "123321", "666666", "fuckyou", "000000", "1234567890", "8888888", "qwerty", "1qaz2wsx", "abc123", "abc123456", "1qaz@WSX", "Aa123456", "sysadmin", "system", "huawei"}
 
 var PORTList = map[string]int{
 	"ftp":         21,
