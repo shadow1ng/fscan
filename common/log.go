@@ -66,12 +66,6 @@ func LogError(errinfo interface{}) {
 			fmt.Println(fmt.Sprintf("已完成 %v/%v", End, Num))
 			LogErrTime = time.Now().Unix()
 		}
-	} else {
-		if (time.Now().Unix()-LogSucTime) > 60 && (time.Now().Unix()-LogErrTime) > 60 {
-			fmt.Println(errinfo)
-			fmt.Println(fmt.Sprintf("已完成 %v/%v", End, Num))
-			LogErrTime = time.Now().Unix()
-		}
 	}
 }
 
