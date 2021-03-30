@@ -25,12 +25,13 @@ func SmbScan(info *common.HostInfo) (tmperr error) {
 				return err
 			} else {
 				errlog := fmt.Sprintf("[-] smb %v:%v %v %v %v", info.Host, 445, user, pass, err)
+				errlog = strings.Replace(errlog, "\n", "", -1)
 				common.LogError(errlog)
 				tmperr = err
 				if common.CheckErrs(err) {
 					return err
 				}
-				if time.Now().Unix()-starttime > 300 {
+				if time.Now().Unix()-starttime > (int64(len(common.Userdict["smb"])*len(common.Passwords)) * info.Timeout) {
 					return err
 				}
 			}

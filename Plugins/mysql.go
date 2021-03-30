@@ -24,7 +24,7 @@ func MysqlScan(info *common.HostInfo) (tmperr error) {
 				if common.CheckErrs(err) {
 					return err
 				}
-				if time.Now().Unix()-starttime > 300 {
+				if time.Now().Unix()-starttime > (int64(len(common.Userdict["mysql"])*len(common.Passwords)) * info.Timeout) {
 					return err
 				}
 			}

@@ -10,14 +10,13 @@ import (
 var Num int64
 var End int64
 var Results = make(chan string)
-var Worker = 0
 var Start = true
 var LogSucTime int64
 var LogErr bool
 var LogErrTime int64
+var WaitTime int64
 
 func LogSuccess(result string) {
-	Worker++
 	LogSucTime = time.Now().Unix()
 	if Start {
 		go SaveLog()
@@ -32,7 +31,6 @@ func SaveLog() {
 		if IsSave {
 			WriteFile(result, Outputfile)
 		}
-		Worker--
 	}
 }
 
@@ -50,22 +48,10 @@ func WriteFile(result string, filename string) {
 	}
 }
 
-func WaitSave() {
-	for {
-		if Worker <= 0 {
-			close(Results)
-			return
-		}
-	}
-}
-
 func LogError(errinfo interface{}) {
-	if LogErr {
-		if (time.Now().Unix()-LogSucTime) > 10 && (time.Now().Unix()-LogErrTime) > 10 {
-			fmt.Println(errinfo)
-			fmt.Println(fmt.Sprintf("已完成 %v/%v", End, Num))
-			LogErrTime = time.Now().Unix()
-		}
+	if (time.Now().Unix()-LogSucTime) > WaitTime && (time.Now().Unix()-LogErrTime) > WaitTime {
+		fmt.Println(fmt.Sprintf("已完成 %v/%v %v", End, Num, errinfo))
+		LogErrTime = time.Now().Unix()
 	}
 }
 

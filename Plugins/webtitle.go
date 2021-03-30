@@ -95,7 +95,7 @@ func geturl(info *common.HostInfo, flag bool, CheckData []WebScan.CheckDatas) (e
 				title = "None"
 			}
 			if flag == true {
-				result := fmt.Sprintf("WebTitle:%-25v %-3v %v", Url, resp.StatusCode, title)
+				result := fmt.Sprintf("[*] WebTitle:%-25v %-3v %v", Url, resp.StatusCode, title)
 				common.LogSuccess(result)
 			}
 

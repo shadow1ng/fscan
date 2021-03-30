@@ -12,7 +12,7 @@ import (
 )
 
 func Scan(info common.HostInfo) {
-	fmt.Println("scan start")
+	fmt.Println("start infoscan")
 	Hosts, _ := common.ParseIP(info.Host, common.HostFile)
 	WebScan.Inithttp(common.Pocinfo)
 	var ch = make(chan struct{}, common.Threads)
@@ -34,6 +34,7 @@ func Scan(info common.HostInfo) {
 		for _, port := range common.PORTList {
 			severports = append(severports, strconv.Itoa(port))
 		}
+		fmt.Println("start vulscan")
 		for _, targetIP := range AlivePorts {
 			info.Host, info.Ports = strings.Split(targetIP, ":")[0], strings.Split(targetIP, ":")[1]
 			if info.Scantype == "all" {
@@ -63,7 +64,8 @@ func Scan(info common.HostInfo) {
 		}
 	}
 	wg.Wait()
-	common.WaitSave()
+	close(common.Results)
+	fmt.Println(fmt.Sprintf("已完成 %v/%v", common.End, common.Num))
 }
 
 var Mutex = &sync.Mutex{}

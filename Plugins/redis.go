@@ -28,7 +28,7 @@ func RedisScan(info *common.HostInfo) (tmperr error) {
 			if common.CheckErrs(err) {
 				return err
 			}
-			if time.Now().Unix()-starttime > 300 {
+			if time.Now().Unix()-starttime > (int64(len(common.Passwords)) * info.Timeout) {
 				return err
 			}
 		}
@@ -128,7 +128,7 @@ func Expoilt(realhost string, conn net.Conn) error {
 			}
 		}
 	}
-	recoverdb(dbfilename, dir, conn)
+	err = recoverdb(dbfilename, dir, conn)
 	return err
 }
 
