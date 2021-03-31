@@ -48,7 +48,9 @@ func WriteFile(result string, filename string) {
 }
 
 func LogError(errinfo interface{}) {
-	if (time.Now().Unix()-LogSucTime) > WaitTime && (time.Now().Unix()-LogErrTime) > WaitTime {
+	if WaitTime == 0 {
+		fmt.Println(fmt.Sprintf("已完成 %v/%v %v", End, Num, errinfo))
+	} else if (time.Now().Unix()-LogSucTime) > WaitTime && (time.Now().Unix()-LogErrTime) > WaitTime {
 		fmt.Println(fmt.Sprintf("已完成 %v/%v %v", End, Num, errinfo))
 		LogErrTime = time.Now().Unix()
 	}
