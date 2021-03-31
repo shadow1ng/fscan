@@ -131,7 +131,7 @@ func ParseIPC(ip string) ([]string, error) {
 		}
 		startNum := start[0]<<24 | start[1]<<16 | start[2]<<8 | start[3]
 		endNum := end[0]<<24 | end[1]<<16 | end[2]<<8 | end[3]
-		for num := startNum; num < endNum; num++ {
+		for num := startNum; num <= endNum; num++ {
 			ip := strconv.Itoa((num>>24)&0xff) + "." + strconv.Itoa((num>>16)&0xff) + "." + strconv.Itoa((num>>8)&0xff) + "." + strconv.Itoa((num)&0xff)
 			AllIP = append(AllIP, ip)
 		}
