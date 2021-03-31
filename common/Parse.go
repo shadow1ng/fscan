@@ -107,12 +107,6 @@ func ParseInput(Info *HostInfo) {
 		os.Exit(0)
 	}
 
-	if LogErr {
-		WaitTime = 10
-	} else {
-		WaitTime = 100
-	}
-
 	if TmpOutputfile != "" {
 		if !strings.Contains(Outputfile, "/") && !strings.Contains(Outputfile, `\`) {
 			Outputfile = getpath() + TmpOutputfile

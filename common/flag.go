@@ -38,7 +38,7 @@ func Flag(Info *HostInfo) {
 	flag.BoolVar(&Ping, "ping", false, "using ping replace icmp")
 	flag.StringVar(&TmpOutputfile, "o", "result.txt", "Outputfile")
 	flag.BoolVar(&TmpSave, "no", false, "not to save output log")
-	flag.BoolVar(&LogErr, "debug", false, "debug mode will print more error info")
+	flag.Int64Var(&LogErrTime, "debug", 120, "every time to LogErr")
 	flag.StringVar(&URL, "u", "", "url")
 	flag.StringVar(&UrlFile, "uf", "", "urlfile")
 	flag.StringVar(&Pocinfo.PocName, "pocname", "", "use the pocs these contain pocname, -pocname weblogic")

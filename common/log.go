@@ -12,7 +12,6 @@ var End int64
 var Results = make(chan string)
 var Start = true
 var LogSucTime int64
-var LogErr bool
 var LogErrTime int64
 var WaitTime int64
 
