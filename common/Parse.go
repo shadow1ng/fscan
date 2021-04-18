@@ -128,7 +128,7 @@ func ParseScantype(Info *HostInfo) {
 		if Info.Ports == DefaultPorts {
 			switch Info.Scantype {
 			case "webtitle":
-				Info.Ports = "80,81,443,7001,8000,8080,8089,9200"
+				Info.Ports = Webport
 			case "ms17010":
 				Info.Ports = "445"
 			case "cve20200796":
@@ -138,7 +138,7 @@ func ParseScantype(Info *HostInfo) {
 				port, _ := PORTList[Info.Scantype]
 				Info.Ports = strconv.Itoa(port)
 			}
-			fmt.Println("if -m ", Info.Scantype, " only scan the port:", Info.Ports)
+			fmt.Println("-m ", Info.Scantype, " start scan the port:", Info.Ports)
 		}
 	}
 }
