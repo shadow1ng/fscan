@@ -1,0 +1,11 @@
+name: poc-yaml-ruijie-uac-cnvd-2021-14536
+rules:
+  - method: GET
+    path: /login.php
+    follow_redirects: false
+    expression: |
+      response.status == 200  && response.body.bcontains(b"get_dkey_passwd") && response.body.bcontains(b"password")
+detail:
+  author: jweny(https://github.com/jweny)
+  links:
+    - https://mp.weixin.qq.com/s?__biz=Mzg3NDU2MTg0Ng==&mid=2247483972&idx=1&sn=b51678c6206a533330b0279454335065

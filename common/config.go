@@ -10,7 +10,7 @@ var Userdict = map[string][]string{
 	"mongodb":    {"root", "admin"},
 }
 
-var Passwords = []string{"123456", "admin", "admin123", "root", "", "password", "123123", "654321", "123", "1", "admin@123", "Admin@123", "{user}", "{user}123", "P@ssw0rd!", "qwa123", "12345678", "test", "123qwe!@#", "123456789", "123321", "666666", "fuckyou", "000000", "1234567890", "8888888", "qwerty", "1qaz2wsx", "abc123", "abc123456", "1qaz@WSX", "Aa123456", "sysadmin", "system", "huawei"}
+var Passwords = []string{"123456", "admin", "admin123", "root", "", "password", "123123", "654321", "111111", "123", "1", "admin@123", "Admin@123", "{user}", "{user}123", "{user}@123", "{user}_123", "{user}#123", "{user}@111", "{user}@2019", "P@ssw0rd!", "P@ssw0rd", "Passw0rd", "qwe123", "12345678", "test", "123qwe!@#", "123456789", "123321", "666666", "123456~a", "000000", "1234567890", "8888888", "qwerty", "1qaz2wsx", "abc123", "abc123456", "1qaz@WSX", "a11111", "a12345", "Aa12345", "a123456", "a123123", "Aa123123", "Aa123456", "Aa12345.", "sysadmin", "system", "huawei"}
 
 var PORTList = map[string]int{
 	"ftp":         21,

