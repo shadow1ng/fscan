@@ -22,7 +22,7 @@ func Findnet(info *common.HostInfo) error {
 }
 
 func FindnetScan(info *common.HostInfo) error {
-	realhost := fmt.Sprintf("%s:%d", info.Host, 135)
+	realhost := fmt.Sprintf("%s:%v", info.Host, 135)
 	conn, err := net.DialTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
 	if err != nil {
 		return err

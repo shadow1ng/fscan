@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 func Scan(info common.HostInfo) {
@@ -47,7 +48,7 @@ func Scan(info common.HostInfo) {
 					AddScan("1000003", info, ch, &wg) //webtitle
 				}
 			} else {
-				port, _ := common.PortlistBack[info.Scantype]
+				port, _ := common.PORTList[info.Scantype]
 				scantype := strconv.Itoa(port)
 				AddScan(scantype, info, ch, &wg)
 			}
@@ -64,6 +65,7 @@ func Scan(info common.HostInfo) {
 		}
 	}
 	wg.Wait()
+	time.Sleep(100 * time.Millisecond)
 	close(common.Results)
 	fmt.Println(fmt.Sprintf("已完成 %v/%v", common.End, common.Num))
 }

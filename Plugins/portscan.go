@@ -55,7 +55,7 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 
 func PortConnect(addr Addr, respondingHosts chan<- string, adjustedTimeout int64) {
 	host, port := addr.ip, addr.port
-	con, err := net.DialTimeout("tcp4", fmt.Sprintf("%s:%d", host, port), time.Duration(adjustedTimeout)*time.Second)
+	con, err := net.DialTimeout("tcp4", fmt.Sprintf("%s:%v", host, port), time.Duration(adjustedTimeout)*time.Second)
 	if err == nil {
 		con.Close()
 		address := host + ":" + strconv.Itoa(port)

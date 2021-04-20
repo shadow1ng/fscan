@@ -24,34 +24,14 @@ var PORTList = map[string]int{
 	"smb":         445,
 	"ms17010":     1000001,
 	"cve20200796": 1000002,
-	"webtitle":    1000003,
+	"web":         1000003,
 	"elastic":     9200,
 	"findnet":     135,
 	"netbios":     139,
 	"all":         0,
 	"portscan":    0,
 	"icmp":        0,
-}
-
-var PortlistBack = map[string]int{
-	"ftp":         21,
-	"ssh":         22,
-	"mem":         11211,
-	"mgo":         27017,
-	"mssql":       1433,
-	"psql":        5432,
-	"redis":       6379,
-	"mysql":       3306,
-	"smb":         445,
-	"ms17010":     1000001,
-	"cve20200796": 1000002,
-	"webtitle":    1000003,
-	"elastic":     9200,
-	"findnet":     135,
-	"NetBIOS":     139,
-	"all":         0,
-	"portscan":    0,
-	"icmp":        0,
+	"main":        0,
 }
 
 var Outputfile = getpath() + "result.txt"

@@ -2,7 +2,7 @@
 
 # 简介
 一款内网综合扫描工具，方便一键自动化、全方位漏扫扫描。   
-支持主机存活探测、端口扫描、常见服务的爆破、ms17010、redis批量写公钥、计划任务反弹shell、读取win网卡信息、web指纹识别、web漏洞扫描等。
+支持主机存活探测、端口扫描、常见服务的爆破、ms17010、redis批量写公钥、计划任务反弹shell、读取win网卡信息、web指纹识别、web漏洞扫描、netbios探测、域控识别等功能。
 
 ## 主要功能
 1.信息搜集:
@@ -138,6 +138,7 @@ https://github.com/k8gege/LadonGo
 https://github.com/jjf012/gopoc
 
 ## 最近更新
+[+] 2021/4/21 加入netbios探测、域控识别
 [+] 2021/3/4 支持-u url或者-uf url.txt,对url进行批量扫描  
 [+] 2021/2/25 修改yaml解析模块,支持密码爆破,如tomcat弱口令。yaml中新增sets参数,类型为数组,用于存放密码,具体看tomcat-manager-week.yaml  
 [+] 2021/2/8 增加指纹识别功能,可识别常见CMS、框架,如致远OA、通达OA等。  

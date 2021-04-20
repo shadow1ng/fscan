@@ -117,6 +117,9 @@ func ParseInput(Info *HostInfo) {
 	if TmpSave == true {
 		IsSave = false
 	}
+	if Info.Ports == DefaultPorts {
+		Info.Ports += Webport
+	}
 }
 
 func ParseScantype(Info *HostInfo) {
@@ -127,13 +130,14 @@ func ParseScantype(Info *HostInfo) {
 	if Info.Scantype != "all" {
 		if Info.Ports == DefaultPorts {
 			switch Info.Scantype {
-			case "webtitle":
+			case "web":
 				Info.Ports = Webport
 			case "ms17010":
 				Info.Ports = "445"
 			case "cve20200796":
 				Info.Ports = "445"
-			case "portscan":
+			case "main":
+				Info.Ports = DefaultPorts
 			default:
 				port, _ := PORTList[Info.Scantype]
 				Info.Ports = strconv.Itoa(port)

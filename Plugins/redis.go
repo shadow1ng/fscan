@@ -22,7 +22,7 @@ func RedisScan(info *common.HostInfo) (tmperr error) {
 		if flag == true && err == nil {
 			return err
 		} else {
-			errlog := fmt.Sprintf("[-] redis %v:%v %v %v %v", info.Host, common.PORTList["redis"], pass, err)
+			errlog := fmt.Sprintf("[-] redis %v:%v %v %v", info.Host, info.Ports, pass, err)
 			common.LogError(errlog)
 			tmperr = err
 			if common.CheckErrs(err) {
@@ -38,7 +38,7 @@ func RedisScan(info *common.HostInfo) (tmperr error) {
 
 func RedisConn(info *common.HostInfo, pass string) (flag bool, err error) {
 	flag = false
-	realhost := fmt.Sprintf("%s:%d", info.Host, common.PORTList["redis"])
+	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	conn, err := net.DialTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
 	if err != nil {
 		return flag, err
@@ -63,7 +63,7 @@ func RedisConn(info *common.HostInfo, pass string) (flag bool, err error) {
 
 func RedisUnauth(info *common.HostInfo) (flag bool, err error) {
 	flag = false
-	realhost := fmt.Sprintf("%s:%d", info.Host, common.PORTList["redis"])
+	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	conn, err := net.DialTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
 	if err != nil {
 		return flag, err

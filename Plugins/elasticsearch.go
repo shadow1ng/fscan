@@ -16,7 +16,7 @@ func elasticsearchScan(info *common.HostInfo) error {
 
 func geturl2(info *common.HostInfo) (flag bool, err error) {
 	flag = false
-	url := fmt.Sprintf("%s:%d/_cat", info.Url, common.PORTList["elastic"])
+	url := fmt.Sprintf("%s:%v/_cat", info.Url, info.Ports)
 	res, err := http.NewRequest("GET", url, nil)
 	if err == nil {
 		res.Header.Add("User-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1468.0 Safari/537.36")

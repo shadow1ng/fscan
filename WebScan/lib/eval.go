@@ -123,6 +123,10 @@ func NewEnvOption() CustomLib {
 				decls.NewOverload("randomLowercase_int",
 					[]*exprpb.Type{decls.Int},
 					decls.String)),
+			decls.NewFunction("randomUppercase",
+				decls.NewOverload("randomUppercase_int",
+					[]*exprpb.Type{decls.Int},
+					decls.String)),
 			decls.NewFunction("base64",
 				decls.NewOverload("base64_string",
 					[]*exprpb.Type{decls.String},
@@ -236,6 +240,16 @@ func NewEnvOption() CustomLib {
 						return types.ValOrErr(value, "unexpected type '%v' passed to randomLowercase", value.Type())
 					}
 					return types.String(randomLowercase(int(n)))
+				},
+			},
+			&functions.Overload{
+				Operator: "randomUppercase_int",
+				Unary: func(value ref.Val) ref.Val {
+					n, ok := value.(types.Int)
+					if !ok {
+						return types.ValOrErr(value, "unexpected type '%v' passed to randomUppercase", value.Type())
+					}
+					return types.String(randomUppercase(int(n)))
 				},
 			},
 			&functions.Overload{
@@ -425,6 +439,12 @@ func randomLowercase(n int) string {
 	return RandomStr(randSource, lowercase, n)
 }
 
+func randomUppercase(n int) string {
+	lowercase := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	randSource := rand.New(rand.NewSource(time.Now().Unix()))
+	return RandomStr(randSource, lowercase, n)
+}
+
 func reverseCheck(r *Reverse, timeout int64) bool {
 	if ceyeApi == "" || r.Domain == "" {
 		return false
@@ -444,7 +464,6 @@ func reverseCheck(r *Reverse, timeout int64) bool {
 	}
 	return false
 }
-
 
 func RandomStr(randSource *rand.Rand, letterBytes string, n int) string {
 	const (

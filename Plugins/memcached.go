@@ -9,7 +9,7 @@ import (
 )
 
 func MemcachedScan(info *common.HostInfo) (err error) {
-	realhost := fmt.Sprintf("%s:%d", info.Host, common.PORTList["mem"])
+	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	client, err := net.DialTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
 	if err == nil {
 		err = client.SetDeadline(time.Now().Add(time.Duration(info.Timeout) * time.Second))
@@ -25,7 +25,7 @@ func MemcachedScan(info *common.HostInfo) (err error) {
 					}
 					client.Close()
 				} else {
-					errlog := fmt.Sprintf("[-] Memcached %v:%v %v", info.Host, common.PORTList["mem"], err)
+					errlog := fmt.Sprintf("[-] Memcached %v:%v %v", info.Host, info.Ports, err)
 					common.LogError(errlog)
 				}
 			}

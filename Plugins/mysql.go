@@ -18,7 +18,7 @@ func MysqlScan(info *common.HostInfo) (tmperr error) {
 			if flag == true && err == nil {
 				return err
 			} else {
-				errlog := fmt.Sprintf("[-] mysql %v:%v %v %v %v", info.Host, common.PORTList["mysql"], user, pass, err)
+				errlog := fmt.Sprintf("[-] mysql %v:%v %v %v %v", info.Host, info.Ports, user, pass, err)
 				common.LogError(errlog)
 				tmperr = err
 				if common.CheckErrs(err) {
@@ -35,7 +35,7 @@ func MysqlScan(info *common.HostInfo) (tmperr error) {
 
 func MysqlConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
 	flag = false
-	Host, Port, Username, Password := info.Host, common.PORTList["mysql"], user, pass
+	Host, Port, Username, Password := info.Host, info.Ports, user, pass
 	dataSourceName := fmt.Sprintf("%v:%v@tcp(%v:%v)/%v?charset=utf8", Username, Password, Host, Port, "mysql")
 	db, err := sql.Open("mysql", dataSourceName)
 	if err == nil {
