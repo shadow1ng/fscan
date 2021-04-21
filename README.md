@@ -131,6 +131,10 @@ go build -ldflags="-s -w " -trimpath
 
 `fscan.exe -h 192.168.x.x -p 139 (netbios探测、域控识别,下图的[+]DC代表域控)`
 ![](image/netbios.png)
+
+`go run .\main.go -h 192.168.x.x/24 -m netbios(-m netbios时,才会显示完整的netbios信息)`
+![](image/netbios1.png)
+
 ## 参考链接
 https://github.com/Adminisme/ServerScan  
 https://github.com/netxfly/x-crack  
