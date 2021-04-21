@@ -129,7 +129,8 @@ go build -ldflags="-s -w " -trimpath
 `fscan.exe -h 192.168.x.x -p80 -proxy http://127.0.0.1:8080 一键支持xray的poc`
 ![](image/2020-12-12-13-34-44.png)
 
-
+`fscan.exe -h 192.168.x.x -p 139 (netbios探测、域控识别,下图的[+]DC代表域控)`
+![](image/netbios.png)
 ## 参考链接
 https://github.com/Adminisme/ServerScan  
 https://github.com/netxfly/x-crack  
