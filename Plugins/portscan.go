@@ -26,6 +26,7 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 	go func() {
 		for found := range results {
 			AliveAddress = append(AliveAddress, found)
+			wg.Done()
 		}
 	}()
 
@@ -33,7 +34,7 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 	for i := 0; i < workers; i++ {
 		go func() {
 			for addr := range Addrs {
-				PortConnect(addr, results, timeout)
+				PortConnect(addr, results, timeout, &wg)
 				wg.Done()
 			}
 		}()
@@ -42,18 +43,17 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 	//添加扫描目标
 	for _, port := range probePorts {
 		for _, host := range hostslist {
-			Addrs <- Addr{host, port}
 			wg.Add(1)
+			Addrs <- Addr{host, port}
 		}
 	}
-
 	wg.Wait()
 	close(Addrs)
 	close(results)
 	return AliveAddress
 }
 
-func PortConnect(addr Addr, respondingHosts chan<- string, adjustedTimeout int64) {
+func PortConnect(addr Addr, respondingHosts chan<- string, adjustedTimeout int64, wg *sync.WaitGroup) {
 	host, port := addr.ip, addr.port
 	con, err := net.DialTimeout("tcp4", fmt.Sprintf("%s:%v", host, port), time.Duration(adjustedTimeout)*time.Second)
 	if err == nil {
@@ -62,5 +62,6 @@ func PortConnect(addr Addr, respondingHosts chan<- string, adjustedTimeout int64
 		result := fmt.Sprintf("%s open", address)
 		common.LogSuccess(result)
 		respondingHosts <- address
+		wg.Add(1)
 	}
 }

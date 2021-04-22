@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 )
 
 func Scan(info common.HostInfo) {
@@ -65,7 +64,7 @@ func Scan(info common.HostInfo) {
 		}
 	}
 	wg.Wait()
-	time.Sleep(100 * time.Millisecond)
+	common.Logwg.Wait()
 	close(common.Results)
 	fmt.Println(fmt.Sprintf("已完成 %v/%v", common.End, common.Num))
 }
@@ -78,10 +77,8 @@ func AddScan(scantype string, info common.HostInfo, ch chan struct{}, wg *sync.W
 		Mutex.Lock()
 		common.Num += 1
 		Mutex.Unlock()
-
 		ScanFunc(PluginList, scantype, &info)
 		wg.Done()
-
 		Mutex.Lock()
 		common.End += 1
 		Mutex.Unlock()

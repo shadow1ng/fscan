@@ -143,6 +143,14 @@ https://github.com/hack2fun/Gscan
 https://github.com/k8gege/LadonGo   
 https://github.com/jjf012/gopoc
 
+# 404StarLink 2.0 - Galaxy
+![](https://github.com/knownsec/404StarLink-Project/raw/master/logo.png)
+
+fscan 是 404Team [星链计划2.0](https://github.com/knownsec/404StarLink2.0-Galaxy) 中的一环，如果对fscan 有任何疑问又或是想要找小伙伴交流，可以参考星链计划的加群方式。
+
+- [https://github.com/knownsec/404StarLink2.0-Galaxy#community](https://github.com/knownsec/404StarLink2.0-Galaxy#community)
+
+
 ## 最近更新
 [+] 2021/4/21 加入netbios探测、域控识别  
 [+] 2021/3/4 支持-u url或者-uf url.txt,对url进行批量扫描  
