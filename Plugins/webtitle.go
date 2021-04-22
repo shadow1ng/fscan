@@ -1,14 +1,22 @@
 package Plugins
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/shadow1ng/fscan/WebScan"
 	"github.com/shadow1ng/fscan/WebScan/lib"
 	"github.com/shadow1ng/fscan/common"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
+)
+
+var (
+	Charsets = []string{"utf-8", "gbk", "gb2312"}
 )
 
 func WebTitle(info *common.HostInfo) error {
@@ -19,6 +27,11 @@ func WebTitle(info *common.HostInfo) error {
 	}
 	return err
 }
+
+//flag 1 first try
+//flag 2 /favicon.ico
+//flag 3 302
+//flag 4 400 -> https
 
 func GOWebTitle(info *common.HostInfo) error {
 	var CheckData []WebScan.CheckDatas
@@ -36,19 +49,42 @@ func GOWebTitle(info *common.HostInfo) error {
 		}
 	}
 
-	err, result, CheckData := geturl(info, true, CheckData)
+	err, result, CheckData := geturl(info, 1, CheckData)
 	if err != nil {
 		return err
 	}
-
-	if result == "https" {
-		err, _, CheckData = geturl(info, true, CheckData)
-		if err != nil {
-			return err
+	if strings.Contains(result, "://") {
+		//有跳转
+		redirecturl, err := url.Parse(result)
+		if err == nil {
+			info.Url = redirecturl.String()
+			err, result, CheckData = geturl(info, 3, CheckData)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
-	err, _, CheckData = geturl(info, false, CheckData)
+	if result == "https" {
+		err, result, CheckData = geturl(info, 1, CheckData)
+		if strings.Contains(result, "://") {
+			//有跳转
+			redirecturl, err := url.Parse(result)
+			if err == nil {
+				info.Url = redirecturl.String()
+				err, result, CheckData = geturl(info, 3, CheckData)
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	err, _, CheckData = geturl(info, 2, CheckData)
 	if err != nil {
 		return err
 	}
@@ -61,11 +97,17 @@ func GOWebTitle(info *common.HostInfo) error {
 	return err
 }
 
-func geturl(info *common.HostInfo, flag bool, CheckData []WebScan.CheckDatas) (error, string, []WebScan.CheckDatas) {
+func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (error, string, []WebScan.CheckDatas) {
 	Url := info.Url
-	if flag == false {
-		Url += "/favicon.ico"
+	if flag == 2 {
+		URL, err := url.Parse(Url)
+		if err == nil {
+			Url = fmt.Sprintf("%s://%s/favicon.ico", URL.Scheme, URL.Host)
+		} else {
+			Url += "/favicon.ico"
+		}
 	}
+
 	res, err := http.NewRequest("GET", Url, nil)
 	if err == nil {
 		res.Header.Set("User-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1468.0 Safari/537.36")
@@ -73,34 +115,84 @@ func geturl(info *common.HostInfo, flag bool, CheckData []WebScan.CheckDatas) (e
 		res.Header.Set("Accept-Language", "zh-CN,zh;q=0.9")
 		res.Header.Set("Accept-Encoding", "gzip, deflate")
 		if common.Pocinfo.Cookie != "" {
-			res.Header.Set("Cookie", common.Pocinfo.Cookie)
-		}
-		if flag == true {
 			res.Header.Set("Cookie", "rememberMe=1;"+common.Pocinfo.Cookie)
+		} else {
+			res.Header.Set("Cookie", "rememberMe=1")
 		}
 		res.Header.Set("Connection", "close")
-		resp, err := lib.Client.Do(res)
+
+		var client *http.Client
+		if flag == 1 {
+			client = lib.ClientNoRedirect
+		} else {
+			client = lib.Client
+		}
+
+		resp, err := client.Do(res)
 		if err == nil {
 			defer resp.Body.Close()
 			var title string
 			body, _ := ioutil.ReadAll(resp.Body)
-			re := regexp.MustCompile("<title>(.*)</title>")
-			find := re.FindAllStringSubmatch(string(body), -1)
-			if len(find) > 0 {
-				title = find[0][1]
+			if flag != 2 {
+				re := regexp.MustCompile("(?im)<title>(.*)</title>")
+				find := re.FindSubmatch(body)
+				if len(find) > 1 {
+					text := find[1]
+					GetEncoding := func() string { // 判断Content-Type
+						r1, err := regexp.Compile(`(?im)charset=\s*?([\w-]+)`)
+						if err != nil {
+							return ""
+						}
+						headerCharset := r1.FindString(resp.Header.Get("Content-Type"))
+						if headerCharset != "" {
+							for _, v := range Charsets { // headers 编码优先，所以放在前面
+								if strings.Contains(strings.ToLower(headerCharset), v) == true {
+									return v
+								}
+							}
+						}
+
+						r2, err := regexp.Compile(`(?im)<meta.*?charset=['"]?([\w-]+)["']?.*?>`)
+						if err != nil {
+							return ""
+						}
+						htmlCharset := r2.FindString(string(body))
+						if htmlCharset != "" {
+							for _, v := range Charsets {
+								if strings.Contains(strings.ToLower(htmlCharset), v) == true {
+									return v
+								}
+							}
+						}
+						return ""
+					}
+					encoding := GetEncoding()
+					if encoding == "gbk" || encoding == "gb2312" {
+						titleGBK, err := Decodegbk(text)
+						if err == nil {
+							title = string(titleGBK)
+						}
+					} else {
+						title = string(text)
+					}
+				} else {
+					title = "None"
+				}
+				title = strings.Trim(title, "\r\n \t")
+				title = strings.Replace(title, "\n", "", -1)
+				title = strings.Replace(title, "\r", "", -1)
+				title = strings.Replace(title, "&nbsp;", " ", -1)
 				if len(title) > 100 {
 					title = title[:100]
 				}
-			} else {
-				title = "None"
-			}
-			if flag == true {
 				result := fmt.Sprintf("[*] WebTitle:%-25v %-3v %v", Url, resp.StatusCode, title)
 				common.LogSuccess(result)
 			}
-
 			CheckData = append(CheckData, WebScan.CheckDatas{body, fmt.Sprintf("%s", resp.Header)})
-
+			redirURL, err1 := resp.Location()
+			if err1 == nil {
+				return nil, redirURL.String(), CheckData
+			}
 			if resp.StatusCode == 400 && info.Url[:5] != "https" {
 				info.Url = strings.Replace(info.Url, "http://", "https://", 1)
 				return err, "https", CheckData
@@ -110,4 +202,14 @@ func geturl(info *common.HostInfo, flag bool, CheckData []WebScan.CheckDatas) (e
 		return err, "", CheckData
 	}
 	return err, "", CheckData
+}
+
+func Decodegbk(s []byte) ([]byte, error) { // GBK解码
+	I := bytes.NewReader(s)
+	O := transform.NewReader(I, simplifiedchinese.GBK.NewDecoder())
+	d, e := ioutil.ReadAll(O)
+	if e != nil {
+		return nil, e
+	}
+	return d, nil
 }

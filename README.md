@@ -152,6 +152,7 @@ fscan 是 404Team [星链计划2.0](https://github.com/knownsec/404StarLink2.0-G
 
 
 ## 最近更新
+[+] 2021/4/22 修改webtitle模块,加入gbk解码  
 [+] 2021/4/21 加入netbios探测、域控识别  
 [+] 2021/3/4 支持-u url或者-uf url.txt,对url进行批量扫描  
 [+] 2021/2/25 修改yaml解析模块,支持密码爆破,如tomcat弱口令。yaml中新增sets参数,类型为数组,用于存放密码,具体看tomcat-manager-week.yaml  

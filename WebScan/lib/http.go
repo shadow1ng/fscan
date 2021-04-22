@@ -15,7 +15,7 @@ import (
 
 var (
 	Client           *http.Client
-	clientNoRedirect *http.Client
+	ClientNoRedirect *http.Client
 	dialTimout       = 5 * time.Second
 	keepAlive        = 15 * time.Second
 )
@@ -51,11 +51,11 @@ func InitHttpClient(ThreadsNum int, DownProxy string, Timeout time.Duration) err
 		Transport: tr,
 		Timeout:   Timeout,
 	}
-	clientNoRedirect = &http.Client{
+	ClientNoRedirect = &http.Client{
 		Transport: tr,
 		Timeout:   Timeout,
 	}
-	clientNoRedirect.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+	ClientNoRedirect.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
 	return nil
@@ -75,7 +75,7 @@ func DoRequest(req *http.Request, redirect bool) (*Response, error) {
 	if redirect {
 		oResp, err = Client.Do(req)
 	} else {
-		oResp, err = clientNoRedirect.Do(req)
+		oResp, err = ClientNoRedirect.Do(req)
 	}
 	if err != nil {
 		return nil, err

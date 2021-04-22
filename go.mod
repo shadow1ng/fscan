@@ -12,6 +12,7 @@ require (
 	github.com/stacktitan/smb v0.0.0-20190531122847-da9a425dceb8
 	golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc
 	golang.org/x/net v0.0.0-20210420072503-d25e30425868
+	golang.org/x/text v0.3.6
 	google.golang.org/genproto v0.0.0-20210416161957-9910b6c460de
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
