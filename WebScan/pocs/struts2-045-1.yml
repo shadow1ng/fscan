@@ -9,7 +9,7 @@ rules:
       Content-Type: ${#context["com.opensymphony.xwork2.dispatcher.HttpServletResponse"].addHeader("Keyvalue",{{r1}}*{{r2}})}.multipart/form-data
     follow_redirects: true
     expression: |
-      response.headers["Keyvalue"].contains(string(r1 * r2))
+      "Keyvalue" in response.headers && response.headers["Keyvalue"].contains(string(r1 * r2))
 detail:
   author: shadown1ng(https://github.com/shadown1ng)
 
