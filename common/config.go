@@ -25,13 +25,12 @@ var PORTList = map[string]int{
 	"ms17010":     1000001,
 	"cve20200796": 1000002,
 	"web":         1000003,
-	//"elastic":     9200,
-	"findnet":  135,
-	"netbios":  139,
-	"all":      0,
-	"portscan": 0,
-	"icmp":     0,
-	"main":     0,
+	"findnet":     135,
+	"netbios":     139,
+	"all":         0,
+	"portscan":    0,
+	"icmp":        0,
+	"main":        0,
 }
 
 var Outputfile = getpath() + "result.txt"
