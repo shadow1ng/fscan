@@ -15,10 +15,10 @@ var Start = true
 var LogSucTime int64
 var LogErrTime int64
 var WaitTime int64
-var Logwg sync.WaitGroup
+var LogWG sync.WaitGroup
 
 func LogSuccess(result string) {
-	Logwg.Add(1)
+	LogWG.Add(1)
 	LogSucTime = time.Now().Unix()
 	if Start {
 		go SaveLog()
@@ -33,7 +33,7 @@ func SaveLog() {
 		if IsSave {
 			WriteFile(result, Outputfile)
 		}
-		Logwg.Done()
+		LogWG.Done()
 	}
 }
 

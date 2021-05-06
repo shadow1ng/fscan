@@ -137,6 +137,9 @@ func NetBIOS1(info *common.HostInfo) (nbname NbnsName, err error) {
 	nbname.msg += "-------------------------------------------\n"
 	nbname.msg += msg1 + "\n"
 	start := bytes.Index(ret, []byte("NTLMSSP"))
+	if len(ret) < start+45 {
+		return
+	}
 	num1, err = bytetoint(ret[start+40 : start+41][0])
 	if err != nil {
 		return
@@ -151,7 +154,7 @@ func NetBIOS1(info *common.HostInfo) (nbname NbnsName, err error) {
 		return
 	}
 	offset, err := bytetoint(ret[start+44 : start+45][0])
-	if err != nil {
+	if err != nil || len(ret) < start+offset+length {
 		return
 	}
 	index := start + offset
@@ -211,13 +214,16 @@ func GetNbnsname(info *common.HostInfo) (nbname NbnsName, err error) {
 	data := text[57:]
 	var msg string
 	for i := 0; i < num; i++ {
+		if len(data) < 18*i+16 {
+			break
+		}
 		name := string(data[18*i : 18*i+15])
 		flag_bit := data[18*i+15 : 18*i+16]
 		if GROUP_NAMES[string(flag_bit)] != "" && string(flag_bit) != "\x00" {
 			msg += fmt.Sprintf("%s G %s\n", name, GROUP_NAMES[string(flag_bit)])
 		} else if UNIQUE_NAMES[string(flag_bit)] != "" && string(flag_bit) != "\x00" {
 			msg += fmt.Sprintf("%s U %s\n", name, UNIQUE_NAMES[string(flag_bit)])
-		} else if string(flag_bit) == "\x00" {
+		} else if string(flag_bit) == "\x00" || len(data) >= 18*i+18 {
 			name_flags := data[18*i+16 : 18*i+18][0]
 			if name_flags >= 128 {
 				nbname.group = strings.Replace(name, " ", "", -1)

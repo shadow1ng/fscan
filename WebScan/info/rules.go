@@ -62,8 +62,8 @@ var RuleDatas = []RuleData{
 	{"Citrix-Access-Gateway", "code", "(Citrix Access Gateway)"},
 	{"华为 MCU", "code", "(McuR5-min.js)"},
 	{"TP-LINK Wireless WDR3600", "code", "(TP-LINK Wireless WDR3600)"},
-	{"泛微协同办公OA", "headers", "(ecology_JSessionid)"},
-	{"泛微协同办公OA", "code", "(/spa/portal/public/index.js)"},
+	{"泛微OA", "headers", "(ecology_JSessionid)"},
+	{"泛微OA", "code", "(/spa/portal/public/index.js)"},
 	{"华为_HUAWEI_ASG2050", "code", "(HUAWEI ASG2050)"},
 	{"360网站卫士", "code", "(360wzb)"},
 	{"Citrix-XenServer", "code", "(Citrix Systems, Inc. XenServer)"},
@@ -124,6 +124,8 @@ var RuleDatas = []RuleData{
 	{"大汉版通发布系统", "code", "(大汉版通发布系统|大汉网络)"},
 	{"druid", "code", "(druid.index|DruidDrivers|DruidVersion|Druid Stat Index)"},
 	{"Jenkins", "code", "(Jenkins)"},
+	{"红帆OA", "code", "(iOffice)"},
+	{"VMware vSphere", "code", "(VMware vSphere)"},
 }
 
 var Md5Datas = []Md5Data{

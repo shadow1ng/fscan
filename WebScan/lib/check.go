@@ -67,7 +67,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error) {
 	}
 	env, err := NewEnv(&c)
 	if err != nil {
-		//fmt.Println("environment creation error: %s\n", err)
+		//fmt.Printf("environment creation error: %s\n", err)
 		return false, err
 	}
 	req, err := ParseRequest(oReq)

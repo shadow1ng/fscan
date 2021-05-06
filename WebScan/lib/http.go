@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -39,6 +40,8 @@ func InitHttpClient(ThreadsNum int, DownProxy string, Timeout time.Duration) err
 	if DownProxy != "" {
 		if DownProxy == "1" {
 			DownProxy = "http://127.0.0.1:8080"
+		} else if !strings.Contains(DownProxy, "://") {
+			DownProxy = "http://127.0.0.1:" + DownProxy
 		}
 		u, err := url.Parse(DownProxy)
 		if err != nil {

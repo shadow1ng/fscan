@@ -17,6 +17,22 @@ type Addr struct {
 func PortScan(hostslist []string, ports string, timeout int64) []string {
 	var AliveAddress []string
 	probePorts := common.ParsePort(ports)
+	noPorts := common.ParsePort(common.NoPorts)
+	if len(noPorts) > 0 {
+		tmp := make(map[int]struct{})
+		var tmpPorts []int
+		for _, port := range probePorts {
+			for _, noport := range noPorts {
+				if port != noport {
+					if _, ok := tmp[port]; !ok {
+						tmp[port] = struct{}{}
+						tmpPorts = append(tmpPorts, port)
+					}
+				}
+			}
+		}
+		probePorts = tmpPorts
+	}
 	workers := common.Threads
 	Addrs := make(chan Addr)
 	results := make(chan string)

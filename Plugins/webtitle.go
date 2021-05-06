@@ -6,6 +6,7 @@ import (
 	"github.com/shadow1ng/fscan/WebScan"
 	"github.com/shadow1ng/fscan/WebScan/lib"
 	"github.com/shadow1ng/fscan/common"
+	"golang.org/x/net/html/charset"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
 	"io/ioutil"
@@ -113,7 +114,6 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 		res.Header.Set("User-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1468.0 Safari/537.36")
 		res.Header.Set("Accept", "*/*")
 		res.Header.Set("Accept-Language", "zh-CN,zh;q=0.9")
-		res.Header.Set("Accept-Encoding", "gzip, deflate")
 		if common.Pocinfo.Cookie != "" {
 			res.Header.Set("Cookie", "rememberMe=1;"+common.Pocinfo.Cookie)
 		} else {
@@ -167,7 +167,8 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 						return ""
 					}
 					encoding := GetEncoding()
-					if encoding == "gbk" || encoding == "gb2312" {
+					_, charsetName, _ := charset.DetermineEncoding(body, "")
+					if encoding == "gbk" || encoding == "gb2312" || charsetName == "gbk" {
 						titleGBK, err := Decodegbk(text)
 						if err == nil {
 							title = string(titleGBK)

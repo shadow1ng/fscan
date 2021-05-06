@@ -56,7 +56,7 @@ func SshConn(info *common.HostInfo, user string, pass string) (flag bool, err er
 			flag = true
 			if info.Command != "" {
 				combo, _ := session.CombinedOutput(info.Command)
-				result := fmt.Sprintf("SSH:%v:%v:%v %v \n %v", Host, Port, Username, Password, string(combo))
+				result := fmt.Sprintf("[+] SSH:%v:%v:%v %v \n %v", Host, Port, Username, Password, string(combo))
 				common.LogSuccess(result)
 			} else {
 				result := fmt.Sprintf("[+] SSH:%v:%v:%v %v", Host, Port, Username, Password)

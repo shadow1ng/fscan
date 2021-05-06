@@ -26,19 +26,19 @@ func NewEnv(c *CustomLib) (*cel.Env, error) {
 func Evaluate(env *cel.Env, expression string, params map[string]interface{}) (ref.Val, error) {
 	ast, iss := env.Compile(expression)
 	if iss.Err() != nil {
-		//fmt.Println("compile: ", iss.Err())
+		//fmt.Printf("compile: ", iss.Err())
 		return nil, iss.Err()
 	}
 
 	prg, err := env.Program(ast)
 	if err != nil {
-		//fmt.Println("Program creation error: %v", err)
+		//fmt.Printf("Program creation error: %v", err)
 		return nil, err
 	}
 
 	out, _, err := prg.Eval(params)
 	if err != nil {
-		//fmt.Println("Evaluation error: %v", err)
+		//fmt.Printf("Evaluation error: %v", err)
 		return nil, err
 	}
 	return out, nil

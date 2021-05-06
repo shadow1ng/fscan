@@ -26,6 +26,7 @@ func Scan(info common.HostInfo) {
 			return
 		}
 		AlivePorts := PortScan(Hosts, info.Ports, info.Timeout)
+		fmt.Println("alive ports len is:", len(AlivePorts))
 		if info.Scantype == "portscan" {
 			return
 		}
@@ -64,7 +65,7 @@ func Scan(info common.HostInfo) {
 		}
 	}
 	wg.Wait()
-	common.Logwg.Wait()
+	common.LogWG.Wait()
 	close(common.Results)
 	fmt.Println(fmt.Sprintf("已完成 %v/%v", common.End, common.Num))
 }

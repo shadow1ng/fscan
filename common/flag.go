@@ -11,7 +11,7 @@ func Banner() {
  / /_\/____/ __|/ __| '__/ _` + "`" + ` |/ __| |/ /
 / /_\\_____\__ \ (__| | | (_| | (__|   <    
 \____/     |___/\___|_|  \__,_|\___|_|\_\   
-                     fscan version: 1.5.1.2
+                     fscan version: 1.6.0
 `
 	print(banner)
 }
@@ -20,6 +20,7 @@ func Flag(Info *HostInfo) {
 	Banner()
 	flag.StringVar(&Info.Host, "h", "", "IP address of the host you want to scan,for example: 192.168.11.11 | 192.168.11.11-255 | 192.168.11.11,192.168.11.12")
 	flag.StringVar(&Info.Ports, "p", DefaultPorts, "Select a port,for example: 22 | 1-65535 | 22,80,3306")
+	flag.StringVar(&NoPorts, "pn", "", "the ports no scan,as: -pn 445")
 	flag.StringVar(&Info.Command, "c", "", "exec command (ssh)")
 	flag.StringVar(&Info.Domain, "domain", "", "smb domain")
 	flag.StringVar(&Info.Username, "user", "", "username")
@@ -44,6 +45,6 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&Pocinfo.Proxy, "proxy", "", "set poc proxy, -proxy http://127.0.0.1:8080")
 	flag.StringVar(&Pocinfo.Cookie, "cookie", "", "set poc cookie")
 	flag.Int64Var(&Pocinfo.Timeout, "wt", 5, "Set web timeout")
-	flag.IntVar(&Pocinfo.Num, "Num", 20, "poc rate")
+	flag.IntVar(&Pocinfo.Num, "num", 20, "poc rate")
 	flag.Parse()
 }
