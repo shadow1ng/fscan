@@ -2,6 +2,7 @@ package Plugins
 
 import (
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"github.com/shadow1ng/fscan/WebScan"
 	"github.com/shadow1ng/fscan/WebScan/lib"
@@ -9,6 +10,7 @@ import (
 	"golang.org/x/net/html/charset"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -132,7 +134,10 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 		if err == nil {
 			defer resp.Body.Close()
 			var title string
-			body, _ := ioutil.ReadAll(resp.Body)
+			body, err := getRespBody(resp)
+			if err != nil {
+				return err, "", CheckData
+			}
 			if flag != 2 {
 				re := regexp.MustCompile("(?im)<title>(.*)</title>")
 				find := re.FindSubmatch(body)
@@ -213,4 +218,34 @@ func Decodegbk(s []byte) ([]byte, error) { // GBK解码
 		return nil, e
 	}
 	return d, nil
+}
+
+func getRespBody(oResp *http.Response) ([]byte, error) {
+	var body []byte
+	if oResp.Header.Get("Content-Encoding") == "gzip" {
+		gr, err := gzip.NewReader(oResp.Body)
+		if err != nil {
+			return nil, err
+		}
+		defer gr.Close()
+		for {
+			buf := make([]byte, 1024)
+			n, err := gr.Read(buf)
+			if err != nil && err != io.EOF {
+				return nil, err
+			}
+			if n == 0 {
+				break
+			}
+			body = append(body, buf...)
+		}
+	} else {
+		raw, err := ioutil.ReadAll(oResp.Body)
+		if err != nil {
+			return nil, err
+		}
+		defer oResp.Body.Close()
+		body = raw
+	}
+	return body, nil
 }
