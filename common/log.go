@@ -72,6 +72,7 @@ func CheckErrs(err error) bool {
 		"no pg_hba.conf entry",
 		"no supported methods remain",
 		"No connection could be made",
+		"invalid packet size",
 	}
 	for _, key := range errs {
 		if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(key)) {

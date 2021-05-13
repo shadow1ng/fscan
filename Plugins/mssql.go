@@ -36,7 +36,7 @@ func MssqlScan(info *common.HostInfo) (tmperr error) {
 func MssqlConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
-	dataSourceName := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;encrypt=disable;timeout=%d", Host, Username, Password, Port, time.Duration(info.Timeout)*time.Second)
+	dataSourceName := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%v;encrypt=disable;timeout=%v", Host, Username, Password, Port, time.Duration(info.Timeout)*time.Second)
 	db, err := sql.Open("mssql", dataSourceName)
 	if err == nil {
 		db.SetConnMaxLifetime(time.Duration(info.Timeout) * time.Second)
