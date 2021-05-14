@@ -3,6 +3,7 @@ package Plugins
 import (
 	"bytes"
 	"fmt"
+	"github.com/shadow1ng/fscan/common"
 	"golang.org/x/net/icmp"
 	"log"
 	"net"
@@ -77,7 +78,9 @@ func IcmpCheck(hostslist []string) {
 		for ip := range chanHosts {
 			if _, ok := TmpHosts[ip]; !ok {
 				TmpHosts[ip] = struct{}{}
-				fmt.Printf("(icmp) Target '%s' is alive\n", ip)
+				if common.Silent == false {
+					fmt.Printf("(icmp) Target '%s' is alive\n", ip)
+				}
 				AliveHosts = append(AliveHosts, ip)
 			}
 		}
@@ -141,7 +144,9 @@ func PingCMDcheck(hostslist []string, bsenv string) {
 			defer wg.Done()
 			if ExecCommandPing(host, bsenv) {
 				mutex.Lock()
-				fmt.Printf("(Ping) Target '%s' is alive\n", host)
+				if common.Silent == false {
+					fmt.Printf("(Ping) Target '%s' is alive\n", host)
+				}
 				AliveHosts = append(AliveHosts, host)
 				mutex.Unlock()
 			}

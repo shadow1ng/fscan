@@ -38,7 +38,7 @@ func Flag(Info *HostInfo) {
 	flag.BoolVar(&Ping, "ping", false, "using ping replace icmp")
 	flag.StringVar(&TmpOutputfile, "o", "result.txt", "Outputfile")
 	flag.BoolVar(&TmpSave, "no", false, "not to save output log")
-	flag.Int64Var(&WaitTime, "debug", 120, "every time to LogErr")
+	flag.Int64Var(&WaitTime, "debug", 60, "every time to LogErr")
 	flag.BoolVar(&Silent, "silent", false, "silent scan")
 	flag.StringVar(&URL, "u", "", "url")
 	flag.StringVar(&UrlFile, "uf", "", "urlfile")
