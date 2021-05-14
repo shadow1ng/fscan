@@ -53,7 +53,7 @@ func GOWebTitle(info *common.HostInfo) error {
 	}
 
 	err, result, CheckData := geturl(info, 1, CheckData)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "EOF") {
 		return err
 	}
 	if strings.Contains(result, "://") {
@@ -69,6 +69,7 @@ func GOWebTitle(info *common.HostInfo) error {
 	}
 
 	if result == "https" {
+		info.Url = strings.Replace(info.Url, "http://", "https://", 1)
 		err, result, CheckData = geturl(info, 1, CheckData)
 		if strings.Contains(result, "://") {
 			//有跳转
@@ -134,6 +135,7 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 		if err == nil {
 			defer resp.Body.Close()
 			var title string
+			var text []byte
 			body, err := getRespBody(resp)
 			if err != nil {
 				return err, "", CheckData
@@ -142,7 +144,7 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 				re := regexp.MustCompile("(?im)<title>(.*)</title>")
 				find := re.FindSubmatch(body)
 				if len(find) > 1 {
-					text := find[1]
+					text = find[1]
 					GetEncoding := func() string { // 判断Content-Type
 						r1, err := regexp.Compile(`(?im)charset=\s*?([\w-]+)`)
 						if err != nil {
@@ -191,7 +193,14 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 				if len(title) > 100 {
 					title = title[:100]
 				}
-				result := fmt.Sprintf("[*] WebTitle:%-25v %-3v %v", Url, resp.StatusCode, title)
+				if title == "" {
+					title = "None"
+				}
+				length := resp.Header.Get("Content-Length")
+				if length == "" {
+					length = fmt.Sprintf("%v", len(text))
+				}
+				result := fmt.Sprintf("[*] WebTitle:%-25v code:%-3v len:%-6v title:%v", Url, resp.StatusCode, length, title)
 				common.LogSuccess(result)
 			}
 			CheckData = append(CheckData, WebScan.CheckDatas{body, fmt.Sprintf("%s", resp.Header)})
@@ -200,12 +209,11 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 				return nil, redirURL.String(), CheckData
 			}
 			if resp.StatusCode == 400 && info.Url[:5] != "https" {
-				info.Url = strings.Replace(info.Url, "http://", "https://", 1)
 				return err, "https", CheckData
 			}
 			return err, "", CheckData
 		}
-		return err, "", CheckData
+		return err, "https", CheckData
 	}
 	return err, "", CheckData
 }

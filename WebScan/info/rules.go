@@ -95,6 +95,7 @@ var RuleDatas = []RuleData{
 	{"360网站安全检测", "code", "(webscan.360.cn/status/pai/hash)"},
 	{"H3C ER5200G2", "code", "(ER5200G2系统管理)"},
 	{"华为（HUAWEI）安全设备", "code", "(sweb-lib/resource/)"},
+	{"华为（HUAWEI）USG", "code", "(UI_component/commonDefine/UI_regex_define.js)"},
 	{"H3C ER6300", "code", "(ER6300系统管理)"},
 	{"华为_HUAWEI_ASG2100", "code", "(HUAWEI ASG2100)"},
 	{"TP-Link 3600 DD-WRT", "code", "(TP-Link 3600 DD-WRT)"},
@@ -126,6 +127,7 @@ var RuleDatas = []RuleData{
 	{"Jenkins", "code", "(Jenkins)"},
 	{"红帆OA", "code", "(iOffice)"},
 	{"VMware vSphere", "code", "(VMware vSphere)"},
+	{"打印机", "code", "(打印机|media/canon.gif)"},
 }
 
 var Md5Datas = []Md5Data{
