@@ -15,6 +15,7 @@ var Start = true
 var LogSucTime int64
 var LogErrTime int64
 var WaitTime int64
+var Silent bool
 var LogWG sync.WaitGroup
 
 func LogSuccess(result string) {
@@ -29,7 +30,9 @@ func LogSuccess(result string) {
 
 func SaveLog() {
 	for result := range Results {
-		fmt.Println(result)
+		if Silent == false {
+			fmt.Println(result)
+		}
 		if IsSave {
 			WriteFile(result, Outputfile)
 		}
@@ -52,11 +55,13 @@ func WriteFile(result string, filename string) {
 }
 
 func LogError(errinfo interface{}) {
-	if WaitTime == 0 {
-		fmt.Println(fmt.Sprintf("已完成 %v/%v %v", End, Num, errinfo))
-	} else if (time.Now().Unix()-LogSucTime) > WaitTime && (time.Now().Unix()-LogErrTime) > WaitTime {
-		fmt.Println(fmt.Sprintf("已完成 %v/%v %v", End, Num, errinfo))
-		LogErrTime = time.Now().Unix()
+	if Silent == false {
+		if WaitTime == 0 {
+			fmt.Println(fmt.Sprintf("已完成 %v/%v %v", End, Num, errinfo))
+		} else if (time.Now().Unix()-LogSucTime) > WaitTime && (time.Now().Unix()-LogErrTime) > WaitTime {
+			fmt.Println(fmt.Sprintf("已完成 %v/%v %v", End, Num, errinfo))
+			LogErrTime = time.Now().Unix()
+		}
 	}
 }
 
