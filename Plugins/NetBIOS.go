@@ -125,6 +125,9 @@ func NetBIOS1(info *common.HostInfo) (nbname NbnsName, err error) {
 		return
 	}
 	length := num1 + num2*256
+	if len(ret) < 48+length {
+		return
+	}
 	os_version := ret[47+length:]
 	tmp1 := bytes.ReplaceAll(os_version, []byte{0x00, 0x00}, []byte{124})
 	tmp1 = bytes.ReplaceAll(tmp1, []byte{0x00}, []byte{})
