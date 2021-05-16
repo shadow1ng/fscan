@@ -190,7 +190,7 @@ func NewEnvOption() CustomLib {
 				},
 			},
 			&functions.Overload{
-				Operator: "string_bmatch_bytes",
+				Operator: "string_bmatches_bytes",
 				Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 					v1, ok := lhs.(types.String)
 					if !ok {

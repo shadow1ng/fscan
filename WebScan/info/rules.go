@@ -106,7 +106,7 @@ var RuleDatas = []RuleData{
 	{"金和协同管理平台", "code", "(金和协同管理平台)"},
 	{"Citrix-NetScaler", "code", "(NS-CACHE)"},
 	{"linksys-vpn", "headers", "(linksys-vpn)"},
-	{"通达OA", "code", "(/static/images/tongda.ico)"},
+	{"通达OA", "code", "(/static/images/tongda.ico|http://www.tongda2000.com|通达OA移动版)"},
 	{"华为（HUAWEI）Secoway设备", "code", "(Secoway)"},
 	{"华为_HUAWEI_SRG1220", "code", "(HUAWEI SRG1220)"},
 	{"H3C ER2100n", "code", "(ER2100n系统管理)"},
@@ -115,7 +115,7 @@ var RuleDatas = []RuleData{
 	{"Jboss", "code", "(Welcome to JBoss|jboss.css)"},
 	{"Jboss", "headers", "(JBoss)"},
 	{"泛微E-mobile", "code", "(Weaver E-mobile|weaver,e-mobile)"},
-	{"齐治堡垒机", "code", "(logo-icon-ico72.png)"},
+	{"齐治堡垒机", "code", "(logo-icon-ico72.png|resources/themes/images/logo-login.png)"},
 	{"ThinkPHP", "headers", "(ThinkPHP)"},
 	{"ThinkPHP", "code", "(/Public/static/js/)"},
 	{"weaver-ebridge", "code", "(e-Bridge,http://wx.weaver)"},
@@ -128,6 +128,7 @@ var RuleDatas = []RuleData{
 	{"红帆OA", "code", "(iOffice)"},
 	{"VMware vSphere", "code", "(VMware vSphere)"},
 	{"打印机", "code", "(打印机|media/canon.gif)"},
+	{"蓝凌OA", "code", "(蓝凌软件|StylePath:\"/resource/style/default/\"|/resource/customization)"},
 }
 
 var Md5Datas = []Md5Data{
