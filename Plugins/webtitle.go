@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
+	"github.com/saintfish/chardet"
 	"github.com/shadow1ng/fscan/WebScan"
 	"github.com/shadow1ng/fscan/WebScan/lib"
 	"github.com/shadow1ng/fscan/common"
@@ -51,7 +52,6 @@ func GOWebTitle(info *common.HostInfo) error {
 			info.Url = fmt.Sprintf("http://%s", info.Url)
 		}
 	}
-
 	err, result, CheckData := geturl(info, 1, CheckData)
 	if err != nil && !strings.Contains(err.Error(), "EOF") {
 		return err
@@ -173,9 +173,15 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 						}
 						return ""
 					}
-					encoding := GetEncoding()
-					_, charsetName, _ := charset.DetermineEncoding(body, "")
-					if encoding == "gbk" || encoding == "gb2312" || charsetName == "gbk" {
+					encode := GetEncoding()
+					_, encode1, _ := charset.DetermineEncoding(body, "")
+					var encode2 string
+					detector := chardet.NewTextDetector()
+					detectorstr, _ := detector.DetectBest(body)
+					if detectorstr != nil {
+						encode2 = detectorstr.Charset
+					}
+					if encode == "gbk" || encode == "gb2312" || encode1 == "gbk" || strings.Contains(strings.ToLower(encode2), "gb") {
 						titleGBK, err := Decodegbk(text)
 						if err == nil {
 							title = string(titleGBK)
