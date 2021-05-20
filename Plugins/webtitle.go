@@ -141,7 +141,7 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 				return err, "", CheckData
 			}
 			if flag != 2 {
-				re := regexp.MustCompile("(?im)<title>(.*)</title>")
+				re := regexp.MustCompile("(?ims)<title>(.*)</title>")
 				find := re.FindSubmatch(body)
 				if len(find) > 1 {
 					text = find[1]
