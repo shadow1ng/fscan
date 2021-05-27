@@ -73,9 +73,9 @@ func CheckErrs(err error) bool {
 		"established connection failed", "connection attempt failed",
 		"Unable to read", "is not allowed to connect to this",
 		"no pg_hba.conf entry",
-		"no supported methods remain",
 		"No connection could be made",
 		"invalid packet size",
+		"bad connection",
 	}
 	for _, key := range errs {
 		if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(key)) {
