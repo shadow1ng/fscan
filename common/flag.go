@@ -48,6 +48,5 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&Pocinfo.Cookie, "cookie", "", "set poc cookie")
 	flag.Int64Var(&Pocinfo.Timeout, "wt", 5, "Set web timeout")
 	flag.IntVar(&Pocinfo.Num, "num", 20, "poc rate")
-	flag.StringVar(&SC, "sc", "", "ms17 sc,as -sc x86add -sc x64add")
 	flag.Parse()
 }
