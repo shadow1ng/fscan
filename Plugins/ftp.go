@@ -1,11 +1,9 @@
 package Plugins
 
 import (
-	"errors"
 	"fmt"
 	"github.com/jlaffaye/ftp"
 	"github.com/shadow1ng/fscan/common"
-	"net"
 	"strings"
 	"time"
 )

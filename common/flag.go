@@ -27,6 +27,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&Info.Password, "pwd", "", "password")
 	flag.Int64Var(&Info.Timeout, "time", 3, "Set timeout")
 	flag.StringVar(&Info.Scantype, "m", "all", "Select scan type ,as: -m ssh")
+	flag.StringVar(&Info.Path, "path", "", "fcgi、smb romote file path")
 	flag.IntVar(&Threads, "t", 600, "Thread nums")
 	flag.StringVar(&HostFile, "hf", "", "host file, -hs ip.txt")
 	flag.StringVar(&Userfile, "userf", "", "username file")
@@ -47,5 +48,6 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&Pocinfo.Cookie, "cookie", "", "set poc cookie")
 	flag.Int64Var(&Pocinfo.Timeout, "wt", 5, "Set web timeout")
 	flag.IntVar(&Pocinfo.Num, "num", 20, "poc rate")
+	flag.StringVar(&SC, "sc", "", "ms17 sc,as -sc x86add -sc x64add")
 	flag.Parse()
 }
