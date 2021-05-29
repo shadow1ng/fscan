@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/tls"
+	"github.com/shadow1ng/fscan/common"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -20,6 +22,14 @@ var (
 	dialTimout       = 5 * time.Second
 	keepAlive        = 15 * time.Second
 )
+
+func Inithttp(PocInfo common.PocInfo) {
+	//PocInfo.Proxy = "http://127.0.0.1:8080"
+	err := InitHttpClient(PocInfo.Num, PocInfo.Proxy, time.Duration(PocInfo.Timeout)*time.Second)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
 
 func InitHttpClient(ThreadsNum int, DownProxy string, Timeout time.Duration) error {
 	dialer := &net.Dialer{

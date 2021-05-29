@@ -30,18 +30,14 @@ func CheckMultiPoc(req *http.Request, Pocs embed.FS, workers int, pocname string
 	var wg sync.WaitGroup
 	for i := 0; i < workers; i++ {
 		go func() {
-			wg.Add(1)
 			for task := range tasks {
-				isVul, err := executePoc(task.Req, task.Poc)
-				if err != nil {
-					continue
-				}
+				isVul, _ := executePoc(task.Req, task.Poc)
 				if isVul {
 					result := fmt.Sprintf("[+] %s %s", task.Req.URL, task.Poc.Name)
 					common.LogSuccess(result)
 				}
+				wg.Done()
 			}
-			wg.Done()
 		}()
 	}
 	for _, poc := range LoadMultiPoc(Pocs, pocname) {
@@ -49,10 +45,11 @@ func CheckMultiPoc(req *http.Request, Pocs embed.FS, workers int, pocname string
 			Req: req,
 			Poc: poc,
 		}
+		wg.Add(1)
 		tasks <- task
 	}
-	close(tasks)
 	wg.Wait()
+	close(tasks)
 }
 
 func executePoc(oReq *http.Request, p *Poc) (bool, error) {
@@ -72,7 +69,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error) {
 	}
 	req, err := ParseRequest(oReq)
 	if err != nil {
-		//fmt.Println(err)
+		//fmt.Println("ParseRequest error",err)
 		return false, err
 	}
 	variableMap := make(map[string]interface{})
@@ -80,11 +77,17 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error) {
 
 	// 现在假定set中payload作为最后产出，那么先排序解析其他的自定义变量，更新map[string]interface{}后再来解析payload
 	keys := make([]string, 0)
+	keys1 := make([]string, 0)
 	for k := range p.Set {
-		keys = append(keys, k)
+		if strings.Contains(strings.ToLower(p.Set[k]), "random") && strings.Contains(strings.ToLower(p.Set[k]), "(") {
+			keys = append(keys, k) //优先放入调用random系列函数的变量
+		} else {
+			keys1 = append(keys1, k)
+		}
 	}
 	sort.Strings(keys)
-
+	sort.Strings(keys1)
+	keys = append(keys, keys1...)
 	for _, k := range keys {
 		expression := p.Set[k]
 		if k != "payload" {
@@ -94,7 +97,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error) {
 			}
 			out, err := Evaluate(env, expression, variableMap)
 			if err != nil {
-				//fmt.Println(err)
+				//fmt.Println(p.Name,"  poc_expression error",err)
 				variableMap[k] = expression
 				continue
 			}
@@ -114,6 +117,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error) {
 	if p.Set["payload"] != "" {
 		out, err := Evaluate(env, p.Set["payload"], variableMap)
 		if err != nil {
+			//fmt.Println(p.Name,"  poc_payload error",err)
 			return false, err
 		}
 		variableMap["payload"] = fmt.Sprintf("%v", out)

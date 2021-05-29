@@ -40,7 +40,7 @@ func SmbScan(info *common.HostInfo) (tmperr error) {
 	return tmperr
 }
 
-func SmblConn(info *common.HostInfo, user string, pass string, Domain string, signal chan struct{}) (flag bool, err error) {
+func SmblConn(info *common.HostInfo, user string, pass string, signal chan struct{}) (flag bool, err error) {
 	flag = false
 	Host, Username, Password := info.Host, user, pass
 	options := smb.Options{
@@ -48,7 +48,7 @@ func SmblConn(info *common.HostInfo, user string, pass string, Domain string, si
 		Port:        445,
 		User:        Username,
 		Password:    Password,
-		Domain:      Domain,
+		Domain:      info.Domain,
 		Workstation: "",
 	}
 
@@ -66,7 +66,7 @@ func SmblConn(info *common.HostInfo, user string, pass string, Domain string, si
 func doWithTimeOut(info *common.HostInfo, user string, pass string) (flag bool, err error) {
 	signal := make(chan struct{})
 	go func() {
-		flag, err = SmblConn(info, user, pass, info.Domain, signal)
+		flag, err = SmblConn(info, user, pass, signal)
 	}()
 	select {
 	case <-signal:

@@ -433,15 +433,15 @@ func (c *CustomLib) UpdateCompileOptions(args map[string]string) {
 	}
 }
 
+var randSource = rand.New(rand.NewSource(time.Now().Unix()))
+
 func randomLowercase(n int) string {
 	lowercase := "abcdefghijklmnopqrstuvwxyz"
-	randSource := rand.New(rand.NewSource(time.Now().Unix()))
 	return RandomStr(randSource, lowercase, n)
 }
 
 func randomUppercase(n int) string {
 	lowercase := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	randSource := rand.New(rand.NewSource(time.Now().Unix()))
 	return RandomStr(randSource, lowercase, n)
 }
 

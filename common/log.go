@@ -18,13 +18,13 @@ var WaitTime int64
 var Silent bool
 var LogWG sync.WaitGroup
 
+func init() {
+	go SaveLog()
+}
+
 func LogSuccess(result string) {
 	LogWG.Add(1)
 	LogSucTime = time.Now().Unix()
-	if Start {
-		go SaveLog()
-		Start = false
-	}
 	Results <- result
 }
 

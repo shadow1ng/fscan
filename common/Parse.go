@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -155,7 +157,9 @@ func CheckErr(text string, err error) {
 }
 
 func getpath() string {
-	filename := os.Args[0]
+	file, _ := exec.LookPath(os.Args[0])
+	path1, _ := filepath.Abs(file)
+	filename := filepath.Dir(path1)
 	var path string
 	if strings.Contains(filename, "/") {
 		tmp := strings.Split(filename, `/`)

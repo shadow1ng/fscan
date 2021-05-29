@@ -54,7 +54,7 @@ func NetBIOS(info *common.HostInfo) error {
 	if strings.Contains(nbname.msg, "Domain Controllers") {
 		isdc = "[+]DC"
 	}
-	msg += fmt.Sprintf("[*] %-15s%-5s %s\\%s   %s", info.Host, isdc, nbname.group, nbname.unique, nbname.osversion)
+	msg += fmt.Sprintf("[*] %-15s%-5s %s\\%-15s   %s", info.Host, isdc, nbname.group, nbname.unique, nbname.osversion)
 
 	if info.Scantype == "netbios" {
 		msg += "\n-------------------------------------------\n" + nbname.msg

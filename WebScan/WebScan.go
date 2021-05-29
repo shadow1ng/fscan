@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"github.com/shadow1ng/fscan/WebScan/lib"
 	"github.com/shadow1ng/fscan/common"
-	"log"
 	"net/http"
-	"time"
 )
 
 //go:embed pocs
@@ -32,15 +30,6 @@ func Execute(PocInfo common.PocInfo) error {
 	if PocInfo.Cookie != "" {
 		req.Header.Set("Cookie", PocInfo.Cookie)
 	}
-
 	lib.CheckMultiPoc(req, Pocs, PocInfo.Num, PocInfo.PocName)
 	return nil
-}
-
-func Inithttp(PocInfo common.PocInfo) {
-	//PocInfo.Proxy = "http://127.0.0.1:8080"
-	err := lib.InitHttpClient(PocInfo.Num, PocInfo.Proxy, time.Duration(PocInfo.Timeout)*time.Second)
-	if err != nil {
-		log.Fatal(err)
-	}
 }

@@ -128,7 +128,9 @@ var RuleDatas = []RuleData{
 	{"红帆OA", "code", "(iOffice)"},
 	{"VMware vSphere", "code", "(VMware vSphere)"},
 	{"打印机", "code", "(打印机|media/canon.gif)"},
+	{"finereport", "code", "(isSupportForgetPwd|FineReport,Web Reporting Tool)"},
 	{"蓝凌OA", "code", "(蓝凌软件|StylePath:\"/resource/style/default/\"|/resource/customization)"},
+	{"GitLab", "code", "(href=\"https://about.gitlab.com/)"},
 }
 
 var Md5Datas = []Md5Data{
@@ -150,4 +152,5 @@ var Md5Datas = []Md5Data{
 	{"泛微OA", "c27547e27e1d2c7514545cd8d5988946"},
 	{"泛微OA", "9b1d3f08ede38dbe699d6b2e72a8febb"},
 	{"泛微OA", "281348dd57383c1f214ffb8aed3a1210"},
+	{"GitLab", "85c754581e1d4b628be5b7712c042224"},
 }

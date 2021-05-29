@@ -3,7 +3,7 @@ package Plugins
 import (
 	"errors"
 	"fmt"
-	"github.com/shadow1ng/fscan/WebScan"
+	"github.com/shadow1ng/fscan/WebScan/lib"
 	"github.com/shadow1ng/fscan/common"
 	"reflect"
 	"strconv"
@@ -14,7 +14,7 @@ import (
 func Scan(info common.HostInfo) {
 	fmt.Println("start infoscan")
 	Hosts, _ := common.ParseIP(info.Host, common.HostFile)
-	WebScan.Inithttp(common.Pocinfo)
+	lib.Inithttp(common.Pocinfo)
 	var ch = make(chan struct{}, common.Threads)
 	var wg = sync.WaitGroup{}
 	if len(Hosts) > 0 {
@@ -39,12 +39,17 @@ func Scan(info common.HostInfo) {
 		for _, targetIP := range AlivePorts {
 			info.Host, info.Ports = strings.Split(targetIP, ":")[0], strings.Split(targetIP, ":")[1]
 			if info.Scantype == "all" {
-				if info.Ports == "445" { //scan more vul
-					AddScan("1000001", info, ch, &wg)
-					AddScan("1000002", info, ch, &wg)
-				} else if IsContain(severports, info.Ports) {
-					AddScan(info.Ports, info, ch, &wg)
-				} else {
+				switch {
+				case info.Ports == "445":
+					//AddScan(info.Ports, info, ch, &wg)  //smb
+					AddScan("1000001", info, ch, &wg) //ms17010
+					AddScan("1000002", info, ch, &wg) //smbghost
+				case info.Ports == "9000":
+					AddScan(info.Ports, info, ch, &wg) //fcgiscan
+					AddScan("1000003", info, ch, &wg)  //http
+				case IsContain(severports, info.Ports):
+					AddScan(info.Ports, info, ch, &wg) //plugins scan
+				default:
 					AddScan("1000003", info, ch, &wg) //webtitle
 				}
 			} else {
