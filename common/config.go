@@ -48,6 +48,7 @@ type HostInfo struct {
 	Timeout   int64
 	Scantype  string
 	Command   string
+	SshKey    string
 	Username  string
 	Password  string
 	Usernames []string

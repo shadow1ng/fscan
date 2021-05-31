@@ -153,7 +153,7 @@ fscan 是 404Team [星链计划2.0](https://github.com/knownsec/404StarLink2.0-G
 
 
 ## 最近更新
-[+] 2021/5/29 加入fcgi协议未授权命令执行扫描,优化poc模块,优化icmp模块  
+[+] 2021/5/29 加入fcgi协议未授权命令执行扫描,优化poc模块,优化icmp模块,ssh模块加入私钥连接  
 [+] 2021/5/15 新增win03版本(删减了xray_poc模块),增加-silent 静默扫描模式,添加web指纹,修复netbios模块数组越界,添加一个CheckErrs字典,webtitle 增加gzip解码  
 [+] 2021/5/6 更新mod库、poc、指纹。修改线程处理机制、netbios探测、域控识别模块、webtitle编码模块等
 [+] 2021/4/22 修改webtitle模块,加入gbk解码  
