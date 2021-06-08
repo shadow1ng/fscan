@@ -153,4 +153,5 @@ var Md5Datas = []Md5Data{
 	{"泛微OA", "9b1d3f08ede38dbe699d6b2e72a8febb"},
 	{"泛微OA", "281348dd57383c1f214ffb8aed3a1210"},
 	{"GitLab", "85c754581e1d4b628be5b7712c042224"},
+	{"Hikvision-视频监控", "89b932fcc47cf4ca3faadb0cfdef89cf"},
 }
