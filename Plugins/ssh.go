@@ -43,7 +43,7 @@ func SshConn(info *common.HostInfo, user string, pass string) (flag bool, err er
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
 	Auth := []ssh.AuthMethod{}
 	if info.SshKey != "" {
-		pemBytes, err := ioutil.ReadFile("shadow")
+		pemBytes, err := ioutil.ReadFile(info.SshKey)
 		if err != nil {
 			return false, errors.New("read key failed" + err.Error())
 		}
