@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"github.com/google/cel-go/cel"
+	"github.com/shadow1ng/fscan/WebScan/info"
 	"github.com/shadow1ng/fscan/common"
 	"math/rand"
 	"net/http"
@@ -31,6 +32,7 @@ func CheckMultiPoc(req *http.Request, Pocs embed.FS, workers int, pocname string
 	for i := 0; i < workers; i++ {
 		go func() {
 			for task := range tasks {
+				//if task.Poc.Name == task.Req.
 				isVul, _ := executePoc(task.Req, task.Poc)
 				if isVul {
 					result := fmt.Sprintf("[+] %s %s", task.Req.URL, task.Poc.Name)
@@ -689,3 +691,13 @@ func evalset(env *cel.Env, variableMap map[string]interface{}) {
 		}
 	}
 }
+
+func CheckInfoPoc(infostr string) string {
+	for _, poc := range info.PocDatas {
+		if strings.Compare(poc.Name,infostr) == 0 {
+			return poc.Alias
+		}
+	}
+	return ""
+}
+
