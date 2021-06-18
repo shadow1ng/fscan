@@ -32,7 +32,6 @@ func CheckMultiPoc(req *http.Request, Pocs embed.FS, workers int, pocname string
 	for i := 0; i < workers; i++ {
 		go func() {
 			for task := range tasks {
-				//if task.Poc.Name == task.Req.
 				isVul, _ := executePoc(task.Req, task.Poc)
 				if isVul {
 					result := fmt.Sprintf("[+] %s %s", task.Req.URL, task.Poc.Name)
