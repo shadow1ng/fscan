@@ -6,7 +6,6 @@ import (
 	"github.com/shadow1ng/fscan/WebScan/info"
 	"github.com/shadow1ng/fscan/common"
 	"regexp"
-	"strings"
 )
 
 type CheckDatas struct {
@@ -14,7 +13,7 @@ type CheckDatas struct {
 	Headers string
 }
 
-func InfoCheck(Url string, CheckData []CheckDatas) {
+func InfoCheck(Url string, CheckData []CheckDatas) []string {
 	var matched bool
 	var infoname []string
 
@@ -36,12 +35,14 @@ func InfoCheck(Url string, CheckData []CheckDatas) {
 		}
 	}
 
-	infostr := RemoveMore(infoname)
+	infoname = removeDuplicateElement(infoname)
 
 	if len(infoname) > 0 {
-		result := fmt.Sprintf("[+] InfoScan:%-25v %s ", Url, infostr)
+		result := fmt.Sprintf("[+] InfoScan:%-25v %s ", Url, infoname)
 		common.LogSuccess(result)
+		return infoname
 	}
+	return []string{""}
 }
 
 func CalcMd5(Body []byte) (bool, string) {
@@ -55,15 +56,15 @@ func CalcMd5(Body []byte) (bool, string) {
 	return false, ""
 }
 
-func RemoveMore(a []string) (infostr string) {
-	var ret []string
-	for i := 0; i < len(a); i++ {
-		if (i > 0 && a[i-1] == a[i]) || len(a[i]) == 0 {
-			continue
+func removeDuplicateElement(languages []string) []string {
+	result := make([]string, 0, len(languages))
+	temp := map[string]struct{}{}
+	for _, item := range languages {
+		if _, ok := temp[item]; !ok {
+			temp[item] = struct{}{}
+			result = append(result, item)
 		}
-		ret = append(ret, a[i])
 	}
-	infostr = strings.ReplaceAll(fmt.Sprintf("%s ", ret), "[", "")
-	infostr = strings.ReplaceAll(infostr, "]", "")
-	return
+	return result
 }
+

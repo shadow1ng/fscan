@@ -53,6 +53,7 @@ type HostInfo struct {
 	Password  string
 	Usernames []string
 	Passwords []string
+	Infostr	  []string
 	Hash      string
 }
 

@@ -93,7 +93,7 @@ func GOWebTitle(info *common.HostInfo) error {
 		return err
 	}
 
-	WebScan.InfoCheck(info.Url, CheckData)
+	info.Infostr = WebScan.InfoCheck(info.Url, CheckData)
 
 	if common.IsWebCan == false {
 		WebScan.WebScan(info)
