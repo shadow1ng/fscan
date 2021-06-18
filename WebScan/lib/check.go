@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"github.com/google/cel-go/cel"
+	"github.com/shadow1ng/fscan/WebScan/info"
 	"github.com/shadow1ng/fscan/common"
 	"math/rand"
 	"net/http"
@@ -689,3 +690,13 @@ func evalset(env *cel.Env, variableMap map[string]interface{}) {
 		}
 	}
 }
+
+func CheckInfoPoc(infostr string) string {
+	for _, poc := range info.PocDatas {
+		if strings.Compare(poc.Name,infostr) == 0 {
+			return poc.Alias
+		}
+	}
+	return ""
+}
+

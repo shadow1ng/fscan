@@ -7,7 +7,6 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golang/protobuf v1.3.4
 	github.com/google/cel-go v0.6.0
-	github.com/hirochachacha/go-smb2 v1.0.10
 	github.com/jlaffaye/ftp v0.0.0-20210307004419-5d4190119067
 	github.com/lib/pq v1.10.1
 	github.com/saintfish/chardet v0.0.0-20120816061221-3af4cd4741ca
