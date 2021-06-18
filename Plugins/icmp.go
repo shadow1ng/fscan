@@ -42,18 +42,26 @@ func ICMPRun(hostslist []string, Ping bool) []string {
 	if Ping == true {
 		//使用ping探测
 		RunPing(hostslist, chanHosts)
-	} else if conn, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0"); err == nil {
-		//优先尝试监听本地icmp,批量探测
-		RunIcmp1(hostslist, conn, chanHosts)
-	} else if conn, err := net.DialTimeout("ip4:icmp", "127.0.0.1", 3*time.Second); err == nil {
-		conn.Close()
-		//尝试无监听icmp探测
-		RunIcmp2(hostslist, chanHosts)
 	} else {
-		//使用ping探测
-		fmt.Println("The current user permissions unable to send icmp packets")
-		fmt.Println("start ping")
-		RunPing(hostslist, chanHosts)
+		//优先尝试监听本地icmp,批量探测
+		conn, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
+		if err == nil {
+			RunIcmp1(hostslist, conn, chanHosts)
+		} else {
+			common.LogError(err)
+			//尝试无监听icmp探测
+			conn, err := net.DialTimeout("ip4:icmp", "127.0.0.1", 3*time.Second)
+			if err == nil {
+				go conn.Close()
+				RunIcmp2(hostslist, chanHosts)
+			} else {
+				common.LogError(err)
+				//使用ping探测
+				fmt.Println("The current user permissions unable to send icmp packets")
+				fmt.Println("start ping")
+				RunPing(hostslist, chanHosts)
+			}
+		}
 	}
 
 	livewg.Wait()
