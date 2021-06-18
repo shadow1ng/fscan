@@ -11,7 +11,6 @@ require (
 	github.com/lib/pq v1.10.1
 	github.com/saintfish/chardet v0.0.0-20120816061221-3af4cd4741ca
 	github.com/stacktitan/smb v0.0.0-20190531122847-da9a425dceb8
-	github.com/wxnacy/wgo v1.0.4
 	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
 	golang.org/x/net v0.0.0-20200301022130-244492dfa37a
 	golang.org/x/text v0.3.2
