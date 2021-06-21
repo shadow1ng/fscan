@@ -1,12 +1,16 @@
-name: poc-yaml-tomcat-manager-week
+name: poc-yaml-tomcat-manager-weak
 sets:
   username:
     - tomcat
     - admin
+    - root
+    - manager
   password:
-    - tomcat
+    - ""
     - admin
+    - tomcat
     - 123456
+    - root
   payload:
     - base64(username+":"+password)
 rules:
