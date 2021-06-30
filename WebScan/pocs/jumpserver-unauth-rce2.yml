@@ -2,7 +2,7 @@ name: poc-yaml-jumpserver-unauth-rce
 set:
   r1: randomLowercase(5)
 rules:
-    - method: GET
+  - method: GET
     path: /api/v1/users/connection-token/
     follow_redirects: false
     expression: |

@@ -12,8 +12,8 @@ type Md5Data struct {
 }
 
 type PocData struct {
-	Name	string
-	Alias	string
+	Name  string
+	Alias string
 }
 
 var RuleDatas = []RuleData{
@@ -120,6 +120,7 @@ var RuleDatas = []RuleData{
 	{"Jboss", "code", "(Welcome to JBoss|jboss.css)"},
 	{"Jboss", "headers", "(JBoss)"},
 	{"泛微E-mobile", "code", "(Weaver E-mobile|weaver,e-mobile)"},
+	{"泛微E-Mobile", "headers", "(EMobileServer)"},
 	{"齐治堡垒机", "code", "(logo-icon-ico72.png|resources/themes/images/logo-login.png)"},
 	{"ThinkPHP", "headers", "(ThinkPHP)"},
 	{"ThinkPHP", "code", "(/Public/static/js/)"},
@@ -136,6 +137,11 @@ var RuleDatas = []RuleData{
 	{"finereport", "code", "(isSupportForgetPwd|FineReport,Web Reporting Tool)"},
 	{"蓝凌OA", "code", "(蓝凌软件|StylePath:\"/resource/style/default/\"|/resource/customization)"},
 	{"GitLab", "code", "(href=\"https://about.gitlab.com/)"},
+	{"用友NC", "code", "(YONYOU NC | /Client/Uclient/UClient.dmg)"},
+	{"Jquery-1.7.2", "code", "(/webui/js/jquerylib/jquery-1.7.2.min.js)"},
+	{"Hadoop Applications", "code", "(/cluster/app/application)"},
+	{"用友IUFO", "code", "(iufo/web/css/menu.css)"},
+	{"海昌OA", "code", "(/loginmain4/js/jquery.min.js)"},
 }
 
 var Md5Datas = []Md5Data{
@@ -162,15 +168,17 @@ var Md5Datas = []Md5Data{
 }
 
 var PocDatas = []PocData{
-	{"致远OA","seeyon"},
-	{"泛微OA","weaver-oa"},
-	{"通达OA","tongda"},
-	{"ThinkPHP","thinkphp"},
-	{"Nexus","nexus"},
-	{"齐治堡垒机","qizhi"},
-	{"weaver-ebridge","weaver-ebridge"},
-	{"weblogic","weblogic"},
-	{"zabbix","zabbix"},
-	{"VMware vSphere","vmware"},
-	{"Jboss","jboss"},
+	{"致远OA", "seeyon"},
+	{"泛微OA", "weaver-oa"},
+	{"通达OA", "tongda"},
+	{"ThinkPHP", "thinkphp"},
+	{"Nexus", "nexus"},
+	{"齐治堡垒机", "qizhi"},
+	{"weaver-ebridge", "weaver-ebridge"},
+	{"weblogic", "weblogic"},
+	{"zabbix", "zabbix"},
+	{"VMware vSphere", "vmware"},
+	{"Jboss", "jboss"},
+	{"用友NC", "yongyou"},
+	{"用友IUFO", "yongyou"},
 }

