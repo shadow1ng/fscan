@@ -30,7 +30,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&Info.Scantype, "m", "all", "Select scan type ,as: -m ssh")
 	flag.StringVar(&Info.Path, "path", "", "fcgi、smb romote file path")
 	flag.IntVar(&Threads, "t", 600, "Thread nums")
-	flag.StringVar(&HostFile, "hf", "", "host file, -hs ip.txt")
+	flag.StringVar(&HostFile, "hf", "", "host file, -hf ip.txt")
 	flag.StringVar(&Userfile, "userf", "", "username file")
 	flag.StringVar(&Passfile, "pwdf", "", "password file")
 	flag.StringVar(&RedisFile, "rf", "", "redis file to write sshkey file (as: -rf id_rsa.pub) ")
