@@ -44,6 +44,10 @@ func RedisConn(info *common.HostInfo, pass string) (flag bool, err error) {
 		return flag, err
 	}
 	defer conn.Close()
+	err = conn.SetReadDeadline(time.Now().Add(time.Duration(info.Timeout)*time.Second))
+	if err != nil {
+		return flag, err
+	}
 	_, err = conn.Write([]byte(fmt.Sprintf("auth %s\r\n", pass)))
 	if err != nil {
 		return flag, err
@@ -69,6 +73,10 @@ func RedisUnauth(info *common.HostInfo) (flag bool, err error) {
 		return flag, err
 	}
 	defer conn.Close()
+	err = conn.SetReadDeadline(time.Now().Add(time.Duration(info.Timeout)*time.Second))
+	if err != nil {
+		return flag, err
+	}
 	_, err = conn.Write([]byte("info\r\n"))
 	if err != nil {
 		return flag, err

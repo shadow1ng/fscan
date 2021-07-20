@@ -28,6 +28,10 @@ func MongodbUnauth(info *common.HostInfo) (flag bool, err error) {
 		return flag, err
 	}
 	defer conn.Close()
+	err = conn.SetReadDeadline(time.Now().Add(time.Duration(info.Timeout)*time.Second))
+	if err != nil {
+		return flag, err
+	}
 	_, err = conn.Write(senddata)
 	if err != nil {
 		return flag, err
