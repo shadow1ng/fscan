@@ -262,6 +262,7 @@ func Readfile(filename string) (string, error) {
 func readreply(conn net.Conn) (result string, err error) {
 	buf := make([]byte, 4096)
 	for {
+		conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 		count, err := conn.Read(buf)
 		if err != nil {
 			break

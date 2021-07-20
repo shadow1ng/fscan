@@ -33,6 +33,7 @@ func MongodbUnauth(info *common.HostInfo) (flag bool, err error) {
 		return flag, err
 	}
 	buf := make([]byte, 1024)
+	err = conn.SetReadDeadline(time.Now().Add(time.Duration(info.Timeout)*time.Second))
 	count, err := conn.Read(buf)
 	if err != nil {
 		return flag, err
@@ -43,6 +44,7 @@ func MongodbUnauth(info *common.HostInfo) (flag bool, err error) {
 		if err != nil {
 			return flag, err
 		}
+		err = conn.SetReadDeadline(time.Now().Add(time.Duration(info.Timeout)*time.Second))
 		count, err := conn.Read(buf)
 		if err != nil {
 			return flag, err
