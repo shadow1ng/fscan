@@ -4,10 +4,14 @@
 package lib
 
 import (
+	"bytes"
+	"archive/zip"
 	"embed"
 	fmt "fmt"
 	proto "github.com/golang/protobuf/proto"
 	"gopkg.in/yaml.v3"
+	"io/ioutil"
+	"log"
 	math "math"
 	"strings"
 )
@@ -393,7 +397,28 @@ func LoadMultiPoc(Pocs embed.FS, pocname string) []*Poc {
 
 func loadPoc(fileName string, Pocs embed.FS) (*Poc, error) {
 	p := &Poc{}
-	yamlFile, err := Pocs.ReadFile("pocs/" + fileName)
+
+	zByte, err := Pocs.ReadFile("pocs/pocs.zip")
+	zipReader, err := zip.NewReader(bytes.NewReader(zByte), int64(len(zByte)))
+	if err != nil {
+		log.Fatal(err)
+	}
+	var unzippedFileBytes []byte
+	// Read all the files from zip archive
+	for _, zipFile := range zipReader.File {
+		if zipFile.Name == fileName {
+			unzippedFileBytes, err = readZipFile(zipFile)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			break
+		}
+
+	}
+	yamlFile := unzippedFileBytes
+
+	//yamlFile, err := Pocs.ReadFile("pocs/" + fileName)
 
 	if err != nil {
 		return nil, err
@@ -406,6 +431,23 @@ func loadPoc(fileName string, Pocs embed.FS) (*Poc, error) {
 }
 
 func SelectPoc(Pocs embed.FS, pocname string) []string {
+
+
+	zByte, err := Pocs.ReadFile("pocs/pocs.zip")
+	zipReader, err := zip.NewReader(bytes.NewReader(zByte), int64(len(zByte)))
+	if err != nil {
+		log.Fatal(err)
+	}
+	var foundFiles []string
+	// Read all the files from zip archive
+	for _, entry := range zipReader.File {
+		if strings.Contains(entry.Name, pocname){
+			foundFiles = append(foundFiles, entry.Name)
+		}
+
+	}
+
+	/*
 	entries, err := Pocs.ReadDir("pocs")
 	if err != nil {
 		fmt.Println(err)
@@ -416,5 +458,18 @@ func SelectPoc(Pocs embed.FS, pocname string) []string {
 			foundFiles = append(foundFiles, entry.Name())
 		}
 	}
+
+	 */
 	return foundFiles
+}
+
+
+
+func readZipFile(zf *zip.File) ([]byte, error) {
+	f, err := zf.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return ioutil.ReadAll(f)
 }
