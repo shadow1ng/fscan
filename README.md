@@ -144,6 +144,7 @@ https://github.com/hack2fun/Gscan
 https://github.com/k8gege/LadonGo   
 https://github.com/jjf012/gopoc
 
+
 # 404StarLink 2.0 - Galaxy
 ![](https://github.com/knownsec/404StarLink-Project/raw/master/logo.png)
 
@@ -151,6 +152,9 @@ fscan 是 404Team [星链计划2.0](https://github.com/knownsec/404StarLink2.0-G
 
 - [https://github.com/knownsec/404StarLink2.0-Galaxy#community](https://github.com/knownsec/404StarLink2.0-Galaxy#community)
 
+
+## Star Chart
+[![Stargazers over time](https://starchart.cc/shadow1ng/fscan.svg)](https://starchart.cc/shadow1ng/fscan)
 
 ## 最近更新
 [+] 2021/6/18 改善一下poc的机制，如果识别出指纹会根据指纹信息发送poc，如果没有识别到指纹才会把所有poc打一遍  
