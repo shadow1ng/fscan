@@ -179,7 +179,7 @@ func ParseIPE(ip string) ([]string, error) {
 func Readipfile(filename string) ([]string, error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		fmt.Println("Open %s error, %v", filename, err)
+		fmt.Printf("Open %s error, %v", filename, err)
 		os.Exit(0)
 	}
 	defer file.Close()
