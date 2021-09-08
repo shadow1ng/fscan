@@ -156,7 +156,7 @@ var Md5Datas = []Md5Data{
 	{"致远OA", "3c8df395ec2cbd72782286d18a286a9a"},
 	{"致远OA", "2f761c27b6b7f9386bbd61403635dc42"},
 	{"齐治堡垒机", "48ee373f098d8e96e53b7dd778f09ff4"},
-	{"SprintBoot", "0488faca4c19046b94d07c3ee83cf9d6"},
+	{"SpringBoot", "0488faca4c19046b94d07c3ee83cf9d6"},
 	{"ThinkPHP", "f49c4a4bde1eec6c0b80c2277c76e3db"},
 	{"通达OA", "ed0044587917c76d08573577c8b72883"},
 	{"泛微OA", "41eca7a9245394106a09b2534d8030df"},
