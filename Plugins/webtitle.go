@@ -138,7 +138,7 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 			var text []byte
 			body, err := getRespBody(resp)
 			if err != nil {
-				return err, "", CheckData
+				return err, "https", CheckData
 			}
 			if flag != 2 {
 				re := regexp.MustCompile("(?ims)<title>(.*)</title>")
@@ -181,7 +181,7 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 					if detectorstr != nil {
 						encode2 = detectorstr.Charset
 					}
-					if encode == "gbk" || encode == "gb2312" ||  strings.Contains(strings.ToLower(encode2), "gb") {
+					if encode == "gbk" || encode == "gb2312" || strings.Contains(strings.ToLower(encode2), "gb") {
 						titleGBK, err := Decodegbk(text)
 						if err == nil {
 							title = string(titleGBK)
