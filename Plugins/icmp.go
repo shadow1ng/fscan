@@ -51,8 +51,12 @@ func ICMPRun(hostslist []string, Ping bool) []string {
 			common.LogError(err)
 			//尝试无监听icmp探测
 			conn, err := net.DialTimeout("ip4:icmp", "127.0.0.1", 3*time.Second)
+			defer func() {
+				if conn != nil{
+					conn.Close()
+				}
+			}()
 			if err == nil {
-				go conn.Close()
 				RunIcmp2(hostslist, chanHosts)
 			} else {
 				common.LogError(err)
@@ -138,10 +142,14 @@ func RunIcmp2(hostslist []string, chanHosts chan string) {
 func icmpalive(host string) bool {
 	startTime := time.Now()
 	conn, err := net.DialTimeout("ip4:icmp", host, 6*time.Second)
+	defer func() {
+		if conn != nil{
+			conn.Close()
+		}
+	}()
 	if err != nil {
 		return false
 	}
-	defer conn.Close()
 	if err := conn.SetDeadline(startTime.Add(6 * time.Second)); err != nil {
 		return false
 	}

@@ -1,6 +1,7 @@
 package Plugins
 
 import (
+	"errors"
 	"fmt"
 	"github.com/shadow1ng/fscan/common"
 	"github.com/stacktitan/smb/smb"
@@ -72,6 +73,6 @@ func doWithTimeOut(info *common.HostInfo, user string, pass string) (flag bool, 
 	case <-signal:
 		return flag, err
 	case <-time.After(time.Duration(info.Timeout) * time.Second):
-		return false, err
+		return false,errors.New("time out")
 	}
 }

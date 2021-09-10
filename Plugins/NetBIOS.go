@@ -76,6 +76,11 @@ func NetBIOS1(info *common.HostInfo) (nbname NbnsName, err error) {
 	}
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	conn, err := net.DialTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
+	defer func() {
+		if conn != nil{
+			conn.Close()
+		}
+	}()
 	if err != nil {
 		return
 	}
@@ -83,7 +88,6 @@ func NetBIOS1(info *common.HostInfo) (nbname NbnsName, err error) {
 	if err != nil {
 		return
 	}
-	defer conn.Close()
 
 	if info.Ports == "139" && len(payload0) > 0 {
 		_, err1 := conn.Write(payload0)
@@ -191,6 +195,11 @@ func GetNbnsname(info *common.HostInfo) (nbname NbnsName, err error) {
 	senddata1 := []byte{102, 102, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 32, 67, 75, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 0, 0, 33, 0, 1}
 	realhost := fmt.Sprintf("%s:%v", info.Host, 137)
 	conn, err := net.DialTimeout("udp", realhost, time.Duration(info.Timeout)*time.Second)
+	defer func() {
+		if conn != nil{
+			conn.Close()
+		}
+	}()
 	if err != nil {
 		return
 	}
@@ -198,7 +207,6 @@ func GetNbnsname(info *common.HostInfo) (nbname NbnsName, err error) {
 	if err != nil {
 		return
 	}
-	defer conn.Close()
 	_, err = conn.Write(senddata1)
 	if err != nil {
 		return

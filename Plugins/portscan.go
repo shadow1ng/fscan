@@ -71,13 +71,17 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 
 func PortConnect(addr Addr, respondingHosts chan<- string, adjustedTimeout int64, wg *sync.WaitGroup) {
 	host, port := addr.ip, addr.port
-	con, err := net.DialTimeout("tcp4", fmt.Sprintf("%s:%v", host, port), time.Duration(adjustedTimeout)*time.Second)
+	conn, err := net.DialTimeout("tcp4", fmt.Sprintf("%s:%v", host, port), time.Duration(adjustedTimeout)*time.Second)
+	defer func() {
+		if conn != nil{
+			conn.Close()
+		}
+	}()
 	if err == nil {
-		con.Close()
 		address := host + ":" + strconv.Itoa(port)
 		result := fmt.Sprintf("%s open", address)
 		common.LogSuccess(result)
-		respondingHosts <- address
 		wg.Add(1)
+		respondingHosts <- address
 	}
 }

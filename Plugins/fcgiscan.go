@@ -53,6 +53,11 @@ func FcgiScan(info *common.HostInfo) {
 	}
 
 	fcgi, err := New(addr, info.Timeout)
+	defer func() {
+		if fcgi.rwc != nil{
+			fcgi.rwc.Close()
+		}
+	}()
 	if err != nil {
 		errlog := fmt.Sprintf("[-] fcgi %v:%v %v", info.Host, info.Ports, err)
 		common.LogError(errlog)

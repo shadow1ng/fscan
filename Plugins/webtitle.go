@@ -8,7 +8,6 @@ import (
 	"github.com/shadow1ng/fscan/WebScan"
 	"github.com/shadow1ng/fscan/WebScan/lib"
 	"github.com/shadow1ng/fscan/common"
-	"golang.org/x/net/html/charset"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
 	"io"
@@ -56,6 +55,7 @@ func GOWebTitle(info *common.HostInfo) error {
 	if err != nil && !strings.Contains(err.Error(), "EOF") {
 		return err
 	}
+
 	if strings.Contains(result, "://") {
 		//有跳转
 		redirecturl, err := url.Parse(result)
@@ -174,14 +174,14 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 						return ""
 					}
 					encode := GetEncoding()
-					_, encode1, _ := charset.DetermineEncoding(body, "")
+					//_, encode1, _ := charset.DetermineEncoding(body, "")
 					var encode2 string
 					detector := chardet.NewTextDetector()
 					detectorstr, _ := detector.DetectBest(body)
 					if detectorstr != nil {
 						encode2 = detectorstr.Charset
 					}
-					if encode == "gbk" || encode == "gb2312" || encode1 == "gbk" || strings.Contains(strings.ToLower(encode2), "gb") {
+					if encode == "gbk" || encode == "gb2312" ||  strings.Contains(strings.ToLower(encode2), "gb") {
 						titleGBK, err := Decodegbk(text)
 						if err == nil {
 							title = string(titleGBK)
@@ -204,9 +204,9 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 				}
 				length := resp.Header.Get("Content-Length")
 				if length == "" {
-					length = fmt.Sprintf("%v", len(text))
+					length = fmt.Sprintf("%v", len(body))
 				}
-				result := fmt.Sprintf("[*] WebTitle:%-25v code:%-3v len:%-6v title:%v", Url, resp.StatusCode, length, title)
+				result := fmt.Sprintf("[*] WebTitle:%-25v code:%-3v len:%-6v title:%v", resp.Request.URL, resp.StatusCode, length, title)
 				common.LogSuccess(result)
 			}
 			CheckData = append(CheckData, WebScan.CheckDatas{body, fmt.Sprintf("%s", resp.Header)})
@@ -258,7 +258,6 @@ func getRespBody(oResp *http.Response) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer oResp.Body.Close()
 		body = raw
 	}
 	return body, nil

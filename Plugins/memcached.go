@@ -11,6 +11,11 @@ import (
 func MemcachedScan(info *common.HostInfo) (err error) {
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	client, err := net.DialTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
+	defer func() {
+		if client != nil{
+			client.Close()
+		}
+	}()
 	if err == nil {
 		err = client.SetDeadline(time.Now().Add(time.Duration(info.Timeout) * time.Second))
 		if err == nil {
@@ -23,7 +28,6 @@ func MemcachedScan(info *common.HostInfo) (err error) {
 						result := fmt.Sprintf("[+] Memcached %s unauthorized", realhost)
 						common.LogSuccess(result)
 					}
-					client.Close()
 				} else {
 					errlog := fmt.Sprintf("[-] Memcached %v:%v %v", info.Host, info.Ports, err)
 					common.LogError(errlog)

