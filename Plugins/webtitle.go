@@ -3,6 +3,7 @@ package Plugins
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/tls"
 	"fmt"
 	"github.com/saintfish/chardet"
 	"github.com/shadow1ng/fscan/WebScan"
@@ -12,10 +13,12 @@ import (
 	"golang.org/x/text/transform"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var (
@@ -44,13 +47,17 @@ func GOWebTitle(info *common.HostInfo) error {
 		} else if info.Ports == "443" {
 			info.Url = fmt.Sprintf("https://%s", info.Host)
 		} else {
-			info.Url = fmt.Sprintf("http://%s:%s", info.Host, info.Ports)
+			host := fmt.Sprintf("%s:%s", info.Host, info.Ports)
+			protocol := GetProtocol(host, info.Timeout)
+			info.Url = fmt.Sprintf("%s://%s:%s", protocol, info.Host, info.Ports)
 		}
 	} else {
 		if !strings.Contains(info.Url, "://") {
-			info.Url = fmt.Sprintf("http://%s", info.Url)
+			protocol := GetProtocol(info.Url, info.Timeout)
+			info.Url = fmt.Sprintf("%s://%s", protocol, info.Url)
 		}
 	}
+
 	err, result, CheckData := geturl(info, 1, CheckData)
 	if err != nil && !strings.Contains(err.Error(), "EOF") {
 		return err
@@ -68,7 +75,7 @@ func GOWebTitle(info *common.HostInfo) error {
 		}
 	}
 
-	if result == "https" {
+	if result == "https" && !strings.HasPrefix(info.Url, "https://") {
 		info.Url = strings.Replace(info.Url, "http://", "https://", 1)
 		err, result, CheckData = geturl(info, 1, CheckData)
 		if strings.Contains(result, "://") {
@@ -86,6 +93,8 @@ func GOWebTitle(info *common.HostInfo) error {
 				return err
 			}
 		}
+	} else if err != nil {
+		return err
 	}
 
 	err, _, CheckData = geturl(info, 2, CheckData)
@@ -214,7 +223,7 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 			if err1 == nil {
 				return nil, redirURL.String(), CheckData
 			}
-			if resp.StatusCode == 400 && info.Url[:5] != "https" {
+			if resp.StatusCode == 400 && !strings.HasPrefix(info.Url, "https") {
 				return err, "https", CheckData
 			}
 			return err, "", CheckData
@@ -261,4 +270,18 @@ func getRespBody(oResp *http.Response) ([]byte, error) {
 		body = raw
 	}
 	return body, nil
+}
+
+func GetProtocol(host string, Timeout int64) string {
+	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(Timeout) * time.Second}, "tcp", host, &tls.Config{InsecureSkipVerify: true})
+	defer func() {
+		if conn != nil {
+			conn.Close()
+		}
+	}()
+	protocol := "http"
+	if err == nil || strings.Contains(err.Error(), "handshake failure") {
+		protocol = "https"
+	}
+	return protocol
 }
