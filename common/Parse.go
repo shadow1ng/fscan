@@ -19,17 +19,14 @@ func Parse(Info *HostInfo) {
 }
 
 func ParseUser(Info *HostInfo) {
-	if Info.Username != "" {
-		users := strings.Split(Info.Username, ",")
-		for _, user := range users {
-			if user != "" {
-				Info.Usernames = append(Info.Usernames, user)
-			}
-		}
-		for name := range Userdict {
-			Userdict[name] = Info.Usernames
-		}
+	if Info.Username == "" && Userfile == "" {
+		return
 	}
+
+	if Info.Username != "" {
+		Info.Usernames = strings.Split(Info.Username, ",")
+	}
+
 	if Userfile != "" {
 		users, err := Readfile(Userfile)
 		if err == nil {
@@ -38,12 +35,13 @@ func ParseUser(Info *HostInfo) {
 					Info.Usernames = append(Info.Usernames, user)
 				}
 			}
-			for name := range Userdict {
-				Userdict[name] = Info.Usernames
-			}
 		}
 	}
 
+	Info.Usernames = RemoveDuplicate(Info.Usernames)
+	for name := range Userdict {
+		Userdict[name] = Info.Usernames
+	}
 }
 
 func ParsePass(Info *HostInfo) {
