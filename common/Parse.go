@@ -136,6 +136,8 @@ func ParseScantype(Info *HostInfo) {
 				Info.Ports = "445"
 			case "cve20200796":
 				Info.Ports = "445"
+			case "portscan":
+				Info.Ports = DefaultPorts
 			case "main":
 				Info.Ports = DefaultPorts
 			default:

@@ -19,17 +19,20 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 	probePorts := common.ParsePort(ports)
 	noPorts := common.ParsePort(common.NoPorts)
 	if len(noPorts) > 0 {
-		tmp := make(map[int]struct{})
 		var tmpPorts []int
 		for _, port := range probePorts {
+			var flag bool
+		nport:
 			for _, noport := range noPorts {
-				if port != noport {
-					if _, ok := tmp[port]; !ok {
-						tmp[port] = struct{}{}
-						tmpPorts = append(tmpPorts, port)
-					}
+				if port == noport {
+					flag = true
+					break nport
 				}
 			}
+			if flag {
+				continue
+			}
+			tmpPorts = append(tmpPorts, port)
 		}
 		probePorts = tmpPorts
 	}
@@ -73,7 +76,7 @@ func PortConnect(addr Addr, respondingHosts chan<- string, adjustedTimeout int64
 	host, port := addr.ip, addr.port
 	conn, err := net.DialTimeout("tcp4", fmt.Sprintf("%s:%v", host, port), time.Duration(adjustedTimeout)*time.Second)
 	defer func() {
-		if conn != nil{
+		if conn != nil {
 			conn.Close()
 		}
 	}()
