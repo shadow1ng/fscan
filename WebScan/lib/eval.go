@@ -558,7 +558,7 @@ func ParseResponse(oResp *http.Response) (*Response, error) {
 	resp.Status = int32(oResp.StatusCode)
 	resp.Url = ParseUrl(oResp.Request.URL)
 	for k := range oResp.Header {
-		header[k] = oResp.Header.Get(k)
+		header[k] = strings.Join(oResp.Header.Values(k), ";")
 	}
 	resp.Headers = header
 	resp.ContentType = oResp.Header.Get("Content-Type")
