@@ -92,5 +92,6 @@ var (
 	UrlFile       string
 	Urls          []string
 	NoPorts       string
+	NoHosts       string
 	SC            string
 )

@@ -5,8 +5,10 @@ import (
 	"strings"
 )
 
-func ParsePort(ports string) []int {
-	var scanPorts []int
+func ParsePort(ports string) (scanPorts []int) {
+	if ports == "" {
+		return
+	}
 	slices := strings.Split(ports, ",")
 	for _, port := range slices {
 		port = strings.Trim(port, " ")
@@ -39,7 +41,7 @@ func ParsePort(ports string) []int {
 }
 
 func removeDuplicate(old []int) []int {
-	result := make([]int, 0, len(old))
+	result := []int{}
 	temp := map[int]struct{}{}
 	for _, item := range old {
 		if _, ok := temp[item]; !ok {

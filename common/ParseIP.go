@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -21,35 +22,54 @@ var ParseIPErr = errors.New(" host parsing error\n" +
 	"192.168.1.1-192.168.255.255\n" +
 	"192.168.1.1-255")
 
-func ParseIP(ip string, filename string) (hosts []string, err error) {
-
+func ParseIP(ip string, filename string, nohost string) (hosts []string, err error) {
 	if ip != "" {
-		hosts, err = ParseIPs(ip)
+		hosts = ParseIPs(ip)
 	}
 	if filename != "" {
 		var filehost []string
 		filehost, _ = Readipfile(filename)
 		hosts = append(hosts, filehost...)
 	}
+
+	if nohost != "" {
+		nohosts := ParseIPs(nohost)
+		if len(nohosts) > 0 {
+			temp := map[string]struct{}{}
+			for _, host := range hosts {
+				temp[host] = struct{}{}
+			}
+
+			for _, host := range nohosts {
+				delete(temp, host)
+			}
+
+			var newDatas []string
+			for host, _ := range temp {
+				newDatas = append(newDatas, host)
+			}
+			hosts = newDatas
+			sort.Strings(hosts)
+		}
+	}
 	hosts = RemoveDuplicate(hosts)
 	return hosts, err
 }
 
-func ParseIPs(ip string) (hosts []string, err error) {
+func ParseIPs(ip string) (hosts []string) {
+	var err error
 	if strings.Contains(ip, ",") {
 		IPList := strings.Split(ip, ",")
 		var ips []string
 		for _, ip := range IPList {
 			ips, err = ParseIPone(ip)
-			CheckErr(ip, err)
 			hosts = append(hosts, ips...)
 		}
-		return hosts, err
 	} else {
 		hosts, err = ParseIPone(ip)
-		CheckErr(ip, err)
-		return hosts, err
 	}
+	CheckErr(ip, err)
+	return hosts
 }
 
 func ParseIPone(ip string) ([]string, error) {
@@ -189,8 +209,7 @@ func Readipfile(filename string) ([]string, error) {
 	for scanner.Scan() {
 		text := strings.TrimSpace(scanner.Text())
 		if text != "" {
-			host, err := ParseIPs(text)
-			CheckErr(text, err)
+			host := ParseIPs(text)
 			content = append(content, host...)
 		}
 	}
@@ -198,7 +217,7 @@ func Readipfile(filename string) ([]string, error) {
 }
 
 func RemoveDuplicate(old []string) []string {
-	result := make([]string, 0, len(old))
+	result := []string{}
 	temp := map[string]struct{}{}
 	for _, item := range old {
 		if _, ok := temp[item]; !ok {

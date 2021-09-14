@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/shadow1ng/fscan/common"
 	"net"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -19,22 +20,21 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 	probePorts := common.ParsePort(ports)
 	noPorts := common.ParsePort(common.NoPorts)
 	if len(noPorts) > 0 {
-		var tmpPorts []int
+		temp := map[int]struct{}{}
 		for _, port := range probePorts {
-			var flag bool
-		nport:
-			for _, noport := range noPorts {
-				if port == noport {
-					flag = true
-					break nport
-				}
-			}
-			if flag {
-				continue
-			}
-			tmpPorts = append(tmpPorts, port)
+			temp[port] = struct{}{}
 		}
-		probePorts = tmpPorts
+
+		for _, port := range noPorts {
+			delete(temp, port)
+		}
+
+		var newDatas []int
+		for port, _ := range temp {
+			newDatas = append(newDatas, port)
+		}
+		probePorts = newDatas
+		sort.Ints(probePorts)
 	}
 	workers := common.Threads
 	Addrs := make(chan Addr, len(hostslist)*len(probePorts))
