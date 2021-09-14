@@ -13,7 +13,7 @@ import (
 
 func Scan(info common.HostInfo) {
 	fmt.Println("start infoscan")
-	Hosts, _ := common.ParseIP(info.Host, common.HostFile)
+	Hosts, _ := common.ParseIP(info.Host, common.HostFile, common.NoHosts)
 	lib.Inithttp(common.Pocinfo)
 	var ch = make(chan struct{}, common.Threads)
 	var wg = sync.WaitGroup{}
