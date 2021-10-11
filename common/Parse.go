@@ -149,10 +149,15 @@ func ParseScantype(Info *HostInfo) {
 	}
 }
 
-func CheckErr(text string, err error) {
+func CheckErr(text string, err error, flag bool) {
 	if err != nil {
-		fmt.Println(text, err.Error())
-		os.Exit(0)
+		fmt.Println("Parse", text, "error: ", err.Error())
+		if flag {
+			if err != ParseIPErr {
+				fmt.Println(ParseIPErr)
+			}
+			os.Exit(0)
+		}
 	}
 }
 

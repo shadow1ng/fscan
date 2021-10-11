@@ -24,7 +24,7 @@ var ParseIPErr = errors.New(" host parsing error\n" +
 
 func ParseIP(ip string, filename string, nohost string) (hosts []string, err error) {
 	if ip != "" {
-		hosts = ParseIPs(ip)
+		hosts = ParseIPs(ip, true)
 	}
 	if filename != "" {
 		var filehost []string
@@ -33,7 +33,7 @@ func ParseIP(ip string, filename string, nohost string) (hosts []string, err err
 	}
 
 	if nohost != "" {
-		nohosts := ParseIPs(nohost)
+		nohosts := ParseIPs(nohost, true)
 		if len(nohosts) > 0 {
 			temp := map[string]struct{}{}
 			for _, host := range hosts {
@@ -56,19 +56,25 @@ func ParseIP(ip string, filename string, nohost string) (hosts []string, err err
 	return hosts, err
 }
 
-func ParseIPs(ip string) (hosts []string) {
+func ParseIPs(ip string, flag ...bool) (hosts []string) {
 	var err error
+	var flag1 bool
+	if len(flag) > 0 {
+		flag1 = flag[0]
+	}
 	if strings.Contains(ip, ",") {
 		IPList := strings.Split(ip, ",")
 		var ips []string
 		for _, ip := range IPList {
 			ips, err = ParseIPone(ip)
+			CheckErr(ip, err, flag1)
 			hosts = append(hosts, ips...)
 		}
 	} else {
 		hosts, err = ParseIPone(ip)
 	}
-	CheckErr(ip, err)
+
+	CheckErr(ip, err, flag1)
 	return hosts
 }
 
