@@ -27,8 +27,6 @@ var PORTList = map[string]int{
 	"ms17010":     1000001,
 	"cve20200796": 1000002,
 	"web":         1000003,
-	"smb2":        1000004,
-	"wmi":         1000005,
 	"all":         0,
 	"portscan":    0,
 	"icmp":        0,
