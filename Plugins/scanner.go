@@ -40,11 +40,6 @@ func Scan(info common.HostInfo) {
 			info.Host, info.Ports = strings.Split(targetIP, ":")[0], strings.Split(targetIP, ":")[1]
 			if info.Scantype == "all" {
 				switch {
-				case info.Ports == "135":
-					AddScan(info.Ports, info, ch, &wg) //findnet
-					if common.IsWmi {
-						AddScan("1000005", info, ch, &wg) //wmiexec
-					}
 				case info.Ports == "445":
 					//AddScan(info.Ports, info, ch, &wg)  //smb
 					AddScan("1000001", info, ch, &wg) //ms17010
