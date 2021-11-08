@@ -11,4 +11,5 @@ func main() {
 	common.Parse(&Info)
 	Plugins.Scan(Info)
 	print("scan end\n")
+	print("scan end\n")
 }
