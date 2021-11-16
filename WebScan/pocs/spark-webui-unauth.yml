@@ -1,0 +1,8 @@
+name: poc-yaml-spark-webui-unauth
+rules:
+  - method: GET
+    path: /
+    expression: response.status == 200 && response.body.bcontains(b"<title>Spark") && response.body.bcontains(b"<strong>URL:</strong> spark:")
+detail:
+  links:
+    - https://github.com/vulhub/vulhub/tree/master/spark/unacc

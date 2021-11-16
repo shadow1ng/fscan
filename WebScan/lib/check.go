@@ -32,9 +32,9 @@ func CheckMultiPoc(req *http.Request, Pocs embed.FS, workers int, pocname string
 	for i := 0; i < workers; i++ {
 		go func() {
 			for task := range tasks {
-				isVul, _ := executePoc(task.Req, task.Poc)
+				isVul, _ ,name:= executePoc(task.Req, task.Poc)
 				if isVul {
-					result := fmt.Sprintf("[+] %s %s", task.Req.URL, task.Poc.Name)
+					result := fmt.Sprintf("[+] %s %s %s", task.Req.URL, task.Poc.Name,name)
 					common.LogSuccess(result)
 				}
 				wg.Done()
@@ -53,7 +53,7 @@ func CheckMultiPoc(req *http.Request, Pocs embed.FS, workers int, pocname string
 	close(tasks)
 }
 
-func executePoc(oReq *http.Request, p *Poc) (bool, error) {
+func executePoc(oReq *http.Request, p *Poc) (bool, error,string) {
 	c := NewEnvOption()
 	c.UpdateCompileOptions(p.Set)
 	if len(p.Sets) > 0 {
@@ -65,13 +65,13 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error) {
 	}
 	env, err := NewEnv(&c)
 	if err != nil {
-		//fmt.Printf("environment creation error: %s\n", err)
-		return false, err
+		fmt.Printf("[-] %s environment creation error: %s\n",p.Name,err)
+		return false, err, ""
 	}
 	req, err := ParseRequest(oReq)
 	if err != nil {
-		//fmt.Println("ParseRequest error",err)
-		return false, err
+		fmt.Printf("[-] %s ParseRequest error: %s\n",p.Name,err)
+		return false, err, ""
 	}
 	variableMap := make(map[string]interface{})
 	variableMap["request"] = req
@@ -119,7 +119,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error) {
 		out, err := Evaluate(env, p.Set["payload"], variableMap)
 		if err != nil {
 			//fmt.Println(p.Name,"  poc_payload error",err)
-			return false, err
+			return false, err, ""
 		}
 		variableMap["payload"] = fmt.Sprintf("%v", out)
 	}
@@ -153,14 +153,21 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error) {
 	}
 
 	success := false
+	//爆破模式,比如tomcat弱口令
 	if setslen > 0 {
 		if haspayload {
 			success, err = clusterpoc1(oReq, p, variableMap, req, env, setskeys)
 		} else {
 			success, err = clusterpoc(oReq, p, variableMap, req, env, setslen, setskeys)
 		}
-	} else {
-		for _, rule := range p.Rules {
+		return success, nil, ""
+	}
+
+
+	DealWithRule := func(rule Rules) (bool, error) {
+		var (
+			flag, ok bool
+		)
 			for k1, v1 := range variableMap {
 				_, isMap := v1.(map[string]string)
 				if isMap {
@@ -201,7 +208,6 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error) {
 					for k, v := range result {
 						variableMap[k] = v
 					}
-					//return false, nil
 				} else {
 					return false, nil
 				}
@@ -211,14 +217,44 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error) {
 				return false, err
 			}
 			//fmt.Println(fmt.Sprintf("%v, %s", out, out.Type().TypeName()))
-			if fmt.Sprintf("%v", out) == "false" { //如果false不继续执行后续rule
-				success = false // 如果最后一步执行失败，就算前面成功了最终依旧是失败
+			//如果false不继续执行后续rule
+			// 如果最后一步执行失败，就算前面成功了最终依旧是失败
+			flag, ok = out.Value().(bool)
+			if !ok {
+				flag = false
+			}
+			return flag, nil
+	}
+
+	DealWithRules := func(rules []Rules) bool {
+		successFlag := false
+		for _, rule := range rules {
+			flag, err := DealWithRule(rule)
+			//if err != nil {
+			//	fmt.Printf("[-] %s Execute Rule error: %s\n",p.Name,err.Error())
+			//}
+
+			if err != nil || !flag { //如果false不继续执行后续rule
+				successFlag = false // 如果其中一步为flag，则直接break
 				break
 			}
-			success = true
+			successFlag = true
+		}
+		return successFlag
+	}
+
+	if len(p.Rules) > 0 {
+		success = DealWithRules(p.Rules)
+	} else { // Groups
+		for name, rules := range p.Groups {
+			success = DealWithRules(rules)
+			if success {
+				return success, nil, name
+			}
 		}
 	}
-	return success, nil
+
+	return success, nil, ""
 }
 
 func doSearch(re string, body string) map[string]string {
@@ -308,7 +344,7 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 				}
 				rule1.Path = strings.ReplaceAll(strings.TrimSpace(rule1.Path), "{{"+keys[0]+"}}", var1)
 				rule1.Body = strings.ReplaceAll(strings.TrimSpace(rule1.Body), "{{"+keys[0]+"}}", var1)
-				success, err = clustersend(oReq, variableMap, req, env, rule)
+				success, err = clustersend(oReq, variableMap, req, env, rule1)
 				if err != nil {
 					return false, err
 				}
@@ -334,7 +370,7 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 					rule1.Body = strings.ReplaceAll(strings.TrimSpace(rule1.Body), "{{"+keys[0]+"}}", var1)
 					rule1.Path = strings.ReplaceAll(strings.TrimSpace(rule1.Path), "{{"+keys[1]+"}}", var2)
 					rule1.Body = strings.ReplaceAll(strings.TrimSpace(rule1.Body), "{{"+keys[1]+"}}", var2)
-					success, err = clustersend(oReq, variableMap, req, env, rule)
+					success, err = clustersend(oReq, variableMap, req, env, rule1)
 					if err != nil {
 						return false, err
 					}

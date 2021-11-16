@@ -4,7 +4,7 @@ rules:
     path: /info
     follow_redirects: false
     expression: |
-      response.status == 200 && response.body.bcontains(b"KernelVersion") && response.body.bcontains(b"RegistryConfig") && response.body.bcontains(b"DockerRootDir")
+      response.status == 200 && response.content_type.contains("json") && response.body.bcontains(b"KernelVersion") && response.body.bcontains(b"RegistryConfig") && response.body.bcontains(b"DockerRootDir")
 
 detail:
   author: j4ckzh0u(https://github.com/j4ckzh0u)

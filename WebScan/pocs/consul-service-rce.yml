@@ -1,0 +1,10 @@
+name: poc-yaml-consul-service-rce
+rules:
+  - method: GET
+    path: /v1/agent/self
+    expression: |
+      response.status == 200 && response.content_type.contains("json") && response.body.bcontains(b"\"EnableScriptChecks\": true") || response.body.bcontains(b"\"EnableRemoteScriptChecks\": true")
+detail:
+  author: imlonghao(https://imlonghao.com/)
+  links:
+    - https://www.exploit-db.com/exploits/46074

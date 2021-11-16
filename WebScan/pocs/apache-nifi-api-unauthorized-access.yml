@@ -1,0 +1,12 @@
+name: poc-yaml-apache-nifi-api-unauthorized-access
+manual: true
+transport: http
+rules:
+  - method: GET
+    path: /nifi-api/flow/current-user
+    follow_redirects: false
+    expression: response.status == 200 && response.content_type.contains("json") && response.body.bcontains(b"\"identity\":\"anonymous\",\"anonymous\":true")
+detail:
+    author: wulalalaaa(https://github.com/wulalalaaa)
+    links:
+        - https://nifi.apache.org/docs/nifi-docs/rest-api/index.html

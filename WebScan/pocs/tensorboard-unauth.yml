@@ -1,0 +1,16 @@
+name: poc-yaml-tensorboard-unauth
+rules:
+  - method: GET
+    path: /
+    follow_redirects: true
+    expression: >
+      response.status == 200 && response.body.bcontains(b"The TensorFlow Authors. All Rights Reserved.")
+  - method: GET
+    path: '/data/plugins_listing'
+    follow_redirects: true
+    expression: |
+      response.status == 200 && response.content_type.contains("application/json") && response.body.bcontains(b"profile") && response.body.bcontains(b"distributions")
+detail:
+  author: p0wd3r
+  links:
+    - https://www.tensorflow.org/guide/summaries_and_tensorboard?hl=zh-CN

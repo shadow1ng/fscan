@@ -1,0 +1,10 @@
+name: poc-yaml-consul-rexec-rce
+rules:
+  - method: GET
+    path: /v1/agent/self
+    expression: |
+      response.status == 200 && response.content_type.contains("json") && response.body.bcontains(b"\"DisableRemoteExec\": false")
+detail:
+  author: imlonghao(https://imlonghao.com/)
+  links:
+    - https://www.exploit-db.com/exploits/46073

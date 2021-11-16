@@ -121,17 +121,17 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 		}
 	}
 
-	res, err := http.NewRequest("GET", Url, nil)
+	req, err := http.NewRequest("GET", Url, nil)
 	if err == nil {
-		res.Header.Set("User-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1468.0 Safari/537.36")
-		res.Header.Set("Accept", "*/*")
-		res.Header.Set("Accept-Language", "zh-CN,zh;q=0.9")
+		req.Header.Set("User-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1468.0 Safari/537.36")
+		req.Header.Set("Accept", "*/*")
+		req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9")
 		if common.Pocinfo.Cookie != "" {
-			res.Header.Set("Cookie", "rememberMe=1;"+common.Pocinfo.Cookie)
+			req.Header.Set("Cookie", "rememberMe=1;"+common.Pocinfo.Cookie)
 		} else {
-			res.Header.Set("Cookie", "rememberMe=1")
+			req.Header.Set("Cookie", "rememberMe=1")
 		}
-		res.Header.Set("Connection", "close")
+		req.Header.Set("Connection", "close")
 
 		var client *http.Client
 		if flag == 1 {
@@ -140,7 +140,7 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 			client = lib.Client
 		}
 
-		resp, err := client.Do(res)
+		resp, err := client.Do(req)
 		if err == nil {
 			defer resp.Body.Close()
 			var title string

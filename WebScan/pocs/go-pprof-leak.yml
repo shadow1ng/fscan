@@ -1,0 +1,15 @@
+name: poc-yaml-go-pprof-leak
+rules:
+  - method: GET
+    path: "/debug/pprof/"
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(string(b"Types of profiles available"))) && response.body.bcontains(bytes(string(b"Profile Descriptions")))
+  - method: GET
+    path: "/debug/pprof/goroutine?debug=1"
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(string(b"goroutine profile: total")))
+detail:
+  author: pa55w0rd(www.pa55w0rd.online/)
+  Affected Version: "go pprof leak"
+  links:
+    - https://cloud.tencent.com/developer/news/312276

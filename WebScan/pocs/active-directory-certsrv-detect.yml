@@ -1,0 +1,11 @@
+name: poc-yaml-active-directory-certsrv-detect
+rules:
+  - method: GET
+    path: /certsrv/certrqad.asp
+    follow_redirects: false
+    expression: |
+      response.status == 401 && "Server" in response.headers && response.headers["Server"].contains("Microsoft-IIS") && response.body.bcontains(bytes("401 - ")) && "Www-Authenticate" in response.headers && response.headers["Www-Authenticate"].contains("Negotiate") && "Www-Authenticate" in response.headers && response.headers["Www-Authenticate"].contains("NTLM")
+detail:
+  author: AgeloVito
+  links:
+    - https://www.cnblogs.com/EasonJim/p/6859345.html

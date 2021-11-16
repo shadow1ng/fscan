@@ -10,6 +10,7 @@ rules:
     follow_redirects: false
     expression: |
       response.status == 200 && response.body.bcontains(b"\"dept_name\":\"") && response.body.bcontains(b"\"online_flag\":") && response.headers["Content-Type"].contains("application/json")
+
 detail:
   author: kzaopa(https://github.com/kzaopa)
   links:

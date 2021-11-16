@@ -1,0 +1,20 @@
+name: poc-yaml-swagger-ui-unauth
+sets:
+  path:
+    - swagger-ui.html
+    - api/swagger-ui.html
+    - service/swagger-ui.html
+    - web/swagger-ui.html
+    - swagger/swagger-ui.html
+    - actuator/swagger-ui.html
+    - libs/swagger-ui.html
+    - template/swagger-ui.html
+rules:
+  - method: GET
+    path: /{{path}}
+    expression: |
+      response.status == 200 && response.body.bcontains(b"Swagger UI") && response.body.bcontains(b"swagger-ui.min.js")
+detail:
+  author: AgeloVito
+  links:
+    - https://blog.csdn.net/u012206617/article/details/109107210

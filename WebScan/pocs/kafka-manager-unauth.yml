@@ -1,0 +1,11 @@
+name: poc-yaml-kafka-manager-unauth
+rules:
+  - method: GET
+    path: /
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(b"Kafka Manager</a>") && response.body.bcontains(b"<title>Kafka Manager</title>") && response.body.bcontains(b"Add Cluster")
+detail:
+  author: Aquilao(https://github.com/Aquilao)
+  links:
+    - https://blog.csdn.net/qq_36923426/article/details/111361158

