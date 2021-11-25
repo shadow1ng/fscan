@@ -80,6 +80,7 @@ var (
 	Ping          bool
 	Pocinfo       PocInfo
 	IsWebCan      bool
+	IsBrute       bool
 	RedisFile     string
 	RedisShell    string
 	Userfile      string

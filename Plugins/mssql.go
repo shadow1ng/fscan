@@ -10,6 +10,9 @@ import (
 )
 
 func MssqlScan(info *common.HostInfo) (tmperr error) {
+	if common.IsBrute {
+		return
+	}
 	starttime := time.Now().Unix()
 	for _, user := range common.Userdict["mssql"] {
 		for _, pass := range common.Passwords {

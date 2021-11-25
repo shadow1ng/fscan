@@ -37,6 +37,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&RedisFile, "rf", "", "redis file to write sshkey file (as: -rf id_rsa.pub) ")
 	flag.StringVar(&RedisShell, "rs", "", "redis shell to write cron file (as: -rs 192.168.1.1:6666) ")
 	flag.BoolVar(&IsWebCan, "nopoc", false, "not to scan web vul")
+	flag.BoolVar(&IsBrute, "nobr", false, "not to Brute password")
 	flag.BoolVar(&IsPing, "np", false, "not to ping")
 	flag.BoolVar(&Ping, "ping", false, "using ping replace icmp")
 	flag.StringVar(&TmpOutputfile, "o", "result.txt", "Outputfile")

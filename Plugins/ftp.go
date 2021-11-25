@@ -9,6 +9,9 @@ import (
 )
 
 func FtpScan(info *common.HostInfo) (tmperr error) {
+	if common.IsBrute {
+		return
+	}
 	starttime := time.Now().Unix()
 	flag, err := FtpConn(info, "anonymous", "")
 	if flag == true && err == nil {

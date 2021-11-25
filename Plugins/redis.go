@@ -21,6 +21,9 @@ func RedisScan(info *common.HostInfo) (tmperr error) {
 	if flag == true && err == nil {
 		return err
 	}
+	if common.IsBrute {
+		return
+	}
 	for _, pass := range common.Passwords {
 		pass = strings.Replace(pass, "{user}", "redis", -1)
 		flag, err := RedisConn(info, pass)
@@ -46,14 +49,14 @@ func RedisConn(info *common.HostInfo, pass string) (flag bool, err error) {
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	conn, err := net.DialTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
 	defer func() {
-		if conn != nil{
+		if conn != nil {
 			conn.Close()
 		}
 	}()
 	if err != nil {
 		return flag, err
 	}
-	err = conn.SetReadDeadline(time.Now().Add(time.Duration(info.Timeout)*time.Second))
+	err = conn.SetReadDeadline(time.Now().Add(time.Duration(info.Timeout) * time.Second))
 	if err != nil {
 		return flag, err
 	}
@@ -71,8 +74,8 @@ func RedisConn(info *common.HostInfo, pass string) (flag bool, err error) {
 		if err != nil {
 			result := fmt.Sprintf("[+] Redis:%s %s", realhost, pass)
 			common.LogSuccess(result)
-			return flag,err
-		}else {
+			return flag, err
+		} else {
 			result := fmt.Sprintf("[+] Redis:%s %s file:%s/%s", realhost, pass, dir, dbfilename)
 			common.LogSuccess(result)
 		}
@@ -86,14 +89,14 @@ func RedisUnauth(info *common.HostInfo) (flag bool, err error) {
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	conn, err := net.DialTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
 	defer func() {
-		if conn != nil{
+		if conn != nil {
 			conn.Close()
 		}
 	}()
 	if err != nil {
 		return flag, err
 	}
-	err = conn.SetReadDeadline(time.Now().Add(time.Duration(info.Timeout)*time.Second))
+	err = conn.SetReadDeadline(time.Now().Add(time.Duration(info.Timeout) * time.Second))
 	if err != nil {
 		return flag, err
 	}
@@ -111,9 +114,9 @@ func RedisUnauth(info *common.HostInfo) (flag bool, err error) {
 		if err != nil {
 			result := fmt.Sprintf("[+] Redis:%s unauthorized", realhost)
 			common.LogSuccess(result)
-			return flag,err
-		}else {
-			result := fmt.Sprintf("[+] Redis:%s unauthorized file:%s/%s", realhost,dir,dbfilename)
+			return flag, err
+		} else {
+			result := fmt.Sprintf("[+] Redis:%s unauthorized file:%s/%s", realhost, dir, dbfilename)
 			common.LogSuccess(result)
 		}
 		err = Expoilt(realhost, conn)
