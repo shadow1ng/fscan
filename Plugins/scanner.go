@@ -13,7 +13,11 @@ import (
 
 func Scan(info common.HostInfo) {
 	fmt.Println("start infoscan")
-	Hosts, _ := common.ParseIP(info.Host, common.HostFile, common.NoHosts)
+	Hosts, err := common.ParseIP(info.Host, common.HostFile, common.NoHosts)
+	if err != nil {
+		fmt.Println("len(hosts)==0", err)
+		return
+	}
 	lib.Inithttp(common.Pocinfo)
 	var ch = make(chan struct{}, common.Threads)
 	var wg = sync.WaitGroup{}
@@ -38,8 +42,10 @@ func Scan(info common.HostInfo) {
 		fmt.Println("start vulscan")
 		for _, targetIP := range AlivePorts {
 			info.Host, info.Ports = strings.Split(targetIP, ":")[0], strings.Split(targetIP, ":")[1]
-			if info.Scantype == "all" || info.Scantype == "main"{
+			if info.Scantype == "all" || info.Scantype == "main" {
 				switch {
+				case info.Ports == "135":
+					AddScan(info.Ports, info, ch, &wg) //findnet
 				case info.Ports == "445":
 					//AddScan(info.Ports, info, ch, &wg)  //smb
 					AddScan("1000001", info, ch, &wg) //ms17010

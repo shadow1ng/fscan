@@ -118,7 +118,7 @@ func ParseInput(Info *HostInfo) {
 		IsSave = false
 	}
 	if Info.Ports == DefaultPorts {
-		Info.Ports += Webport
+		Info.Ports += "," + Webport
 	}
 }
 
@@ -130,14 +130,18 @@ func ParseScantype(Info *HostInfo) {
 	if Info.Scantype != "all" {
 		if Info.Ports == DefaultPorts {
 			switch Info.Scantype {
+			case "wmi":
+				Info.Ports = "135"
 			case "web":
 				Info.Ports = Webport
 			case "ms17010":
 				Info.Ports = "445"
 			case "cve20200796":
 				Info.Ports = "445"
+			case "smb2":
+				Info.Ports = "445"
 			case "portscan":
-				Info.Ports = DefaultPorts
+				Info.Ports = DefaultPorts + "," + Webport
 			case "main":
 				Info.Ports = DefaultPorts
 			default:

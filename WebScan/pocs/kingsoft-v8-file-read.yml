@@ -6,6 +6,7 @@ rules:
     follow_redirects: false
     expression: |
       response.status == 200 && (response.body.bcontains(b"for 16-bit app support") || response.body.bcontains(b"[extensions]")) && response.headers["Content-Type"].contains("application/zip")
+
 detail:
   author: kzaopa(https://github.com/kzaopa)
   links:

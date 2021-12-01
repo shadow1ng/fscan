@@ -7,6 +7,7 @@ rules:
     follow_redirects: false
     expression: |
       response.status == 200 && response.body.bcontains(bytes(md5(string(rand))))
+
 detail:
   author: kzaopa(https://github.com/kzaopa)
   links:
