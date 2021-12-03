@@ -72,7 +72,7 @@ go build -ldflags="-s -w " -trimpath
   -h string
         IP address of the host you want to scan,for example: 192.168.11.11 | 192.168.11.11-255 | 192.168.11.11,192.168.11.12
   -hf string
-        host file, -hs ip.txt
+        host file, -hf ip.txt
   -m string
         Select scan type ,as: -m ssh (default "all")
   -no
@@ -188,4 +188,4 @@ fscan 是 404Team [星链计划2.0](https://github.com/knownsec/404StarLink2.0-G
 [+] 2020/11/17 增加-ping 参数,作用是存活探测模块用ping代替icmp发包。   
 [+] 2020/11/17 增加WebScan模块,新增shiro简单识别。https访问时,跳过证书认证。将服务模块和web模块的超时分开,增加-wt 参数(WebTimeout)。    
 [+] 2020/11/16 对icmp模块进行优化,增加-it 参数(IcmpThreads),默认11000,适合扫B段  
-[+] 2020/11/15 支持ip以文件导入,-hs ip.txt,并对去重做了处理
+[+] 2020/11/15 支持ip以文件导入,-hf ip.txt,并对去重做了处理
