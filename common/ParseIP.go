@@ -23,9 +23,6 @@ var ParseIPErr = errors.New(" host parsing error\n" +
 	"192.168.1.1-255")
 
 func ParseIP(host string, filename string, nohosts ...string) (hosts []string, err error) {
-	if host == "" {
-		return
-	}
 	hosts = ParseIPs(host)
 	if filename != "" {
 		var filehost []string
@@ -57,7 +54,7 @@ func ParseIP(host string, filename string, nohosts ...string) (hosts []string, e
 		}
 	}
 	hosts = RemoveDuplicate(hosts)
-	if len(hosts) == 0 {
+	if len(hosts) == 0 && host != "" && filename != "" {
 		err = ParseIPErr
 	}
 	return
