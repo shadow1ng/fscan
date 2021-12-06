@@ -1,13 +1,10 @@
-# This is an example .goreleaser.yml file with some sane defaults.
-# Make sure to check the documentation at http://goreleaser.com
 before:
   hooks:
-    # You may remove this if you don't use go modules.
     - go mod tidy
-    # you may remove this if you don't need go generate
     - go generate ./...
 builds:
-  - env:
+  - id: "with-upx"
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
@@ -18,7 +15,6 @@ builds:
       - arm64
       - arm
       - "386"
-      - mips64
     goarm:
       - "6"
       - "7"
@@ -29,6 +25,35 @@ builds:
     ignore:
       - goos: windows
         goarch: arm64
+      - goos: windows
+        goarch: arm
+      - goos: linux
+        goarch: mips64
+    hooks:
+       post: upx --best -f -q "{{ .Path }}"
+
+# UnknownExecutableFormatException
+# CantPackException: can't pack new-exe
+  - id: "without-upx"
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+    goarch:
+      - mips64
+      - arm
+    goarm:
+      - "6"
+      - "7"
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{ .CommitDate }} -X main.builtBy=goreleaser
+    ignore:
+      - goos: linux
+        goarch: arm
+
 archives:
   - replacements:
       darwin: Darwin
