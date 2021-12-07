@@ -120,6 +120,14 @@ func ParseInput(Info *HostInfo) {
 	if Info.Ports == DefaultPorts {
 		Info.Ports += "," + Webport
 	}
+
+	if PortAdd != "" {
+		if strings.HasSuffix(Info.Ports, ",") {
+			Info.Ports += PortAdd
+		} else {
+			Info.Ports += "," + PortAdd
+		}
+	}
 }
 
 func ParseScantype(Info *HostInfo) {
@@ -130,6 +138,8 @@ func ParseScantype(Info *HostInfo) {
 	if Info.Scantype != "all" {
 		if Info.Ports == DefaultPorts {
 			switch Info.Scantype {
+			case "rdp":
+				Info.Ports = "3389"
 			case "wmi":
 				Info.Ports = "135"
 			case "web":

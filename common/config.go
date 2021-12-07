@@ -5,6 +5,7 @@ var Userdict = map[string][]string{
 	"mysql":      {"root", "mysql"},
 	"mssql":      {"sa", "sql"},
 	"smb":        {"administrator", "admin", "guest"},
+	"rdp":        {"administrator", "admin", "guest"},
 	"postgresql": {"postgres", "admin"},
 	"ssh":        {"root", "admin"},
 	"mongodb":    {"root", "admin"},
@@ -19,6 +20,7 @@ var PORTList = map[string]int{
 	"smb":         445,
 	"mssql":       1433,
 	"mysql":       3306,
+	"rdp":         3389,
 	"psql":        5432,
 	"redis":       6379,
 	"fcgi":        9000,
@@ -93,4 +95,5 @@ var (
 	NoPorts       string
 	NoHosts       string
 	SC            string
+	PortAdd       string
 )
