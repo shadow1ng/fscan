@@ -96,4 +96,7 @@ var (
 	NoHosts       string
 	SC            string
 	PortAdd       string
+	UserAdd       string
+	PassAdd       string
+	BruteThread   int
 )
