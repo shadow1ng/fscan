@@ -71,18 +71,22 @@ func CheckLive(hostslist []string, Ping bool) []string {
 
 	livewg.Wait()
 	close(chanHosts)
-	if common.IsIPRange {
+
+	if len(hostslist) > 1000 {
 		arrTop, arrLen := ArrayCountValueTop(AliveHosts, common.LiveTop, true)
 		for i := 0; i < len(arrTop); i++ {
 			output := fmt.Sprintf("[*] LiveTop %-16s 段存活数量为: %d", arrTop[i]+".0.0/16", arrLen[i])
 			common.LogSuccess(output)
 		}
 	}
-	arrTop, arrLen := ArrayCountValueTop(AliveHosts, common.LiveTop, false)
-	for i := 0; i < len(arrTop); i++ {
-		output := fmt.Sprintf("[*] LiveTop %-16s 段存活数量为: %d", arrTop[i]+".0/24", arrLen[i])
-		common.LogSuccess(output)
+	if len(hostslist) >= 200 {
+		arrTop, arrLen := ArrayCountValueTop(AliveHosts, common.LiveTop, false)
+		for i := 0; i < len(arrTop); i++ {
+			output := fmt.Sprintf("[*] LiveTop %-16s 段存活数量为: %d", arrTop[i]+".0/24", arrLen[i])
+			common.LogSuccess(output)
+		}
 	}
+
 	return AliveHosts
 }
 
