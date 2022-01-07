@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"os"
 	"regexp"
@@ -77,6 +78,9 @@ func ParseIPs(ip string) (hosts []string) {
 func parseIP(ip string) []string {
 	reg := regexp.MustCompile(`[a-zA-Z]+`)
 	switch {
+	// 扫描/8时,只扫网关和随机IP,避免扫描过多IP
+	case strings.HasSuffix(ip, "/8"):
+		return parseIP8(ip)
 	//解析 /24 /16 /8 /xxx 等
 	case strings.Contains(ip, "/"):
 		return parseIP2(ip)
@@ -110,7 +114,8 @@ func parseIP2(host string) (hosts []string) {
 	return
 }
 
-// 解析ip段: 192.168.111.1-255,192.168.111.1-192.168.112.255
+// 解析ip段: 192.168.111.1-255
+//          192.168.111.1-192.168.112.255
 func parseIP1(ip string) []string {
 	IPRange := strings.Split(ip, "-")
 	testIP := net.ParseIP(IPRange[0])
@@ -201,4 +206,38 @@ func RemoveDuplicate(old []string) []string {
 		}
 	}
 	return result
+}
+
+func parseIP8(ip string) []string {
+	realIP := ip[:len(ip)-2]
+	testIP := net.ParseIP(realIP)
+
+	if testIP == nil {
+		return nil
+	}
+
+	IPrange := strings.Split(ip, ".")[0]
+	var AllIP []string
+	for a := 0; a <= 255; a++ {
+		for b := 0; b <= 255; b++ {
+			AllIP = append(AllIP, fmt.Sprintf("%s.%d.%d.%d", IPrange, a, b, 1))
+			AllIP = append(AllIP, fmt.Sprintf("%s.%d.%d.%d", IPrange, a, b, 2))
+			AllIP = append(AllIP, fmt.Sprintf("%s.%d.%d.%d", IPrange, a, b, 4))
+			AllIP = append(AllIP, fmt.Sprintf("%s.%d.%d.%d", IPrange, a, b, 5))
+			AllIP = append(AllIP, fmt.Sprintf("%s.%d.%d.%d", IPrange, a, b, RandInt(6, 55)))
+			AllIP = append(AllIP, fmt.Sprintf("%s.%d.%d.%d", IPrange, a, b, RandInt(56, 100)))
+			AllIP = append(AllIP, fmt.Sprintf("%s.%d.%d.%d", IPrange, a, b, RandInt(101, 150)))
+			AllIP = append(AllIP, fmt.Sprintf("%s.%d.%d.%d", IPrange, a, b, RandInt(151, 200)))
+			AllIP = append(AllIP, fmt.Sprintf("%s.%d.%d.%d", IPrange, a, b, RandInt(201, 253)))
+			AllIP = append(AllIP, fmt.Sprintf("%s.%d.%d.%d", IPrange, a, b, 254))
+		}
+	}
+	return AllIP
+}
+
+func RandInt(min, max int) int {
+	if min >= max || min == 0 || max == 0 {
+		return max
+	}
+	return rand.Intn(max-min) + min
 }

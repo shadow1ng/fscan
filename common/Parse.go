@@ -128,6 +128,20 @@ func ParseInput(Info *HostInfo) {
 			Info.Ports += "," + PortAdd
 		}
 	}
+
+	if UserAdd != "" {
+		user := strings.Split(UserAdd, ",")
+		for a, _ := range Userdict {
+			Userdict[a] = append(Userdict[a], user...)
+			Userdict[a] = RemoveDuplicate(Userdict[a])
+		}
+	}
+
+	if PassAdd != "" {
+		pass := strings.Split(PassAdd, ",")
+		Passwords = append(Passwords, pass...)
+		Passwords = RemoveDuplicate(Passwords)
+	}
 }
 
 func ParseScantype(Info *HostInfo) {
