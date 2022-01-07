@@ -591,9 +591,8 @@ func getRespBody(oResp *http.Response) ([]byte, error) {
 			body = append(body, buf...)
 		}
 	} else {
-		raw, err := ioutil.ReadAll(oResp.Body)
+		raw, err := ioutil.ReadAll(io.LimitReader(oResp.Body, int64(3<<20)))
 		if err != nil {
-			//utils.Logger.Error(err)
 			return nil, err
 		}
 		defer oResp.Body.Close()
