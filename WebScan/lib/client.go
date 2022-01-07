@@ -34,13 +34,13 @@ func InitHttpClient(ThreadsNum int, DownProxy string, Timeout time.Duration) err
 
 	tr := &http.Transport{
 		DialContext:         dialer.DialContext,
-		MaxConnsPerHost:     0,
+		MaxConnsPerHost:     5,
 		MaxIdleConns:        0,
-		MaxIdleConnsPerHost: ThreadsNum * 2,
+		MaxIdleConnsPerHost: 2,
 		IdleConnTimeout:     keepAlive,
 		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
 		TLSHandshakeTimeout: 5 * time.Second,
-		DisableKeepAlives:   true,
+		DisableKeepAlives:   false,
 	}
 	if DownProxy != "" {
 		if DownProxy == "1" {
