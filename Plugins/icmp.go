@@ -20,7 +20,7 @@ var (
 	livewg     sync.WaitGroup
 )
 
-func ICMPRun(hostslist []string, Ping bool) []string {
+func CheckLive(hostslist []string, Ping bool) []string {
 	chanHosts := make(chan string, len(hostslist))
 	go func() {
 		for ip := range chanHosts {
@@ -28,9 +28,9 @@ func ICMPRun(hostslist []string, Ping bool) []string {
 				ExistHosts[ip] = struct{}{}
 				if common.Silent == false {
 					if Ping == false {
-						fmt.Printf("(icmp) Target '%s' is alive\n", ip)
+						fmt.Printf("(icmp) Target %-15s is alive\n", ip)
 					} else {
-						fmt.Printf("(ping) Target '%s' is alive\n", ip)
+						fmt.Printf("(ping) Target %-15s is alive\n", ip)
 					}
 				}
 				AliveHosts = append(AliveHosts, ip)
@@ -50,9 +50,10 @@ func ICMPRun(hostslist []string, Ping bool) []string {
 		} else {
 			common.LogError(err)
 			//尝试无监听icmp探测
+			fmt.Println("trying RunIcmp2")
 			conn, err := net.DialTimeout("ip4:icmp", "127.0.0.1", 3*time.Second)
 			defer func() {
-				if conn != nil{
+				if conn != nil {
 					conn.Close()
 				}
 			}()
@@ -70,6 +71,18 @@ func ICMPRun(hostslist []string, Ping bool) []string {
 
 	livewg.Wait()
 	close(chanHosts)
+	if common.IsIPRange {
+		arrTop, arrLen := ArrayCountValueTop(AliveHosts, common.LiveTop, true)
+		for i := 0; i < len(arrTop); i++ {
+			output := fmt.Sprintf("[*] LiveTop %-16s 段存活数量为: %d", arrTop[i]+".0.0/16", arrLen[i])
+			common.LogSuccess(output)
+		}
+	}
+	arrTop, arrLen := ArrayCountValueTop(AliveHosts, common.LiveTop, false)
+	for i := 0; i < len(arrTop); i++ {
+		output := fmt.Sprintf("[*] LiveTop %-16s 段存活数量为: %d", arrTop[i]+".0/24", arrLen[i])
+		common.LogSuccess(output)
+	}
 	return AliveHosts
 }
 
@@ -143,7 +156,7 @@ func icmpalive(host string) bool {
 	startTime := time.Now()
 	conn, err := net.DialTimeout("ip4:icmp", host, 6*time.Second)
 	defer func() {
-		if conn != nil{
+		if conn != nil {
 			conn.Close()
 		}
 	}()
@@ -252,4 +265,50 @@ func genSequence(v int16) (byte, byte) {
 
 func genIdentifier(host string) (byte, byte) {
 	return host[0], host[1]
+}
+
+func ArrayCountValueTop(arrInit []string, length int, flag bool) (arrTop []string, arrLen []int) {
+	if len(arrInit) == 0 {
+		return
+	}
+	arrMap1 := make(map[string]int)
+	arrMap2 := make(map[string]int)
+	for _, value := range arrInit {
+		line := strings.Split(value, ".")
+		if len(line) == 4 {
+			if flag {
+				value = fmt.Sprintf("%s.%s", line[0], line[1])
+			} else {
+				value = fmt.Sprintf("%s.%s.%s", line[0], line[1], line[2])
+			}
+		}
+		if arrMap1[value] != 0 {
+			arrMap1[value]++
+		} else {
+			arrMap1[value] = 1
+		}
+	}
+	for k, v := range arrMap1 {
+		arrMap2[k] = v
+	}
+
+	i := 0
+	for _ = range arrMap1 {
+		var maxCountKey string
+		var maxCountVal = 0
+		for key, val := range arrMap2 {
+			if val > maxCountVal {
+				maxCountVal = val
+				maxCountKey = key
+			}
+		}
+		arrTop = append(arrTop, maxCountKey)
+		arrLen = append(arrLen, maxCountVal)
+		i++
+		if i >= length {
+			return
+		}
+		delete(arrMap2, maxCountKey)
+	}
+	return
 }

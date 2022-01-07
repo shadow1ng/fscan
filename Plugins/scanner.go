@@ -23,15 +23,17 @@ func Scan(info common.HostInfo) {
 	var wg = sync.WaitGroup{}
 	if len(Hosts) > 0 {
 		if common.IsPing == false {
-			Hosts = ICMPRun(Hosts, common.Ping)
-			fmt.Println("icmp alive hosts len is:", len(Hosts))
+			Hosts = CheckLive(Hosts, common.Ping)
+			fmt.Println("[*] Icmp alive hosts len is:", len(Hosts))
 		}
 		if info.Scantype == "icmp" {
+			common.LogWG.Wait()
 			return
 		}
 		AlivePorts := PortScan(Hosts, info.Ports, info.Timeout)
-		fmt.Println("alive ports len is:", len(AlivePorts))
+		fmt.Println("[*] alive ports len is:", len(AlivePorts))
 		if info.Scantype == "portscan" {
+			common.LogWG.Wait()
 			return
 		}
 

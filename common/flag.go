@@ -11,7 +11,7 @@ func Banner() {
  / /_\/____/ __|/ __| '__/ _` + "`" + ` |/ __| |/ /
 / /_\\_____\__ \ (__| | | (_| | (__|   <    
 \____/     |___/\___|_|  \__,_|\___|_|\_\   
-                     fscan version: 1.6.3
+                     fscan version: ` + version + `
 `
 	print(banner)
 }
@@ -34,6 +34,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&Info.Scantype, "m", "all", "Select scan type ,as: -m ssh")
 	flag.StringVar(&Info.Path, "path", "", "fcgi、smb romote file path")
 	flag.IntVar(&Threads, "t", 600, "Thread nums")
+	flag.IntVar(&LiveTop, "top", 10, "show live len top")
 	flag.StringVar(&HostFile, "hf", "", "host file, -hf ip.txt")
 	flag.StringVar(&Userfile, "userf", "", "username file")
 	flag.StringVar(&Passfile, "pwdf", "", "password file")

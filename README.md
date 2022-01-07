@@ -153,6 +153,8 @@ go build -ldflags="-s -w " -trimpath
 `go run .\main.go -h 192.168.x.x/24 -m netbios(-m netbios时,才会显示完整的netbios信息)`
 ![](image/netbios1.png)
 
+`go run .\main.go -h 192.0.0.0/8 -m icmp(探测每个C段的网关和数个随机IP,并统计top 10 B、C段存活数量)`
+![img.png](image/live.png)
 ## 参考链接
 https://github.com/Adminisme/ServerScan  
 https://github.com/netxfly/x-crack  
@@ -186,6 +188,7 @@ fscan 是 404Team [星链计划2.0](https://github.com/knownsec/404StarLink2.0-G
 除非您已充分阅读、完全理解并接受本协议所有条款，否则，请您不要安装并使用本工具。您的使用行为或者您以其他任何明示或者默示方式表示接受本协议的，即视为您已阅读并同意本协议的约束。
 
 ## 最近更新
+[+] 2022/1/7  扫ip/8时,默认会扫每个C段的网关和数个随机IP,推荐参数:-h ip/8 -m icmp.新增LiveTop功能,检测存活时,默认会输出top10的B、C段ip存活数量.  
 [+] 2021/12/7 新增rdp扫描,新增添加端口参数-pa 3389(会在原有端口列表基础上,新增该端口)  
 [+] 2021/12/1 优化xray解析模块,支持groups、新增poc,加入https判断(tls握手包),优化ip解析模块(支持所有ip/xx),增加爆破关闭参数 -nobr,添加跳过某些ip扫描功能 -hn 192.168.1.1,添加跳过某些端口扫描功能-pn 21,445,增加扫描docker未授权漏洞  
 [+] 2021/6/18 改善一下poc的机制，如果识别出指纹会根据指纹信息发送poc，如果没有识别到指纹才会把所有poc打一遍  

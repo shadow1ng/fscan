@@ -1,5 +1,6 @@
 package common
 
+var version = "1.7.0"
 var Userdict = map[string][]string{
 	"ftp":        {"ftp", "admin", "www", "web", "root", "db", "wwwroot", "data"},
 	"mysql":      {"root", "mysql"},
@@ -99,4 +100,5 @@ var (
 	UserAdd       string
 	PassAdd       string
 	BruteThread   int
+	LiveTop       int
 )
