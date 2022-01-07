@@ -13,6 +13,8 @@ import (
 	"strings"
 )
 
+var IsIPRange bool
+
 var ParseIPErr = errors.New(" host parsing error\n" +
 	"format: \n" +
 	"192.168.1.1\n" +
