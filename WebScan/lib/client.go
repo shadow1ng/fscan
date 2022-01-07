@@ -15,7 +15,7 @@ var (
 	Client           *http.Client
 	ClientNoRedirect *http.Client
 	dialTimout       = 5 * time.Second
-	keepAlive        = 15 * time.Second
+	keepAlive        = 5 * time.Second
 )
 
 func Inithttp(PocInfo common.PocInfo) {
