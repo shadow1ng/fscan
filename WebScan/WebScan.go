@@ -17,23 +17,25 @@ func WebScan(info *common.HostInfo) {
 	var pocinfo = common.Pocinfo
 	buf := strings.Split(info.Url, "/")
 	pocinfo.Target = strings.Join(buf[:3], "/")
-	if pocinfo.PocName != "" {
-		Execute(pocinfo)
-		return
-	}
-	var flag bool
-	go func() {
-		for _, infostr := range info.Infostr {
-			pocinfo.PocName = lib.CheckInfoPoc(infostr)
-			Execute(pocinfo)
-		}
-		flag = true
-	}()
 
+	var flag bool
 	go func() {
 		time.Sleep(60 * time.Second)
 		flag = true
 	}()
+
+	go func() {
+		if pocinfo.PocName != "" {
+			Execute(pocinfo)
+		} else {
+			for _, infostr := range info.Infostr {
+				pocinfo.PocName = lib.CheckInfoPoc(infostr)
+				Execute(pocinfo)
+			}
+		}
+		flag = true
+	}()
+
 	for {
 		if flag {
 			return
