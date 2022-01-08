@@ -79,7 +79,7 @@ func CheckLive(hostslist []string, Ping bool) []string {
 			common.LogSuccess(output)
 		}
 	}
-	if len(hostslist) >= 200 {
+	if len(hostslist) > 256 {
 		arrTop, arrLen := ArrayCountValueTop(AliveHosts, common.LiveTop, false)
 		for i := 0; i < len(arrTop); i++ {
 			output := fmt.Sprintf("[*] LiveTop %-16s 段存活数量为: %d", arrTop[i]+".0/24", arrLen[i])
