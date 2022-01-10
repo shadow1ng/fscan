@@ -20,6 +20,9 @@ import (
 //https://github.com/wofeiwo/webcgi-exploits
 
 func FcgiScan(info *common.HostInfo) {
+	if common.IsBrute {
+		return
+	}
 	url := "/etc/issue"
 	if info.Path != "" {
 		url = info.Path
@@ -54,7 +57,7 @@ func FcgiScan(info *common.HostInfo) {
 
 	fcgi, err := New(addr, info.Timeout)
 	defer func() {
-		if fcgi.rwc != nil{
+		if fcgi.rwc != nil {
 			fcgi.rwc.Close()
 		}
 	}()

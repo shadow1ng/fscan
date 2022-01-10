@@ -10,6 +10,9 @@ import (
 )
 
 func MongodbScan(info *common.HostInfo) error {
+	if common.IsBrute {
+		return nil
+	}
 	_, err := MongodbUnauth(info)
 	if err != nil {
 		errlog := fmt.Sprintf("[-] Mongodb %v:%v %v", info.Host, info.Ports, err)
@@ -25,14 +28,14 @@ func MongodbUnauth(info *common.HostInfo) (flag bool, err error) {
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	conn, err := net.DialTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
 	defer func() {
-		if conn != nil{
+		if conn != nil {
 			conn.Close()
 		}
 	}()
 	if err != nil {
 		return flag, err
 	}
-	err = conn.SetReadDeadline(time.Now().Add(time.Duration(info.Timeout)*time.Second))
+	err = conn.SetReadDeadline(time.Now().Add(time.Duration(info.Timeout) * time.Second))
 	if err != nil {
 		return flag, err
 	}

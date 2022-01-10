@@ -10,6 +10,9 @@ import (
 )
 
 func SmbScan(info *common.HostInfo) (tmperr error) {
+	if common.IsBrute {
+		return nil
+	}
 	starttime := time.Now().Unix()
 	for _, user := range common.Userdict["smb"] {
 		for _, pass := range common.Passwords {
@@ -73,6 +76,6 @@ func doWithTimeOut(info *common.HostInfo, user string, pass string) (flag bool, 
 	case <-signal:
 		return flag, err
 	case <-time.After(time.Duration(info.Timeout) * time.Second):
-		return false,errors.New("time out")
+		return false, errors.New("time out")
 	}
 }

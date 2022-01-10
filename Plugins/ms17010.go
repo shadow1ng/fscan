@@ -20,6 +20,9 @@ var (
 )
 
 func MS17010(info *common.HostInfo) error {
+	if common.IsBrute {
+		return nil
+	}
 	err := MS17010Scan(info)
 	if err != nil {
 		errlog := fmt.Sprintf("[-] Ms17010 %v %v", info.Host, err)
@@ -33,7 +36,7 @@ func MS17010Scan(info *common.HostInfo) error {
 	// connecting to a host in LAN if reachable should be very quick
 	conn, err := net.DialTimeout("tcp", ip+":445", time.Duration(info.Timeout)*time.Second)
 	defer func() {
-		if conn != nil{
+		if conn != nil {
 			conn.Close()
 		}
 	}()
@@ -129,6 +132,9 @@ func MS17010Scan(info *common.HostInfo) error {
 		//} else{fmt.Printf("\033[33m%s\tMS17-010\t(%s)\033[0m\n", ip, os)}
 		result := fmt.Sprintf("[+] %s\tMS17-010\t(%s)", ip, os)
 		common.LogSuccess(result)
+		if common.SC != "" {
+			MS17010EXP(info)
+		}
 		// detect present of DOUBLEPULSAR SMB implant
 		trans2SessionSetupRequest[28] = treeID[0]
 		trans2SessionSetupRequest[29] = treeID[1]
