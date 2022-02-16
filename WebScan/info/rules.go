@@ -232,9 +232,9 @@ var RuleDatas = []RuleData{
 	{"帕拉迪统一安全管理和综合审计系统", "code", "(module/image/pldsec.css)"},
 	{"蓝盾BDWebGuard", "code", "(BACKGROUND: url(images/loginbg.jpg) #e5f1fc)"},
 	{"Huawei SMC", "code", "(Script/SmcScript.js?version=)"},
-	{"coremail","code","(/coremail/bundle/|contextRoot: \"/coremail\")"},
-	{"activemq","code","(activemq_logo|Manage ActiveMQ broker)"},
-	{"锐捷网络","code","(static/img/title.ico|support.ruijie.com.cn|Ruijie - NBR|eg.login.loginBtn)"},
+	{"coremail", "code", "(/coremail/bundle/|contextRoot: \"/coremail\")"},
+	{"activemq", "code", "(activemq_logo|Manage ActiveMQ broker)"},
+	{"锐捷网络", "code", "(static/img/title.ico|support.ruijie.com.cn|Ruijie - NBR|eg.login.loginBtn)"},
 	{"禅道", "code", "(/theme/default/images/main/zt-logo.png|zentaosid)"},
 	{"weblogic", "code", "(/console/framework/skins/wlsconsole/images/login_WebLogic_branding.png|Welcome to Weblogic Application Server|<i>Hypertext Transfer Protocol -- HTTP/1.1</i>|<TITLE>Error 404--Not Found</TITLE>|Welcome to Weblogic Application Server|<title>Oracle WebLogic Server 管理控制台</title>)"},
 	{"weblogic", "headers", "(WebLogic)"},
@@ -252,7 +252,8 @@ var RuleDatas = []RuleData{
 	{"JEECMS", "code", "(/r/cms/www/red/js/common.js|/r/cms/www/red/js/indexshow.js|Powered by JEECMS|JEECMS|/jeeadmin/jeecms/index.do)"},
 	{"CMS", "code", "(Powered by .*CMS)"},
 	{"editor", "code", "(editor)"},
-	{"ATLASSIAN-Confluence","code","(confluence.)"},
+	{"ATLASSIAN-Confluence", "code", "(confluence.)"},
+	{"向日葵", "code", "({\"success\":false,\"msg\":\"Verification failure\"})"},
 }
 
 var Md5Datas = []Md5Data{
