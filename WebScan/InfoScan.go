@@ -13,11 +13,11 @@ type CheckDatas struct {
 	Headers string
 }
 
-func InfoCheck(Url string, CheckData []CheckDatas) []string {
+func InfoCheck(Url string, CheckData *[]CheckDatas) []string {
 	var matched bool
 	var infoname []string
 
-	for _, data := range CheckData {
+	for _, data := range *CheckData {
 		for _, rule := range info.RuleDatas {
 			if rule.Type == "code" {
 				matched, _ = regexp.MatchString(rule.Rule, string(data.Body))
@@ -67,4 +67,3 @@ func removeDuplicateElement(languages []string) []string {
 	}
 	return result
 }
-
