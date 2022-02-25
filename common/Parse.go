@@ -158,6 +158,8 @@ func ParseScantype(Info *HostInfo) {
 				Info.Ports = "135"
 			case "web":
 				Info.Ports = Webport
+			case "webonly":
+				Info.Ports = Webport
 			case "ms17010":
 				Info.Ports = "445"
 			case "cve20200796":
