@@ -30,11 +30,16 @@ func Scan(info common.HostInfo) {
 			common.LogWG.Wait()
 			return
 		}
-		AlivePorts := PortScan(Hosts, info.Ports, info.Timeout)
-		fmt.Println("[*] alive ports len is:", len(AlivePorts))
-		if info.Scantype == "portscan" {
-			common.LogWG.Wait()
-			return
+		var AlivePorts []string
+		if info.Scantype == "webonly" {
+			AlivePorts = NoPortScan(Hosts, info.Ports)
+		} else {
+			AlivePorts = PortScan(Hosts, info.Ports, info.Timeout)
+			fmt.Println("[*] alive ports len is:", len(AlivePorts))
+			if info.Scantype == "portscan" {
+				common.LogWG.Wait()
+				return
+			}
 		}
 
 		var severports []string //severports := []string{"21","22","135"."445","1433","3306","5432","6379","9200","11211","27017"...}

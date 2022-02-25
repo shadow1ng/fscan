@@ -91,10 +91,10 @@ func parseIP(ip string) []string {
 		return parseIP1(ip)
 	//可能是域名,用lookup获取ip
 	case reg.MatchString(ip):
-		_, err := net.LookupHost(ip)
-		if err != nil {
-			return nil
-		}
+		//	_, err := net.LookupHost(ip)
+		//	if err != nil {
+		//		return nil
+		//	}
 		return []string{ip}
 	//处理单个ip
 	default:

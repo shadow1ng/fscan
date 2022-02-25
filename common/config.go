@@ -32,6 +32,7 @@ var PORTList = map[string]int{
 	"ms17010":     1000001,
 	"cve20200796": 1000002,
 	"web":         1000003,
+	"webonly":     10000031,
 	"all":         0,
 	"portscan":    0,
 	"icmp":        0,

@@ -25,7 +25,7 @@ func FindnetScan(info *common.HostInfo) error {
 	realhost := fmt.Sprintf("%s:%v", info.Host, 135)
 	conn, err := net.DialTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
 	defer func() {
-		if conn != nil{
+		if conn != nil {
 			conn.Close()
 		}
 	}()
@@ -71,7 +71,7 @@ func read(text []byte, host string) error {
 	encodedStr := hex.EncodeToString(text)
 	hostnames := strings.Replace(encodedStr, "0700", "", -1)
 	hostname := strings.Split(hostnames, "000000")
-	result := "NetInfo:\n[*]" + host
+	result := "[+] NetInfo:\n[*]" + host
 	for i := 0; i < len(hostname); i++ {
 		hostname[i] = strings.Replace(hostname[i], "00", "", -1)
 		host, err := hex.DecodeString(hostname[i])
