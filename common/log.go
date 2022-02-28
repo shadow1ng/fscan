@@ -42,7 +42,7 @@ func SaveLog() {
 
 func WriteFile(result string, filename string) {
 	var text = []byte(result + "\n")
-	fl, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0777)
+	fl, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		fmt.Printf("Open %s error, %v\n", filename, err)
 		return
