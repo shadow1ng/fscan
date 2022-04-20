@@ -46,7 +46,7 @@ func PostgresConn(info *common.HostInfo, user string, pass string) (flag bool, e
 		defer db.Close()
 		err = db.Ping()
 		if err == nil {
-			result := fmt.Sprintf("Postgres:%v:%v:%v %v", Host, Port, Username, Password)
+			result := fmt.Sprintf("[+] Postgres:%v:%v:%v %v", Host, Port, Username, Password)
 			common.LogSuccess(result)
 			flag = true
 		}

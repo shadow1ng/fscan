@@ -79,6 +79,18 @@ func ParsePass(Info *HostInfo) {
 			}
 		}
 	}
+	if PortFile != "" {
+		ports, err := Readfile(PortFile)
+		if err == nil {
+			newport := ""
+			for _, port := range ports {
+				if port != "" {
+					newport += port + ","
+				}
+			}
+			Info.Ports = newport
+		}
+	}
 }
 
 func Readfile(filename string) ([]string, error) {

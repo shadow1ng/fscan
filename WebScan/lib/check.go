@@ -1,7 +1,6 @@
 package lib
 
 import (
-	"embed"
 	"fmt"
 	"github.com/google/cel-go/cel"
 	"github.com/shadow1ng/fscan/WebScan/info"
@@ -26,22 +25,22 @@ type Task struct {
 	Poc *Poc
 }
 
-func CheckMultiPoc(req *http.Request, Pocs embed.FS, workers int, pocname string) {
+func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int) {
 	tasks := make(chan Task)
 	var wg sync.WaitGroup
 	for i := 0; i < workers; i++ {
 		go func() {
 			for task := range tasks {
-				isVul, _ ,name:= executePoc(task.Req, task.Poc)
+				isVul, _, name := executePoc(task.Req, task.Poc)
 				if isVul {
-					result := fmt.Sprintf("[+] %s %s %s", task.Req.URL, task.Poc.Name,name)
+					result := fmt.Sprintf("[+] %s %s %s", task.Req.URL, task.Poc.Name, name)
 					common.LogSuccess(result)
 				}
 				wg.Done()
 			}
 		}()
 	}
-	for _, poc := range LoadMultiPoc(Pocs, pocname) {
+	for _, poc := range pocs {
 		task := Task{
 			Req: req,
 			Poc: poc,
@@ -53,7 +52,7 @@ func CheckMultiPoc(req *http.Request, Pocs embed.FS, workers int, pocname string
 	close(tasks)
 }
 
-func executePoc(oReq *http.Request, p *Poc) (bool, error,string) {
+func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 	c := NewEnvOption()
 	c.UpdateCompileOptions(p.Set)
 	if len(p.Sets) > 0 {
@@ -65,12 +64,12 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error,string) {
 	}
 	env, err := NewEnv(&c)
 	if err != nil {
-		fmt.Printf("[-] %s environment creation error: %s\n",p.Name,err)
+		fmt.Printf("[-] %s environment creation error: %s\n", p.Name, err)
 		return false, err, ""
 	}
 	req, err := ParseRequest(oReq)
 	if err != nil {
-		fmt.Printf("[-] %s ParseRequest error: %s\n",p.Name,err)
+		fmt.Printf("[-] %s ParseRequest error: %s\n", p.Name, err)
 		return false, err, ""
 	}
 	variableMap := make(map[string]interface{})
@@ -163,67 +162,66 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error,string) {
 		return success, nil, ""
 	}
 
-
 	DealWithRule := func(rule Rules) (bool, error) {
 		var (
 			flag, ok bool
 		)
-			for k1, v1 := range variableMap {
-				_, isMap := v1.(map[string]string)
-				if isMap {
-					continue
-				}
-				value := fmt.Sprintf("%v", v1)
-				for k2, v2 := range rule.Headers {
-					rule.Headers[k2] = strings.ReplaceAll(v2, "{{"+k1+"}}", value)
-				}
-				rule.Path = strings.ReplaceAll(strings.TrimSpace(rule.Path), "{{"+k1+"}}", value)
-				rule.Body = strings.ReplaceAll(strings.TrimSpace(rule.Body), "{{"+k1+"}}", value)
+		for k1, v1 := range variableMap {
+			_, isMap := v1.(map[string]string)
+			if isMap {
+				continue
 			}
+			value := fmt.Sprintf("%v", v1)
+			for k2, v2 := range rule.Headers {
+				rule.Headers[k2] = strings.ReplaceAll(v2, "{{"+k1+"}}", value)
+			}
+			rule.Path = strings.ReplaceAll(strings.TrimSpace(rule.Path), "{{"+k1+"}}", value)
+			rule.Body = strings.ReplaceAll(strings.TrimSpace(rule.Body), "{{"+k1+"}}", value)
+		}
 
-			if oReq.URL.Path != "" && oReq.URL.Path != "/" {
-				req.Url.Path = fmt.Sprint(oReq.URL.Path, rule.Path)
+		if oReq.URL.Path != "" && oReq.URL.Path != "/" {
+			req.Url.Path = fmt.Sprint(oReq.URL.Path, rule.Path)
+		} else {
+			req.Url.Path = rule.Path
+		}
+		// 某些poc没有区分path和query，需要处理
+		req.Url.Path = strings.ReplaceAll(req.Url.Path, " ", "%20")
+		req.Url.Path = strings.ReplaceAll(req.Url.Path, "+", "%20")
+
+		newRequest, _ := http.NewRequest(rule.Method, fmt.Sprintf("%s://%s%s", req.Url.Scheme, req.Url.Host, req.Url.Path), strings.NewReader(rule.Body))
+		newRequest.Header = oReq.Header.Clone()
+		for k, v := range rule.Headers {
+			newRequest.Header.Set(k, v)
+		}
+
+		resp, err := DoRequest(newRequest, rule.FollowRedirects)
+		if err != nil {
+			return false, err
+		}
+		variableMap["response"] = resp
+		// 先判断响应页面是否匹配search规则
+		if rule.Search != "" {
+			result := doSearch(strings.TrimSpace(rule.Search), string(resp.Body))
+			if result != nil && len(result) > 0 { // 正则匹配成功
+				for k, v := range result {
+					variableMap[k] = v
+				}
 			} else {
-				req.Url.Path = rule.Path
+				return false, nil
 			}
-			// 某些poc没有区分path和query，需要处理
-			req.Url.Path = strings.ReplaceAll(req.Url.Path, " ", "%20")
-			req.Url.Path = strings.ReplaceAll(req.Url.Path, "+", "%20")
-
-			newRequest, _ := http.NewRequest(rule.Method, fmt.Sprintf("%s://%s%s", req.Url.Scheme, req.Url.Host, req.Url.Path), strings.NewReader(rule.Body))
-			newRequest.Header = oReq.Header.Clone()
-			for k, v := range rule.Headers {
-				newRequest.Header.Set(k, v)
-			}
-
-			resp, err := DoRequest(newRequest, rule.FollowRedirects)
-			if err != nil {
-				return false, err
-			}
-			variableMap["response"] = resp
-			// 先判断响应页面是否匹配search规则
-			if rule.Search != "" {
-				result := doSearch(strings.TrimSpace(rule.Search), string(resp.Body))
-				if result != nil && len(result) > 0 { // 正则匹配成功
-					for k, v := range result {
-						variableMap[k] = v
-					}
-				} else {
-					return false, nil
-				}
-			}
-			out, err := Evaluate(env, rule.Expression, variableMap)
-			if err != nil {
-				return false, err
-			}
-			//fmt.Println(fmt.Sprintf("%v, %s", out, out.Type().TypeName()))
-			//如果false不继续执行后续rule
-			// 如果最后一步执行失败，就算前面成功了最终依旧是失败
-			flag, ok = out.Value().(bool)
-			if !ok {
-				flag = false
-			}
-			return flag, nil
+		}
+		out, err := Evaluate(env, rule.Expression, variableMap)
+		if err != nil {
+			return false, err
+		}
+		//fmt.Println(fmt.Sprintf("%v, %s", out, out.Type().TypeName()))
+		//如果false不继续执行后续rule
+		// 如果最后一步执行失败，就算前面成功了最终依旧是失败
+		flag, ok = out.Value().(bool)
+		if !ok {
+			flag = false
+		}
+		return flag, nil
 	}
 
 	DealWithRules := func(rules []Rules) bool {
@@ -718,7 +716,7 @@ func evalset(env *cel.Env, variableMap map[string]interface{}) {
 		if strings.Contains(k, "payload") {
 			out, err := Evaluate(env, expression, variableMap)
 			if err != nil {
-				//fmt.Println(err)
+				fmt.Println(err)
 				variableMap[k] = expression
 			} else {
 				variableMap[k] = fmt.Sprintf("%v", out)
@@ -729,10 +727,9 @@ func evalset(env *cel.Env, variableMap map[string]interface{}) {
 
 func CheckInfoPoc(infostr string) string {
 	for _, poc := range info.PocDatas {
-		if strings.Compare(poc.Name,infostr) == 0 {
+		if strings.Compare(poc.Name, infostr) == 0 {
 			return poc.Alias
 		}
 	}
 	return ""
 }
-

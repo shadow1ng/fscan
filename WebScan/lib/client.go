@@ -45,6 +45,8 @@ func InitHttpClient(ThreadsNum int, DownProxy string, Timeout time.Duration) err
 	if DownProxy != "" {
 		if DownProxy == "1" {
 			DownProxy = "http://127.0.0.1:8080"
+		} else if DownProxy == "2" {
+			DownProxy = "socks5://127.0.0.1:1080"
 		} else if !strings.Contains(DownProxy, "://") {
 			DownProxy = "http://127.0.0.1:" + DownProxy
 		}

