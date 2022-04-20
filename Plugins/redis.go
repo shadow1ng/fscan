@@ -191,19 +191,14 @@ func writekey(conn net.Conn, filename string) (flag bool, text string, err error
 			return flag, text, err
 		}
 		if strings.Contains(text, "OK") {
-			var key string
-			if filename == "shadow" {
-				key = SshPub
-			} else {
-				key, err = Readfile(filename)
-				if err != nil {
-					text = fmt.Sprintf("Open %s error, %v", filename, err)
-					return flag, text, err
-				}
-				if len(key) == 0 {
-					text = fmt.Sprintf("the keyfile %s is empty", filename)
-					return flag, text, err
-				}
+			key, err := Readfile(filename)
+			if err != nil {
+				text = fmt.Sprintf("Open %s error, %v", filename, err)
+				return flag, text, err
+			}
+			if len(key) == 0 {
+				text = fmt.Sprintf("the keyfile %s is empty", filename)
+				return flag, text, err
 			}
 			_, err = conn.Write([]byte(fmt.Sprintf("set x \"\\n\\n\\n%v\\n\\n\\n\"\r\n", key)))
 			if err != nil {
