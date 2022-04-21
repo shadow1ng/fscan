@@ -37,8 +37,6 @@ var PORTList = map[string]int{
 	"portscan":    0,
 	"icmp":        0,
 	"main":        0,
-	"smb2":        1000004,
-	"wmi":         1000005,
 }
 
 var Outputfile = getpath() + "result.txt"

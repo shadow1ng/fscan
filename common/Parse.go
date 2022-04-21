@@ -166,8 +166,6 @@ func ParseScantype(Info *HostInfo) {
 			switch Info.Scantype {
 			case "rdp":
 				Info.Ports = "3389"
-			case "wmi":
-				Info.Ports = "135"
 			case "web":
 				Info.Ports = Webport
 			case "webonly":
@@ -175,8 +173,6 @@ func ParseScantype(Info *HostInfo) {
 			case "ms17010":
 				Info.Ports = "445"
 			case "cve20200796":
-				Info.Ports = "445"
-			case "smb2":
 				Info.Ports = "445"
 			case "portscan":
 				Info.Ports = DefaultPorts + "," + Webport

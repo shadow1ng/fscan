@@ -129,6 +129,12 @@ go build -ldflags="-s -w " -trimpath
         指定Url文件扫描
   -wt int
         web访问超时时间 (default 5)
+  -pocpath string
+        指定poc路径
+  -usera string
+        在原有用户字典基础上,新增新用户
+  -pwda string
+        在原有密码字典基础上,增加新密码
 ```
 
 ## 运行截图

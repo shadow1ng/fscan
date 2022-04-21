@@ -164,10 +164,6 @@ func Expoilt(realhost string, conn net.Conn) error {
 		}
 	}
 	err = recoverdb(dbfilename, dir, conn)
-	//fmt.Println("dbfilename:")
-	//fmt.Println(dbfilename)
-	//fmt.Println("dir:")
-	//fmt.Println(dir)
 	return err
 }
 
