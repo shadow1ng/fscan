@@ -53,6 +53,7 @@ func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int) {
 }
 
 func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
+	var lock sync.Mutex
 	c := NewEnvOption()
 	c.UpdateCompileOptions(p.Set)
 	if len(p.Sets) > 0 {
@@ -173,7 +174,9 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 			}
 			value := fmt.Sprintf("%v", v1)
 			for k2, v2 := range rule.Headers {
+				lock.Lock()
 				rule.Headers[k2] = strings.ReplaceAll(v2, "{{"+k1+"}}", value)
+				lock.Unlock()
 			}
 			rule.Path = strings.ReplaceAll(strings.TrimSpace(rule.Path), "{{"+k1+"}}", value)
 			rule.Body = strings.ReplaceAll(strings.TrimSpace(rule.Body), "{{"+k1+"}}", value)
@@ -594,6 +597,7 @@ func clusterpoc1(oReq *http.Request, p *Poc, variableMap map[string]interface{},
 							return false, err
 						}
 						if success == true {
+							common.LogSuccess(fmt.Sprintf("[+] %s://%s%s %s %s %s", req.Url.Scheme, req.Url.Host, req.Url.Path, var1, var2, var3))
 							break look3
 						}
 					}
