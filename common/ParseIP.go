@@ -86,9 +86,6 @@ func parseIP(ip string) []string {
 	//解析 /24 /16 /8 /xxx 等
 	case strings.Contains(ip, "/"):
 		return parseIP2(ip)
-	//192.168.1.1-192.168.1.100
-	case strings.Contains(ip, "-"):
-		return parseIP1(ip)
 	//可能是域名,用lookup获取ip
 	case reg.MatchString(ip):
 		//	_, err := net.LookupHost(ip)
