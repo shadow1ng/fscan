@@ -96,6 +96,9 @@ func parseIP(ip string) []string {
 		//		return nil
 		//	}
 		return []string{ip}
+	//192.168.1.1-192.168.1.100
+	case strings.Contains(ip, "-"):
+		return parseIP1(ip)
 	//处理单个ip
 	default:
 		testIP := net.ParseIP(ip)

@@ -119,6 +119,9 @@ func ParseInput(Info *HostInfo) {
 		os.Exit(0)
 	}
 
+	if BruteThread <= 0 {
+		BruteThread = 1
+	}
 	if TmpOutputfile != "" {
 		if !strings.Contains(Outputfile, "/") && !strings.Contains(Outputfile, `\`) {
 			Outputfile = getpath() + TmpOutputfile
