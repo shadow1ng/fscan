@@ -218,6 +218,9 @@ func GetProtocol(host string, Timeout int64) (protocol string) {
 	}
 
 	socksconn, err := common.WrapperTcpWithTimeout("tcp", host, time.Duration(Timeout) * time.Second)
+	if err != nil {
+		return
+	}
 	conn := tls.Client(socksconn, &tls.Config{InsecureSkipVerify: true})
 	defer func() {
 		if conn != nil {
@@ -229,7 +232,6 @@ func GetProtocol(host string, Timeout int64) (protocol string) {
 			conn.Close()
 		}
 	}()
-
 	if err == nil || strings.Contains(err.Error(), "handshake failure") {
 		protocol = "https"
 	}
