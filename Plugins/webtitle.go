@@ -221,6 +221,11 @@ func GetProtocol(host string, Timeout int64) (protocol string) {
 	conn := tls.Client(socksconn, &tls.Config{InsecureSkipVerify: true})
 	defer func() {
 		if conn != nil {
+			defer func() {
+				if err := recover(); err != nil {
+					common.LogError(err)
+				}
+			}()
 			conn.Close()
 		}
 	}()
