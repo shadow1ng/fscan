@@ -4,7 +4,6 @@ import (
 	"fmt"
 	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/shadow1ng/fscan/common"
-	"net"
 	"strings"
 	"time"
 )
@@ -26,7 +25,7 @@ func MongodbUnauth(info *common.HostInfo) (flag bool, err error) {
 	flag = false
 	senddata := []byte{72, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 212, 7, 0, 0, 0, 0, 0, 0, 97, 100, 109, 105, 110, 46, 36, 99, 109, 100, 0, 0, 0, 0, 0, 1, 0, 0, 0, 33, 0, 0, 0, 2, 103, 101, 116, 76, 111, 103, 0, 16, 0, 0, 0, 115, 116, 97, 114, 116, 117, 112, 87, 97, 114, 110, 105, 110, 103, 115, 0, 0}
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
-	conn, err := net.DialTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
+	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
 	defer func() {
 		if conn != nil {
 			conn.Close()

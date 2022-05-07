@@ -1,8 +1,11 @@
 package lib
 
 import (
+	"context"
 	"crypto/tls"
+	"errors"
 	"github.com/shadow1ng/fscan/common"
+	"golang.org/x/net/proxy"
 	"log"
 	"net"
 	"net/http"
@@ -27,13 +30,29 @@ func Inithttp(PocInfo common.PocInfo) {
 }
 
 func InitHttpClient(ThreadsNum int, DownProxy string, Timeout time.Duration) error {
+	type DialContext = func(ctx context.Context, network, addr string) (net.Conn, error)
+	var dialContext DialContext
 	dialer := &net.Dialer{
 		Timeout:   dialTimout,
 		KeepAlive: keepAlive,
 	}
+	if common.Socks5Proxy != "" {
+		dialSocksProxy, err := common.Socks5Dailer(dialer)
+		if err != nil {
+			return err
+		}
+		if contextDialer, ok := dialSocksProxy.(proxy.ContextDialer); ok {
+			dialContext = contextDialer.DialContext
+		} else {
+			return errors.New("Failed type assertion to DialContext")
+		}
+	}else {
+		dialContext = dialer.DialContext
+	}
+
 
 	tr := &http.Transport{
-		DialContext:         dialer.DialContext,
+		DialContext:         dialContext,
 		MaxConnsPerHost:     5,
 		MaxIdleConns:        0,
 		MaxIdleConnsPerHost: ThreadsNum * 2,

@@ -75,7 +75,7 @@ func NetBIOS1(info *common.HostInfo) (nbname NbnsName, err error) {
 		payload0 = append(payload0, []byte("\x00 EOENEBFACACACACACACACACACACACACA\x00")...)
 	}
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
-	conn, err := net.DialTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
+	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
 	defer func() {
 		if conn != nil{
 			conn.Close()

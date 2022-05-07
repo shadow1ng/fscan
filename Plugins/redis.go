@@ -47,7 +47,7 @@ func RedisScan(info *common.HostInfo) (tmperr error) {
 func RedisConn(info *common.HostInfo, pass string) (flag bool, err error) {
 	flag = false
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
-	conn, err := net.DialTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
+	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
 	defer func() {
 		if conn != nil {
 			conn.Close()
@@ -87,7 +87,7 @@ func RedisConn(info *common.HostInfo, pass string) (flag bool, err error) {
 func RedisUnauth(info *common.HostInfo) (flag bool, err error) {
 	flag = false
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
-	conn, err := net.DialTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
+	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
 	defer func() {
 		if conn != nil {
 			conn.Close()

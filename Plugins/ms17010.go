@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/shadow1ng/fscan/common"
-	"net"
 	"strings"
 	"time"
 )
@@ -34,7 +33,7 @@ func MS17010(info *common.HostInfo) error {
 func MS17010Scan(info *common.HostInfo) error {
 	ip := info.Host
 	// connecting to a host in LAN if reachable should be very quick
-	conn, err := net.DialTimeout("tcp", ip+":445", time.Duration(info.Timeout)*time.Second)
+	conn, err := common.WrapperTcpWithTimeout("tcp", ip+":445", time.Duration(info.Timeout)*time.Second)
 	defer func() {
 		if conn != nil {
 			conn.Close()

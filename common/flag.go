@@ -55,6 +55,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&UrlFile, "uf", "", "urlfile")
 	flag.StringVar(&Pocinfo.PocName, "pocname", "", "use the pocs these contain pocname, -pocname weblogic")
 	flag.StringVar(&Pocinfo.Proxy, "proxy", "", "set poc proxy, -proxy http://127.0.0.1:8080")
+	flag.StringVar(&Socks5Proxy, "socks5", "", "set socks5 proxy, will be used in tcp connection, timeout setting will not work")
 	flag.StringVar(&Pocinfo.Cookie, "cookie", "", "set poc cookie")
 	flag.Int64Var(&Pocinfo.Timeout, "wt", 5, "Set web timeout")
 	flag.IntVar(&Pocinfo.Num, "num", 20, "poc rate")

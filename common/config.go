@@ -106,4 +106,5 @@ var (
 	PassAdd       string
 	BruteThread   int
 	LiveTop       int
+	Socks5Proxy   string
 )

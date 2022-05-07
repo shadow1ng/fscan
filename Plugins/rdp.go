@@ -14,7 +14,6 @@ import (
 	"github.com/tomatome/grdp/protocol/tpkt"
 	"github.com/tomatome/grdp/protocol/x224"
 	"log"
-	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -127,7 +126,7 @@ func NewClient(host string, logLevel glog.LEVEL) *Client {
 }
 
 func (g *Client) Login(domain, user, pwd string, timeout int64) error {
-	conn, err := net.DialTimeout("tcp", g.Host, time.Duration(timeout)*time.Second)
+	conn, err := common.WrapperTcpWithTimeout("tcp", g.Host, time.Duration(timeout)*time.Second)
 	defer func() {
 		if conn != nil {
 			conn.Close()
