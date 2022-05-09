@@ -232,6 +232,8 @@ func GetProtocol(host string, Timeout int64) (protocol string) {
 			conn.Close()
 		}
 	}()
+	conn.SetDeadline(time.Now().Add(time.Duration(Timeout) * time.Second))
+	err = conn.Handshake()
 	if err == nil || strings.Contains(err.Error(), "handshake failure") {
 		protocol = "https"
 	}

@@ -31,28 +31,13 @@ func Inithttp(PocInfo common.PocInfo) {
 
 func InitHttpClient(ThreadsNum int, DownProxy string, Timeout time.Duration) error {
 	type DialContext = func(ctx context.Context, network, addr string) (net.Conn, error)
-	var dialContext DialContext
 	dialer := &net.Dialer{
 		Timeout:   dialTimout,
 		KeepAlive: keepAlive,
 	}
-	if common.Socks5Proxy != "" {
-		dialSocksProxy, err := common.Socks5Dailer(dialer)
-		if err != nil {
-			return err
-		}
-		if contextDialer, ok := dialSocksProxy.(proxy.ContextDialer); ok {
-			dialContext = contextDialer.DialContext
-		} else {
-			return errors.New("Failed type assertion to DialContext")
-		}
-	}else {
-		dialContext = dialer.DialContext
-	}
-
 
 	tr := &http.Transport{
-		DialContext:         dialContext,
+		DialContext:         dialer.DialContext,
 		MaxConnsPerHost:     5,
 		MaxIdleConns:        0,
 		MaxIdleConnsPerHost: ThreadsNum * 2,
@@ -61,13 +46,27 @@ func InitHttpClient(ThreadsNum int, DownProxy string, Timeout time.Duration) err
 		TLSHandshakeTimeout: 5 * time.Second,
 		DisableKeepAlives:   false,
 	}
-	if DownProxy != "" {
+
+	if common.Socks5Proxy != "" {
+		dialSocksProxy, err := common.Socks5Dailer(dialer)
+		if err != nil {
+			return err
+		}
+		if contextDialer, ok := dialSocksProxy.(proxy.ContextDialer); ok {
+			tr.DialContext = contextDialer.DialContext
+		} else {
+			return errors.New("Failed type assertion to DialContext")
+		}
+	}else if DownProxy != "" {
 		if DownProxy == "1" {
 			DownProxy = "http://127.0.0.1:8080"
 		} else if DownProxy == "2" {
 			DownProxy = "socks5://127.0.0.1:1080"
 		} else if !strings.Contains(DownProxy, "://") {
 			DownProxy = "http://127.0.0.1:" + DownProxy
+		}
+		if !strings.HasPrefix(DownProxy,"socks") && !strings.HasPrefix(DownProxy,"http") {
+			return errors.New("no support this proxy")
 		}
 		u, err := url.Parse(DownProxy)
 		if err != nil {
