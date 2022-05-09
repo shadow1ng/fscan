@@ -1,8 +1,11 @@
 package lib
 
 import (
+	"context"
 	"crypto/tls"
+	"errors"
 	"github.com/shadow1ng/fscan/common"
+	"golang.org/x/net/proxy"
 	"log"
 	"net"
 	"net/http"
@@ -27,6 +30,7 @@ func Inithttp(PocInfo common.PocInfo) {
 }
 
 func InitHttpClient(ThreadsNum int, DownProxy string, Timeout time.Duration) error {
+	type DialContext = func(ctx context.Context, network, addr string) (net.Conn, error)
 	dialer := &net.Dialer{
 		Timeout:   dialTimout,
 		KeepAlive: keepAlive,
@@ -42,13 +46,27 @@ func InitHttpClient(ThreadsNum int, DownProxy string, Timeout time.Duration) err
 		TLSHandshakeTimeout: 5 * time.Second,
 		DisableKeepAlives:   false,
 	}
-	if DownProxy != "" {
+
+	if common.Socks5Proxy != "" {
+		dialSocksProxy, err := common.Socks5Dailer(dialer)
+		if err != nil {
+			return err
+		}
+		if contextDialer, ok := dialSocksProxy.(proxy.ContextDialer); ok {
+			tr.DialContext = contextDialer.DialContext
+		} else {
+			return errors.New("Failed type assertion to DialContext")
+		}
+	}else if DownProxy != "" {
 		if DownProxy == "1" {
 			DownProxy = "http://127.0.0.1:8080"
 		} else if DownProxy == "2" {
 			DownProxy = "socks5://127.0.0.1:1080"
 		} else if !strings.Contains(DownProxy, "://") {
 			DownProxy = "http://127.0.0.1:" + DownProxy
+		}
+		if !strings.HasPrefix(DownProxy,"socks") && !strings.HasPrefix(DownProxy,"http") {
+			return errors.New("no support this proxy")
 		}
 		u, err := url.Parse(DownProxy)
 		if err != nil {

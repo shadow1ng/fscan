@@ -3,7 +3,6 @@ package Plugins
 import (
 	"fmt"
 	"github.com/shadow1ng/fscan/common"
-	"net"
 	"sort"
 	"strconv"
 	"sync"
@@ -74,7 +73,7 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 
 func PortConnect(addr Addr, respondingHosts chan<- string, adjustedTimeout int64, wg *sync.WaitGroup) {
 	host, port := addr.ip, addr.port
-	conn, err := net.DialTimeout("tcp4", fmt.Sprintf("%s:%v", host, port), time.Duration(adjustedTimeout)*time.Second)
+	conn, err := common.WrapperTcpWithTimeout("tcp4", fmt.Sprintf("%s:%v", host, port), time.Duration(adjustedTimeout)*time.Second)
 	defer func() {
 		if conn != nil {
 			conn.Close()

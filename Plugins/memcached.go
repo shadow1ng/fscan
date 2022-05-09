@@ -3,14 +3,13 @@ package Plugins
 import (
 	"fmt"
 	"github.com/shadow1ng/fscan/common"
-	"net"
 	"strings"
 	"time"
 )
 
 func MemcachedScan(info *common.HostInfo) (err error) {
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
-	client, err := net.DialTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
+	client, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
 	defer func() {
 		if client != nil{
 			client.Close()

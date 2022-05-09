@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"github.com/shadow1ng/fscan/common"
 	"io"
-	"net"
 	"strconv"
 	"strings"
 	"sync"
@@ -184,7 +183,7 @@ type FCGIClient struct {
 }
 
 func New(addr string, timeout int64) (fcgi *FCGIClient, err error) {
-	conn, err := net.DialTimeout("tcp", addr, time.Duration(timeout)*time.Second)
+	conn, err := common.WrapperTcpWithTimeout("tcp", addr, time.Duration(timeout)*time.Second)
 	fcgi = &FCGIClient{
 		rwc:       conn,
 		keepAlive: false,
