@@ -10,7 +10,7 @@ import (
 )
 
 func WrapperTcpWithTimeout(network, address string, timeout time.Duration) (net.Conn, error) {
-	d := &net.Dialer{Timeout: timeout/2}
+	d := &net.Dialer{Timeout: timeout}
 	return WrapperTCP(network, address, d)
 }
 
