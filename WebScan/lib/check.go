@@ -53,7 +53,6 @@ func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int) {
 }
 
 func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
-	var lock sync.Mutex
 	c := NewEnvOption()
 	c.UpdateCompileOptions(p.Set)
 	if len(p.Sets) > 0 {
@@ -164,6 +163,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 	}
 
 	DealWithRule := func(rule Rules) (bool, error) {
+		rule.Headers = cloneMap(rule.Headers)
 		var (
 			flag, ok bool
 		)
@@ -174,9 +174,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 			}
 			value := fmt.Sprintf("%v", v1)
 			for k2, v2 := range rule.Headers {
-				lock.Lock()
 				rule.Headers[k2] = strings.ReplaceAll(v2, "{{"+k1+"}}", value)
-				lock.Unlock()
 			}
 			rule.Path = strings.ReplaceAll(strings.TrimSpace(rule.Path), "{{"+k1+"}}", value)
 			rule.Body = strings.ReplaceAll(strings.TrimSpace(rule.Body), "{{"+k1+"}}", value)
@@ -246,7 +244,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 
 	if len(p.Rules) > 0 {
 		success = DealWithRules(p.Rules)
-	} else { // Groups
+	} else {
 		for name, rules := range p.Groups {
 			success = DealWithRules(rules)
 			if success {
