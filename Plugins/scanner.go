@@ -97,11 +97,11 @@ func AddScan(scantype string, info common.HostInfo, ch chan struct{}, wg *sync.W
 		common.Num += 1
 		Mutex.Unlock()
 		ScanFunc(PluginList, scantype, &info)
-		wg.Done()
 		Mutex.Lock()
 		common.End += 1
 		Mutex.Unlock()
 		<-ch
+		wg.Done()
 	}()
 	ch <- struct{}{}
 }

@@ -194,7 +194,6 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 		for k, v := range rule.Headers {
 			newRequest.Header.Set(k, v)
 		}
-
 		resp, err := DoRequest(newRequest, rule.FollowRedirects)
 		if err != nil {
 			return false, err
