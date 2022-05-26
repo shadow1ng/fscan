@@ -163,7 +163,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 	}
 
 	DealWithRule := func(rule Rules) (bool, error) {
-		rule.Headers = cloneMap(rule.Headers)
+		Headers := cloneMap(rule.Headers)
 		var (
 			flag, ok bool
 		)
@@ -173,8 +173,11 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 				continue
 			}
 			value := fmt.Sprintf("%v", v1)
-			for k2, v2 := range rule.Headers {
-				rule.Headers[k2] = strings.ReplaceAll(v2, "{{"+k1+"}}", value)
+			for k2, v2 := range Headers {
+				if !strings.Contains(v2, "{{"+k1+"}}") {
+					continue
+				}
+				Headers[k2] = strings.ReplaceAll(v2, "{{"+k1+"}}", value)
 			}
 			rule.Path = strings.ReplaceAll(strings.TrimSpace(rule.Path), "{{"+k1+"}}", value)
 			rule.Body = strings.ReplaceAll(strings.TrimSpace(rule.Body), "{{"+k1+"}}", value)
@@ -191,7 +194,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 
 		newRequest, _ := http.NewRequest(rule.Method, fmt.Sprintf("%s://%s%s", req.Url.Scheme, req.Url.Host, req.Url.Path), strings.NewReader(rule.Body))
 		newRequest.Header = oReq.Header.Clone()
-		for k, v := range rule.Headers {
+		for k, v := range Headers {
 			newRequest.Header.Set(k, v)
 		}
 		resp, err := DoRequest(newRequest, rule.FollowRedirects)
