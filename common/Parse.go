@@ -12,10 +12,10 @@ import (
 )
 
 func Parse(Info *HostInfo) {
+	ParseScantype(Info)
 	ParseUser(Info)
 	ParsePass(Info)
 	ParseInput(Info)
-	ParseScantype(Info)
 }
 
 func ParseUser(Info *HostInfo) {
