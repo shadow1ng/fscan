@@ -164,29 +164,27 @@ func ParseScantype(Info *HostInfo) {
 	if !ok {
 		showmode()
 	}
-	if Info.Scantype != "all" {
-		if Info.Ports == DefaultPorts {
-			switch Info.Scantype {
-			case "rdp":
-				Info.Ports = "3389"
-			case "web":
-				Info.Ports = Webport
-			case "webonly":
-				Info.Ports = Webport
-			case "ms17010":
-				Info.Ports = "445"
-			case "cve20200796":
-				Info.Ports = "445"
-			case "portscan":
-				Info.Ports = DefaultPorts + "," + Webport
-			case "main":
-				Info.Ports = DefaultPorts
-			default:
-				port, _ := PORTList[Info.Scantype]
-				Info.Ports = strconv.Itoa(port)
-			}
-			fmt.Println("-m ", Info.Scantype, " start scan the port:", Info.Ports)
+	if Info.Scantype != "all" && Info.Ports == DefaultPorts+","+Webport {
+		switch Info.Scantype {
+		case "rdp":
+			Info.Ports = "3389"
+		case "web":
+			Info.Ports = Webport
+		case "webonly":
+			Info.Ports = Webport
+		case "ms17010":
+			Info.Ports = "445"
+		case "cve20200796":
+			Info.Ports = "445"
+		case "portscan":
+			Info.Ports = DefaultPorts + "," + Webport
+		case "main":
+			Info.Ports = DefaultPorts
+		default:
+			port, _ := PORTList[Info.Scantype]
+			Info.Ports = strconv.Itoa(port)
 		}
+		fmt.Println("-m ", Info.Scantype, " start scan the port:", Info.Ports)
 	}
 }
 

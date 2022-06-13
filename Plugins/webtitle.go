@@ -189,7 +189,7 @@ func getRespBody(oResp *http.Response) ([]byte, error) {
 }
 
 func gettitle(body []byte) (title string) {
-	re := regexp.MustCompile("(?ims)<title>(.*)</title>")
+	re := regexp.MustCompile("(?ims)<title>(.*?)</title>")
 	find := re.FindSubmatch(body)
 	if len(find) > 1 {
 		title = string(find[1])
@@ -217,7 +217,7 @@ func GetProtocol(host string, Timeout int64) (protocol string) {
 		return
 	}
 
-	socksconn, err := common.WrapperTcpWithTimeout("tcp", host, time.Duration(Timeout) * time.Second)
+	socksconn, err := common.WrapperTcpWithTimeout("tcp", host, time.Duration(Timeout)*time.Second)
 	if err != nil {
 		return
 	}
