@@ -720,7 +720,7 @@ func evalset(env *cel.Env, variableMap map[string]interface{}) {
 		if strings.Contains(k, "payload") {
 			out, err := Evaluate(env, expression, variableMap)
 			if err != nil {
-				fmt.Println(err)
+				//fmt.Println(err)
 				variableMap[k] = expression
 			} else {
 				variableMap[k] = fmt.Sprintf("%v", out)
