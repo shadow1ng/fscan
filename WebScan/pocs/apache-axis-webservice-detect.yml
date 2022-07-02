@@ -1,0 +1,25 @@
+name: poc-yaml-apache-axis-webservice-detect
+sets:
+  path:
+    - services
+    - servlet/AxisaxiServlet
+    - servlet/AxisServlet
+    - services/listServices
+    - services/FreeMarkerService
+    - services/AdminService
+    - axis/services
+    - axis2/services
+    - axis/servlet/AxisServlet
+    - axis2/servlet/AxisServlet
+    - axis2/services/listServices
+    - axis/services/FreeMarkerService
+    - axis/services/AdminService
+rules:
+  - method: GET
+    path: /{{path}}
+    expression: |
+      response.body.bcontains(b"Services") && response.body.bcontains(b'?wsdl"><i>')
+detail:
+  author: AgeloVito
+  links:
+    - https://paper.seebug.org/1489

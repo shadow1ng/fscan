@@ -6,9 +6,9 @@ sets:
     - root
     - manager
   password:
+    - tomcat
     - ""
     - admin
-    - tomcat
     - 123456
     - root
   payload:

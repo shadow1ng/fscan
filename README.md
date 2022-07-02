@@ -24,8 +24,9 @@
 * web漏洞扫描(weblogic、st2等,支持xray的poc)
 
 5.漏洞利用:
-* redis写公钥或写计划任务
-* ssh命令执行
+* redis写公钥或写计划任务  
+* ssh命令执行  
+* ms17017利用(植入shellcode),如添加用户等  
 
 6.其他功能:
 * 文件保存
@@ -53,6 +54,8 @@ fscan.exe -hf ip.txt  (以文件导入)
 fscan.exe -u http://baidu.com -proxy 8080 (扫描单个url,并设置http代理 http://127.0.0.1:8080)
 fscan.exe -h 192.168.1.1/24 -nobr -nopoc (不进行爆破,不扫Web poc,以减少流量)
 fscan.exe -h 192.168.1.1/24 -pa 3389 (在原基础上,加入3389->rdp扫描)
+fscan.exe -h 192.168.1.1/24 -socks5 127.0.0.1:1080
+fscan.exe -h 192.168.1.1/24 -m ms17017 -sc add (可在ms17010-exp.go自定义shellcode,内置添加用户等功能)
 ```
 编译命令
 ```
@@ -135,6 +138,10 @@ go build -ldflags="-s -w " -trimpath
         在原有用户字典基础上,新增新用户
   -pwda string
         在原有密码字典基础上,增加新密码
+  -socks5
+        指定socks5代理 (as: -socks5  socks5://127.0.0.1:1080)
+  -sc 
+        指定ms17010利用模块shellcode,内置添加用户等功能 (as: -sc add)
 ```
 
 ## 运行截图
@@ -194,6 +201,8 @@ fscan 是 404Team [星链计划2.0](https://github.com/knownsec/404StarLink2.0-G
 除非您已充分阅读、完全理解并接受本协议所有条款，否则，请您不要安装并使用本工具。您的使用行为或者您以其他任何明示或者默示方式表示接受本协议的，即视为您已阅读并同意本协议的约束。
 
 ## 最近更新
+[+] 2022/7/2 加强poc fuzz模块,支持跑备份文件、目录、shiro-key(默认跑10key,可用-full参数跑100key)等。新增ms17017利用(使用参数: -sc add),可在ms17010-exp.go自定义shellcode,内置添加用户等功能。  
+新增poc、指纹。支持socks5代理。因body指纹更全,默认不再跑ico图标。    
 [+] 2022/4/20 poc模块加入指定目录或文件 -pocpath poc路径,端口可以指定文件-portf port.txt,rdp模块加入多线程爆破demo, -br xx指定线程  
 [+] 2022/2/25 新增-m webonly,跳过端口扫描,直接访问http。致谢@AgeloVito  
 [+] 2022/1/11 新增oracle密码爆破  

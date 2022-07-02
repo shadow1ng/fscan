@@ -1,0 +1,64 @@
+name: poc-yaml-backup-file
+set:
+  host: request.url.domain
+sets:
+  path:
+    - "sql"
+    - "www"
+    - "wwwroot"
+    - "index"
+    - "backup"
+    - "back"
+    - "data"
+    - "web"
+    - "db"
+    - "database"
+    - "ftp"
+    - "admin"
+    - "upload"
+    - "package"
+    - "sql"
+    - "old"
+    - "test"
+    - "root"
+    - "beifen"
+    - host
+  ext:
+    - "zip"
+    - "7z"
+    - "rar"
+    - "gz"
+    - "tar.gz"
+    - "db"
+    - "bak"
+
+rules:
+  - method: GET
+    path: /{{path}}.{{ext}}
+    follow_redirects: false
+    continue: true
+    expression: |
+      response.content_type.contains("application/") &&
+      (response.body.startsWith("377ABCAF271C".hexdecode()) ||
+      response.body.startsWith("314159265359".hexdecode()) ||
+      response.body.startsWith("53514c69746520666f726d6174203300".hexdecode()) ||
+      response.body.startsWith("1f8b".hexdecode()) ||
+      response.body.startsWith("526172211A0700".hexdecode()) ||
+      response.body.startsWith("FD377A585A0000".hexdecode()) ||
+      response.body.startsWith("1F9D".hexdecode()) ||
+      response.body.startsWith("1FA0".hexdecode()) ||
+      response.body.startsWith("4C5A4950".hexdecode()) ||
+      response.body.startsWith("504B0304".hexdecode()) )
+#      - "377ABCAF271C"  # 7z
+#      - "314159265359"  # bz2
+#      - "53514c69746520666f726d6174203300"  # SQLite format 3.
+#      - "1f8b"  # gz tar.gz
+#      - "526172211A0700"  # rar RAR archive version 1.50
+#      - "526172211A070100"  # rar RAR archive version 5.0
+#      - "FD377A585A0000"  # xz tar.xz
+#      - "1F9D"  # z tar.z
+#      - "1FA0"  # z tar.z
+#      - "4C5A4950"  # lz
+#      - "504B0304"  # zip
+detail:
+  author: shadown1ng(https://github.com/shadown1ng)

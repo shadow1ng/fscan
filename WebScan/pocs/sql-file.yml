@@ -1,0 +1,32 @@
+name: poc-yaml-sql-file
+set:
+  host: request.url.domain
+sets:
+  path:
+    - "1.sql"
+    - "backup.sql"
+    - "database.sql"
+    - "data.sql"
+    - "db_backup.sql"
+    - "dbdump.sql"
+    - "db.sql"
+    - "dump.sql"
+    - "{{host}}.sql"
+    - "{{host}}_db.sql"
+    - "localhost.sql"
+    - "mysqldump.sql"
+    - "mysql.sql"
+    - "site.sql"
+    - "sql.sql"
+    - "temp.sql"
+    - "translate.sql"
+    - "users.sql"
+rules:
+  - method: GET
+    path: /{{path}}
+    follow_redirects: false
+    continue: true
+    expression: |
+      "(?m)(?:DROP|CREATE|(?:UN)?LOCK) TABLE|INSERT INTO".bmatches(response.body)
+detail:
+  author: shadown1ng(https://github.com/shadown1ng)

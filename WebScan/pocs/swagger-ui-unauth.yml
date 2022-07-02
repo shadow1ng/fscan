@@ -1,6 +1,7 @@
 name: poc-yaml-swagger-ui-unauth
 sets:
   path:
+    - swagger/ui/index
     - swagger-ui.html
     - api/swagger-ui.html
     - service/swagger-ui.html
@@ -9,11 +10,20 @@ sets:
     - actuator/swagger-ui.html
     - libs/swagger-ui.html
     - template/swagger-ui.html
+    - api_docs
+    - api/docs/
+    - api/index.html
+    - swagger/v1/swagger.yaml
+    - swagger/v1/swagger.json
+    - swagger.yaml
+    - swagger.json
+    - api-docs/swagger.yaml
+    - api-docs/swagger.json
 rules:
   - method: GET
     path: /{{path}}
     expression: |
-      response.status == 200 && response.body.bcontains(b"Swagger UI") && response.body.bcontains(b"swagger-ui.min.js")
+      response.status == 200 && (response.body.bcontains(b"Swagger UI") || response.body.bcontains(b"swagger-ui.min.js")|| response.body.bcontains(b'swagger:') || response.body.bcontains(b'swagger:') || response.body.bcontains(b'Swagger 2.0') ||  response.body.bcontains(b"\"swagger\":") )
 detail:
   author: AgeloVito
   links:

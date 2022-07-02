@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"crypto/md5"
 	"fmt"
 	"github.com/google/cel-go/cel"
 	"github.com/shadow1ng/fscan/WebScan/info"
@@ -9,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -56,9 +56,13 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 	c := NewEnvOption()
 	c.UpdateCompileOptions(p.Set)
 	if len(p.Sets) > 0 {
-		setMap := make(map[string]string)
-		for k := range p.Sets {
-			setMap[k] = p.Sets[k][0]
+		var setMap StrMap
+		for _, item := range p.Sets {
+			if len(item.Value) > 0 {
+				setMap = append(setMap, StrItem{item.Key, item.Value[0]})
+			} else {
+				setMap = append(setMap, StrItem{item.Key, ""})
+			}
 		}
 		c.UpdateCompileOptions(setMap)
 	}
@@ -74,91 +78,21 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 	}
 	variableMap := make(map[string]interface{})
 	variableMap["request"] = req
-
-	// 现在假定set中payload作为最后产出，那么先排序解析其他的自定义变量，更新map[string]interface{}后再来解析payload
-	keys := make([]string, 0)
-	keys1 := make([]string, 0)
-	for k := range p.Set {
-		if strings.Contains(strings.ToLower(p.Set[k]), "random") && strings.Contains(strings.ToLower(p.Set[k]), "(") {
-			keys = append(keys, k) //优先放入调用random系列函数的变量
-		} else {
-			keys1 = append(keys1, k)
+	for _, item := range p.Set {
+		k, expression := item.Key, item.Value
+		if expression == "newReverse()" {
+			variableMap[k] = newReverse()
+			continue
 		}
-	}
-	sort.Strings(keys)
-	sort.Strings(keys1)
-	keys = append(keys, keys1...)
-	for _, k := range keys {
-		expression := p.Set[k]
-		if k != "payload" {
-			if expression == "newReverse()" {
-				variableMap[k] = newReverse()
-				continue
-			}
-			out, err := Evaluate(env, expression, variableMap)
-			if err != nil {
-				//fmt.Println(p.Name,"  poc_expression error",err)
-				variableMap[k] = expression
-				continue
-			}
-			switch value := out.Value().(type) {
-			case *UrlType:
-				variableMap[k] = UrlTypeToString(value)
-			case int64:
-				variableMap[k] = int(value)
-			case []uint8:
-				variableMap[k] = fmt.Sprintf("%s", out)
-			default:
-				variableMap[k] = fmt.Sprintf("%v", out)
-			}
-		}
-	}
-
-	if p.Set["payload"] != "" {
-		out, err := Evaluate(env, p.Set["payload"], variableMap)
+		err, _ = evalset(env, variableMap, k, expression)
 		if err != nil {
-			//fmt.Println(p.Name,"  poc_payload error",err)
-			return false, err, ""
-		}
-		variableMap["payload"] = fmt.Sprintf("%v", out)
-	}
-
-	setslen := 0
-	haspayload := false
-	var setskeys []string
-	if len(p.Sets) > 0 {
-		for _, rule := range p.Rules {
-			for k := range p.Sets {
-				if strings.Contains(rule.Body, "{{"+k+"}}") || strings.Contains(rule.Path, "{{"+k+"}}") {
-					if strings.Contains(k, "payload") {
-						haspayload = true
-					}
-					setslen++
-					setskeys = append(setskeys, k)
-					continue
-				}
-				for k2 := range rule.Headers {
-					if strings.Contains(rule.Headers[k2], "{{"+k+"}}") {
-						if strings.Contains(k, "payload") {
-							haspayload = true
-						}
-						setslen++
-						setskeys = append(setskeys, k)
-						continue
-					}
-				}
-			}
+			fmt.Printf("[-] %s evalset error: %v", p.Name, err)
 		}
 	}
-
 	success := false
 	//爆破模式,比如tomcat弱口令
-	if setslen > 0 {
-		if haspayload {
-			success, err = clusterpoc1(oReq, p, variableMap, req, env, setskeys)
-		} else {
-			success, err = clusterpoc(oReq, p, variableMap, req, env, setslen, setskeys)
-		}
+	if len(p.Sets) > 0 {
+		success, err = clusterpoc(oReq, p, variableMap, req, env)
 		return success, nil, ""
 	}
 
@@ -179,8 +113,8 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 				}
 				Headers[k2] = strings.ReplaceAll(v2, "{{"+k1+"}}", value)
 			}
-			rule.Path = strings.ReplaceAll(strings.TrimSpace(rule.Path), "{{"+k1+"}}", value)
-			rule.Body = strings.ReplaceAll(strings.TrimSpace(rule.Body), "{{"+k1+"}}", value)
+			rule.Path = strings.ReplaceAll(rule.Path, "{{"+k1+"}}", value)
+			rule.Body = strings.ReplaceAll(rule.Body, "{{"+k1+"}}", value)
 		}
 
 		if oReq.URL.Path != "" && oReq.URL.Path != "/" {
@@ -189,15 +123,22 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 			req.Url.Path = rule.Path
 		}
 		// 某些poc没有区分path和query，需要处理
-		req.Url.Path = strings.ReplaceAll(req.Url.Path, " ", "%20")
-		req.Url.Path = strings.ReplaceAll(req.Url.Path, "+", "%20")
+		//req.Url.Path = strings.ReplaceAll(req.Url.Path, " ", "%20")
+		//req.Url.Path = strings.ReplaceAll(req.Url.Path, "+", "%20")
 
-		newRequest, _ := http.NewRequest(rule.Method, fmt.Sprintf("%s://%s%s", req.Url.Scheme, req.Url.Host, req.Url.Path), strings.NewReader(rule.Body))
+		newRequest, err := http.NewRequest(rule.Method, fmt.Sprintf("%s://%s%s", req.Url.Scheme, req.Url.Host, string([]rune(req.Url.Path))), strings.NewReader(rule.Body))
+		if err != nil {
+			//fmt.Println("[-] newRequest error: ",err)
+			return false, err
+		}
+		newRequest.URL.Path = req.Url.Path
 		newRequest.Header = oReq.Header.Clone()
 		for k, v := range Headers {
 			newRequest.Header.Set(k, v)
 		}
+		Headers = nil
 		resp, err := DoRequest(newRequest, rule.FollowRedirects)
+		newRequest = nil
 		if err != nil {
 			return false, err
 		}
@@ -247,7 +188,8 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 	if len(p.Rules) > 0 {
 		success = DealWithRules(p.Rules)
 	} else {
-		for name, rules := range p.Groups {
+		for _, item := range p.Groups {
+			name, rules := item.Key, item.Value
 			success = DealWithRules(rules)
 			if success {
 				return success, nil, name
@@ -281,10 +223,10 @@ func newReverse() *Reverse {
 	letters := "1234567890abcdefghijklmnopqrstuvwxyz"
 	randSource := rand.New(rand.NewSource(time.Now().Unix()))
 	sub := RandomStr(randSource, letters, 8)
-	if true {
-		//默认不开启dns解析
-		return &Reverse{}
-	}
+	//if true {
+	//	//默认不开启dns解析
+	//	return &Reverse{}
+	//}
 	urlStr := fmt.Sprintf("http://%s.%s", sub, ceyeDomain)
 	u, _ := url.Parse(urlStr)
 	return &Reverse{
@@ -295,323 +237,182 @@ func newReverse() *Reverse {
 	}
 }
 
-func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, req *Request, env *cel.Env, slen int, keys []string) (success bool, err error) {
-	for _, rule := range p.Rules {
-		for k1, v1 := range variableMap {
-			if IsContain(keys, k1) {
-				continue
-			}
-			_, isMap := v1.(map[string]string)
-			if isMap {
-				continue
-			}
-			value := fmt.Sprintf("%v", v1)
-			for k2, v2 := range rule.Headers {
-				rule.Headers[k2] = strings.ReplaceAll(v2, "{{"+k1+"}}", value)
-			}
-			rule.Path = strings.ReplaceAll(strings.TrimSpace(rule.Path), "{{"+k1+"}}", value)
-			rule.Body = strings.ReplaceAll(strings.TrimSpace(rule.Body), "{{"+k1+"}}", value)
-		}
-
-		n := 0
-		for k := range p.Sets {
-			if strings.Contains(rule.Body, "{{"+k+"}}") || strings.Contains(rule.Path, "{{"+k+"}}") {
-				n++
-				continue
-			}
-			for k2 := range rule.Headers {
-				if strings.Contains(rule.Headers[k2], "{{"+k+"}}") {
-					n++
-					continue
-				}
-			}
-		}
-		if n == 0 {
+func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, req *Request, env *cel.Env) (success bool, err error) {
+	var strMap StrMap
+	var tmpnum int
+	for i, rule := range p.Rules {
+		if !isFuzz(rule, p.Sets) {
 			success, err = clustersend(oReq, variableMap, req, env, rule)
 			if err != nil {
 				return false, err
 			}
-			if success == false {
-				break
+			if success {
+				continue
+			} else {
+				return false, err
 			}
 		}
-
-		if slen == 1 {
-		look1:
-			for _, var1 := range p.Sets[keys[0]] {
-				rule1 := cloneRules(rule)
+		setsMap := Combo(p.Sets)
+		ruleHash := make(map[string]struct{})
+	look:
+		for j, item := range setsMap {
+			//shiro默认只跑10key
+			if p.Name == "poc-yaml-shiro-key" && !common.PocFull && j >= 10 {
+				if item[1] == "cbc" {
+					continue
+				} else {
+					if tmpnum == 0 {
+						tmpnum = j
+					}
+					if j-tmpnum >= 10 {
+						break
+					}
+				}
+			}
+			rule1 := cloneRules(rule)
+			var flag1 bool
+			var tmpMap StrMap
+			var payloads = make(map[string]interface{})
+			var tmpexpression string
+			for i, one := range p.Sets {
+				key, expression := one.Key, item[i]
+				if key == "payload" {
+					tmpexpression = expression
+				}
+				_, output := evalset1(env, variableMap, key, expression)
+				payloads[key] = output
+			}
+			for _, one := range p.Sets {
+				flag := false
+				key := one.Key
+				value := fmt.Sprintf("%v", payloads[key])
 				for k2, v2 := range rule1.Headers {
-					rule1.Headers[k2] = strings.ReplaceAll(v2, "{{"+keys[0]+"}}", var1)
+					if strings.Contains(v2, "{{"+key+"}}") {
+						rule1.Headers[k2] = strings.ReplaceAll(v2, "{{"+key+"}}", value)
+						flag = true
+					}
 				}
-				rule1.Path = strings.ReplaceAll(strings.TrimSpace(rule1.Path), "{{"+keys[0]+"}}", var1)
-				rule1.Body = strings.ReplaceAll(strings.TrimSpace(rule1.Body), "{{"+keys[0]+"}}", var1)
-				success, err = clustersend(oReq, variableMap, req, env, rule1)
-				if err != nil {
-					return false, err
+				if strings.Contains(rule1.Path, "{{"+key+"}}") {
+					rule1.Path = strings.ReplaceAll(rule1.Path, "{{"+key+"}}", value)
+					flag = true
 				}
-				if success == true {
-					break look1
+				if strings.Contains(rule1.Body, "{{"+key+"}}") {
+					rule1.Body = strings.ReplaceAll(rule1.Body, "{{"+key+"}}", value)
+					flag = true
+				}
+				if flag {
+					flag1 = true
+					if key == "payload" {
+						var flag2 bool
+						for k, v := range variableMap {
+							if strings.Contains(tmpexpression, k) {
+								flag2 = true
+								tmpMap = append(tmpMap, StrItem{k, fmt.Sprintf("%v", v)})
+							}
+						}
+						if flag2 {
+							continue
+						}
+					}
+					tmpMap = append(tmpMap, StrItem{key, value})
 				}
 			}
-			if success == false {
-				break
+			if !flag1 {
+				continue
+			}
+			has := md5.Sum([]byte(fmt.Sprintf("%v", rule1)))
+			md5str := fmt.Sprintf("%x", has)
+			if _, ok := ruleHash[md5str]; ok {
+				continue
+			}
+			ruleHash[md5str] = struct{}{}
+			success, err = clustersend(oReq, variableMap, req, env, rule1)
+			if err != nil {
+				return false, err
+			}
+			if success {
+				if rule.Continue {
+					if p.Name == "poc-yaml-backup-file" || p.Name == "poc-yaml-sql-file" {
+						common.LogSuccess(fmt.Sprintf("[+] %s://%s%s %s", req.Url.Scheme, req.Url.Host, req.Url.Path, p.Name))
+					} else {
+						common.LogSuccess(fmt.Sprintf("[+] %s://%s%s %s %v", req.Url.Scheme, req.Url.Host, req.Url.Path, p.Name, tmpMap))
+					}
+					continue
+				}
+				strMap = append(strMap, tmpMap...)
+				if i == len(p.Rules)-1 {
+					common.LogSuccess(fmt.Sprintf("[+] %s://%s%s %s %v", req.Url.Scheme, req.Url.Host, req.Url.Path, p.Name, strMap))
+					//防止后续继续打印poc成功信息
+					return false, nil
+				}
+				break look
 			}
 		}
-
-		if slen == 2 {
-		look2:
-			for _, var1 := range p.Sets[keys[0]] {
-				for _, var2 := range p.Sets[keys[1]] {
-					rule1 := cloneRules(rule)
-					for k2, v2 := range rule1.Headers {
-						rule1.Headers[k2] = strings.ReplaceAll(v2, "{{"+keys[0]+"}}", var1)
-						rule1.Headers[k2] = strings.ReplaceAll(rule1.Headers[k2], "{{"+keys[1]+"}}", var2)
-					}
-					rule1.Path = strings.ReplaceAll(strings.TrimSpace(rule1.Path), "{{"+keys[0]+"}}", var1)
-					rule1.Body = strings.ReplaceAll(strings.TrimSpace(rule1.Body), "{{"+keys[0]+"}}", var1)
-					rule1.Path = strings.ReplaceAll(strings.TrimSpace(rule1.Path), "{{"+keys[1]+"}}", var2)
-					rule1.Body = strings.ReplaceAll(strings.TrimSpace(rule1.Body), "{{"+keys[1]+"}}", var2)
-					success, err = clustersend(oReq, variableMap, req, env, rule1)
-					if err != nil {
-						return false, err
-					}
-					if success == true {
-						break look2
-					}
-				}
-			}
-			if success == false {
-				break
-			}
+		if !success {
+			break
 		}
-
-		if slen == 3 {
-		look3:
-			for _, var1 := range p.Sets[keys[0]] {
-				for _, var2 := range p.Sets[keys[1]] {
-					for _, var3 := range p.Sets[keys[2]] {
-						rule1 := cloneRules(rule)
-						for k2, v2 := range rule1.Headers {
-							rule1.Headers[k2] = strings.ReplaceAll(v2, "{{"+keys[0]+"}}", var1)
-							rule1.Headers[k2] = strings.ReplaceAll(rule1.Headers[k2], "{{"+keys[1]+"}}", var2)
-							rule1.Headers[k2] = strings.ReplaceAll(rule1.Headers[k2], "{{"+keys[2]+"}}", var3)
-						}
-						rule1.Path = strings.ReplaceAll(strings.TrimSpace(rule1.Path), "{{"+keys[0]+"}}", var1)
-						rule1.Body = strings.ReplaceAll(strings.TrimSpace(rule1.Body), "{{"+keys[0]+"}}", var1)
-						rule1.Path = strings.ReplaceAll(strings.TrimSpace(rule1.Path), "{{"+keys[1]+"}}", var2)
-						rule1.Body = strings.ReplaceAll(strings.TrimSpace(rule1.Body), "{{"+keys[1]+"}}", var2)
-						rule1.Path = strings.ReplaceAll(strings.TrimSpace(rule1.Path), "{{"+keys[2]+"}}", var3)
-						rule1.Body = strings.ReplaceAll(strings.TrimSpace(rule1.Body), "{{"+keys[2]+"}}", var3)
-						success, err = clustersend(oReq, variableMap, req, env, rule)
-						if err != nil {
-							return false, err
-						}
-						if success == true {
-							break look3
-						}
-					}
-				}
-			}
-			if success == false {
-				break
-			}
+		if rule.Continue {
+			//防止后续继续打印poc成功信息
+			return false, nil
 		}
 	}
 	return success, nil
 }
 
-func clusterpoc1(oReq *http.Request, p *Poc, variableMap map[string]interface{}, req *Request, env *cel.Env, keys []string) (success bool, err error) {
-	setMap := make(map[string]interface{})
-	for k := range p.Sets {
-		setMap[k] = p.Sets[k][0]
-	}
-	setMapbak := cloneMap1(setMap)
-	for _, rule := range p.Rules {
-		for k1, v1 := range variableMap {
-			if IsContain(keys, k1) {
-				continue
-			}
-			_, isMap := v1.(map[string]string)
-			if isMap {
-				continue
-			}
-			value := fmt.Sprintf("%v", v1)
-			for k2, v2 := range rule.Headers {
-				rule.Headers[k2] = strings.ReplaceAll(v2, "{{"+k1+"}}", value)
-			}
-			rule.Path = strings.ReplaceAll(strings.TrimSpace(rule.Path), "{{"+k1+"}}", value)
-			rule.Body = strings.ReplaceAll(strings.TrimSpace(rule.Body), "{{"+k1+"}}", value)
-		}
-
-		varset := []string{}
-		varpay := []string{}
-		n := 0
-		for k := range p.Sets {
-			// 1. 如果rule中需要修改 {{k}} 如username、payload
-			if strings.Contains(rule.Body, "{{"+k+"}}") || strings.Contains(rule.Path, "{{"+k+"}}") {
-				if strings.Contains(k, "payload") {
-					varpay = append(varpay, k)
-				} else {
-					varset = append(varset, k)
-				}
-				n++
-				continue
-			}
-			for k2 := range rule.Headers {
-				if strings.Contains(rule.Headers[k2], "{{"+k+"}}") {
-					if strings.Contains(k, "payload") {
-						varpay = append(varpay, k)
-					} else {
-						varset = append(varset, k)
-					}
-					n++
-					continue
-				}
+func isFuzz(rule Rules, Sets ListMap) bool {
+	for _, one := range Sets {
+		key := one.Key
+		for _, v := range rule.Headers {
+			if strings.Contains(v, "{{"+key+"}}") {
+				return true
 			}
 		}
-
-		for _, key := range varpay {
-			v := fmt.Sprintf("%s", setMap[key])
-			for k := range p.Sets {
-				if strings.Contains(v, k) {
-					if !IsContain(varset, k) && !IsContain(varpay, k) {
-						varset = append(varset, k)
-					}
-				}
-			}
+		if strings.Contains(rule.Path, "{{"+key+"}}") {
+			return true
 		}
-		if n == 0 {
-			success, err = clustersend(oReq, variableMap, req, env, rule)
-			if err != nil {
-				return false, err
-			}
-			if success == false {
-				break
-			}
-		}
-		if len(varset) == 1 {
-		look1:
-			//	(var1 tomcat ,keys[0] username)
-			for _, var1 := range p.Sets[varset[0]] {
-				setMap := cloneMap1(setMapbak)
-				setMap[varset[0]] = var1
-				evalset(env, setMap)
-				rule1 := cloneRules(rule)
-				for k2, v2 := range rule1.Headers {
-					rule1.Headers[k2] = strings.ReplaceAll(v2, "{{"+varset[0]+"}}", var1)
-					for _, key := range varpay {
-						rule1.Headers[k2] = strings.ReplaceAll(rule1.Headers[k2], "{{"+key+"}}", fmt.Sprintf("%v", setMap[key]))
-					}
-				}
-				rule1.Path = strings.ReplaceAll(strings.TrimSpace(rule1.Path), "{{"+varset[0]+"}}", var1)
-				rule1.Body = strings.ReplaceAll(strings.TrimSpace(rule1.Body), "{{"+varset[0]+"}}", var1)
-				for _, key := range varpay {
-					rule1.Path = strings.ReplaceAll(strings.TrimSpace(rule1.Path), "{{"+key+"}}", fmt.Sprintf("%v", setMap[key]))
-					rule1.Body = strings.ReplaceAll(strings.TrimSpace(rule1.Body), "{{"+key+"}}", fmt.Sprintf("%v", setMap[key]))
-				}
-				success, err = clustersend(oReq, variableMap, req, env, rule)
-				if err != nil {
-					return false, err
-				}
-
-				if success == true {
-					common.LogSuccess(fmt.Sprintf("[+] %s://%s%s %s", req.Url.Scheme, req.Url.Host, req.Url.Path, var1))
-					break look1
-				}
-			}
-			if success == false {
-				break
-			}
-		}
-
-		if len(varset) == 2 {
-		look2:
-			//	(var1 tomcat ,keys[0] username)
-			for _, var1 := range p.Sets[varset[0]] { //username
-				for _, var2 := range p.Sets[varset[1]] { //password
-					setMap := cloneMap1(setMapbak)
-					setMap[varset[0]] = var1
-					setMap[varset[1]] = var2
-					evalset(env, setMap)
-					rule1 := cloneRules(rule)
-					for k2, v2 := range rule1.Headers {
-						rule1.Headers[k2] = strings.ReplaceAll(v2, "{{"+varset[0]+"}}", var1)
-						rule1.Headers[k2] = strings.ReplaceAll(rule1.Headers[k2], "{{"+varset[1]+"}}", var2)
-						for _, key := range varpay {
-							rule1.Headers[k2] = strings.ReplaceAll(rule1.Headers[k2], "{{"+key+"}}", fmt.Sprintf("%v", setMap[key]))
-						}
-					}
-					rule1.Path = strings.ReplaceAll(strings.TrimSpace(rule1.Path), "{{"+varset[0]+"}}", var1)
-					rule1.Body = strings.ReplaceAll(strings.TrimSpace(rule1.Body), "{{"+varset[0]+"}}", var1)
-					rule1.Path = strings.ReplaceAll(strings.TrimSpace(rule1.Path), "{{"+varset[1]+"}}", var2)
-					rule1.Body = strings.ReplaceAll(strings.TrimSpace(rule1.Body), "{{"+varset[1]+"}}", var2)
-					for _, key := range varpay {
-						rule1.Path = strings.ReplaceAll(strings.TrimSpace(rule1.Path), "{{"+key+"}}", fmt.Sprintf("%v", setMap[key]))
-						rule1.Body = strings.ReplaceAll(strings.TrimSpace(rule1.Body), "{{"+key+"}}", fmt.Sprintf("%v", setMap[key]))
-					}
-					success, err = clustersend(oReq, variableMap, req, env, rule1)
-					if err != nil {
-						return false, err
-					}
-					if success == true {
-						common.LogSuccess(fmt.Sprintf("[+] %s://%s%s %s %s", req.Url.Scheme, req.Url.Host, req.Url.Path, var1, var2))
-						break look2
-					}
-				}
-			}
-			if success == false {
-				break
-			}
-		}
-
-		if len(varset) == 3 {
-		look3:
-			for _, var1 := range p.Sets[keys[0]] {
-				for _, var2 := range p.Sets[keys[1]] {
-					for _, var3 := range p.Sets[keys[2]] {
-						setMap := cloneMap1(setMapbak)
-						setMap[varset[0]] = var1
-						setMap[varset[1]] = var2
-						evalset(env, setMap)
-						rule1 := cloneRules(rule)
-						for k2, v2 := range rule1.Headers {
-							rule1.Headers[k2] = strings.ReplaceAll(v2, "{{"+keys[0]+"}}", var1)
-							rule1.Headers[k2] = strings.ReplaceAll(rule1.Headers[k2], "{{"+keys[1]+"}}", var2)
-							rule1.Headers[k2] = strings.ReplaceAll(rule1.Headers[k2], "{{"+keys[2]+"}}", var3)
-							for _, key := range varpay {
-								rule1.Headers[k2] = strings.ReplaceAll(rule1.Headers[k2], "{{"+key+"}}", fmt.Sprintf("%v", setMap[key]))
-							}
-						}
-						rule1.Path = strings.ReplaceAll(strings.TrimSpace(rule1.Path), "{{"+keys[0]+"}}", var1)
-						rule1.Body = strings.ReplaceAll(strings.TrimSpace(rule1.Body), "{{"+keys[0]+"}}", var1)
-						rule1.Path = strings.ReplaceAll(strings.TrimSpace(rule1.Path), "{{"+keys[1]+"}}", var2)
-						rule1.Body = strings.ReplaceAll(strings.TrimSpace(rule1.Body), "{{"+keys[1]+"}}", var2)
-						rule1.Path = strings.ReplaceAll(strings.TrimSpace(rule1.Path), "{{"+keys[2]+"}}", var3)
-						rule1.Body = strings.ReplaceAll(strings.TrimSpace(rule1.Body), "{{"+keys[2]+"}}", var3)
-						for _, key := range varpay {
-							rule1.Path = strings.ReplaceAll(strings.TrimSpace(rule1.Path), "{{"+key+"}}", fmt.Sprintf("%v", setMap[key]))
-							rule1.Body = strings.ReplaceAll(strings.TrimSpace(rule1.Body), "{{"+key+"}}", fmt.Sprintf("%v", setMap[key]))
-						}
-						success, err = clustersend(oReq, variableMap, req, env, rule)
-						if err != nil {
-							return false, err
-						}
-						if success == true {
-							common.LogSuccess(fmt.Sprintf("[+] %s://%s%s %s %s %s", req.Url.Scheme, req.Url.Host, req.Url.Path, var1, var2, var3))
-							break look3
-						}
-					}
-				}
-			}
-			if success == false {
-				break
-			}
+		if strings.Contains(rule.Body, "{{"+key+"}}") {
+			return true
 		}
 	}
-	return success, nil
+	return false
+}
+
+func Combo(input ListMap) (output [][]string) {
+	if len(input) > 1 {
+		output = Combo(input[1:])
+		output = MakeData(output, input[0].Value)
+	} else {
+		for _, i := range input[0].Value {
+			output = append(output, []string{i})
+		}
+	}
+	return
+}
+
+func MakeData(base [][]string, nextData []string) (output [][]string) {
+	for i := range base {
+		for _, j := range nextData {
+			output = append(output, append([]string{j}, base[i]...))
+		}
+	}
+	return
 }
 
 func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Request, env *cel.Env, rule Rules) (bool, error) {
+	for k1, v1 := range variableMap {
+		_, isMap := v1.(map[string]string)
+		if isMap {
+			continue
+		}
+		value := fmt.Sprintf("%v", v1)
+		for k2, v2 := range rule.Headers {
+			if strings.Contains(v2, "{{"+k1+"}}") {
+				rule.Headers[k2] = strings.ReplaceAll(v2, "{{"+k1+"}}", value)
+			}
+		}
+		rule.Path = strings.ReplaceAll(strings.TrimSpace(rule.Path), "{{"+k1+"}}", value)
+		rule.Body = strings.ReplaceAll(strings.TrimSpace(rule.Body), "{{"+k1+"}}", value)
+	}
 	if oReq.URL.Path != "" && oReq.URL.Path != "/" {
 		req.Url.Path = fmt.Sprint(oReq.URL.Path, rule.Path)
 	} else {
@@ -619,14 +420,19 @@ func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Re
 	}
 	// 某些poc没有区分path和query，需要处理
 	req.Url.Path = strings.ReplaceAll(req.Url.Path, " ", "%20")
-	req.Url.Path = strings.ReplaceAll(req.Url.Path, "+", "%20")
-
-	newRequest, _ := http.NewRequest(rule.Method, fmt.Sprintf("%s://%s%s", req.Url.Scheme, req.Url.Host, req.Url.Path), strings.NewReader(rule.Body))
+	//req.Url.Path = strings.ReplaceAll(req.Url.Path, "+", "%20")
+	//
+	newRequest, err := http.NewRequest(rule.Method, fmt.Sprintf("%s://%s%s", req.Url.Scheme, req.Url.Host, req.Url.Path), strings.NewReader(rule.Body))
+	if err != nil {
+		//fmt.Println("[-] newRequest error:",err)
+		return false, err
+	}
 	newRequest.Header = oReq.Header.Clone()
 	for k, v := range rule.Headers {
 		newRequest.Header.Set(k, v)
 	}
 	resp, err := DoRequest(newRequest, rule.FollowRedirects)
+	newRequest = nil
 	if err != nil {
 		return false, err
 	}
@@ -643,9 +449,11 @@ func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Re
 			return false, nil
 		}
 	}
-
 	out, err := Evaluate(env, rule.Expression, variableMap)
 	if err != nil {
+		if strings.Contains(err.Error(), "Syntax error") {
+			fmt.Println(rule.Expression, err)
+		}
 		return false, err
 	}
 	//fmt.Println(fmt.Sprintf("%v, %s", out, out.Type().TypeName()))
@@ -675,58 +483,31 @@ func cloneMap(tags map[string]string) map[string]string {
 	return cloneTags
 }
 
-func cloneMap1(tags map[string]interface{}) map[string]interface{} {
-	cloneTags := make(map[string]interface{})
-	for k, v := range tags {
-		cloneTags[k] = v
+func evalset(env *cel.Env, variableMap map[string]interface{}, k string, expression string) (err error, output string) {
+	out, err := Evaluate(env, expression, variableMap)
+	if err != nil {
+		variableMap[k] = expression
+	} else {
+		switch value := out.Value().(type) {
+		case *UrlType:
+			variableMap[k] = UrlTypeToString(value)
+		case int64:
+			variableMap[k] = int(value)
+		default:
+			variableMap[k] = fmt.Sprintf("%v", out)
+		}
 	}
-	return cloneTags
+	return err, fmt.Sprintf("%v", variableMap[k])
 }
 
-func IsContain(items []string, item string) bool {
-	for _, eachItem := range items {
-		if eachItem == item {
-			return true
-		}
+func evalset1(env *cel.Env, variableMap map[string]interface{}, k string, expression string) (err error, output string) {
+	out, err := Evaluate(env, expression, variableMap)
+	if err != nil {
+		variableMap[k] = expression
+	} else {
+		variableMap[k] = fmt.Sprintf("%v", out)
 	}
-	return false
-}
-
-func evalset(env *cel.Env, variableMap map[string]interface{}) {
-	for k := range variableMap {
-		expression := fmt.Sprintf("%v", variableMap[k])
-		if !strings.Contains(k, "payload") {
-			out, err := Evaluate(env, expression, variableMap)
-			if err != nil {
-				//fmt.Println(err)
-				variableMap[k] = expression
-				continue
-			}
-			switch value := out.Value().(type) {
-			case *UrlType:
-				variableMap[k] = UrlTypeToString(value)
-			case int64:
-				variableMap[k] = fmt.Sprintf("%v", value)
-			case []uint8:
-				variableMap[k] = fmt.Sprintf("%v", out)
-			default:
-				variableMap[k] = fmt.Sprintf("%v", out)
-			}
-		}
-	}
-
-	for k := range variableMap {
-		expression := fmt.Sprintf("%v", variableMap[k])
-		if strings.Contains(k, "payload") {
-			out, err := Evaluate(env, expression, variableMap)
-			if err != nil {
-				//fmt.Println(err)
-				variableMap[k] = expression
-			} else {
-				variableMap[k] = fmt.Sprintf("%v", out)
-			}
-		}
-	}
+	return err, fmt.Sprintf("%v", variableMap[k])
 }
 
 func CheckInfoPoc(infostr string) string {

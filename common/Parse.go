@@ -122,6 +122,7 @@ func ParseInput(Info *HostInfo) {
 	if BruteThread <= 0 {
 		BruteThread = 1
 	}
+
 	if TmpOutputfile != "" {
 		if !strings.Contains(Outputfile, "/") && !strings.Contains(Outputfile, `\`) {
 			Outputfile = getpath() + TmpOutputfile
@@ -129,9 +130,11 @@ func ParseInput(Info *HostInfo) {
 			Outputfile = TmpOutputfile
 		}
 	}
+
 	if TmpSave == true {
 		IsSave = false
 	}
+
 	if Info.Ports == DefaultPorts {
 		Info.Ports += "," + Webport
 	}
@@ -156,6 +159,9 @@ func ParseInput(Info *HostInfo) {
 		pass := strings.Split(PassAdd, ",")
 		Passwords = append(Passwords, pass...)
 		Passwords = RemoveDuplicate(Passwords)
+	}
+	if Socks5Proxy != "" && !strings.HasPrefix(Socks5Proxy, "socks5://") {
+		Socks5Proxy = "socks5://" + Socks5Proxy
 	}
 }
 

@@ -28,11 +28,11 @@ func InfoCheck(Url string, CheckData *[]CheckDatas) []string {
 				infoname = append(infoname, rule.Name)
 			}
 		}
-		flag, name := CalcMd5(data.Body)
+		//flag, name := CalcMd5(data.Body)
 
-		if flag == true {
-			infoname = append(infoname, name)
-		}
+		//if flag == true {
+		//	infoname = append(infoname, name)
+		//}
 	}
 
 	infoname = removeDuplicateElement(infoname)

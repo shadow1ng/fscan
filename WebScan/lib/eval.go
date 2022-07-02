@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"crypto/md5"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/checker/decls"
@@ -175,6 +176,26 @@ func NewEnvOption() CustomLib {
 				decls.NewInstanceOverload("icontains_string",
 					[]*exprpb.Type{decls.String, decls.String},
 					decls.Bool)),
+			decls.NewFunction("TDdate",
+				decls.NewOverload("tongda_date",
+					[]*exprpb.Type{},
+					decls.String)),
+			decls.NewFunction("shirokey",
+				decls.NewOverload("shiro_key",
+					[]*exprpb.Type{decls.String, decls.String},
+					decls.String)),
+			decls.NewFunction("startsWith",
+				decls.NewInstanceOverload("startsWith_bytes",
+					[]*exprpb.Type{decls.Bytes, decls.Bytes},
+					decls.Bool)),
+			decls.NewFunction("istartsWith",
+				decls.NewInstanceOverload("startsWith_string",
+					[]*exprpb.Type{decls.String, decls.String},
+					decls.Bool)),
+			decls.NewFunction("hexdecode",
+				decls.NewInstanceOverload("hexdecode",
+					[]*exprpb.Type{decls.String},
+					decls.Bytes)),
 		),
 	}
 	c.programOptions = []cel.ProgramOption{
@@ -407,6 +428,75 @@ func NewEnvOption() CustomLib {
 					return types.Bool(strings.Contains(strings.ToLower(string(v1)), strings.ToLower(string(v2))))
 				},
 			},
+			&functions.Overload{
+				Operator: "tongda_date",
+				Function: func(value ...ref.Val) ref.Val {
+					return types.String(time.Now().Format("0601"))
+				},
+			},
+			&functions.Overload{
+				Operator: "shiro_key",
+				Binary: func(key ref.Val, mode ref.Val) ref.Val {
+					v1, ok := key.(types.String)
+					if !ok {
+						return types.ValOrErr(key, "unexpected type '%v' passed to shiro_key", key.Type())
+					}
+					v2, ok := mode.(types.String)
+					if !ok {
+						return types.ValOrErr(mode, "unexpected type '%v' passed to shiro_mode", mode.Type())
+					}
+					cookie := GetShrioCookie(string(v1), string(v2))
+					if cookie == "" {
+						return types.NewErr("%v", "key b64decode failed")
+					}
+					return types.String(cookie)
+				},
+			},
+			&functions.Overload{
+				Operator: "startsWith_bytes",
+				Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
+					v1, ok := lhs.(types.Bytes)
+					if !ok {
+						return types.ValOrErr(lhs, "unexpected type '%v' passed to startsWith_bytes", lhs.Type())
+					}
+					v2, ok := rhs.(types.Bytes)
+					if !ok {
+						return types.ValOrErr(rhs, "unexpected type '%v' passed to startsWith_bytes", rhs.Type())
+					}
+					// 不区分大小写包含
+					return types.Bool(bytes.HasPrefix(v1, v2))
+				},
+			},
+			&functions.Overload{
+				Operator: "startsWith_string",
+				Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
+					v1, ok := lhs.(types.String)
+					if !ok {
+						return types.ValOrErr(lhs, "unexpected type '%v' passed to startsWith_string", lhs.Type())
+					}
+					v2, ok := rhs.(types.String)
+					if !ok {
+						return types.ValOrErr(rhs, "unexpected type '%v' passed to startsWith_string", rhs.Type())
+					}
+					// 不区分大小写包含
+					return types.Bool(strings.HasPrefix(strings.ToLower(string(v1)), strings.ToLower(string(v2))))
+				},
+			},
+			&functions.Overload{
+				Operator: "hexdecode",
+				Unary: func(lhs ref.Val) ref.Val {
+					v1, ok := lhs.(types.String)
+					if !ok {
+						return types.ValOrErr(lhs, "unexpected type '%v' passed to hexdecode", lhs.Type())
+					}
+					out, err := hex.DecodeString(string(v1))
+					if err != nil {
+						return types.ValOrErr(lhs, "hexdecode error: %v", err)
+					}
+					// 不区分大小写包含
+					return types.Bytes(out)
+				},
+			},
 		),
 	}
 	return c
@@ -421,8 +511,9 @@ func (c *CustomLib) ProgramOptions() []cel.ProgramOption {
 	return c.programOptions
 }
 
-func (c *CustomLib) UpdateCompileOptions(args map[string]string) {
-	for k, v := range args {
+func (c *CustomLib) UpdateCompileOptions(args StrMap) {
+	for _, item := range args {
+		k, v := item.Key, item.Value
 		// 在执行之前是不知道变量的类型的，所以统一声明为字符型
 		// 所以randomInt虽然返回的是int型，在运算中却被当作字符型进行计算，需要重载string_*_string
 		var d *exprpb.Decl
@@ -456,7 +547,7 @@ func reverseCheck(r *Reverse, timeout int64) bool {
 	time.Sleep(time.Second * time.Duration(timeout))
 	sub := strings.Split(r.Domain, ".")[0]
 	urlStr := fmt.Sprintf("http://api.ceye.io/v1/records?token=%s&type=dns&filter=%s", ceyeApi, sub)
-	fmt.Println(urlStr)
+	//fmt.Println(urlStr)
 	req, _ := http.NewRequest("GET", urlStr, nil)
 	resp, err := DoRequest(req, false)
 	if err != nil {
@@ -508,11 +599,13 @@ func DoRequest(req *http.Request, redirect bool) (*Response, error) {
 		oResp, err = ClientNoRedirect.Do(req)
 	}
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 	defer oResp.Body.Close()
 	resp, err := ParseResponse(oResp)
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 	return resp, err
@@ -591,7 +684,7 @@ func getRespBody(oResp *http.Response) ([]byte, error) {
 			body = append(body, buf...)
 		}
 	} else {
-		raw, err := ioutil.ReadAll(io.LimitReader(oResp.Body, int64(5<<20)))
+		raw, err := ioutil.ReadAll(io.LimitReader(oResp.Body, 10240))
 		if err != nil {
 			return nil, err
 		}
