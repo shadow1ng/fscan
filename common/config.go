@@ -52,17 +52,8 @@ type HostInfo struct {
 }
 
 type PocInfo struct {
-	Num        int
-	Rate       int
-	PocName    string
-	PocDir     string
-	Target     string
-	TargetFile string
-	RawFile    string
-	Cookie     string
-	ForceSSL   bool
-	ApiKey     string
-	CeyeDomain string
+	Target  string
+	PocName string
 }
 
 var (
@@ -103,5 +94,12 @@ var (
 	BruteThread   int
 	LiveTop       int
 	Socks5Proxy   string
-	PocFull       bool
+)
+
+var (
+	PocNum     int
+	PocFull    bool
+	CeyeDomain string
+	ApiKey     string
+	Cookie     string
 )
