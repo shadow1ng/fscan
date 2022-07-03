@@ -222,7 +222,7 @@ func doSearch(re string, body string) map[string]string {
 
 func newReverse() *Reverse {
 	letters := "1234567890abcdefghijklmnopqrstuvwxyz"
-	randSource := rand.New(rand.NewSource(time.Now().Unix()))
+	randSource := rand.New(rand.NewSource(time.Now().UnixNano()))
 	sub := RandomStr(randSource, letters, 8)
 	//if true {
 	//	//默认不开启dns解析
