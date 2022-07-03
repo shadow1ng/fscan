@@ -56,7 +56,7 @@ func NetBIOS(info *common.HostInfo) error {
 	}
 	msg += fmt.Sprintf("[*] %-15s%-5s %s\\%-15s   %s", info.Host, isdc, nbname.group, nbname.unique, nbname.osversion)
 
-	if info.Scantype == "netbios" {
+	if common.Scantype == "netbios" {
 		msg += "\n-------------------------------------------\n" + nbname.msg
 	}
 	if len(nbname.group) > 0 || len(nbname.unique) > 0 {
@@ -75,16 +75,16 @@ func NetBIOS1(info *common.HostInfo) (nbname NbnsName, err error) {
 		payload0 = append(payload0, []byte("\x00 EOENEBFACACACACACACACACACACACACA\x00")...)
 	}
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
-	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(info.Timeout)*time.Second)
+	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.Timeout)*time.Second)
 	defer func() {
-		if conn != nil{
+		if conn != nil {
 			conn.Close()
 		}
 	}()
 	if err != nil {
 		return
 	}
-	err = conn.SetDeadline(time.Now().Add(time.Duration(info.Timeout) * time.Second))
+	err = conn.SetDeadline(time.Now().Add(time.Duration(common.Timeout) * time.Second))
 	if err != nil {
 		return
 	}
@@ -194,16 +194,16 @@ func NetBIOS1(info *common.HostInfo) (nbname NbnsName, err error) {
 func GetNbnsname(info *common.HostInfo) (nbname NbnsName, err error) {
 	senddata1 := []byte{102, 102, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 32, 67, 75, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 0, 0, 33, 0, 1}
 	realhost := fmt.Sprintf("%s:%v", info.Host, 137)
-	conn, err := net.DialTimeout("udp", realhost, time.Duration(info.Timeout)*time.Second)
+	conn, err := net.DialTimeout("udp", realhost, time.Duration(common.Timeout)*time.Second)
 	defer func() {
-		if conn != nil{
+		if conn != nil {
 			conn.Close()
 		}
 	}()
 	if err != nil {
 		return
 	}
-	err = conn.SetDeadline(time.Now().Add(time.Duration(info.Timeout) * time.Second))
+	err = conn.SetDeadline(time.Now().Add(time.Duration(common.Timeout) * time.Second))
 	if err != nil {
 		return
 	}

@@ -27,7 +27,7 @@ func MssqlScan(info *common.HostInfo) (tmperr error) {
 				if common.CheckErrs(err) {
 					return err
 				}
-				if time.Now().Unix()-starttime > (int64(len(common.Userdict["mssql"])*len(common.Passwords)) * info.Timeout) {
+				if time.Now().Unix()-starttime > (int64(len(common.Userdict["mssql"])*len(common.Passwords)) * common.Timeout) {
 					return err
 				}
 			}
@@ -39,11 +39,11 @@ func MssqlScan(info *common.HostInfo) (tmperr error) {
 func MssqlConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
-	dataSourceName := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%v;encrypt=disable;timeout=%v", Host, Username, Password, Port, time.Duration(info.Timeout)*time.Second)
+	dataSourceName := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%v;encrypt=disable;timeout=%v", Host, Username, Password, Port, time.Duration(common.Timeout)*time.Second)
 	db, err := sql.Open("mssql", dataSourceName)
 	if err == nil {
-		db.SetConnMaxLifetime(time.Duration(info.Timeout) * time.Second)
-		db.SetConnMaxIdleTime(time.Duration(info.Timeout) * time.Second)
+		db.SetConnMaxLifetime(time.Duration(common.Timeout) * time.Second)
+		db.SetConnMaxIdleTime(time.Duration(common.Timeout) * time.Second)
 		db.SetMaxIdleConns(0)
 		defer db.Close()
 		err = db.Ping()

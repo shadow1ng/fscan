@@ -29,11 +29,11 @@ func SshScan(info *common.HostInfo) (tmperr error) {
 				if common.CheckErrs(err) {
 					return err
 				}
-				if time.Now().Unix()-starttime > (int64(len(common.Userdict["ssh"])*len(common.Passwords)) * info.Timeout) {
+				if time.Now().Unix()-starttime > (int64(len(common.Userdict["ssh"])*len(common.Passwords)) * common.Timeout) {
 					return err
 				}
 			}
-			if info.SshKey != "" {
+			if common.SshKey != "" {
 				return err
 			}
 		}
@@ -45,8 +45,8 @@ func SshConn(info *common.HostInfo, user string, pass string) (flag bool, err er
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
 	Auth := []ssh.AuthMethod{}
-	if info.SshKey != "" {
-		pemBytes, err := ioutil.ReadFile(info.SshKey)
+	if common.SshKey != "" {
+		pemBytes, err := ioutil.ReadFile(common.SshKey)
 		if err != nil {
 			return false, errors.New("read key failed" + err.Error())
 		}
@@ -62,7 +62,7 @@ func SshConn(info *common.HostInfo, user string, pass string) (flag bool, err er
 	config := &ssh.ClientConfig{
 		User:    Username,
 		Auth:    Auth,
-		Timeout: time.Duration(info.Timeout) * time.Second,
+		Timeout: time.Duration(common.Timeout) * time.Second,
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			return nil
 		},
@@ -76,16 +76,16 @@ func SshConn(info *common.HostInfo, user string, pass string) (flag bool, err er
 			defer session.Close()
 			flag = true
 			var result string
-			if info.Command != "" {
-				combo, _ := session.CombinedOutput(info.Command)
+			if common.Command != "" {
+				combo, _ := session.CombinedOutput(common.Command)
 				result = fmt.Sprintf("[+] SSH:%v:%v:%v %v \n %v", Host, Port, Username, Password, string(combo))
-				if info.SshKey != "" {
+				if common.SshKey != "" {
 					result = fmt.Sprintf("[+] SSH:%v:%v sshkey correct \n %v", Host, Port, string(combo))
 				}
 				common.LogSuccess(result)
 			} else {
 				result = fmt.Sprintf("[+] SSH:%v:%v:%v %v", Host, Port, Username, Password)
-				if info.SshKey != "" {
+				if common.SshKey != "" {
 					result = fmt.Sprintf("[+] SSH:%v:%v sshkey correct", Host, Port)
 				}
 				common.LogSuccess(result)

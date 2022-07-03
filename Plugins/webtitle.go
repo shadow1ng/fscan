@@ -38,13 +38,13 @@ func GOWebTitle(info *common.HostInfo) (err error, CheckData []WebScan.CheckData
 			info.Url = fmt.Sprintf("https://%s", info.Host)
 		default:
 			host := fmt.Sprintf("%s:%s", info.Host, info.Ports)
-			protocol := GetProtocol(host, info.Timeout)
+			protocol := GetProtocol(host, common.Timeout)
 			info.Url = fmt.Sprintf("%s://%s:%s", protocol, info.Host, info.Ports)
 		}
 	} else {
 		if !strings.Contains(info.Url, "://") {
 			host := strings.Split(info.Url, "/")[0]
-			protocol := GetProtocol(host, info.Timeout)
+			protocol := GetProtocol(host, common.Timeout)
 			info.Url = fmt.Sprintf("%s://%s", protocol, info.Url)
 		}
 	}

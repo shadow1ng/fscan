@@ -48,7 +48,7 @@ func RdpScan(info *common.HostInfo) (tmperr error) {
 
 	for i := 0; i < common.BruteThread; i++ {
 		wg.Add(1)
-		go worker(info.Host, info.Domain, port, &wg, brlist, &signal, &num, all, &mutex, info.Timeout)
+		go worker(info.Host, common.Domain, port, &wg, brlist, &signal, &num, all, &mutex, common.Timeout)
 	}
 
 	close(brlist)

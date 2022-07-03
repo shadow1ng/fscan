@@ -26,17 +26,17 @@ func Scan(info common.HostInfo) {
 			Hosts = CheckLive(Hosts, common.Ping)
 			fmt.Println("[*] Icmp alive hosts len is:", len(Hosts))
 		}
-		if info.Scantype == "icmp" {
+		if common.Scantype == "icmp" {
 			common.LogWG.Wait()
 			return
 		}
 		var AlivePorts []string
-		if info.Scantype == "webonly" {
+		if common.Scantype == "webonly" {
 			AlivePorts = NoPortScan(Hosts, info.Ports)
 		} else {
-			AlivePorts = PortScan(Hosts, info.Ports, info.Timeout)
+			AlivePorts = PortScan(Hosts, info.Ports, common.Timeout)
 			fmt.Println("[*] alive ports len is:", len(AlivePorts))
-			if info.Scantype == "portscan" {
+			if common.Scantype == "portscan" {
 				common.LogWG.Wait()
 				return
 			}
@@ -49,7 +49,7 @@ func Scan(info common.HostInfo) {
 		fmt.Println("start vulscan")
 		for _, targetIP := range AlivePorts {
 			info.Host, info.Ports = strings.Split(targetIP, ":")[0], strings.Split(targetIP, ":")[1]
-			if info.Scantype == "all" || info.Scantype == "main" {
+			if common.Scantype == "all" || common.Scantype == "main" {
 				switch {
 				case info.Ports == "135":
 					AddScan(info.Ports, info, ch, &wg) //findnet
@@ -66,7 +66,7 @@ func Scan(info common.HostInfo) {
 					AddScan("1000003", info, ch, &wg) //webtitle
 				}
 			} else {
-				port, _ := common.PORTList[info.Scantype]
+				port, _ := common.PORTList[common.Scantype]
 				scantype := strconv.Itoa(port)
 				AddScan(scantype, info, ch, &wg)
 			}

@@ -599,13 +599,13 @@ func DoRequest(req *http.Request, redirect bool) (*Response, error) {
 		oResp, err = ClientNoRedirect.Do(req)
 	}
 	if err != nil {
-		fmt.Println(err)
+		//fmt.Println("[-]DoRequest error: ",err)
 		return nil, err
 	}
 	defer oResp.Body.Close()
 	resp, err := ParseResponse(oResp)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("[-]ParseResponse error: ", err)
 		return nil, err
 	}
 	return resp, err

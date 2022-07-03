@@ -77,6 +77,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 		return false, err, ""
 	}
 	variableMap := make(map[string]interface{})
+	defer func() { variableMap = nil }()
 	variableMap["request"] = req
 	for _, item := range p.Set {
 		k, expression := item.Key, item.Value
@@ -123,7 +124,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 			req.Url.Path = rule.Path
 		}
 		// 某些poc没有区分path和query，需要处理
-		//req.Url.Path = strings.ReplaceAll(req.Url.Path, " ", "%20")
+		req.Url.Path = strings.ReplaceAll(req.Url.Path, " ", "%20")
 		//req.Url.Path = strings.ReplaceAll(req.Url.Path, "+", "%20")
 
 		newRequest, err := http.NewRequest(rule.Method, fmt.Sprintf("%s://%s%s", req.Url.Scheme, req.Url.Host, string([]rune(req.Url.Path))), strings.NewReader(rule.Body))

@@ -27,7 +27,7 @@ func OracleScan(info *common.HostInfo) (tmperr error) {
 				if common.CheckErrs(err) {
 					return err
 				}
-				if time.Now().Unix()-starttime > (int64(len(common.Userdict["oracle"])*len(common.Passwords)) * info.Timeout) {
+				if time.Now().Unix()-starttime > (int64(len(common.Userdict["oracle"])*len(common.Passwords)) * common.Timeout) {
 					return err
 				}
 			}
@@ -42,8 +42,8 @@ func OracleConn(info *common.HostInfo, user string, pass string) (flag bool, err
 	dataSourceName := fmt.Sprintf("oracle://%s:%s@%s:%s/orcl", Username, Password, Host, Port)
 	db, err := sql.Open("oracle", dataSourceName)
 	if err == nil {
-		db.SetConnMaxLifetime(time.Duration(info.Timeout) * time.Second)
-		db.SetConnMaxIdleTime(time.Duration(info.Timeout) * time.Second)
+		db.SetConnMaxLifetime(time.Duration(common.Timeout) * time.Second)
+		db.SetConnMaxIdleTime(time.Duration(common.Timeout) * time.Second)
 		db.SetMaxIdleConns(0)
 		defer db.Close()
 		err = db.Ping()

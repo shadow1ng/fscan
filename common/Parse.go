@@ -12,19 +12,19 @@ import (
 )
 
 func Parse(Info *HostInfo) {
-	ParseUser(Info)
+	ParseUser()
 	ParsePass(Info)
 	ParseInput(Info)
 	ParseScantype(Info)
 }
 
-func ParseUser(Info *HostInfo) {
-	if Info.Username == "" && Userfile == "" {
+func ParseUser() {
+	if Username == "" && Userfile == "" {
 		return
 	}
-
-	if Info.Username != "" {
-		Info.Usernames = strings.Split(Info.Username, ",")
+	var Usernames []string
+	if Username != "" {
+		Usernames = strings.Split(Username, ",")
 	}
 
 	if Userfile != "" {
@@ -32,37 +32,38 @@ func ParseUser(Info *HostInfo) {
 		if err == nil {
 			for _, user := range users {
 				if user != "" {
-					Info.Usernames = append(Info.Usernames, user)
+					Usernames = append(Usernames, user)
 				}
 			}
 		}
 	}
 
-	Info.Usernames = RemoveDuplicate(Info.Usernames)
+	Usernames = RemoveDuplicate(Usernames)
 	for name := range Userdict {
-		Userdict[name] = Info.Usernames
+		Userdict[name] = Usernames
 	}
 }
 
 func ParsePass(Info *HostInfo) {
-	if Info.Password != "" {
-		passs := strings.Split(Info.Password, ",")
+	var PwdList []string
+	if Password != "" {
+		passs := strings.Split(Password, ",")
 		for _, pass := range passs {
 			if pass != "" {
-				Info.Passwords = append(Info.Passwords, pass)
+				PwdList = append(PwdList, pass)
 			}
 		}
-		Passwords = Info.Passwords
+		Passwords = PwdList
 	}
 	if Passfile != "" {
 		passs, err := Readfile(Passfile)
 		if err == nil {
 			for _, pass := range passs {
 				if pass != "" {
-					Info.Passwords = append(Info.Passwords, pass)
+					PwdList = append(PwdList, pass)
 				}
 			}
-			Passwords = Info.Passwords
+			Passwords = PwdList
 		}
 	}
 	if UrlFile != "" {
@@ -149,7 +150,7 @@ func ParseInput(Info *HostInfo) {
 
 	if UserAdd != "" {
 		user := strings.Split(UserAdd, ",")
-		for a, _ := range Userdict {
+		for a := range Userdict {
 			Userdict[a] = append(Userdict[a], user...)
 			Userdict[a] = RemoveDuplicate(Userdict[a])
 		}
@@ -166,12 +167,12 @@ func ParseInput(Info *HostInfo) {
 }
 
 func ParseScantype(Info *HostInfo) {
-	_, ok := PORTList[Info.Scantype]
+	_, ok := PORTList[Scantype]
 	if !ok {
 		showmode()
 	}
-	if Info.Scantype != "all" && Info.Ports == DefaultPorts+","+Webport {
-		switch Info.Scantype {
+	if Scantype != "all" && Info.Ports == DefaultPorts+","+Webport {
+		switch Scantype {
 		case "rdp":
 			Info.Ports = "3389"
 		case "web":
@@ -187,10 +188,10 @@ func ParseScantype(Info *HostInfo) {
 		case "main":
 			Info.Ports = DefaultPorts
 		default:
-			port, _ := PORTList[Info.Scantype]
+			port, _ := PORTList[Scantype]
 			Info.Ports = strconv.Itoa(port)
 		}
-		fmt.Println("-m ", Info.Scantype, " start scan the port:", Info.Ports)
+		fmt.Println("-m ", Scantype, " start scan the port:", Info.Ports)
 	}
 }
 

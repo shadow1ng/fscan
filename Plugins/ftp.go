@@ -38,7 +38,7 @@ func FtpScan(info *common.HostInfo) (tmperr error) {
 				if common.CheckErrs(err) {
 					return err
 				}
-				if time.Now().Unix()-starttime > (int64(len(common.Userdict["ftp"])*len(common.Passwords)) * info.Timeout) {
+				if time.Now().Unix()-starttime > (int64(len(common.Userdict["ftp"])*len(common.Passwords)) * common.Timeout) {
 					return err
 				}
 			}
@@ -50,7 +50,7 @@ func FtpScan(info *common.HostInfo) (tmperr error) {
 func FtpConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
-	conn, err := ftp.DialTimeout(fmt.Sprintf("%v:%v", Host, Port), time.Duration(info.Timeout)*time.Second)
+	conn, err := ftp.DialTimeout(fmt.Sprintf("%v:%v", Host, Port), time.Duration(common.Timeout)*time.Second)
 	if err == nil {
 		err = conn.Login(Username, Password)
 		if err == nil {
