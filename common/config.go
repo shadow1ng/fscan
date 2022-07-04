@@ -2,7 +2,7 @@ package common
 
 var version = "1.8.0"
 var Userdict = map[string][]string{
-	"ftp":        {"ftp", "admin", "www", "web", "root", "db", "wwwroot", "data"},
+	"ftp":        {"anonymous", "ftp", "admin", "www", "web", "root", "db", "wwwroot", "data"},
 	"mysql":      {"root", "mysql"},
 	"mssql":      {"sa", "sql"},
 	"smb":        {"administrator", "admin", "guest"},

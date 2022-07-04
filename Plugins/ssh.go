@@ -7,41 +7,22 @@ import (
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
 	"net"
-	"strings"
 	"time"
 )
+
+type SshConn struct {
+}
 
 func SshScan(info *common.HostInfo) (tmperr error) {
 	if common.IsBrute {
 		return
 	}
-	starttime := time.Now().Unix()
-	for _, user := range common.Userdict["ssh"] {
-		for _, pass := range common.Passwords {
-			pass = strings.Replace(pass, "{user}", user, -1)
-			flag, err := SshConn(info, user, pass)
-			if flag == true && err == nil {
-				return err
-			} else {
-				errlog := fmt.Sprintf("[-] ssh %v:%v %v %v %v", info.Host, info.Ports, user, pass, err)
-				common.LogError(errlog)
-				tmperr = err
-				if common.CheckErrs(err) {
-					return err
-				}
-				if time.Now().Unix()-starttime > (int64(len(common.Userdict["ssh"])*len(common.Passwords)) * common.Timeout) {
-					return err
-				}
-			}
-			if common.SshKey != "" {
-				return err
-			}
-		}
-	}
-	return tmperr
+	sshConn := &SshConn{}
+	bt := common.InitBruteThread("ssh", info, common.Timeout, sshConn)
+	return bt.Run()
 }
 
-func SshConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
+func (*SshConn) Attack(info *common.HostInfo, user string, pass string, timeout int64) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
 	Auth := []ssh.AuthMethod{}
@@ -62,7 +43,7 @@ func SshConn(info *common.HostInfo, user string, pass string) (flag bool, err er
 	config := &ssh.ClientConfig{
 		User:    Username,
 		Auth:    Auth,
-		Timeout: time.Duration(common.Timeout) * time.Second,
+		Timeout: time.Duration(timeout) * time.Second,
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			return nil
 		},
