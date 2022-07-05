@@ -55,7 +55,7 @@ fscan.exe -u http://baidu.com -proxy 8080 (扫描单个url,并设置http代理 h
 fscan.exe -h 192.168.1.1/24 -nobr -nopoc (不进行爆破,不扫Web poc,以减少流量)
 fscan.exe -h 192.168.1.1/24 -pa 3389 (在原基础上,加入3389->rdp扫描)
 fscan.exe -h 192.168.1.1/24 -socks5 127.0.0.1:1080
-fscan.exe -h 192.168.1.1/24 -m ms17010 -sc add (可在ms17010-exp.go自定义shellcode,内置添加用户等功能)
+fscan.exe -h 192.168.1.1/24 -m ms17010 -sc add (内置添加用户等功能,只适用于备选工具,更推荐其他ms17010的专项利用工具)
 ```
 编译命令
 ```
@@ -196,7 +196,7 @@ fscan 是 404Team [星链计划2.0](https://github.com/knownsec/404StarLink2.0-G
 [![Stargazers over time](https://starchart.cc/shadow1ng/fscan.svg)](https://starchart.cc/shadow1ng/fscan)
 
 # 8. 捐赠
- 如果你觉得这个项目对你有帮助，你可以请作者喝饮料🍹 [点我](image/sponsor.jpg)
+ 如果你觉得这个项目对你有帮助，你可以请作者喝饮料🍹 [点我](image/sponsor.png)
 
 # 9. 参考链接
 https://github.com/Adminisme/ServerScan  
