@@ -1,10 +1,10 @@
 # fscan
 
-# 简介
+# 1. 简介
 一款内网综合扫描工具，方便一键自动化、全方位漏扫扫描。   
 支持主机存活探测、端口扫描、常见服务的爆破、ms17010、redis批量写公钥、计划任务反弹shell、读取win网卡信息、web指纹识别、web漏洞扫描、netbios探测、域控识别等功能。
 
-## 主要功能
+# 2. 主要功能
 1.信息搜集:
 * 存活探测(icmp)
 * 端口扫描
@@ -31,7 +31,7 @@
 6.其他功能:
 * 文件保存
 
-## usege
+# 3. 使用说明
 简单用法
 ``` 
 fscan.exe -h 192.168.1.1/24  (默认使用全部模块)
@@ -55,11 +55,12 @@ fscan.exe -u http://baidu.com -proxy 8080 (扫描单个url,并设置http代理 h
 fscan.exe -h 192.168.1.1/24 -nobr -nopoc (不进行爆破,不扫Web poc,以减少流量)
 fscan.exe -h 192.168.1.1/24 -pa 3389 (在原基础上,加入3389->rdp扫描)
 fscan.exe -h 192.168.1.1/24 -socks5 127.0.0.1:1080
-fscan.exe -h 192.168.1.1/24 -m ms17017 -sc add (可在ms17010-exp.go自定义shellcode,内置添加用户等功能)
+fscan.exe -h 192.168.1.1/24 -m ms17010 -sc add (可在ms17010-exp.go自定义shellcode,内置添加用户等功能)
 ```
 编译命令
 ```
-go build -ldflags="-s -w " -trimpath
+go build -ldflags="-s -w " -trimpath main.go
+upx -9 fscan.exe (可选,压缩体积)
 ```
 
 完整参数
@@ -144,7 +145,7 @@ go build -ldflags="-s -w " -trimpath
         指定ms17010利用模块shellcode,内置添加用户等功能 (as: -sc add)
 ```
 
-## 运行截图
+# 4. 运行截图
 
 `fscan.exe -h 192.168.x.x  (全功能、ms17010、读取网卡信息)`
 ![](image/1.png)
@@ -168,26 +169,8 @@ go build -ldflags="-s -w " -trimpath
 
 `go run .\main.go -h 192.0.0.0/8 -m icmp(探测每个C段的网关和数个随机IP,并统计top 10 B、C段存活数量)`
 ![img.png](image/live.png)
-## 参考链接
-https://github.com/Adminisme/ServerScan  
-https://github.com/netxfly/x-crack  
-https://github.com/hack2fun/Gscan  
-https://github.com/k8gege/LadonGo   
-https://github.com/jjf012/gopoc
 
-
-# 404StarLink 2.0 - Galaxy
-![](https://github.com/knownsec/404StarLink-Project/raw/master/logo.png)
-
-fscan 是 404Team [星链计划2.0](https://github.com/knownsec/404StarLink2.0-Galaxy) 中的一环，如果对fscan 有任何疑问又或是想要找小伙伴交流，可以参考星链计划的加群方式。
-
-- [https://github.com/knownsec/404StarLink2.0-Galaxy#community](https://github.com/knownsec/404StarLink2.0-Galaxy#community)
-
-
-## Star Chart
-[![Stargazers over time](https://starchart.cc/shadow1ng/fscan.svg)](https://starchart.cc/shadow1ng/fscan)
-
-## 免责声明
+# 5. 免责声明
 
 本工具仅面向**合法授权**的企业安全建设行为，如您需要测试本工具的可用性，请自行搭建靶机环境。
 
@@ -200,7 +183,30 @@ fscan 是 404Team [星链计划2.0](https://github.com/knownsec/404StarLink2.0-G
 在安装并使用本工具前，请您**务必审慎阅读、充分理解各条款内容**，限制、免责条款或者其他涉及您重大权益的条款可能会以加粗、加下划线等形式提示您重点注意。
 除非您已充分阅读、完全理解并接受本协议所有条款，否则，请您不要安装并使用本工具。您的使用行为或者您以其他任何明示或者默示方式表示接受本协议的，即视为您已阅读并同意本协议的约束。
 
-## 最近更新
+
+# 6. 404StarLink 2.0 - Galaxy
+![](https://github.com/knownsec/404StarLink-Project/raw/master/logo.png)
+
+fscan 是 404Team [星链计划2.0](https://github.com/knownsec/404StarLink2.0-Galaxy) 中的一环，如果对fscan 有任何疑问又或是想要找小伙伴交流，可以参考星链计划的加群方式。
+
+- [https://github.com/knownsec/404StarLink2.0-Galaxy#community](https://github.com/knownsec/404StarLink2.0-Galaxy#community)
+
+
+# 7. Star Chart
+[![Stargazers over time](https://starchart.cc/shadow1ng/fscan.svg)](https://starchart.cc/shadow1ng/fscan)
+
+# 8. 捐赠
+ 如果你觉得这个项目对你有帮助，你可以请作者喝饮料🍹 [点我](image/sponsor.jpg)
+
+# 9. 参考链接
+https://github.com/Adminisme/ServerScan  
+https://github.com/netxfly/x-crack  
+https://github.com/hack2fun/Gscan  
+https://github.com/k8gege/LadonGo   
+https://github.com/jjf012/gopoc
+
+
+# 10. 最近更新
 [+] 2022/7/2 加强poc fuzz模块,支持跑备份文件、目录、shiro-key(默认跑10key,可用-full参数跑100key)等。新增ms17017利用(使用参数: -sc add),可在ms17010-exp.go自定义shellcode,内置添加用户等功能。  
 新增poc、指纹。支持socks5代理。因body指纹更全,默认不再跑ico图标。    
 [+] 2022/4/20 poc模块加入指定目录或文件 -pocpath poc路径,端口可以指定文件-portf port.txt,rdp模块加入多线程爆破demo, -br xx指定线程  

