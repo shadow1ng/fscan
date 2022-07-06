@@ -132,7 +132,6 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 			//fmt.Println("[-] newRequest error: ",err)
 			return false, err
 		}
-		newRequest.URL.Path = req.Url.Path
 		newRequest.Header = oReq.Header.Clone()
 		for k, v := range Headers {
 			newRequest.Header.Set(k, v)

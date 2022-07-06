@@ -66,6 +66,18 @@ func ParsePass(Info *HostInfo) {
 			Passwords = PwdList
 		}
 	}
+	if URL != "" {
+		urls := strings.Split(URL, ",")
+		TmpUrls := make(map[string]struct{})
+		for _, url := range urls {
+			if _, ok := TmpUrls[url]; !ok {
+				TmpUrls[url] = struct{}{}
+				if url != "" {
+					Urls = append(Urls, url)
+				}
+			}
+		}
+	}
 	if UrlFile != "" {
 		urls, err := Readfile(UrlFile)
 		if err == nil {

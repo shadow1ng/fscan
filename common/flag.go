@@ -4,6 +4,16 @@ import (
 	"flag"
 )
 
+func init() {
+	go func() {
+		for {
+			runtime.GC()
+			debug.FreeOSMemory()
+			time.Sleep(10 * time.Second)
+		}
+	}()
+}
+
 func Banner() {
 	banner := `
    ___                              _    

