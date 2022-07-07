@@ -12,6 +12,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter/functions"
+	"github.com/shadow1ng/fscan/common"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"io"
 	"io/ioutil"
@@ -590,7 +591,6 @@ func DoRequest(req *http.Request, redirect bool) (*Response, error) {
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		}
 	}
-
 	var oResp *http.Response
 	var err error
 	if redirect {
