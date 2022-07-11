@@ -21,7 +21,7 @@ import (
 func WebTitle(info *common.HostInfo) error {
 	err, CheckData := GOWebTitle(info)
 	info.Infostr = WebScan.InfoCheck(info.Url, &CheckData)
-	if common.IsWebCan == false && common.IsBrute == false && err == nil {
+	if common.IsWebCan == false && err == nil {
 		WebScan.WebScan(info)
 	} else {
 		errlog := fmt.Sprintf("[-] webtitle %v %v", info.Url, err)
@@ -145,7 +145,7 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 		if err1 == nil {
 			reurl = redirURL.String()
 		}
-		result := fmt.Sprintf("[*] WebTitle:%-25v code:%-3v len:%-6v title:%v", resp.Request.URL, resp.StatusCode, length, title)
+		result := fmt.Sprintf("[*] WebTitle: %-25v code:%-3v len:%-6v title:%v", resp.Request.URL, resp.StatusCode, length, title)
 		if reurl != "" {
 			result += fmt.Sprintf(" 跳转url: %s", reurl)
 		}

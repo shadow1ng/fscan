@@ -172,10 +172,6 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 		successFlag := false
 		for _, rule := range rules {
 			flag, err := DealWithRule(rule)
-			//if err != nil {
-			//	fmt.Printf("[-] %s Execute Rule error: %s\n",p.Name,err.Error())
-			//}
-
 			if err != nil || !flag { //如果false不继续执行后续rule
 				successFlag = false // 如果其中一步为flag，则直接break
 				break
