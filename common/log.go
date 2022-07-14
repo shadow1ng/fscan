@@ -19,6 +19,7 @@ var Silent bool
 var LogWG sync.WaitGroup
 
 func init() {
+	LogSucTime = time.Now().Unix()
 	go SaveLog()
 }
 

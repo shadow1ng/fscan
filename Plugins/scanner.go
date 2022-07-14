@@ -21,8 +21,8 @@ func Scan(info common.HostInfo) {
 	lib.Inithttp(common.Pocinfo)
 	var ch = make(chan struct{}, common.Threads)
 	var wg = sync.WaitGroup{}
-	if len(Hosts) > 0 {
-		if common.IsPing == false {
+	if len(Hosts) > 0 || len(common.HostPort) > 0 {
+		if common.IsPing == false && len(Hosts) > 0 {
 			Hosts = CheckLive(Hosts, common.Ping)
 			fmt.Println("[*] Icmp alive hosts len is:", len(Hosts))
 		}
@@ -33,7 +33,7 @@ func Scan(info common.HostInfo) {
 		var AlivePorts []string
 		if common.Scantype == "webonly" {
 			AlivePorts = NoPortScan(Hosts, info.Ports)
-		} else {
+		} else if len(Hosts) > 0 {
 			AlivePorts = PortScan(Hosts, info.Ports, common.Timeout)
 			fmt.Println("[*] alive ports len is:", len(AlivePorts))
 			if common.Scantype == "portscan" {
@@ -41,7 +41,11 @@ func Scan(info common.HostInfo) {
 				return
 			}
 		}
-
+		if len(common.HostPort) > 0 {
+			AlivePorts = append(AlivePorts, common.HostPort...)
+			AlivePorts = common.RemoveDuplicate(AlivePorts)
+			fmt.Println("[*] AlivePorts len is:", len(AlivePorts))
+		}
 		var severports []string //severports := []string{"21","22","135"."445","1433","3306","5432","6379","9200","11211","27017"...}
 		for _, port := range common.PORTList {
 			severports = append(severports, strconv.Itoa(port))

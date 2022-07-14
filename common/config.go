@@ -94,6 +94,8 @@ var (
 	BruteThread   int
 	LiveTop       int
 	Socks5Proxy   string
+	Hash          string
+	HostPort      []string
 )
 
 var (

@@ -13,8 +13,6 @@ import (
 	"strings"
 )
 
-var IsIPRange bool
-
 var ParseIPErr = errors.New(" host parsing error\n" +
 	"format: \n" +
 	"192.168.1.1\n" +
@@ -57,7 +55,7 @@ func ParseIP(host string, filename string, nohosts ...string) (hosts []string, e
 		}
 	}
 	hosts = RemoveDuplicate(hosts)
-	if len(hosts) == 0 && host != "" && filename != "" {
+	if len(hosts) == 0 && len(HostPort) == 0 && host != "" && filename != "" {
 		err = ParseIPErr
 	}
 	return
@@ -188,10 +186,23 @@ func Readipfile(filename string) ([]string, error) {
 	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
-		text := strings.TrimSpace(scanner.Text())
-		if text != "" {
-			host := ParseIPs(text)
-			content = append(content, host...)
+		line := strings.TrimSpace(scanner.Text())
+		if line != "" {
+			text := strings.Split(line, ":")
+			if len(text) == 2 {
+				port := strings.Split(text[1], " ")[0]
+				num, err := strconv.Atoi(port)
+				if err != nil || (num < 1 || num > 65535) {
+					continue
+				}
+				hosts := ParseIPs(text[0])
+				for _, host := range hosts {
+					HostPort = append(HostPort, fmt.Sprintf("%s:%s", host, port))
+				}
+			} else {
+				host := ParseIPs(line)
+				content = append(content, host...)
+			}
 		}
 	}
 	return content, nil

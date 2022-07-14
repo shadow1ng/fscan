@@ -668,6 +668,9 @@ func getRespBody(oResp *http.Response) ([]byte, error) {
 	if oResp.Header.Get("Content-Encoding") == "gzip" {
 		gr, err := gzip.NewReader(oResp.Body)
 		if err != nil {
+			if err == io.EOF {
+				err = nil
+			}
 			return nil, err
 		}
 		defer gr.Close()
@@ -675,7 +678,6 @@ func getRespBody(oResp *http.Response) ([]byte, error) {
 			buf := make([]byte, 1024)
 			n, err := gr.Read(buf)
 			if err != nil && err != io.EOF {
-				//utils.Logger.Error(err)
 				return nil, err
 			}
 			if n == 0 {
