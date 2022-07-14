@@ -44,6 +44,7 @@ func Scan(info common.HostInfo) {
 		if len(common.HostPort) > 0 {
 			AlivePorts = append(AlivePorts, common.HostPort...)
 			AlivePorts = common.RemoveDuplicate(AlivePorts)
+			common.HostPort = nil
 			fmt.Println("[*] AlivePorts len is:", len(AlivePorts))
 		}
 		var severports []string //severports := []string{"21","22","135"."445","1433","3306","5432","6379","9200","11211","27017"...}
