@@ -62,7 +62,7 @@ func Flag(Info *HostInfo) {
 	flag.BoolVar(&IsWebCan, "nopoc", false, "not to scan web vul")
 	flag.BoolVar(&IsBrute, "nobr", false, "not to Brute password")
 	flag.IntVar(&BruteThread, "br", 1, "Brute threads")
-	flag.BoolVar(&IsPing, "np", false, "not to ping")
+	flag.BoolVar(&NoPing, "np", false, "not to ping")
 	flag.BoolVar(&Ping, "ping", false, "using ping replace icmp")
 	flag.StringVar(&TmpOutputfile, "o", "result.txt", "Outputfile")
 	flag.BoolVar(&TmpSave, "no", false, "not to save output log")

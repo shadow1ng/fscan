@@ -175,6 +175,7 @@ func ParseInput(Info *HostInfo) {
 	}
 	if Socks5Proxy != "" && !strings.HasPrefix(Socks5Proxy, "socks5://") {
 		Socks5Proxy = "socks5://" + Socks5Proxy
+		NoPing = true
 	}
 }
 

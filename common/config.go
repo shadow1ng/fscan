@@ -69,7 +69,7 @@ var (
 	WebTimeout    int64
 	TmpOutputfile string
 	TmpSave       bool
-	IsPing        bool
+	NoPing        bool
 	Ping          bool
 	Pocinfo       PocInfo
 	IsWebCan      bool
