@@ -99,6 +99,7 @@ var (
 )
 
 var (
+	DnsLog     bool
 	PocNum     int
 	PocFull    bool
 	CeyeDomain string

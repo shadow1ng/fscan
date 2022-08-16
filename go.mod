@@ -19,7 +19,6 @@ require (
 	golang.org/x/text v0.3.6
 	google.golang.org/genproto v0.0.0-20200416231807-8751e049a2a0
 	gopkg.in/yaml.v2 v2.4.0
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
 
 replace github.com/tomatome/grdp v0.0.0-20211231062539-be8adab7eaf3 => github.com/shadow1ng/grdp v1.0.3

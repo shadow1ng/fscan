@@ -10,11 +10,15 @@ import (
 func init() {
 	go func() {
 		for {
-			runtime.GC()
-			debug.FreeOSMemory()
+			GC()
 			time.Sleep(10 * time.Second)
 		}
 	}()
+}
+
+func GC() {
+	runtime.GC()
+	debug.FreeOSMemory()
 }
 
 func Banner() {
@@ -72,6 +76,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&Socks5Proxy, "socks5", "", "set socks5 proxy, will be used in tcp connection, timeout setting will not work")
 	flag.StringVar(&Cookie, "cookie", "", "set poc cookie,-cookie rememberMe=login")
 	flag.Int64Var(&WebTimeout, "wt", 5, "Set web timeout")
+	flag.BoolVar(&DnsLog, "dns", false, "using dnslog poc")
 	flag.IntVar(&PocNum, "num", 20, "poc rate")
 	flag.StringVar(&SC, "sc", "", "ms17 shellcode,as -sc add")
 	flag.Parse()
