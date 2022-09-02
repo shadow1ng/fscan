@@ -3,13 +3,14 @@ package WebScan
 import (
 	"embed"
 	"fmt"
-	"github.com/shadow1ng/fscan/WebScan/lib"
-	"github.com/shadow1ng/fscan/common"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/shadow1ng/fscan/WebScan/lib"
+	"github.com/shadow1ng/fscan/common"
 )
 
 //go:embed pocs
@@ -40,7 +41,7 @@ func Execute(PocInfo common.PocInfo) {
 		common.LogError(errlog)
 		return
 	}
-	req.Header.Set("User-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1468.0 Safari/537.36")
+	req.Header.Set("User-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36")
 	if common.Cookie != "" {
 		req.Header.Set("Cookie", common.Cookie)
 	}
