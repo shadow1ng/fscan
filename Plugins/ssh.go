@@ -1,6 +1,7 @@
 package Plugins
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/shadow1ng/fscan/common"
@@ -8,90 +9,120 @@ import (
 	"io/ioutil"
 	"net"
 	"strings"
+	"sync"
 	"time"
 )
 
-func SshScan(info *common.HostInfo) (tmperr error) {
+type SshScanInfo struct {
+	Host, User, Password, Port string
+}
+
+func SshScan(info *common.HostInfo) error {
+	var (
+		wg              sync.WaitGroup
+		sshScanInfoChan chan SshScanInfo
+	)
 	if common.IsBrute {
-		return
+		return nil
 	}
-	starttime := time.Now().Unix()
+	sshScanInfoChan = make(chan SshScanInfo, 50)
+	defer close(sshScanInfoChan)
+	for i := 0; i < 50; i++ {
+		SshConn(&wg, sshScanInfoChan)
+	}
 	for _, user := range common.Userdict["ssh"] {
 		for _, pass := range common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
-			flag, err := SshConn(info, user, pass)
-			if flag == true && err == nil {
-				return err
-			} else {
-				errlog := fmt.Sprintf("[-] ssh %v:%v %v %v %v", info.Host, info.Ports, user, pass, err)
-				common.LogError(errlog)
-				tmperr = err
-				if common.CheckErrs(err) {
-					return err
-				}
-				if time.Now().Unix()-starttime > (int64(len(common.Userdict["ssh"])*len(common.Passwords)) * common.Timeout) {
-					return err
-				}
-			}
-			if common.SshKey != "" {
-				return err
+			wg.Add(1)
+			sshScanInfoChan <- SshScanInfo{
+				Host:     info.Host,
+				Port:     info.Ports,
+				User:     user,
+				Password: pass,
 			}
 		}
 	}
-	return tmperr
+	wg.Wait()
+	return nil
 }
 
-func SshConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
-	flag = false
-	Host, Port, Username, Password := info.Host, info.Ports, user, pass
-	Auth := []ssh.AuthMethod{}
-	if common.SshKey != "" {
-		pemBytes, err := ioutil.ReadFile(common.SshKey)
-		if err != nil {
-			return false, errors.New("read key failed" + err.Error())
+func SshConn(wg *sync.WaitGroup, sshScanInfoChan chan SshScanInfo) {
+	go func() {
+		var (
+			Auth   []ssh.AuthMethod
+			ctx    context.Context
+			cancel context.CancelFunc
+		)
+		for info := range sshScanInfoChan {
+			func() {
+				defer wg.Done()
+				ch := make(chan struct{})
+				ctx, cancel = context.WithTimeout(context.Background(), time.Second*5)
+				if common.SshKey != "" {
+					pemBytes, err := ioutil.ReadFile(common.SshKey)
+					if err != nil {
+						common.LogError(errors.New("read key failed" + err.Error()))
+						return
+					}
+					signer, err := ssh.ParsePrivateKey(pemBytes)
+					if err != nil {
+						common.LogError(errors.New("parse key failed" + err.Error()))
+						return
+					}
+					Auth = []ssh.AuthMethod{ssh.PublicKeys(signer)}
+				} else {
+					Auth = []ssh.AuthMethod{ssh.Password(info.Password)}
+				}
+				config := &ssh.ClientConfig{
+					User:    info.User,
+					Auth:    Auth,
+					Timeout: time.Duration(common.Timeout) * time.Second,
+					HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+						return nil
+					},
+				}
+				select {
+				case <-ctx.Done(): //如果5秒未返回结果(有概率出现连接假死不释放)，强行结束此协程,避免主协程无法接收wg.done,一直阻塞
+					common.LogError(fmt.Errorf("host %v port %v connect hang", info.Host, info.Port))
+					cancel()
+					return
+				case <-startScan(info, config, ch):
+				}
+			}()
 		}
-		signer, err := ssh.ParsePrivateKey(pemBytes)
-		if err != nil {
-			return false, errors.New("parse key failed" + err.Error())
-		}
-		Auth = []ssh.AuthMethod{ssh.PublicKeys(signer)}
-	} else {
-		Auth = []ssh.AuthMethod{ssh.Password(Password)}
-	}
+	}()
+}
 
-	config := &ssh.ClientConfig{
-		User:    Username,
-		Auth:    Auth,
-		Timeout: time.Duration(common.Timeout) * time.Second,
-		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			return nil
-		},
-	}
-
-	client, err := ssh.Dial("tcp", fmt.Sprintf("%v:%v", Host, Port), config)
-	if err == nil {
-		defer client.Close()
-		session, err := client.NewSession()
+func startScan(info SshScanInfo, config *ssh.ClientConfig, ch chan struct{}) <-chan struct{} {
+	go func() {
+		client, err := ssh.Dial("tcp", fmt.Sprintf("%v:%v", info.Host, info.Port), config)
 		if err == nil {
-			defer session.Close()
-			flag = true
-			var result string
-			if common.Command != "" {
-				combo, _ := session.CombinedOutput(common.Command)
-				result = fmt.Sprintf("[+] SSH:%v:%v:%v %v \n %v", Host, Port, Username, Password, string(combo))
-				if common.SshKey != "" {
-					result = fmt.Sprintf("[+] SSH:%v:%v sshkey correct \n %v", Host, Port, string(combo))
+			defer func() {
+				_ = client.Close()
+			}()
+			session, err := client.NewSession()
+			if err == nil {
+				defer func() {
+					_ = session.Close()
+				}()
+				var result string
+				if common.Command != "" {
+					combo, _ := session.CombinedOutput(common.Command)
+					result = fmt.Sprintf("[+] SSH:%v:%v:%v %v \n %v", info.Host, info.Port, info.User, info.Password, string(combo))
+					if common.SshKey != "" {
+						result = fmt.Sprintf("[+] SSH:%v:%v sshkey correct \n %v", info.Host, info.Port, string(combo))
+					}
+					common.LogSuccess(result)
+				} else {
+					result = fmt.Sprintf("[+] SSH:%v:%v:%v %v", info.Host, info.Port, info.User, info.Password)
+					if common.SshKey != "" {
+						result = fmt.Sprintf("[+] SSH:%v:%v sshkey correct", info.Host, info.Port)
+					}
+					common.LogSuccess(result)
 				}
-				common.LogSuccess(result)
-			} else {
-				result = fmt.Sprintf("[+] SSH:%v:%v:%v %v", Host, Port, Username, Password)
-				if common.SshKey != "" {
-					result = fmt.Sprintf("[+] SSH:%v:%v sshkey correct", Host, Port)
-				}
-				common.LogSuccess(result)
 			}
+			ch <- struct{}{}
 		}
-	}
-	return flag, err
-
+	}()
+	return ch
 }
