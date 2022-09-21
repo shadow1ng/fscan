@@ -70,7 +70,11 @@ func worker(host, domain string, port int, wg *sync.WaitGroup, brlist chan Brute
 		}
 		go incrNum(num, mutex)
 		user, pass := one.user, one.pass
+		if common.IsScanned(host, strconv.Itoa(port), user, pass) {
+			continue
+		}
 		flag, err := RdpConn(host, domain, user, pass, port, timeout)
+		common.Cache(host, strconv.Itoa(port), user, pass)
 		if flag == true && err == nil {
 			var result string
 			if domain != "" {

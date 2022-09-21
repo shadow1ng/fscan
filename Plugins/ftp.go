@@ -28,7 +28,11 @@ func FtpScan(info *common.HostInfo) (tmperr error) {
 	for _, user := range common.Userdict["ftp"] {
 		for _, pass := range common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
+			if common.IsScanned(info.Host, info.Ports, user, pass) {
+				continue
+			}
 			flag, err := FtpConn(info, user, pass)
+			common.Cache(info.Host, info.Ports, user, pass)
 			if flag == true && err == nil {
 				return err
 			} else {

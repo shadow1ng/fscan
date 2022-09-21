@@ -17,7 +17,11 @@ func PostgresScan(info *common.HostInfo) (tmperr error) {
 	for _, user := range common.Userdict["postgresql"] {
 		for _, pass := range common.Passwords {
 			pass = strings.Replace(pass, "{user}", string(user), -1)
+			if common.IsScanned(info.Host, info.Ports, user, pass) {
+				continue
+			}
 			flag, err := PostgresConn(info, user, pass)
+			common.Cache(info.Host, info.Ports, user, pass)
 			if flag == true && err == nil {
 				return err
 			} else {

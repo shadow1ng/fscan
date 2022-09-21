@@ -26,7 +26,11 @@ func RedisScan(info *common.HostInfo) (tmperr error) {
 	}
 	for _, pass := range common.Passwords {
 		pass = strings.Replace(pass, "{user}", "redis", -1)
+		if common.IsScanned(info.Host, info.Ports, "redis", pass) {
+			continue
+		}
 		flag, err := RedisConn(info, pass)
+		common.Cache(info.Host, info.Ports, "redis", pass)
 		if flag == true && err == nil {
 			return err
 		} else {
