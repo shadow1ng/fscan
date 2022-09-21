@@ -79,5 +79,8 @@ func Flag(Info *HostInfo) {
 	flag.BoolVar(&DnsLog, "dns", false, "using dnslog poc")
 	flag.IntVar(&PocNum, "num", 20, "poc rate")
 	flag.StringVar(&SC, "sc", "", "ms17 shellcode,as -sc add")
+	flag.StringVar(&RedisHost, "rh", "", "redis host (password scan cache)  (as: -rh 127.0.0.1:6379)")
+	flag.StringVar(&RedisPass, "rp", "", "redis password (password scan cache)")
+	flag.UintVar(&RedisTtl, "rttl", 30*24, "password scan cache ttl in hour")
 	flag.Parse()
 }

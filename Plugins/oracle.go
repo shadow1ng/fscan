@@ -17,7 +17,11 @@ func OracleScan(info *common.HostInfo) (tmperr error) {
 	for _, user := range common.Userdict["oracle"] {
 		for _, pass := range common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
+			if common.IsScanned(info.Host, info.Ports, user, pass) {
+				continue
+			}
 			flag, err := OracleConn(info, user, pass)
+			common.Cache(info.Host, info.Ports, user, pass)
 			if flag == true && err == nil {
 				return err
 			} else {

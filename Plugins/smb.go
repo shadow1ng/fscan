@@ -17,7 +17,11 @@ func SmbScan(info *common.HostInfo) (tmperr error) {
 	for _, user := range common.Userdict["smb"] {
 		for _, pass := range common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
+			if common.IsScanned(info.Host, "445", user, pass) {
+				continue
+			}
 			flag, err := doWithTimeOut(info, user, pass)
+			common.Cache(info.Host, "445", user, pass)
 			if flag == true && err == nil {
 				var result string
 				if common.Domain != "" {

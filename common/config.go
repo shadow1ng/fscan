@@ -96,6 +96,9 @@ var (
 	Socks5Proxy   string
 	Hash          string
 	HostPort      []string
+	RedisHost     string
+	RedisPass     string
+	RedisTtl      uint
 )
 
 var (
