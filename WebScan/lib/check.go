@@ -82,7 +82,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 	for _, item := range p.Set {
 		k, expression := item.Key, item.Value
 		if expression == "newReverse()" {
-			return false, nil, ""
+			//return false, nil, ""
 			variableMap[k] = newReverse()
 			continue
 		}
