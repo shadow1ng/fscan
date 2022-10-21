@@ -8,14 +8,73 @@ import (
 	"github.com/shadow1ng/fscan/common"
 	"strings"
 	"time"
+	"bytes"
+    "crypto/aes"
+    "crypto/cipher"
+    "encoding/base64"
 )
 
+func AesEncrypt(orig string, key string) string {
+    
+    origData := []byte(orig)
+    k := []byte(key)
+    block, _ := aes.NewCipher(k)
+    
+    blockSize := block.BlockSize()
+    
+    origData = PKCS7Padding(origData, blockSize)
+    
+    blockMode := cipher.NewCBCEncrypter(block, k[:blockSize])
+    
+    cryted := make([]byte, len(origData))
+    
+    blockMode.CryptBlocks(cryted, origData)
+    return base64.StdEncoding.EncodeToString(cryted)
+}
+func AesDecrypt(cryted string, key string) string {
+    
+    crytedByte, _ := base64.StdEncoding.DecodeString(cryted)
+    k := []byte(key)
+    
+    block, _ := aes.NewCipher(k)
+    
+    blockSize := block.BlockSize()
+    
+    blockMode := cipher.NewCBCDecrypter(block, k[:blockSize])
+    
+    orig := make([]byte, len(crytedByte))
+    
+    blockMode.CryptBlocks(orig, crytedByte)
+    
+    orig = PKCS7UnPadding(orig)
+    return string(orig)
+}
+
+func PKCS7Padding(ciphertext []byte, blocksize int) []byte {
+    padding := blocksize - len(ciphertext)%blocksize
+    padtext := bytes.Repeat([]byte{byte(padding)}, padding)
+    return append(ciphertext, padtext...)
+}
+//去码
+func PKCS7UnPadding(origData []byte) []byte {
+    length := len(origData)
+    unpadding := int(origData[length-1])
+    return origData[:(length - unpadding)]
+}
+
 var (
-	negotiateProtocolRequest, _  = hex.DecodeString("00000085ff534d4272000000001853c00000000000000000000000000000fffe00004000006200025043204e4554574f524b2050524f4752414d20312e3000024c414e4d414e312e30000257696e646f777320666f7220576f726b67726f75707320332e316100024c4d312e325830303200024c414e4d414e322e3100024e54204c4d20302e313200")
-	sessionSetupRequest, _       = hex.DecodeString("00000088ff534d4273000000001807c00000000000000000000000000000fffe000040000dff00880004110a000000000000000100000000000000d40000004b000000000000570069006e0064006f007700730020003200300030003000200032003100390035000000570069006e0064006f007700730020003200300030003000200035002e0030000000")
-	treeConnectRequest, _        = hex.DecodeString("00000060ff534d4275000000001807c00000000000000000000000000000fffe0008400004ff006000080001003500005c005c003100390032002e003100360038002e003100370035002e003100320038005c00490050004300240000003f3f3f3f3f00")
-	transNamedPipeRequest, _     = hex.DecodeString("0000004aff534d42250000000018012800000000000000000000000000088ea3010852981000000000ffffffff0000000000000000000000004a0000004a0002002300000007005c504950455c00")
-	trans2SessionSetupRequest, _ = hex.DecodeString("0000004eff534d4232000000001807c00000000000000000000000000008fffe000841000f0c0000000100000000000000a6d9a40000000c00420000004e0001000e000d0000000000000000000000000000")
+	key ="0123456789topsec"
+	negotiateProtocolRequest_enc ="PnS50rhbh1nkb4JDjAnoOuFjxijddlAUbLUDi6xFyu5FGu3ui3aKZg7uqp/KfbQdSL1oEjs+/vXFWUrIaX5UGuEzNMwMbbLjRJjRqnrxi9puFZlBy92ioaf/0eVPeVsd/y21mEz0uWxYrw1Q5OJO9ibgKVFWBwH4oDSJgfwIRRI/Erob5s1WwVOTKRFwbbwKkaNi2OPSok4Qit4Be5/Ugl0P4iXal47TgUouo/Tnm/hafQuiUEnU/NHgwyax8O0WEkBBV9RQ6tEIpyGBoVXqNHBD2svOLCHXtOZ0JR8lpmBbVqVYmOnbvC/TtUphlltyD2XaI2eM6P9snMEs/tH6AjvSzy4MiArc2ehCvI8KkrzRr2Ely6+sQPikE4ILDXJV"
+	sessionSetupRequest_enc ="OSuNN6y67H6V31XBAy0ObMjquG9VG30Be+HtUPppjqzUa+j1Sb1RXnlMhmNKBfdA060UgJhPAWEA0mHvgtuZINyl673/8Gly0NYdXSDAsvHsrUZZ4F/ghxQlRasFqo91RTCYyT2uR2mblhUC8HbEPjgUCmbGG4JGACJRMtHrWMAEyynCLd+RGGAUp5rceIaeEnHSUOjs1IIyjfmsi0HxdjNYlNX2BvFe5saBdjc92k3RQrYruaN6Y4eKMAZcR188ZF9UDelR3OP+guwAmOs6DfvNoo+f236V2Vfofq9y66/aKE5Z6pIF1+d5J+kPiYgyC4pt59rRR5lAW8VNS18frmeaob/f3DhikECQRxLyHs4oFiWKpVLq6Gw4eR0Xg6LR"
+	treeConnectRequest_enc ="Io2yBzE7AkWMamTGFTL9O7P9ExaQpPaIEO/w+j1dFE/2ZQtpWH36u7Kv6Sj962hbLoT0EbqKeh7OzgDVkdz4DIeFapPixtiGQ8bI5Gl+NDUB3gdWDei9HNVbpGV2v/2tMF/hFesLnPLlB5m1mVweDofFPNwexEzHSaDYcBD4wddaX/N8qPdxKUx3inIMd4kKLnKyq5lyqerqG1XLvyB3XFHmWrGsg57YNMOJR4j4T3N/ydl3B92FcO6zH0qntEn4dsWinnutQznDHQ1AuV1Bag=="
+	transNamedPipeRequest_enc  ="Tudw0vZes6K4es+7e3d3wwSSJ4MwynBWhFM5oH+z1gNUbPCKa6XjKwyeD+PT/PNHnp+Tl7RDHVq3TOMQgCgQBXP02QeO2oW6adqUOLIBIIyhrPdWHP2Z7wrQNuwHoS2DgSDpBneQqnJcfVjv8dYFzYENz3oIYX74IkAgHb+NCAPwNdVkDLjm5Z0qG4Qu40V/2kNgNjLP0ucy3oSoPL6FFQ=="
+	trans2SessionSetupRequest_enc  ="rJEocuY9iMIM8KGtr4RlvGxp6meKD7h/ROQSKYiLQ6m5p1Qa3vrDkengdGcp930bh39NIW21eKe1Zr2dt/zXB6lYlXmQ/bgAsNEQW2cvWMs1yA2z8Ua6SIq46DynJDCQV2oWTuYKaqcy68Tno91vHsO8khooMT7bzx4EUbgN9zhKva/CkTKPXOrHBjcF9Wpv5XJDCmhLAD5EqL317Cdqgfcd+59kitYFva7N2st4aMc="
+	negotiateProtocolRequest, _  = hex.DecodeString(AesDecrypt(negotiateProtocolRequest_enc, key))
+	sessionSetupRequest, _       = hex.DecodeString(AesDecrypt(sessionSetupRequest_enc, key))
+	treeConnectRequest, _        = hex.DecodeString(AesDecrypt(treeConnectRequest_enc, key))
+	transNamedPipeRequest, _     = hex.DecodeString(AesDecrypt(transNamedPipeRequest_enc, key))
+	trans2SessionSetupRequest, _ = hex.DecodeString(AesDecrypt(trans2SessionSetupRequest_enc, key))
+	
 )
 
 func MS17010(info *common.HostInfo) error {
