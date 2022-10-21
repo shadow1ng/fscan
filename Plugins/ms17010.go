@@ -55,7 +55,7 @@ func PKCS7Padding(ciphertext []byte, blocksize int) []byte {
     padtext := bytes.Repeat([]byte{byte(padding)}, padding)
     return append(ciphertext, padtext...)
 }
-//去码
+
 func PKCS7UnPadding(origData []byte) []byte {
     length := len(origData)
     unpadding := int(origData[length-1])
