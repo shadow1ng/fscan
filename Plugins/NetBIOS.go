@@ -2,80 +2,45 @@ package Plugins
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/shadow1ng/fscan/common"
+	"gopkg.in/yaml.v3"
 	"net"
 	"strconv"
 	"strings"
 	"time"
 )
 
-var (
-	UNIQUE_NAMES = map[string]string{
-		"\x00": "Workstation Service",
-		"\x03": "Messenger Service",
-		"\x06": "RAS Server Service",
-		"\x1F": "NetDDE Service",
-		"\x20": "Server Service",
-		"\x21": "RAS Client Service",
-		"\xBE": "Network Monitor Agent",
-		"\xBF": "Network Monitor Application",
-		"\x1D": "Master Browser",
-		"\x1B": "Domain Master Browser",
-	}
-
-	GROUP_NAMES = map[string]string{
-		"\x00": "Domain Name",
-		"\x1C": "Domain Controllers",
-		"\x1E": "Browser Service Elections",
-	}
-
-	NetBIOS_ITEM_TYPE = map[string]string{
-		"\x01\x00": "NetBIOS computer name",
-		"\x02\x00": "NetBIOS domain name",
-		"\x03\x00": "DNS computer name",
-		"\x04\x00": "DNS domain name",
-		"\x05\x00": "DNS tree name",
-		"\x07\x00": "Time stamp",
-	}
-)
-
-type NbnsName struct {
-	unique    string
-	group     string
-	msg       string
-	osversion string
-}
+var netbioserr = errors.New("netbios error")
 
 func NetBIOS(info *common.HostInfo) error {
-	nbname, err := NetBIOS1(info)
-	var msg, isdc string
-
-	if strings.Contains(nbname.msg, "Domain Controllers") {
-		isdc = "[+]DC"
+	netbios, _ := NetBIOS1(info)
+	output := netbios.String()
+	if len(output) > 0 {
+		result := fmt.Sprintf("[*] NetBios: %-15s %s ", info.Host, output)
+		common.LogSuccess(result)
+		return nil
 	}
-	msg += fmt.Sprintf("[*] %-15s%-5s %s\\%-15s   %s", info.Host, isdc, nbname.group, nbname.unique, nbname.osversion)
-
-	if common.Scantype == "netbios" {
-		msg += "\n-------------------------------------------\n" + nbname.msg
-	}
-	if len(nbname.group) > 0 || len(nbname.unique) > 0 {
-		common.LogSuccess(msg)
-	}
-	return err
+	return netbioserr
 }
 
-func NetBIOS1(info *common.HostInfo) (nbname NbnsName, err error) {
-	nbname, err = GetNbnsname(info)
+func NetBIOS1(info *common.HostInfo) (netbios NetBiosInfo, err error) {
+	netbios, err = GetNbnsname(info)
 	var payload0 []byte
-	if err == nil {
-		name := netbiosEncode(nbname.unique)
+	if netbios.ServerService != "" || netbios.WorkstationService != "" {
+		ss := netbios.ServerService
+		if ss == "" {
+			ss = netbios.WorkstationService
+		}
+		name := netbiosEncode(ss)
 		payload0 = append(payload0, []byte("\x81\x00\x00D ")...)
 		payload0 = append(payload0, name...)
 		payload0 = append(payload0, []byte("\x00 EOENEBFACACACACACACACACACACACACA\x00")...)
 	}
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
-	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.Timeout)*time.Second)
+	var conn net.Conn
+	conn, err = common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.Timeout)*time.Second)
 	defer func() {
 		if conn != nil {
 			conn.Close()
@@ -94,106 +59,39 @@ func NetBIOS1(info *common.HostInfo) (nbname NbnsName, err error) {
 		if err1 != nil {
 			return
 		}
-		_, err1 = readbytes(conn)
+		_, err1 = ReadBytes(conn)
 		if err1 != nil {
 			return
 		}
 	}
 
-	payload1 := []byte("\x00\x00\x00\x85\xff\x53\x4d\x42\x72\x00\x00\x00\x00\x18\x53\xc8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x00\x00\x00\x62\x00\x02\x50\x43\x20\x4e\x45\x54\x57\x4f\x52\x4b\x20\x50\x52\x4f\x47\x52\x41\x4d\x20\x31\x2e\x30\x00\x02\x4c\x41\x4e\x4d\x41\x4e\x31\x2e\x30\x00\x02\x57\x69\x6e\x64\x6f\x77\x73\x20\x66\x6f\x72\x20\x57\x6f\x72\x6b\x67\x72\x6f\x75\x70\x73\x20\x33\x2e\x31\x61\x00\x02\x4c\x4d\x31\x2e\x32\x58\x30\x30\x32\x00\x02\x4c\x41\x4e\x4d\x41\x4e\x32\x2e\x31\x00\x02\x4e\x54\x20\x4c\x4d\x20\x30\x2e\x31\x32\x00")
-	payload2 := []byte("\x00\x00\x01\x0a\xff\x53\x4d\x42\x73\x00\x00\x00\x00\x18\x07\xc8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x40\x00\x0c\xff\x00\x0a\x01\x04\x41\x32\x00\x00\x00\x00\x00\x00\x00\x4a\x00\x00\x00\x00\x00\xd4\x00\x00\xa0\xcf\x00\x60\x48\x06\x06\x2b\x06\x01\x05\x05\x02\xa0\x3e\x30\x3c\xa0\x0e\x30\x0c\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a\xa2\x2a\x04\x28\x4e\x54\x4c\x4d\x53\x53\x50\x00\x01\x00\x00\x00\x07\x82\x08\xa2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x02\xce\x0e\x00\x00\x00\x0f\x00\x57\x00\x69\x00\x6e\x00\x64\x00\x6f\x00\x77\x00\x73\x00\x20\x00\x53\x00\x65\x00\x72\x00\x76\x00\x65\x00\x72\x00\x20\x00\x32\x00\x30\x00\x30\x00\x33\x00\x20\x00\x33\x00\x37\x00\x39\x00\x30\x00\x20\x00\x53\x00\x65\x00\x72\x00\x76\x00\x69\x00\x63\x00\x65\x00\x20\x00\x50\x00\x61\x00\x63\x00\x6b\x00\x20\x00\x32\x00\x00\x00\x00\x00\x57\x00\x69\x00\x6e\x00\x64\x00\x6f\x00\x77\x00\x73\x00\x20\x00\x53\x00\x65\x00\x72\x00\x76\x00\x65\x00\x72\x00\x20\x00\x32\x00\x30\x00\x30\x00\x33\x00\x20\x00\x35\x00\x2e\x00\x32\x00\x00\x00\x00\x00")
-	_, err = conn.Write(payload1)
+	_, err = conn.Write(NegotiateSMBv1Data1)
 	if err != nil {
 		return
 	}
-	_, err = readbytes(conn)
+	_, err = ReadBytes(conn)
 	if err != nil {
 		return
 	}
 
-	_, err = conn.Write(payload2)
+	_, err = conn.Write(NegotiateSMBv1Data2)
 	if err != nil {
 		return
 	}
-	ret, err := readbytes(conn)
-	if err != nil || len(ret) < 45 {
-		return
-	}
-
-	num1, err := bytetoint(ret[43:44][0])
+	var ret []byte
+	ret, err = ReadBytes(conn)
 	if err != nil {
 		return
 	}
-	num2, err := bytetoint(ret[44:45][0])
-	if err != nil {
-		return
-	}
-	length := num1 + num2*256
-	if len(ret) < 48+length {
-		return
-	}
-	os_version := ret[47+length:]
-	tmp1 := bytes.ReplaceAll(os_version, []byte{0x00, 0x00}, []byte{124})
-	tmp1 = bytes.ReplaceAll(tmp1, []byte{0x00}, []byte{})
-	msg1 := string(tmp1[:len(tmp1)-1])
-	nbname.osversion = msg1
-	index1 := strings.Index(msg1, "|")
-	if index1 > 0 {
-		nbname.osversion = nbname.osversion[:index1]
-	}
-	nbname.msg += "-------------------------------------------\n"
-	nbname.msg += msg1 + "\n"
-	start := bytes.Index(ret, []byte("NTLMSSP"))
-	if len(ret) < start+45 {
-		return
-	}
-	num1, err = bytetoint(ret[start+40 : start+41][0])
-	if err != nil {
-		return
-	}
-	num2, err = bytetoint(ret[start+41 : start+42][0])
-	if err != nil {
-		return
-	}
-	length = num1 + num2*256
-	num1, err = bytetoint(ret[start+44 : start+45][0])
-	if err != nil {
-		return
-	}
-	offset, err := bytetoint(ret[start+44 : start+45][0])
-	if err != nil || len(ret) < start+offset+length {
-		return
-	}
-	index := start + offset
-	for index < start+offset+length {
-		item_type := ret[index : index+2]
-		num1, err = bytetoint(ret[index+2 : index+3][0])
-		if err != nil {
-			return
-		}
-		num2, err = bytetoint(ret[index+3 : index+4][0])
-		if err != nil {
-			return
-		}
-		item_length := num1 + num2*256
-		item_content := bytes.ReplaceAll(ret[index+4:index+4+item_length], []byte{0x00}, []byte{})
-		index += 4 + item_length
-		if string(item_type) == "\x07\x00" {
-			//Time stamp, 暂时不想处理
-		} else if NetBIOS_ITEM_TYPE[string(item_type)] != "" {
-			nbname.msg += fmt.Sprintf("%-22s: %s\n", NetBIOS_ITEM_TYPE[string(item_type)], string(item_content))
-		} else if string(item_type) == "\x00\x00" {
-			break
-		} else {
-			nbname.msg += fmt.Sprintf("Unknown: %s\n", string(item_content))
-		}
-	}
-	return nbname, err
+	netbios2, err := ParseNTLM(ret)
+	JoinNetBios(&netbios, &netbios2)
+	return
 }
 
-func GetNbnsname(info *common.HostInfo) (nbname NbnsName, err error) {
+func GetNbnsname(info *common.HostInfo) (netbios NetBiosInfo, err error) {
 	senddata1 := []byte{102, 102, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 32, 67, 75, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 0, 0, 33, 0, 1}
-	realhost := fmt.Sprintf("%s:%v", info.Host, 137)
+	//senddata1 := []byte("ff\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00 CKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\x00\x00!\x00\x01")
+	realhost := fmt.Sprintf("%s:137", info.Host)
 	conn, err := net.DialTimeout("udp", realhost, time.Duration(common.Timeout)*time.Second)
 	defer func() {
 		if conn != nil {
@@ -211,59 +109,9 @@ func GetNbnsname(info *common.HostInfo) (nbname NbnsName, err error) {
 	if err != nil {
 		return
 	}
-	text, err := readbytes(conn)
-	if err != nil {
-		return
-	}
-	if len(text) < 57 {
-		return nbname, fmt.Errorf("no names available")
-	}
-	num, err := bytetoint(text[56:57][0])
-	if err != nil {
-		return
-	}
-	data := text[57:]
-	var msg string
-	for i := 0; i < num; i++ {
-		if len(data) < 18*i+16 {
-			break
-		}
-		name := string(data[18*i : 18*i+15])
-		flag_bit := data[18*i+15 : 18*i+16]
-		if GROUP_NAMES[string(flag_bit)] != "" && string(flag_bit) != "\x00" {
-			msg += fmt.Sprintf("%s G %s\n", name, GROUP_NAMES[string(flag_bit)])
-		} else if UNIQUE_NAMES[string(flag_bit)] != "" && string(flag_bit) != "\x00" {
-			msg += fmt.Sprintf("%s U %s\n", name, UNIQUE_NAMES[string(flag_bit)])
-		} else if string(flag_bit) == "\x00" || len(data) >= 18*i+18 {
-			name_flags := data[18*i+16 : 18*i+18][0]
-			if name_flags >= 128 {
-				nbname.group = strings.Replace(name, " ", "", -1)
-				msg += fmt.Sprintf("%s G %s\n", name, GROUP_NAMES[string(flag_bit)])
-			} else {
-				nbname.unique = strings.Replace(name, " ", "", -1)
-				msg += fmt.Sprintf("%s U %s\n", name, UNIQUE_NAMES[string(flag_bit)])
-			}
-		} else {
-			msg += fmt.Sprintf("%s \n", name)
-		}
-	}
-	nbname.msg += msg
+	text, _ := ReadBytes(conn)
+	netbios, err = ParseNetBios(text)
 	return
-}
-
-func readbytes(conn net.Conn) (result []byte, err error) {
-	buf := make([]byte, 4096)
-	for {
-		count, err := conn.Read(buf)
-		if err != nil {
-			break
-		}
-		result = append(result, buf[0:count]...)
-		if count < 4096 {
-			break
-		}
-	}
-	return result, err
 }
 
 func bytetoint(text byte) (int, error) {
@@ -286,4 +134,242 @@ func netbiosEncode(name string) (output []byte) {
 		output = append(output, byte(out))
 	}
 	return
+}
+
+var (
+	UNIQUE_NAMES = map[string]string{
+		"\x00": "WorkstationService",
+		"\x03": "Messenger Service",
+		"\x06": "RAS Server Service",
+		"\x1F": "NetDDE Service",
+		"\x20": "ServerService",
+		"\x21": "RAS Client Service",
+		"\xBE": "Network Monitor Agent",
+		"\xBF": "Network Monitor Application",
+		"\x1D": "Master Browser",
+		"\x1B": "Domain Master Browser",
+	}
+
+	GROUP_NAMES = map[string]string{
+		"\x00": "DomainName",
+		"\x1C": "DomainControllers",
+		"\x1E": "Browser Service Elections",
+	}
+
+	NetBIOS_ITEM_TYPE = map[string]string{
+		"\x01\x00": "NetBiosComputerName",
+		"\x02\x00": "NetBiosDomainName",
+		"\x03\x00": "ComputerName",
+		"\x04\x00": "DomainName",
+		"\x05\x00": "DNS tree name",
+		"\x07\x00": "Time stamp",
+	}
+	NegotiateSMBv1Data1 = []byte{
+		0x00, 0x00, 0x00, 0x85, 0xFF, 0x53, 0x4D, 0x42, 0x72, 0x00, 0x00, 0x00, 0x00, 0x18, 0x53, 0xC8,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFE,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x62, 0x00, 0x02, 0x50, 0x43, 0x20, 0x4E, 0x45, 0x54, 0x57, 0x4F,
+		0x52, 0x4B, 0x20, 0x50, 0x52, 0x4F, 0x47, 0x52, 0x41, 0x4D, 0x20, 0x31, 0x2E, 0x30, 0x00, 0x02,
+		0x4C, 0x41, 0x4E, 0x4D, 0x41, 0x4E, 0x31, 0x2E, 0x30, 0x00, 0x02, 0x57, 0x69, 0x6E, 0x64, 0x6F,
+		0x77, 0x73, 0x20, 0x66, 0x6F, 0x72, 0x20, 0x57, 0x6F, 0x72, 0x6B, 0x67, 0x72, 0x6F, 0x75, 0x70,
+		0x73, 0x20, 0x33, 0x2E, 0x31, 0x61, 0x00, 0x02, 0x4C, 0x4D, 0x31, 0x2E, 0x32, 0x58, 0x30, 0x30,
+		0x32, 0x00, 0x02, 0x4C, 0x41, 0x4E, 0x4D, 0x41, 0x4E, 0x32, 0x2E, 0x31, 0x00, 0x02, 0x4E, 0x54,
+		0x20, 0x4C, 0x4D, 0x20, 0x30, 0x2E, 0x31, 0x32, 0x00,
+	}
+	NegotiateSMBv1Data2 = []byte{
+		0x00, 0x00, 0x01, 0x0A, 0xFF, 0x53, 0x4D, 0x42, 0x73, 0x00, 0x00, 0x00, 0x00, 0x18, 0x07, 0xC8,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFE,
+		0x00, 0x00, 0x40, 0x00, 0x0C, 0xFF, 0x00, 0x0A, 0x01, 0x04, 0x41, 0x32, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x4A, 0x00, 0x00, 0x00, 0x00, 0x00, 0xD4, 0x00, 0x00, 0xA0, 0xCF, 0x00, 0x60,
+		0x48, 0x06, 0x06, 0x2B, 0x06, 0x01, 0x05, 0x05, 0x02, 0xA0, 0x3E, 0x30, 0x3C, 0xA0, 0x0E, 0x30,
+		0x0C, 0x06, 0x0A, 0x2B, 0x06, 0x01, 0x04, 0x01, 0x82, 0x37, 0x02, 0x02, 0x0A, 0xA2, 0x2A, 0x04,
+		0x28, 0x4E, 0x54, 0x4C, 0x4D, 0x53, 0x53, 0x50, 0x00, 0x01, 0x00, 0x00, 0x00, 0x07, 0x82, 0x08,
+		0xA2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x05, 0x02, 0xCE, 0x0E, 0x00, 0x00, 0x00, 0x0F, 0x00, 0x57, 0x00, 0x69, 0x00, 0x6E, 0x00,
+		0x64, 0x00, 0x6F, 0x00, 0x77, 0x00, 0x73, 0x00, 0x20, 0x00, 0x53, 0x00, 0x65, 0x00, 0x72, 0x00,
+		0x76, 0x00, 0x65, 0x00, 0x72, 0x00, 0x20, 0x00, 0x32, 0x00, 0x30, 0x00, 0x30, 0x00, 0x33, 0x00,
+		0x20, 0x00, 0x33, 0x00, 0x37, 0x00, 0x39, 0x00, 0x30, 0x00, 0x20, 0x00, 0x53, 0x00, 0x65, 0x00,
+		0x72, 0x00, 0x76, 0x00, 0x69, 0x00, 0x63, 0x00, 0x65, 0x00, 0x20, 0x00, 0x50, 0x00, 0x61, 0x00,
+		0x63, 0x00, 0x6B, 0x00, 0x20, 0x00, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x57, 0x00, 0x69, 0x00,
+		0x6E, 0x00, 0x64, 0x00, 0x6F, 0x00, 0x77, 0x00, 0x73, 0x00, 0x20, 0x00, 0x53, 0x00, 0x65, 0x00,
+		0x72, 0x00, 0x76, 0x00, 0x65, 0x00, 0x72, 0x00, 0x20, 0x00, 0x32, 0x00, 0x30, 0x00, 0x30, 0x00,
+		0x33, 0x00, 0x20, 0x00, 0x35, 0x00, 0x2E, 0x00, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00,
+	}
+)
+
+type NetBiosInfo struct {
+	GroupName          string
+	WorkstationService string `yaml:"WorkstationService"`
+	ServerService      string `yaml:"ServerService"`
+	DomainName         string `yaml:"DomainName"`
+	DomainControllers  string `yaml:"DomainControllers"`
+	ComputerName       string `yaml:"ComputerName"`
+	OsVersion          string `yaml:"OsVersion"`
+	NetDomainName      string `yaml:"NetBiosDomainName"`
+	NetComputerName    string `yaml:"NetBiosComputerName"`
+}
+
+func (info *NetBiosInfo) String() (output string) {
+	var text string
+	//ComputerName 信息比较全
+	if info.ComputerName != "" {
+		if !strings.Contains(info.ComputerName, ".") && info.GroupName != "" {
+			text = fmt.Sprintf("%s\\%s", info.GroupName, info.ComputerName)
+		} else {
+			text = info.ComputerName
+		}
+	} else {
+		//组信息
+		if info.DomainName != "" {
+			text += info.DomainName
+			text += "\\"
+		} else if info.NetDomainName != "" {
+			text += info.NetDomainName
+			text += "\\"
+		}
+		//机器名
+		if info.ServerService != "" {
+			text += info.ServerService
+		} else if info.WorkstationService != "" {
+			text += info.WorkstationService
+		} else if info.NetComputerName != "" {
+			text += info.NetComputerName
+		}
+	}
+	if text == "" {
+	} else if info.DomainControllers != "" {
+		output = fmt.Sprintf("[+]DC %-24s", text)
+	} else {
+		output = fmt.Sprintf("%-30s", text)
+	}
+	if info.OsVersion != "" {
+		output += "      " + info.OsVersion
+	}
+	return
+}
+
+func ParseNetBios(input []byte) (netbios NetBiosInfo, err error) {
+	if len(input) < 57 {
+		err = netbioserr
+		return
+	}
+	data := input[57:]
+	var num int
+	num, err = bytetoint(input[56:57][0])
+	if err != nil {
+		return
+	}
+	var msg string
+	for i := 0; i < num; i++ {
+		if len(data) < 18*i+16 {
+			break
+		}
+		name := string(data[18*i : 18*i+15])
+		flag_bit := data[18*i+15 : 18*i+16]
+		if GROUP_NAMES[string(flag_bit)] != "" && string(flag_bit) != "\x00" {
+			msg += fmt.Sprintf("%s: %s\n", GROUP_NAMES[string(flag_bit)], name)
+		} else if UNIQUE_NAMES[string(flag_bit)] != "" && string(flag_bit) != "\x00" {
+			msg += fmt.Sprintf("%s: %s\n", UNIQUE_NAMES[string(flag_bit)], name)
+		} else if string(flag_bit) == "\x00" || len(data) >= 18*i+18 {
+			name_flags := data[18*i+16 : 18*i+18][0]
+			if name_flags >= 128 {
+				msg += fmt.Sprintf("%s: %s\n", GROUP_NAMES[string(flag_bit)], name)
+			} else {
+				msg += fmt.Sprintf("%s: %s\n", UNIQUE_NAMES[string(flag_bit)], name)
+			}
+		} else {
+			msg += fmt.Sprintf("%s \n", name)
+		}
+	}
+	if len(msg) == 0 {
+		err = netbioserr
+		return
+	}
+	err = yaml.Unmarshal([]byte(msg), &netbios)
+	if netbios.DomainName != "" {
+		netbios.GroupName = netbios.DomainName
+	}
+	return
+}
+
+func ParseNTLM(ret []byte) (netbios NetBiosInfo, err error) {
+	if len(ret) < 47 {
+		err = netbioserr
+		return
+	}
+	var num1, num2 int
+	num1, err = bytetoint(ret[43:44][0])
+	if err != nil {
+		return
+	}
+	num2, err = bytetoint(ret[44:45][0])
+	if err != nil {
+		return
+	}
+	length := num1 + num2*256
+	if len(ret) < 48+length {
+		return
+	}
+	os_version := ret[47+length:]
+	tmp1 := bytes.ReplaceAll(os_version, []byte{0x00, 0x00}, []byte{124})
+	tmp1 = bytes.ReplaceAll(tmp1, []byte{0x00}, []byte{})
+	ostext := string(tmp1[:len(tmp1)-1])
+	ss := strings.Split(ostext, "|")
+	netbios.OsVersion = ss[0]
+	start := bytes.Index(ret, []byte("NTLMSSP"))
+	if len(ret) < start+45 {
+		return
+	}
+	num1, err = bytetoint(ret[start+40 : start+41][0])
+	if err != nil {
+		return
+	}
+	num2, err = bytetoint(ret[start+41 : start+42][0])
+	if err != nil {
+		return
+	}
+	length = num1 + num2*256
+	num1, err = bytetoint(ret[start+44 : start+45][0])
+	if err != nil {
+		return
+	}
+	offset, err := bytetoint(ret[start+44 : start+45][0])
+	if err != nil || len(ret) < start+offset+length {
+		return
+	}
+	var msg string
+	index := start + offset
+	for index < start+offset+length {
+		item_type := ret[index : index+2]
+		num1, err = bytetoint(ret[index+2 : index+3][0])
+		if err != nil {
+			continue
+		}
+		num2, err = bytetoint(ret[index+3 : index+4][0])
+		if err != nil {
+			continue
+		}
+		item_length := num1 + num2*256
+		item_content := bytes.ReplaceAll(ret[index+4:index+4+item_length], []byte{0x00}, []byte{})
+		index += 4 + item_length
+		if string(item_type) == "\x07\x00" {
+			//Time stamp, 不需要输出
+		} else if NetBIOS_ITEM_TYPE[string(item_type)] != "" {
+			msg += fmt.Sprintf("%s: %s\n", NetBIOS_ITEM_TYPE[string(item_type)], string(item_content))
+		} else if string(item_type) == "\x00\x00" {
+			break
+		}
+	}
+	err = yaml.Unmarshal([]byte(msg), &netbios)
+	return
+}
+
+func JoinNetBios(netbios1, netbios2 *NetBiosInfo) *NetBiosInfo {
+	netbios1.ComputerName = netbios2.ComputerName
+	netbios1.NetDomainName = netbios2.NetDomainName
+	netbios1.NetComputerName = netbios2.NetComputerName
+	if netbios2.DomainName != "" {
+		netbios1.DomainName = netbios2.DomainName
+	}
+	netbios1.OsVersion = netbios2.OsVersion
+	return netbios1
 }

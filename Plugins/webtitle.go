@@ -19,8 +19,13 @@ import (
 )
 
 func WebTitle(info *common.HostInfo) error {
+	if common.Scantype == "webpoc" {
+		WebScan.WebScan(info)
+		return nil
+	}
 	err, CheckData := GOWebTitle(info)
 	info.Infostr = WebScan.InfoCheck(info.Url, &CheckData)
+
 	if common.IsWebCan == false && err == nil {
 		WebScan.WebScan(info)
 	} else {
@@ -102,10 +107,12 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 	if err != nil {
 		return err, "", CheckData
 	}
-	req.Header.Set("User-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1468.0 Safari/537.36")
-	req.Header.Set("Accept", "*/*")
+	req.Header.Set("User-agent", common.UserAgent)
+	req.Header.Set("Accept", common.Accept)
 	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9")
-	req.Header.Set("Cookie", common.Cookie)
+	if common.Cookie != "" {
+		req.Header.Set("Cookie", common.Cookie)
+	}
 	//if common.Pocinfo.Cookie != "" {
 	//	req.Header.Set("Cookie", "rememberMe=1;"+common.Pocinfo.Cookie)
 	//} else {

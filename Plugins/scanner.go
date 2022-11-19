@@ -33,7 +33,10 @@ func Scan(info common.HostInfo) {
 		}
 		common.GC()
 		var AlivePorts []string
-		if common.Scantype == "webonly" {
+		if common.Scantype == "webonly" || common.Scantype == "webpoc" {
+			AlivePorts = NoPortScan(Hosts, info.Ports)
+		} else if common.Scantype == "hostname" {
+			info.Ports = "139"
 			AlivePorts = NoPortScan(Hosts, info.Ports)
 		} else if len(Hosts) > 0 {
 			AlivePorts = PortScan(Hosts, info.Ports, common.Timeout)
@@ -59,6 +62,11 @@ func Scan(info common.HostInfo) {
 			info.Host, info.Ports = strings.Split(targetIP, ":")[0], strings.Split(targetIP, ":")[1]
 			if common.Scantype == "all" || common.Scantype == "main" {
 				switch {
+				case info.Ports == "135":
+					AddScan(info.Ports, info, &ch, &wg) //findnet
+					if common.IsWmi {
+						AddScan("1000005", info, &ch, &wg) //wmiexec
+					}
 				case info.Ports == "445":
 					AddScan(ms17010, info, &ch, &wg) //ms17010
 					//AddScan(info.Ports, info, ch, &wg)  //smb

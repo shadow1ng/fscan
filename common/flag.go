@@ -42,7 +42,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&UserAdd, "usera", "", "add a user base DefaultUsers,-usera user")
 	flag.StringVar(&PassAdd, "pwda", "", "add a password base DefaultPasses,-pwda password")
 	flag.StringVar(&NoPorts, "pn", "", "the ports no scan,as: -pn 445")
-	flag.StringVar(&Command, "c", "", "exec command (ssh)")
+	flag.StringVar(&Command, "c", "", "exec command (ssh|wmiexec)")
 	flag.StringVar(&SshKey, "sshkey", "", "sshkey file (id_rsa)")
 	flag.StringVar(&Domain, "domain", "", "smb domain")
 	flag.StringVar(&Username, "user", "", "username")
@@ -79,5 +79,6 @@ func Flag(Info *HostInfo) {
 	flag.BoolVar(&DnsLog, "dns", false, "using dnslog poc")
 	flag.IntVar(&PocNum, "num", 20, "poc rate")
 	flag.StringVar(&SC, "sc", "", "ms17 shellcode,as -sc add")
+	flag.BoolVar(&IsWmi, "wmi", false, "start wmi")
 	flag.Parse()
 }

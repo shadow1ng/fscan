@@ -40,10 +40,13 @@ func Execute(PocInfo common.PocInfo) {
 		common.LogError(errlog)
 		return
 	}
-	req.Header.Set("User-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1468.0 Safari/537.36")
+	req.Header.Set("User-agent", common.UserAgent)
+	req.Header.Set("Accept", common.Accept)
+	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9")
 	if common.Cookie != "" {
 		req.Header.Set("Cookie", common.Cookie)
 	}
+	req.Header.Set("Connection", "close")
 	pocs := filterPoc(PocInfo.PocName)
 	lib.CheckMultiPoc(req, pocs, common.PocNum)
 }

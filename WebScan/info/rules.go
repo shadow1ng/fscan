@@ -250,7 +250,6 @@ var RuleDatas = []RuleData{
 	{"JEECMS", "code", "(/r/cms/www/red/js/common.js|/r/cms/www/red/js/indexshow.js|Powered by JEECMS|JEECMS|/jeeadmin/jeecms/index.do)"},
 	{"CMS", "code", "(Powered by .*CMS)"},
 	{"目录遍历", "code", "(Directory listing for /)"},
-	{"ATLASSIAN-Confluence", "code", "(confluence.)"},
 	{"向日葵", "code", "({\"success\":false,\"msg\":\"Verification failure\"})"},
 	{"Kubernetes", "code", "(Kubernetes Dashboard</title>|Kubernetes Enterprise Manager|Mirantis Kubernetes Engine|Kubernetes Resource Report)"},
 	{"WordPress", "code", "(/wp-login.php?action=lostpassword|WordPress</title>)"},

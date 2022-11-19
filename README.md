@@ -54,14 +54,18 @@ fscan.exe -hf ip.txt  (以文件导入)
 fscan.exe -u http://baidu.com -proxy 8080 (扫描单个url,并设置http代理 http://127.0.0.1:8080)
 fscan.exe -h 192.168.1.1/24 -nobr -nopoc (不进行爆破,不扫Web poc,以减少流量)
 fscan.exe -h 192.168.1.1/24 -pa 3389 (在原基础上,加入3389->rdp扫描)
-fscan.exe -h 192.168.1.1/24 -socks5 127.0.0.1:1080
+fscan.exe -h 192.168.1.1/24 -socks5 127.0.0.1:1080 (只支持简单tcp功能的代理,部分功能的库不支持设置代理)
 fscan.exe -h 192.168.1.1/24 -m ms17010 -sc add (内置添加用户等功能,只适用于备选工具,更推荐其他ms17010的专项利用工具)
+fscan.exe -h 192.168.1.1/24 -m smb2 -user admin -hash xxxxx (pth hash碰撞,xxxx:ntlmhash,如32ed87bdb5fdc5e9cba88547376818d4)
+fscan.exe -h 192.168.1.1/24 -m wmiexec -user admin -pwd password -c xxxxx(wmiexec无回显命令执行)
 ```
 编译命令
 ```
 go build -ldflags="-s -w " -trimpath main.go
 upx -9 fscan.exe (可选,压缩体积)
 ```
+arch用户安装  
+`yay -S fscan-git  或者 paru -S fscan-git`
 
 完整参数
 ```
@@ -207,6 +211,7 @@ https://github.com/jjf012/gopoc
 
 
 # 10. 最近更新
+[+] 2022/11/19 加入hash碰撞、wmiiexec无回显命令执行  
 [+] 2022/7/14 -hf 支持host:port和host/xx:port格式,rule.Search 正则匹配范围从body改成header+body,-nobr不再包含-nopoc.优化webtitle 输出格式  
 [+] 2022/7/6 加入手工gc回收,尝试节省无用内存。 -url 支持逗号隔开。 修复一个poc模块bug。-nobr不再包含-nopoc。  
 [+] 2022/7/2 加强poc fuzz模块,支持跑备份文件、目录、shiro-key(默认跑10key,可用-full参数跑100key)等。新增ms17017利用(使用参数: -sc add),可在ms17010-exp.go自定义shellcode,内置添加用户等功能。  
