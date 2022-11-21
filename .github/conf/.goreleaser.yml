@@ -40,6 +40,7 @@ builds:
     goos:
       - linux
       - windows
+      - darwin
     goarch:
       - mips64
       - arm
@@ -53,6 +54,7 @@ builds:
     ignore:
       - goos: linux
         goarch: arm
+
 
 archives:
   - replacements:

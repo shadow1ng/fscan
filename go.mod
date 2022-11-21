@@ -1,6 +1,6 @@
 module github.com/shadow1ng/fscan
 
-go 1.16
+go 1.19
 
 require (
 	github.com/C-Sto/goWMIExec v0.0.1-deva.0.20210704154847-b8ebd6464a06
