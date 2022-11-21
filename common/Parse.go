@@ -137,7 +137,6 @@ func ParseInput(Info *HostInfo) {
 	if BruteThread <= 0 {
 		BruteThread = 1
 	}
-
 	if TmpOutputfile != "" {
 		if !strings.Contains(TmpOutputfile, "/") && !strings.Contains(TmpOutputfile, `\`) {
 			Outputfile = getpath() + TmpOutputfile
@@ -145,7 +144,6 @@ func ParseInput(Info *HostInfo) {
 			Outputfile = TmpOutputfile
 		}
 	}
-
 	if TmpSave == true {
 		IsSave = false
 	}
@@ -280,12 +278,12 @@ func getpath() string {
 	var path string
 	if strings.Contains(filename, "/") {
 		tmp := strings.Split(filename, `/`)
-		tmp[len(tmp)-1] = ``
 		path = strings.Join(tmp, `/`)
+		path += `/`
 	} else if strings.Contains(filename, `\`) {
 		tmp := strings.Split(filename, `\`)
-		tmp[len(tmp)-1] = ``
 		path = strings.Join(tmp, `\`)
+		path += `\`
 	}
 	return path
 }
