@@ -80,5 +80,6 @@ func Flag(Info *HostInfo) {
 	flag.IntVar(&PocNum, "num", 20, "poc rate")
 	flag.StringVar(&SC, "sc", "", "ms17 shellcode,as -sc add")
 	flag.BoolVar(&IsWmi, "wmi", false, "start wmi")
+	flag.StringVar(&Hash, "hash", "", "hash")
 	flag.Parse()
 }
