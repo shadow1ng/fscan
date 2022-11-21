@@ -1,6 +1,12 @@
 package Plugins
 
-import "net"
+import (
+	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"encoding/base64"
+	"net"
+)
 
 var PluginList = map[string]interface{}{
 	"21":      FtpScan,
