@@ -271,23 +271,6 @@ func CheckErr(text string, err error, flag bool) {
 	}
 }
 
-func getpath() string {
-	file, _ := exec.LookPath(os.Args[0])
-	path1, _ := filepath.Abs(file)
-	filename := filepath.Dir(path1)
-	var path string
-	if strings.Contains(filename, "/") {
-		tmp := strings.Split(filename, `/`)
-		path = strings.Join(tmp, `/`)
-		path += `/`
-	} else if strings.Contains(filename, `\`) {
-		tmp := strings.Split(filename, `\`)
-		path = strings.Join(tmp, `\`)
-		path += `\`
-	}
-	return path
-}
-
 func showmode() {
 	fmt.Println("The specified scan type does not exist")
 	fmt.Println("-m")
