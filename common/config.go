@@ -60,47 +60,46 @@ type PocInfo struct {
 }
 
 var (
-	Path          string
-	Scantype      string
-	Command       string
-	SshKey        string
-	Domain        string
-	Username      string
-	Password      string
-	Proxy         string
-	Timeout       int64 = 3
-	WebTimeout    int64 = 5
-	TmpOutputfile string
-	TmpSave       bool
-	NoPing        bool
-	Ping          bool
-	Pocinfo       PocInfo
-	IsWebCan      bool
-	IsBrute       bool
-	RedisFile     string
-	RedisShell    string
-	Userfile      string
-	Passfile      string
-	HostFile      string
-	PortFile      string
-	PocPath       string
-	Threads       int
-	URL           string
-	UrlFile       string
-	Urls          []string
-	NoPorts       string
-	NoHosts       string
-	SC            string
-	PortAdd       string
-	UserAdd       string
-	PassAdd       string
-	BruteThread   int
-	LiveTop       int
-	Socks5Proxy   string
-	Hash          string
-	HashBytes     []byte
-	HostPort      []string
-	IsWmi         bool
+	Path        string
+	Scantype    string
+	Command     string
+	SshKey      string
+	Domain      string
+	Username    string
+	Password    string
+	Proxy       string
+	Timeout     int64 = 3
+	WebTimeout  int64 = 5
+	TmpSave     bool
+	NoPing      bool
+	Ping        bool
+	Pocinfo     PocInfo
+	IsWebCan    bool
+	IsBrute     bool
+	RedisFile   string
+	RedisShell  string
+	Userfile    string
+	Passfile    string
+	HostFile    string
+	PortFile    string
+	PocPath     string
+	Threads     int
+	URL         string
+	UrlFile     string
+	Urls        []string
+	NoPorts     string
+	NoHosts     string
+	SC          string
+	PortAdd     string
+	UserAdd     string
+	PassAdd     string
+	BruteThread int
+	LiveTop     int
+	Socks5Proxy string
+	Hash        string
+	HashBytes   []byte
+	HostPort    []string
+	IsWmi       bool
 )
 
 var (

@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -137,13 +135,7 @@ func ParseInput(Info *HostInfo) {
 	if BruteThread <= 0 {
 		BruteThread = 1
 	}
-	if TmpOutputfile != "" {
-		if !strings.Contains(TmpOutputfile, "/") && !strings.Contains(TmpOutputfile, `\`) {
-			Outputfile = getpath() + TmpOutputfile
-		} else {
-			Outputfile = TmpOutputfile
-		}
-	}
+
 	if TmpSave == true {
 		IsSave = false
 	}
