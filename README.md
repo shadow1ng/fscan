@@ -211,7 +211,7 @@ https://github.com/jjf012/gopoc
 
 
 # 10. 最近更新
-[+] 2022/11/19 加入hash碰撞、wmiiexec无回显命令执行  
+[+] 2022/11/19 加入hash碰撞、wmiexec无回显命令执行  
 [+] 2022/7/14 -hf 支持host:port和host/xx:port格式,rule.Search 正则匹配范围从body改成header+body,-nobr不再包含-nopoc.优化webtitle 输出格式  
 [+] 2022/7/6 加入手工gc回收,尝试节省无用内存。 -url 支持逗号隔开。 修复一个poc模块bug。-nobr不再包含-nopoc。  
 [+] 2022/7/2 加强poc fuzz模块,支持跑备份文件、目录、shiro-key(默认跑10key,可用-full参数跑100key)等。新增ms17017利用(使用参数: -sc add),可在ms17010-exp.go自定义shellcode,内置添加用户等功能。  
