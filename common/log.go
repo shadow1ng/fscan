@@ -26,6 +26,7 @@ func init() {
 func LogSuccess(result string) {
 	LogWG.Add(1)
 	LogSucTime = time.Now().Unix()
+	result = fmt.Sprintf("[%v] %v", time.Unix(LogSucTime, 0).Format("2006-01-02 15:04:05"), result)
 	Results <- &result
 }
 
