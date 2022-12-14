@@ -1,4 +1,5 @@
 # fscan
+[English][url-docen]
 
 # 1. 简介
 一款内网综合扫描工具，方便一键自动化、全方位漏扫扫描。   
@@ -57,7 +58,7 @@ fscan.exe -h 192.168.1.1/24 -pa 3389 (在原基础上,加入3389->rdp扫描)
 fscan.exe -h 192.168.1.1/24 -socks5 127.0.0.1:1080 (只支持简单tcp功能的代理,部分功能的库不支持设置代理)
 fscan.exe -h 192.168.1.1/24 -m ms17010 -sc add (内置添加用户等功能,只适用于备选工具,更推荐其他ms17010的专项利用工具)
 fscan.exe -h 192.168.1.1/24 -m smb2 -user admin -hash xxxxx (pth hash碰撞,xxxx:ntlmhash,如32ed87bdb5fdc5e9cba88547376818d4)
-fscan.exe -h 192.168.1.1/24 -m wmiexec -user admin -pwd password -c xxxxx(wmiexec无回显命令执行)
+fscan.exe -h 192.168.1.1/24 -m wmiexec -user admin -pwd password -c xxxxx (wmiexec无回显命令执行)
 ```
 编译命令
 ```
@@ -211,32 +212,34 @@ https://github.com/jjf012/gopoc
 
 
 # 10. 最近更新
-[+] 2022/11/19 加入hash碰撞、wmiexec无回显命令执行  
-[+] 2022/7/14 -hf 支持host:port和host/xx:port格式,rule.Search 正则匹配范围从body改成header+body,-nobr不再包含-nopoc.优化webtitle 输出格式  
+[+] 2022/11/19 加入hash碰撞、wmiexec无回显命令执行。  
+[+] 2022/7/14 -hf 支持host:port和host/xx:port格式,rule.Search 正则匹配范围从body改成header+body,-nobr不再包含-nopoc.优化webtitle 输出格式。  
 [+] 2022/7/6 加入手工gc回收,尝试节省无用内存。 -url 支持逗号隔开。 修复一个poc模块bug。-nobr不再包含-nopoc。  
-[+] 2022/7/2 加强poc fuzz模块,支持跑备份文件、目录、shiro-key(默认跑10key,可用-full参数跑100key)等。新增ms17017利用(使用参数: -sc add),可在ms17010-exp.go自定义shellcode,内置添加用户等功能。  
-新增poc、指纹。支持socks5代理。因body指纹更全,默认不再跑ico图标。    
-[+] 2022/4/20 poc模块加入指定目录或文件 -pocpath poc路径,端口可以指定文件-portf port.txt,rdp模块加入多线程爆破demo, -br xx指定线程  
+[+] 2022/7/2 加强poc fuzz模块,支持跑备份文件、目录、shiro-key(默认跑10key,可用-full参数跑100key)等。新增ms17017利用(使用参数: -sc add),可在ms17010-exp.go自定义shellcode,内置添加用户等功能。    
+新增poc、指纹。支持socks5代理。因body指纹更全,默认不再跑ico图标。  
+[+] 2022/4/20 poc模块加入指定目录或文件 -pocpath poc路径,端口可以指定文件-portf port.txt,rdp模块加入多线程爆破demo, -br xx指定线程。  
 [+] 2022/2/25 新增-m webonly,跳过端口扫描,直接访问http。致谢@AgeloVito  
-[+] 2022/1/11 新增oracle密码爆破  
-[+] 2022/1/7  扫ip/8时,默认会扫每个C段的网关和数个随机IP,推荐参数:-h ip/8 -m icmp.新增LiveTop功能,检测存活时,默认会输出top10的B、C段ip存活数量.  
-[+] 2021/12/7 新增rdp扫描,新增添加端口参数-pa 3389(会在原有端口列表基础上,新增该端口)  
-[+] 2021/12/1 优化xray解析模块,支持groups、新增poc,加入https判断(tls握手包),优化ip解析模块(支持所有ip/xx),增加爆破关闭参数 -nobr,添加跳过某些ip扫描功能 -hn 192.168.1.1,添加跳过某些端口扫描功能-pn 21,445,增加扫描docker未授权漏洞  
-[+] 2021/6/18 改善一下poc的机制，如果识别出指纹会根据指纹信息发送poc，如果没有识别到指纹才会把所有poc打一遍  
-[+] 2021/5/29 加入fcgi协议未授权命令执行扫描,优化poc模块,优化icmp模块,ssh模块加入私钥连接  
-[+] 2021/5/15 新增win03版本(删减了xray_poc模块),增加-silent 静默扫描模式,添加web指纹,修复netbios模块数组越界,添加一个CheckErrs字典,webtitle 增加gzip解码  
-[+] 2021/5/6 更新mod库、poc、指纹。修改线程处理机制、netbios探测、域控识别模块、webtitle编码模块等  
-[+] 2021/4/22 修改webtitle模块,加入gbk解码  
-[+] 2021/4/21 加入netbios探测、域控识别  
-[+] 2021/3/4 支持-u url或者-uf url.txt,对url进行批量扫描  
-[+] 2021/2/25 修改yaml解析模块,支持密码爆破,如tomcat弱口令。yaml中新增sets参数,类型为数组,用于存放密码,具体看tomcat-manager-week.yaml  
+[+] 2022/1/11 新增oracle密码爆破。  
+[+] 2022/1/7  扫ip/8时,默认会扫每个C段的网关和数个随机IP,推荐参数:-h ip/8 -m icmp.新增LiveTop功能,检测存活时,默认会输出top10的B、C段ip存活数量。  
+[+] 2021/12/7 新增rdp扫描,新增添加端口参数-pa 3389(会在原有端口列表基础上,新增该端口)。  
+[+] 2021/12/1 优化xray解析模块,支持groups、新增poc,加入https判断(tls握手包),优化ip解析模块(支持所有ip/xx),增加爆破关闭参数 -nobr,添加跳过某些ip扫描功能 -hn 192.168.1.1,添加跳过某些端口扫描功能-pn 21,445,增加扫描docker未授权漏洞。  
+[+] 2021/6/18 改善一下poc的机制，如果识别出指纹会根据指纹信息发送poc，如果没有识别到指纹才会把所有poc打一遍。  
+[+] 2021/5/29 加入fcgi协议未授权命令执行扫描,优化poc模块,优化icmp模块,ssh模块加入私钥连接。  
+[+] 2021/5/15 新增win03版本(删减了xray_poc模块),增加-silent 静默扫描模式,添加web指纹,修复netbios模块数组越界,添加一个CheckErrs字典,webtitle 增加gzip解码。  
+[+] 2021/5/6 更新mod库、poc、指纹。修改线程处理机制、netbios探测、域控识别模块、webtitle编码模块等。  
+[+] 2021/4/22 修改webtitle模块,加入gbk解码。  
+[+] 2021/4/21 加入netbios探测、域控识别。  
+[+] 2021/3/4 支持-u url或者-uf url.txt,对url进行批量扫描。  
+[+] 2021/2/25 修改yaml解析模块,支持密码爆破,如tomcat弱口令。yaml中新增sets参数,类型为数组,用于存放密码,具体看tomcat-manager-week.yaml。  
 [+] 2021/2/8 增加指纹识别功能,可识别常见CMS、框架,如致远OA、通达OA等。  
-[+] 2021/2/5 修改icmp发包模式,更适合大规模探测。   
-修改报错提示,-debug时,如果10秒内没有新的进展,每隔10秒就会打印一下当前进度    
-[+] 2020/12/12 已加入yaml解析引擎,支持xray的Poc,默认使用所有Poc(已对xray的poc进行了筛选),可以使用-pocname weblogic,只使用某种或某个poc。需要go版本1.16以上,只能自行编译最新版go来进行测试    
-[+] 2020/12/6 优化icmp模块,新增-domain 参数(用于smb爆破模块,适用于域用户)  
+[+] 2021/2/5 修改icmp发包模式,更适合大规模探测。  
+修改报错提示,-debug时,如果10秒内没有新的进展,每隔10秒就会打印一下当前进度。  
+[+] 2020/12/12 已加入yaml解析引擎,支持xray的Poc,默认使用所有Poc(已对xray的poc进行了筛选),可以使用-pocname weblogic,只使用某种或某个poc。需要go版本1.16以上,只能自行编译最新版go来进行测试。  
+[+] 2020/12/6 优化icmp模块,新增-domain 参数(用于smb爆破模块,适用于域用户) 。  
 [+] 2020/12/03 优化ip段处理模块、icmp、端口扫描模块。新增支持192.168.1.1-192.168.255.255。  
-[+] 2020/11/17 增加-ping 参数,作用是存活探测模块用ping代替icmp发包。   
-[+] 2020/11/17 增加WebScan模块,新增shiro简单识别。https访问时,跳过证书认证。将服务模块和web模块的超时分开,增加-wt 参数(WebTimeout)。    
-[+] 2020/11/16 对icmp模块进行优化,增加-it 参数(IcmpThreads),默认11000,适合扫B段  
-[+] 2020/11/15 支持ip以文件导入,-hf ip.txt,并对去重做了处理
+[+] 2020/11/17 增加-ping 参数,作用是存活探测模块用ping代替icmp发包。  
+[+] 2020/11/17 增加WebScan模块,新增shiro简单识别。https访问时,跳过证书认证。将服务模块和web模块的超时分开,增加-wt 参数(WebTimeout)。  
+[+] 2020/11/16 对icmp模块进行优化,增加-it 参数(IcmpThreads),默认11000,适合扫B段 。  
+[+] 2020/11/15 支持ip以文件导入,-hf ip.txt,并对去重做了处理。  
+
+[url-docen]: README_EN.md
