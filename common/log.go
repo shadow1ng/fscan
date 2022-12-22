@@ -30,12 +30,14 @@ func LogSuccess(result string) {
 }
 
 func SaveLog() {
+	Outputfilen := fmt.Sprintf("%d%d%d%d%d%d%s%s",time.Now().Year(),time.Now().Month(),time.Now().Day(),time.Now().Hour(),time.Now().Minute(),time.Now().Second(),"-",Outputfile)
 	for result := range Results {
 		if Silent == false || strings.Contains(*result, "[+]") || strings.Contains(*result, "[*]") {
 			fmt.Println(*result)
 		}
 		if IsSave {
-			WriteFile(*result, Outputfile)
+			WriteFile(*result, Outputfilen)
+			//WriteFile(*result, Outputfile)
 		}
 		LogWG.Done()
 	}
