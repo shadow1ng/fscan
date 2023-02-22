@@ -133,6 +133,10 @@ func NewEnvOption() CustomLib {
 				decls.NewOverload("randomUppercase_int",
 					[]*exprpb.Type{decls.Int},
 					decls.String)),
+			decls.NewFunction("randomString",
+				decls.NewOverload("randomString_int",
+					[]*exprpb.Type{decls.Int},
+					decls.String)),
 			decls.NewFunction("base64",
 				decls.NewOverload("base64_string",
 					[]*exprpb.Type{decls.String},
@@ -276,6 +280,16 @@ func NewEnvOption() CustomLib {
 						return types.ValOrErr(value, "unexpected type '%v' passed to randomUppercase", value.Type())
 					}
 					return types.String(randomUppercase(int(n)))
+				},
+			},
+			&functions.Overload{
+				Operator: "randomString_int",
+				Unary: func(value ref.Val) ref.Val {
+					n, ok := value.(types.Int)
+					if !ok {
+						return types.ValOrErr(value, "unexpected type '%v' passed to randomString", value.Type())
+					}
+					return types.String(randomString(int(n)))
 				},
 			},
 			&functions.Overload{
@@ -537,8 +551,13 @@ func randomLowercase(n int) string {
 }
 
 func randomUppercase(n int) string {
-	lowercase := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	return RandomStr(randSource, lowercase, n)
+	uppercase := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	return RandomStr(randSource, uppercase, n)
+}
+
+func randomString(n int) string {
+	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	return RandomStr(randSource, charset, n)
 }
 
 func reverseCheck(r *Reverse, timeout int64) bool {
