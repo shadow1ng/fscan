@@ -4,53 +4,25 @@ import (
 	"fmt"
 	"github.com/jlaffaye/ftp"
 	"github.com/shadow1ng/fscan/common"
-	"strings"
 	"time"
 )
+
+type FtpConn struct{}
 
 func FtpScan(info *common.HostInfo) (tmperr error) {
 	if common.IsBrute {
 		return
 	}
-	starttime := time.Now().Unix()
-	flag, err := FtpConn(info, "anonymous", "")
-	if flag == true && err == nil {
-		return err
-	} else {
-		errlog := fmt.Sprintf("[-] ftp://%v:%v %v %v", info.Host, info.Ports, "anonymous", err)
-		common.LogError(errlog)
-		tmperr = err
-		if common.CheckErrs(err) {
-			return err
-		}
-	}
-
-	for _, user := range common.Userdict["ftp"] {
-		for _, pass := range common.Passwords {
-			pass = strings.Replace(pass, "{user}", user, -1)
-			flag, err := FtpConn(info, user, pass)
-			if flag == true && err == nil {
-				return err
-			} else {
-				errlog := fmt.Sprintf("[-] ftp://%v:%v %v %v %v", info.Host, info.Ports, user, pass, err)
-				common.LogError(errlog)
-				tmperr = err
-				if common.CheckErrs(err) {
-					return err
-				}
-				if time.Now().Unix()-starttime > (int64(len(common.Userdict["ftp"])*len(common.Passwords)) * common.Timeout) {
-					return err
-				}
-			}
-		}
-	}
-	return tmperr
+	// 这里把单独的未授权访问测试:anonymous 添加到字典内来测试。
+	ftpConn := &FtpConn{}
+	bt := common.InitBruteThread("ftp", info, common.Timeout, ftpConn)
+	return bt.Run()
 }
 
-func FtpConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
+func (f *FtpConn) Attack(info *common.HostInfo, user string, pass string, timeout int64) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
-	conn, err := ftp.DialTimeout(fmt.Sprintf("%v:%v", Host, Port), time.Duration(common.Timeout)*time.Second)
+	conn, err := ftp.DialTimeout(fmt.Sprintf("%v:%v", Host, Port), time.Duration(timeout)*time.Second)
 	if err == nil {
 		err = conn.Login(Username, Password)
 		if err == nil {
