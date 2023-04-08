@@ -52,6 +52,7 @@ func FtpConn(info *common.HostInfo, user string, pass string) (flag bool, err er
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
 	conn, err := ftp.DialTimeout(fmt.Sprintf("%v:%v", Host, Port), time.Duration(common.Timeout)*time.Second)
 	if err == nil {
+		defer conn.Quit()
 		err = conn.Login(Username, Password)
 		if err == nil {
 			flag = true
