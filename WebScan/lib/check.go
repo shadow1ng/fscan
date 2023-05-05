@@ -90,7 +90,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 		}
 		err, _ = evalset(env, variableMap, k, expression)
 		if err != nil {
-			fmt.Printf("[-] %s evalset error: %v", p.Name, err)
+			fmt.Printf("[-] %s evalset error: %v\n", p.Name, err)
 		}
 	}
 	success := false
@@ -251,9 +251,9 @@ func newReverse() *Reverse {
 	urlStr := fmt.Sprintf("http://%s.%s", sub, ceyeDomain)
 	u, _ := url.Parse(urlStr)
 	return &Reverse{
-		Url:                ParseUrl(u),
+		Url:                urlStr,
 		Domain:             u.Hostname(),
-		Ip:                 "",
+		Ip:                 u.Host,
 		IsDomainNameServer: false,
 	}
 }
