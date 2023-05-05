@@ -148,7 +148,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 		variableMap["response"] = resp
 		// 先判断响应页面是否匹配search规则
 		if rule.Search != "" {
-			result := doSearch(strings.TrimSpace(rule.Search), GetHeader(resp.Headers)+string(resp.Body))
+			result := doSearch(rule.Search, GetHeader(resp.Headers)+string(resp.Body))
 			if result != nil && len(result) > 0 { // 正则匹配成功
 				for k, v := range result {
 					variableMap[k] = v
@@ -202,6 +202,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 func doSearch(re string, body string) map[string]string {
 	r, err := regexp.Compile(re)
 	if err != nil {
+		fmt.Println("[-] regexp.Compile error: ", err)
 		return nil
 	}
 	result := r.FindStringSubmatch(body)
@@ -210,12 +211,33 @@ func doSearch(re string, body string) map[string]string {
 		paramsMap := make(map[string]string)
 		for i, name := range names {
 			if i > 0 && i <= len(result) {
-				paramsMap[name] = result[i]
+				if strings.HasPrefix(re, "Set-Cookie:") && strings.Contains(name, "cookie") {
+					paramsMap[name] = optimizeCookies(result[i])
+				} else {
+					paramsMap[name] = result[i]
+				}
 			}
 		}
 		return paramsMap
 	}
 	return nil
+}
+
+func optimizeCookies(rawCookie string) (output string) {
+	// Parse the cookies
+	parsedCookie := strings.Split(rawCookie, "; ")
+	for _, c := range parsedCookie {
+		nameVal := strings.Split(c, "=")
+		if len(nameVal) >= 2 {
+			switch strings.ToLower(nameVal[0]) {
+			case "expires", "max-age", "path", "domain", "version", "comment", "secure", "samesite", "httponly":
+				continue
+			}
+			output += fmt.Sprintf("%s=%s; ", nameVal[0], strings.Join(nameVal[1:], "="))
+		}
+	}
+
+	return
 }
 
 func newReverse() *Reverse {

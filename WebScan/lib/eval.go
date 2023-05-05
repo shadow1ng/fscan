@@ -30,6 +30,9 @@ func NewEnv(c *CustomLib) (*cel.Env, error) {
 }
 
 func Evaluate(env *cel.Env, expression string, params map[string]interface{}) (ref.Val, error) {
+	if expression == "" {
+		return types.Bool(true), nil
+	}
 	ast, iss := env.Compile(expression)
 	if iss.Err() != nil {
 		//fmt.Printf("compile: ", iss.Err())
@@ -105,7 +108,7 @@ func NewEnvOption() CustomLib {
 		cel.Declarations(
 			decls.NewIdent("request", decls.NewObjectType("lib.Request"), nil),
 			decls.NewIdent("response", decls.NewObjectType("lib.Response"), nil),
-			//decls.NewIdent("reverse", decls.NewObjectType("lib.Reverse"), nil),
+			decls.NewIdent("reverse", decls.NewObjectType("lib.Reverse"), nil),
 		),
 		cel.Declarations(
 			// functions
@@ -625,7 +628,7 @@ func DoRequest(req *http.Request, redirect bool) (*Response, error) {
 	resp, err := ParseResponse(oResp)
 	if err != nil {
 		common.LogError("[-]ParseResponse error: " + err.Error())
-		return nil, err
+		//return nil, err
 	}
 	return resp, err
 }
@@ -675,42 +678,20 @@ func ParseResponse(oResp *http.Response) (*Response, error) {
 	resp.Headers = header
 	resp.ContentType = oResp.Header.Get("Content-Type")
 	body, err := getRespBody(oResp)
-	if err != nil {
-		return nil, err
-	}
 	resp.Body = body
-	return &resp, nil
+	return &resp, err
 }
 
-func getRespBody(oResp *http.Response) ([]byte, error) {
-	var body []byte
-	if oResp.Header.Get("Content-Encoding") == "gzip" {
-		gr, err := gzip.NewReader(oResp.Body)
-		if err != nil {
-			if err == io.EOF {
-				err = nil
-			}
-			return nil, err
+func getRespBody(oResp *http.Response) (body []byte, err error) {
+	body, err = io.ReadAll(oResp.Body)
+	if strings.Contains(oResp.Header.Get("Content-Encoding"), "gzip") {
+		reader, err1 := gzip.NewReader(bytes.NewReader(body))
+		if err1 == nil {
+			body, err = io.ReadAll(reader)
 		}
-		defer gr.Close()
-		for {
-			buf := make([]byte, 1024)
-			n, err := gr.Read(buf)
-			if err != nil && err != io.EOF {
-				return nil, err
-			}
-			if n == 0 {
-				break
-			}
-			body = append(body, buf...)
-		}
-	} else {
-		raw, err := ioutil.ReadAll(io.LimitReader(oResp.Body, 10240))
-		if err != nil {
-			return nil, err
-		}
-		defer oResp.Body.Close()
-		body = raw
 	}
-	return body, nil
+	if err == io.EOF {
+		err = nil
+	}
+	return
 }
