@@ -460,7 +460,7 @@ func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Re
 	variableMap["response"] = resp
 	// 先判断响应页面是否匹配search规则
 	if rule.Search != "" {
-		result := doSearch(strings.TrimSpace(rule.Search), GetHeader(resp.Headers)+string(resp.Body))
+		result := doSearch(rule.Search, GetHeader(resp.Headers)+string(resp.Body))
 		if result != nil && len(result) > 0 { // 正则匹配成功
 			for k, v := range result {
 				variableMap[k] = v
