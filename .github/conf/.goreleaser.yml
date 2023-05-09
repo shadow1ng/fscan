@@ -1,5 +1,6 @@
 before:
   hooks:
+    - sudo apt -y install libprotobuf-dev protobuf-compiler protoc-gen-go
     - go mod tidy
     - go generate ./...
 builds:
