@@ -18,7 +18,7 @@ func SmbScan(info *common.HostInfo) (tmperr error) {
 		for _, pass := range common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
 			flag, err := doWithTimeOut(info, user, pass)
-			if flag == true && err == nil {
+			if flag && err == nil {
 				var result string
 				if common.Domain != "" {
 					result = fmt.Sprintf("[+] SMB:%v:%v:%v\\%v %v", info.Host, info.Ports, common.Domain, user, pass)

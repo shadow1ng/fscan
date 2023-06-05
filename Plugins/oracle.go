@@ -18,7 +18,7 @@ func OracleScan(info *common.HostInfo) (tmperr error) {
 		for _, pass := range common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
 			flag, err := OracleConn(info, user, pass)
-			if flag == true && err == nil {
+			if flag && err == nil {
 				return err
 			} else {
 				errlog := fmt.Sprintf("[-] oracle %v:%v %v %v %v", info.Host, info.Ports, user, pass, err)

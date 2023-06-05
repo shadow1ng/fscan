@@ -26,7 +26,7 @@ func SmbScan2(info *common.HostInfo) (tmperr error) {
 			if flag2 {
 				hasprint = true
 			}
-			if flag == true {
+			if flag {
 				var result string
 				if common.Domain != "" {
 					result = fmt.Sprintf("[+] SMB2:%v:%v:%v\\%v ", info.Host, info.Ports, common.Domain, user)
@@ -126,51 +126,5 @@ func Smb2Con(info *common.HostInfo, user string, pass string, hash []byte, haspr
 	defer f.Close()
 	flag = true
 	return
-	//bs, err := ioutil.ReadAll(f)
-	//if err != nil {
-	//	return
-	//}
-	//fmt.Println(string(bs))
-	//return
 
 }
-
-//if info.Path == ""{
-//}
-//path = info.Path
-//f, err := fs.OpenFile(path, os.O_RDONLY, 0666)
-//if err != nil {
-//	return
-//}
-//flag = true
-//_, err = f.Seek(0, io.SeekStart)
-//if err != nil {
-//	return
-//}
-//bs, err := ioutil.ReadAll(f)
-//if err != nil {
-//	return
-//}
-//fmt.Println(string(bs))
-//return
-//f, err := fs.Create(`Users\Public\Videos\hello.txt`)
-//if err != nil {
-//	return
-//}
-//flag = true
-//
-//_, err = f.Write([]byte("Hello world!"))
-//if err != nil {
-//	return
-//}
-//
-//_, err = f.Seek(0, io.SeekStart)
-//if err != nil {
-//	return
-//}
-//bs, err := ioutil.ReadAll(f)
-//if err != nil {
-//	return
-//}
-//fmt.Println(string(bs))
-//return

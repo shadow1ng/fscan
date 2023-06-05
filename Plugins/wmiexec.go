@@ -3,10 +3,11 @@ package Plugins
 import (
 	"errors"
 	"fmt"
-	"github.com/shadow1ng/fscan/common"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/shadow1ng/fscan/common"
 
 	"github.com/C-Sto/goWMIExec/pkg/wmiexec"
 )
@@ -39,7 +40,7 @@ func WmiExec(info *common.HostInfo) (tmperr error) {
 			errlog := fmt.Sprintf("[-] WmiExec  %v:%v %v %v %v", info.Host, 445, user, pass, err)
 			errlog = strings.Replace(errlog, "\n", "", -1)
 			common.LogError(errlog)
-			if flag == true {
+			if flag {
 				var result string
 				if common.Domain != "" {
 					result = fmt.Sprintf("[+] WmiExec:%v:%v:%v\\%v ", info.Host, info.Ports, common.Domain, user)

@@ -1,6 +1,5 @@
 package common
 
-var version = "1.8.2"
 var Userdict = map[string][]string{
 	"ftp":        {"ftp", "admin", "www", "web", "root", "db", "wwwroot", "data"},
 	"mysql":      {"root", "mysql"},
@@ -58,49 +57,6 @@ type PocInfo struct {
 	Target  string
 	PocName string
 }
-
-var (
-	Path        string
-	Scantype    string
-	Command     string
-	SshKey      string
-	Domain      string
-	Username    string
-	Password    string
-	Proxy       string
-	Timeout     int64 = 3
-	WebTimeout  int64 = 5
-	TmpSave     bool
-	NoPing      bool
-	Ping        bool
-	Pocinfo     PocInfo
-	IsWebCan    bool
-	IsBrute     bool
-	RedisFile   string
-	RedisShell  string
-	Userfile    string
-	Passfile    string
-	HostFile    string
-	PortFile    string
-	PocPath     string
-	Threads     int
-	URL         string
-	UrlFile     string
-	Urls        []string
-	NoPorts     string
-	NoHosts     string
-	SC          string
-	PortAdd     string
-	UserAdd     string
-	PassAdd     string
-	BruteThread int
-	LiveTop     int
-	Socks5Proxy string
-	Hash        string
-	HashBytes   []byte
-	HostPort    []string
-	IsWmi       bool
-)
 
 var (
 	UserAgent  = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36"

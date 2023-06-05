@@ -5,12 +5,13 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"github.com/shadow1ng/fscan/common"
 	"io"
-	"io/ioutil"
 	"net"
+	"os"
 	"strings"
 	"time"
+
+	"github.com/shadow1ng/fscan/common"
 )
 
 func MS17010EXP(info *common.HostInfo) {
@@ -34,7 +35,7 @@ func MS17010EXP(info *common.HostInfo) {
 		sc = AesDecrypt(sc_enc, key)
 	default:
 		if strings.Contains(common.SC, "file:") {
-			read, err := ioutil.ReadFile(common.SC[5:])
+			read, err := os.ReadFile(common.SC[5:])
 			if err != nil {
 				errlog := fmt.Sprintf("[-] ms17010 sc readfile %v error: %v", common.SC, err)
 				common.LogError(errlog)

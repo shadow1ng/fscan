@@ -3,12 +3,13 @@ package Plugins
 import (
 	"errors"
 	"fmt"
-	"github.com/shadow1ng/fscan/common"
-	"golang.org/x/crypto/ssh"
-	"io/ioutil"
 	"net"
+	"os"
 	"strings"
 	"time"
+
+	"github.com/shadow1ng/fscan/common"
+	"golang.org/x/crypto/ssh"
 )
 
 func SshScan(info *common.HostInfo) (tmperr error) {
@@ -20,7 +21,7 @@ func SshScan(info *common.HostInfo) (tmperr error) {
 		for _, pass := range common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
 			flag, err := SshConn(info, user, pass)
-			if flag == true && err == nil {
+			if flag && err == nil {
 				return err
 			} else {
 				errlog := fmt.Sprintf("[-] ssh %v:%v %v %v %v", info.Host, info.Ports, user, pass, err)
@@ -44,9 +45,9 @@ func SshScan(info *common.HostInfo) (tmperr error) {
 func SshConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
-	Auth := []ssh.AuthMethod{}
+	var Auth []ssh.AuthMethod
 	if common.SshKey != "" {
-		pemBytes, err := ioutil.ReadFile(common.SshKey)
+		pemBytes, err := os.ReadFile(common.SshKey)
 		if err != nil {
 			return false, errors.New("read key failed" + err.Error())
 		}

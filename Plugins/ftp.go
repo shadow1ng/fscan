@@ -14,7 +14,7 @@ func FtpScan(info *common.HostInfo) (tmperr error) {
 	}
 	starttime := time.Now().Unix()
 	flag, err := FtpConn(info, "anonymous", "")
-	if flag == true && err == nil {
+	if flag && err == nil {
 		return err
 	} else {
 		errlog := fmt.Sprintf("[-] ftp://%v:%v %v %v", info.Host, info.Ports, "anonymous", err)
@@ -29,7 +29,7 @@ func FtpScan(info *common.HostInfo) (tmperr error) {
 		for _, pass := range common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
 			flag, err := FtpConn(info, user, pass)
-			if flag == true && err == nil {
+			if flag && err == nil {
 				return err
 			} else {
 				errlog := fmt.Sprintf("[-] ftp://%v:%v %v %v %v", info.Host, info.Ports, user, pass, err)
@@ -50,7 +50,7 @@ func FtpScan(info *common.HostInfo) (tmperr error) {
 func FtpConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
-	conn, err := ftp.DialTimeout(fmt.Sprintf("%v:%v", Host, Port), time.Duration(common.Timeout)*time.Second)
+	conn, err := ftp.Dial(fmt.Sprintf("%v:%v", Host, Port), ftp.DialWithTimeout(time.Duration(common.Timeout)*time.Second))
 	if err == nil {
 		err = conn.Login(Username, Password)
 		if err == nil {

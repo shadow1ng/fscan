@@ -3,14 +3,15 @@ package Plugins
 import (
 	"bytes"
 	"fmt"
-	"github.com/shadow1ng/fscan/common"
-	"golang.org/x/net/icmp"
 	"net"
 	"os/exec"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/shadow1ng/fscan/common"
+	"golang.org/x/net/icmp"
 )
 
 var (
@@ -26,8 +27,8 @@ func CheckLive(hostslist []string, Ping bool) []string {
 		for ip := range chanHosts {
 			if _, ok := ExistHosts[ip]; !ok && IsContain(hostslist, ip) {
 				ExistHosts[ip] = struct{}{}
-				if common.Silent == false {
-					if Ping == false {
+				if !common.Silent {
+					if !Ping {
 						fmt.Printf("(icmp) Target %-15s is alive\n", ip)
 					} else {
 						fmt.Printf("(ping) Target %-15s is alive\n", ip)
@@ -39,17 +40,17 @@ func CheckLive(hostslist []string, Ping bool) []string {
 		}
 	}()
 
-	if Ping == true {
-		//使用ping探测
+	if Ping {
+		// use ping detection
 		RunPing(hostslist, chanHosts)
 	} else {
-		//优先尝试监听本地icmp,批量探测
+		// try to listen to local icmp first, batch detection
 		conn, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
 		if err == nil {
 			RunIcmp1(hostslist, conn, chanHosts)
 		} else {
 			common.LogError(err)
-			//尝试无监听icmp探测
+			// Try no listening icmp probe
 			fmt.Println("trying RunIcmp2")
 			conn, err := net.DialTimeout("ip4:icmp", "127.0.0.1", 3*time.Second)
 			defer func() {
@@ -61,7 +62,7 @@ func CheckLive(hostslist []string, Ping bool) []string {
 				RunIcmp2(hostslist, chanHosts)
 			} else {
 				common.LogError(err)
-				//使用ping探测
+				// use ping detection
 				fmt.Println("The current user permissions unable to send icmp packets")
 				fmt.Println("start ping")
 				RunPing(hostslist, chanHosts)
@@ -94,7 +95,7 @@ func RunIcmp1(hostslist []string, conn *icmp.PacketConn, chanHosts chan string) 
 	endflag := false
 	go func() {
 		for {
-			if endflag == true {
+			if endflag {
 				return
 			}
 			msg := make([]byte, 100)
@@ -117,7 +118,7 @@ func RunIcmp1(hostslist []string, conn *icmp.PacketConn, chanHosts chan string) 
 		if len(AliveHosts) == len(hostslist) {
 			break
 		}
-		since := time.Now().Sub(start)
+		since := time.Since(start)
 		var wait time.Duration
 		switch {
 		case len(hostslist) <= 256:
@@ -297,7 +298,7 @@ func ArrayCountValueTop(arrInit []string, length int, flag bool) (arrTop []strin
 	}
 
 	i := 0
-	for _ = range arrMap1 {
+	for range arrMap1 {
 		var maxCountKey string
 		var maxCountVal = 0
 		for key, val := range arrMap2 {

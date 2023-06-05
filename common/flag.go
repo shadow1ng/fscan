@@ -2,39 +2,52 @@ package common
 
 import (
 	"flag"
-	"runtime"
-	"runtime/debug"
-	"time"
 )
 
-func init() {
-	go func() {
-		for {
-			GC()
-			time.Sleep(10 * time.Second)
-		}
-	}()
-}
-
-func GC() {
-	runtime.GC()
-	debug.FreeOSMemory()
-}
-
-func Banner() {
-	banner := `
-   ___                              _    
-  / _ \     ___  ___ _ __ __ _  ___| | __ 
- / /_\/____/ __|/ __| '__/ _` + "`" + ` |/ __| |/ /
-/ /_\\_____\__ \ (__| | | (_| | (__|   <    
-\____/     |___/\___|_|  \__,_|\___|_|\_\   
-                     fscan version: ` + version + `
-`
-	print(banner)
-}
+var (
+	Path        string
+	Scantype    string
+	Command     string
+	SshKey      string
+	Domain      string
+	Username    string
+	Password    string
+	Proxy       string
+	Timeout     int64 = 3
+	WebTimeout  int64 = 5
+	TmpSave     bool
+	NoPing      bool
+	Ping        bool
+	Pocinfo     PocInfo
+	IsWebCan    bool
+	IsBrute     bool
+	RedisFile   string
+	RedisShell  string
+	Userfile    string
+	Passfile    string
+	HostFile    string
+	PortFile    string
+	PocPath     string
+	Threads     int
+	URL         string
+	UrlFile     string
+	Urls        []string
+	NoPorts     string
+	NoHosts     string
+	SC          string
+	PortAdd     string
+	UserAdd     string
+	PassAdd     string
+	BruteThread int
+	LiveTop     int
+	Socks5Proxy string
+	Hash        string
+	HashBytes   []byte
+	HostPort    []string
+	IsWmi       bool
+)
 
 func Flag(Info *HostInfo) {
-	Banner()
 	flag.StringVar(&Info.Host, "h", "", "IP address of the host you want to scan,for example: 192.168.11.11 | 192.168.11.11-255 | 192.168.11.11,192.168.11.12")
 	flag.StringVar(&NoHosts, "hn", "", "the hosts no scan,as: -hn 192.168.1.1/24")
 	flag.StringVar(&Info.Ports, "p", DefaultPorts, "Select a port,for example: 22 | 1-65535 | 22,80,3306")

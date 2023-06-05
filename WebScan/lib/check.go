@@ -132,7 +132,6 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 
 		newRequest, err := http.NewRequest(rule.Method, fmt.Sprintf("%s://%s%s", req.Url.Scheme, req.Url.Host, string([]rune(req.Url.Path))), strings.NewReader(rule.Body))
 		if err != nil {
-			//fmt.Println("[-] newRequest error: ",err)
 			return false, err
 		}
 		newRequest.Header = oReq.Header.Clone()
@@ -149,7 +148,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 		// 先判断响应页面是否匹配search规则
 		if rule.Search != "" {
 			result := doSearch(rule.Search, GetHeader(resp.Headers)+string(resp.Body))
-			if result != nil && len(result) > 0 { // 正则匹配成功
+			if len(result) > 0 { // 正则匹配成功
 				for k, v := range result {
 					variableMap[k] = v
 				}
@@ -161,7 +160,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 		if err != nil {
 			return false, err
 		}
-		//fmt.Println(fmt.Sprintf("%v, %s", out, out.Type().TypeName()))
+
 		//如果false不继续执行后续rule
 		// 如果最后一步执行失败，就算前面成功了最终依旧是失败
 		flag, ok = out.Value().(bool)
@@ -445,7 +444,6 @@ func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Re
 	//
 	newRequest, err := http.NewRequest(rule.Method, fmt.Sprintf("%s://%s%s", req.Url.Scheme, req.Url.Host, req.Url.Path), strings.NewReader(rule.Body))
 	if err != nil {
-		//fmt.Println("[-] newRequest error:",err)
 		return false, err
 	}
 	newRequest.Header = oReq.Header.Clone()
@@ -477,7 +475,7 @@ func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Re
 		}
 		return false, err
 	}
-	//fmt.Println(fmt.Sprintf("%v, %s", out, out.Type().TypeName()))
+
 	if fmt.Sprintf("%v", out) == "false" { //如果false不继续执行后续rule
 		return false, err // 如果最后一步执行失败，就算前面成功了最终依旧是失败
 	}

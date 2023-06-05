@@ -2,11 +2,12 @@ package Plugins
 
 import (
 	"fmt"
-	"github.com/shadow1ng/fscan/common"
 	"sort"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/shadow1ng/fscan/common"
 )
 
 type Addr struct {
@@ -29,7 +30,7 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 		}
 
 		var newDatas []int
-		for port, _ := range temp {
+		for port := range temp {
 			newDatas = append(newDatas, port)
 		}
 		probePorts = newDatas
@@ -40,7 +41,7 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 	results := make(chan string, len(hostslist)*len(probePorts))
 	var wg sync.WaitGroup
 
-	//接收结果
+	// receive result
 	go func() {
 		for found := range results {
 			AliveAddress = append(AliveAddress, found)
@@ -48,7 +49,7 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 		}
 	}()
 
-	//多线程扫描
+	// multithreaded scan
 	for i := 0; i < workers; i++ {
 		go func() {
 			for addr := range Addrs {
@@ -58,16 +59,19 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 		}()
 	}
 
-	//添加扫描目标
+	// add scan target
 	for _, port := range probePorts {
 		for _, host := range hostslist {
 			wg.Add(1)
 			Addrs <- Addr{host, port}
 		}
 	}
+
 	wg.Wait()
+
 	close(Addrs)
 	close(results)
+
 	return AliveAddress
 }
 
@@ -102,12 +106,13 @@ func NoPortScan(hostslist []string, ports string) (AliveAddress []string) {
 		}
 
 		var newDatas []int
-		for port, _ := range temp {
+		for port := range temp {
 			newDatas = append(newDatas, port)
 		}
 		probePorts = newDatas
 		sort.Ints(probePorts)
 	}
+
 	for _, port := range probePorts {
 		for _, host := range hostslist {
 			address := host + ":" + strconv.Itoa(port)
