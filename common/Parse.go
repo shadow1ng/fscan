@@ -11,24 +11,28 @@ import (
 	"strings"
 )
 
-func Parse(Info *HostInfo) {
-	ParseUser()
-	ParsePass(Info)
-	ParseInput(Info)
-	ParseScantype(Info)
+func Parse(inputConfig *InConfig) {
+	ParseUser(&inputConfig.Flags)
+	ParsePass(&inputConfig.HostInfo, &inputConfig.Flags)
+	ParseInput(&inputConfig.HostInfo, &inputConfig.Flags)
+	ParseScantype(&inputConfig.HostInfo, &inputConfig.Flags)
+
+	Outputfile = inputConfig.LogConfig.Outputfile
+	IsSave = !inputConfig.LogConfig.TmpSave
+	Cookie = inputConfig.Cookie
 }
 
-func ParseUser() {
-	if Username == "" && Userfile == "" {
+func ParseUser(flags *Flags) {
+	if flags.Username == "" && flags.Userfile == "" {
 		return
 	}
 	var Usernames []string
-	if Username != "" {
-		Usernames = strings.Split(Username, ",")
+	if flags.Username != "" {
+		Usernames = strings.Split(flags.Username, ",")
 	}
 
-	if Userfile != "" {
-		users, err := Readfile(Userfile)
+	if flags.Userfile != "" {
+		users, err := Readfile(flags.Userfile)
 		if err == nil {
 			for _, user := range users {
 				if user != "" {
@@ -44,10 +48,10 @@ func ParseUser() {
 	}
 }
 
-func ParsePass(Info *HostInfo) {
+func ParsePass(Info *HostInfo, flags *Flags) {
 	var PwdList []string
-	if Password != "" {
-		passs := strings.Split(Password, ",")
+	if flags.Password != "" {
+		passs := strings.Split(flags.Password, ",")
 		for _, pass := range passs {
 			if pass != "" {
 				PwdList = append(PwdList, pass)
@@ -55,8 +59,8 @@ func ParsePass(Info *HostInfo) {
 		}
 		Passwords = PwdList
 	}
-	if Passfile != "" {
-		passs, err := Readfile(Passfile)
+	if flags.Passfile != "" {
+		passs, err := Readfile(flags.Passfile)
 		if err == nil {
 			for _, pass := range passs {
 				if pass != "" {
@@ -66,34 +70,35 @@ func ParsePass(Info *HostInfo) {
 			Passwords = PwdList
 		}
 	}
-	if URL != "" {
-		urls := strings.Split(URL, ",")
+
+	if flags.URL != "" {
+		urls := strings.Split(flags.URL, ",")
 		TmpUrls := make(map[string]struct{})
 		for _, url := range urls {
 			if _, ok := TmpUrls[url]; !ok {
 				TmpUrls[url] = struct{}{}
 				if url != "" {
-					Urls = append(Urls, url)
+					flags.Urls = append(flags.Urls, url)
 				}
 			}
 		}
 	}
-	if UrlFile != "" {
-		urls, err := Readfile(UrlFile)
+	if flags.UrlFile != "" {
+		urls, err := Readfile(flags.UrlFile)
 		if err == nil {
 			TmpUrls := make(map[string]struct{})
 			for _, url := range urls {
 				if _, ok := TmpUrls[url]; !ok {
 					TmpUrls[url] = struct{}{}
 					if url != "" {
-						Urls = append(Urls, url)
+						flags.Urls = append(flags.Urls, url)
 					}
 				}
 			}
 		}
 	}
-	if PortFile != "" {
-		ports, err := Readfile(PortFile)
+	if flags.PortFile != "" {
+		ports, err := Readfile(flags.PortFile)
 		if err == nil {
 			newport := ""
 			for _, port := range ports {
@@ -125,88 +130,84 @@ func Readfile(filename string) ([]string, error) {
 	return content, nil
 }
 
-func ParseInput(Info *HostInfo) {
-	if Info.Host == "" && HostFile == "" && URL == "" && UrlFile == "" {
+func ParseInput(Info *HostInfo, flags *Flags) {
+	if Info.Host == "" && flags.HostFile == "" && flags.URL == "" && flags.UrlFile == "" {
 		fmt.Println("Host is none")
 		flag.Usage()
 		os.Exit(0)
 	}
 
-	if BruteThread <= 0 {
-		BruteThread = 1
-	}
-
-	if TmpSave == true {
-		IsSave = false
+	if flags.BruteThread <= 0 {
+		flags.BruteThread = 1
 	}
 
 	if Info.Ports == DefaultPorts {
 		Info.Ports += "," + Webport
 	}
 
-	if PortAdd != "" {
+	if flags.PortAdd != "" {
 		if strings.HasSuffix(Info.Ports, ",") {
-			Info.Ports += PortAdd
+			Info.Ports += flags.PortAdd
 		} else {
-			Info.Ports += "," + PortAdd
+			Info.Ports += "," + flags.PortAdd
 		}
 	}
 
-	if UserAdd != "" {
-		user := strings.Split(UserAdd, ",")
+	if flags.UserAdd != "" {
+		user := strings.Split(flags.UserAdd, ",")
 		for a := range Userdict {
 			Userdict[a] = append(Userdict[a], user...)
 			Userdict[a] = RemoveDuplicate(Userdict[a])
 		}
 	}
 
-	if PassAdd != "" {
-		pass := strings.Split(PassAdd, ",")
+	if flags.PassAdd != "" {
+		pass := strings.Split(flags.PassAdd, ",")
 		Passwords = append(Passwords, pass...)
 		Passwords = RemoveDuplicate(Passwords)
 	}
-	if Socks5Proxy != "" && !strings.HasPrefix(Socks5Proxy, "socks5://") {
-		if !strings.Contains(Socks5Proxy, ":") {
-			Socks5Proxy = "socks5://127.0.0.1" + Socks5Proxy
+	if flags.Socks5Proxy != "" && !strings.HasPrefix(flags.Socks5Proxy, "socks5://") {
+		if !strings.Contains(flags.Socks5Proxy, ":") {
+			flags.Socks5Proxy = "socks5://127.0.0.1" + flags.Socks5Proxy
 		} else {
-			Socks5Proxy = "socks5://" + Socks5Proxy
+			flags.Socks5Proxy = "socks5://" + flags.Socks5Proxy
 		}
 	}
-	if Socks5Proxy != "" {
-		fmt.Println("Socks5Proxy:", Socks5Proxy)
-		_, err := url.Parse(Socks5Proxy)
+	if flags.Socks5Proxy != "" {
+		fmt.Println("Socks5Proxy:", flags.Socks5Proxy)
+		_, err := url.Parse(flags.Socks5Proxy)
 		if err != nil {
 			fmt.Println("Socks5Proxy parse error:", err)
 			os.Exit(0)
 		}
-		NoPing = true
+		flags.NoPing = true
 	}
-	if Proxy != "" {
-		if Proxy == "1" {
-			Proxy = "http://127.0.0.1:8080"
-		} else if Proxy == "2" {
-			Proxy = "socks5://127.0.0.1:1080"
-		} else if !strings.Contains(Proxy, "://") {
-			Proxy = "http://127.0.0.1:" + Proxy
+	if flags.Proxy != "" {
+		if flags.Proxy == "1" {
+			flags.Proxy = "http://127.0.0.1:8080"
+		} else if flags.Proxy == "2" {
+			flags.Proxy = "socks5://127.0.0.1:1080"
+		} else if !strings.Contains(flags.Proxy, "://") {
+			flags.Proxy = "http://127.0.0.1:" + flags.Proxy
 		}
-		fmt.Println("Proxy:", Proxy)
-		if !strings.HasPrefix(Proxy, "socks") && !strings.HasPrefix(Proxy, "http") {
+		fmt.Println("Proxy:", flags.Proxy)
+		if !strings.HasPrefix(flags.Proxy, "socks") && !strings.HasPrefix(flags.Proxy, "http") {
 			fmt.Println("no support this proxy")
 			os.Exit(0)
 		}
-		_, err := url.Parse(Proxy)
+		_, err := url.Parse(flags.Proxy)
 		if err != nil {
 			fmt.Println("Proxy parse error:", err)
 			os.Exit(0)
 		}
 	}
 
-	if Hash != "" && len(Hash) != 32 {
+	if flags.Hash != "" && len(flags.Hash) != 32 {
 		fmt.Println("[-] Hash is error,len(hash) must be 32")
 		os.Exit(0)
 	} else {
 		var err error
-		HashBytes, err = hex.DecodeString(Hash)
+		flags.HashBytes, err = hex.DecodeString(flags.Hash)
 		if err != nil {
 			fmt.Println("[-] Hash is error,hex decode error")
 			os.Exit(0)
@@ -214,13 +215,13 @@ func ParseInput(Info *HostInfo) {
 	}
 }
 
-func ParseScantype(Info *HostInfo) {
-	_, ok := PORTList[Scantype]
+func ParseScantype(Info *HostInfo, flags *Flags) {
+	_, ok := PORTList[flags.Scantype]
 	if !ok {
 		showmode()
 	}
-	if Scantype != "all" && Info.Ports == DefaultPorts+","+Webport {
-		switch Scantype {
+	if flags.Scantype != "all" && Info.Ports == DefaultPorts+","+Webport {
+		switch flags.Scantype {
 		case "wmiexec":
 			Info.Ports = "135"
 		case "wmiinfo":
@@ -244,10 +245,10 @@ func ParseScantype(Info *HostInfo) {
 		case "main":
 			Info.Ports = DefaultPorts
 		default:
-			port, _ := PORTList[Scantype]
+			port, _ := PORTList[flags.Scantype]
 			Info.Ports = strconv.Itoa(port)
 		}
-		fmt.Println("-m ", Scantype, " start scan the port:", Info.Ports)
+		fmt.Println("-m ", flags.Scantype, " start scan the port:", Info.Ports)
 	}
 }
 

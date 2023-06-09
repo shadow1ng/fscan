@@ -21,14 +21,14 @@ var (
 	livewg     sync.WaitGroup
 )
 
-func CheckLive(hostslist []string, Ping bool) []string {
+func CheckLive(hostslist []string, ping bool, liveTop int) []string {
 	chanHosts := make(chan string, len(hostslist))
 	go func() {
 		for ip := range chanHosts {
 			if _, ok := ExistHosts[ip]; !ok && IsContain(hostslist, ip) {
 				ExistHosts[ip] = struct{}{}
 				if !common.Silent {
-					if !Ping {
+					if !ping {
 						fmt.Printf("(icmp) Target %-15s is alive\n", ip)
 					} else {
 						fmt.Printf("(ping) Target %-15s is alive\n", ip)
@@ -40,7 +40,7 @@ func CheckLive(hostslist []string, Ping bool) []string {
 		}
 	}()
 
-	if Ping {
+	if ping {
 		// use ping detection
 		RunPing(hostslist, chanHosts)
 	} else {
@@ -74,14 +74,14 @@ func CheckLive(hostslist []string, Ping bool) []string {
 	close(chanHosts)
 
 	if len(hostslist) > 1000 {
-		arrTop, arrLen := ArrayCountValueTop(AliveHosts, common.LiveTop, true)
+		arrTop, arrLen := ArrayCountValueTop(AliveHosts, liveTop, true)
 		for i := 0; i < len(arrTop); i++ {
 			output := fmt.Sprintf("[*] LiveTop %-16s 段存活数量为: %d", arrTop[i]+".0.0/16", arrLen[i])
 			common.LogSuccess(output)
 		}
 	}
 	if len(hostslist) > 256 {
-		arrTop, arrLen := ArrayCountValueTop(AliveHosts, common.LiveTop, false)
+		arrTop, arrLen := ArrayCountValueTop(AliveHosts, liveTop, false)
 		for i := 0; i < len(arrTop); i++ {
 			output := fmt.Sprintf("[*] LiveTop %-16s 段存活数量为: %d", arrTop[i]+".0/24", arrLen[i])
 			common.LogSuccess(output)

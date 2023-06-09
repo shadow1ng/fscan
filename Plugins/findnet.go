@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/shadow1ng/fscan/common"
 	"strings"
 	"time"
+
+	"github.com/shadow1ng/fscan/common"
 )
 
 var (
@@ -15,14 +16,14 @@ var (
 	bufferV3, _ = hex.DecodeString("0900ffff0000")
 )
 
-func Findnet(info *common.HostInfo) error {
-	err := FindnetScan(info)
+func Findnet(info common.HostInfo, flags common.Flags) error {
+	err := FindnetScan(info, flags)
 	return err
 }
 
-func FindnetScan(info *common.HostInfo) error {
+func FindnetScan(info common.HostInfo, flags common.Flags) error {
 	realhost := fmt.Sprintf("%s:%v", info.Host, 135)
-	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.Timeout)*time.Second)
+	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, common.Socks5{Address: flags.Socks5Proxy}, time.Duration(flags.Timeout)*time.Second)
 	defer func() {
 		if conn != nil {
 			conn.Close()
@@ -31,7 +32,7 @@ func FindnetScan(info *common.HostInfo) error {
 	if err != nil {
 		return err
 	}
-	err = conn.SetDeadline(time.Now().Add(time.Duration(common.Timeout) * time.Second))
+	err = conn.SetDeadline(time.Now().Add(time.Duration(flags.Timeout) * time.Second))
 	if err != nil {
 		return err
 	}

@@ -3,9 +3,6 @@ package lib
 import (
 	"crypto/md5"
 	"fmt"
-	"github.com/google/cel-go/cel"
-	"github.com/shadow1ng/fscan/WebScan/info"
-	"github.com/shadow1ng/fscan/common"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -13,6 +10,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/cel-go/cel"
+	"github.com/shadow1ng/fscan/WebScan/info"
+	"github.com/shadow1ng/fscan/common"
 )
 
 var (
@@ -25,13 +26,13 @@ type Task struct {
 	Poc *Poc
 }
 
-func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int) {
+func CheckMultiPoc(req *http.Request, pocs []*Poc, flags common.Flags) {
 	tasks := make(chan Task)
 	var wg sync.WaitGroup
-	for i := 0; i < workers; i++ {
+	for i := 0; i < flags.PocNum; i++ {
 		go func() {
 			for task := range tasks {
-				isVul, _, name := executePoc(task.Req, task.Poc)
+				isVul, _, name := executePoc(task.Req, task.Poc, flags)
 				if isVul {
 					result := fmt.Sprintf("[+] %s %s %s", task.Req.URL, task.Poc.Name, name)
 					common.LogSuccess(result)
@@ -52,7 +53,7 @@ func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int) {
 	close(tasks)
 }
 
-func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
+func executePoc(oReq *http.Request, p *Poc, flags common.Flags) (bool, error, string) {
 	c := NewEnvOption()
 	c.UpdateCompileOptions(p.Set)
 	if len(p.Sets) > 0 {
@@ -82,7 +83,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 	for _, item := range p.Set {
 		k, expression := item.Key, item.Value
 		if expression == "newReverse()" {
-			if !common.DnsLog {
+			if !flags.DnsLog {
 				return false, nil, ""
 			}
 			variableMap[k] = newReverse()
@@ -96,7 +97,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 	success := false
 	//爆破模式,比如tomcat弱口令
 	if len(p.Sets) > 0 {
-		success, err = clusterpoc(oReq, p, variableMap, req, env)
+		success, err = clusterpoc(oReq, p, flags.PocFull, variableMap, req, env)
 		return success, nil, ""
 	}
 
@@ -257,7 +258,7 @@ func newReverse() *Reverse {
 	}
 }
 
-func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, req *Request, env *cel.Env) (success bool, err error) {
+func clusterpoc(oReq *http.Request, p *Poc, pocFull bool, variableMap map[string]interface{}, req *Request, env *cel.Env) (success bool, err error) {
 	var strMap StrMap
 	var tmpnum int
 	for i, rule := range p.Rules {
@@ -276,8 +277,8 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 		ruleHash := make(map[string]struct{})
 	look:
 		for j, item := range setsMap {
-			//shiro默认只跑10key
-			if p.Name == "poc-yaml-shiro-key" && !common.PocFull && j >= 10 {
+			//shiro only runs by default 10key
+			if p.Name == "poc-yaml-shiro-key" && !pocFull && j >= 10 {
 				if item[1] == "cbc" {
 					continue
 				} else {

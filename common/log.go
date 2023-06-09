@@ -17,6 +17,7 @@ var LogErrTime int64
 var WaitTime int64
 var Silent bool
 var LogWG sync.WaitGroup
+var Outputfile string
 
 func init() {
 	LogSucTime = time.Now().Unix()
@@ -57,9 +58,9 @@ func WriteFile(result string, filename string) {
 
 func LogError(errinfo interface{}) {
 	if WaitTime == 0 {
-		fmt.Printf("已完成 %v/%v %v \n", End, Num, errinfo)
+		fmt.Printf("completed %v/%v %v \n", End, Num, errinfo)
 	} else if (time.Now().Unix()-LogSucTime) > WaitTime && (time.Now().Unix()-LogErrTime) > WaitTime {
-		fmt.Printf("已完成 %v/%v %v \n", End, Num, errinfo)
+		fmt.Printf("completed %v/%v %v \n", End, Num, errinfo)
 		LogErrTime = time.Now().Unix()
 	}
 }

@@ -3,21 +3,22 @@ package Plugins
 import (
 	"database/sql"
 	"fmt"
-	_ "github.com/denisenkom/go-mssqldb"
-	"github.com/shadow1ng/fscan/common"
 	"strings"
 	"time"
+
+	_ "github.com/denisenkom/go-mssqldb"
+	"github.com/shadow1ng/fscan/common"
 )
 
-func MssqlScan(info *common.HostInfo) (tmperr error) {
-	if common.IsBrute {
+func MssqlScan(info common.HostInfo, flags common.Flags) (tmperr error) {
+	if flags.IsBrute {
 		return
 	}
 	starttime := time.Now().Unix()
 	for _, user := range common.Userdict["mssql"] {
 		for _, pass := range common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
-			flag, err := MssqlConn(info, user, pass)
+			flag, err := MssqlConn(info, user, pass, flags.Timeout)
 			if flag && err == nil {
 				return err
 			} else {
@@ -27,7 +28,7 @@ func MssqlScan(info *common.HostInfo) (tmperr error) {
 				if common.CheckErrs(err) {
 					return err
 				}
-				if time.Now().Unix()-starttime > (int64(len(common.Userdict["mssql"])*len(common.Passwords)) * common.Timeout) {
+				if time.Now().Unix()-starttime > (int64(len(common.Userdict["mssql"])*len(common.Passwords)) * flags.Timeout) {
 					return err
 				}
 			}
@@ -36,14 +37,14 @@ func MssqlScan(info *common.HostInfo) (tmperr error) {
 	return tmperr
 }
 
-func MssqlConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
+func MssqlConn(info common.HostInfo, user string, pass string, timeout int64) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
-	dataSourceName := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%v;encrypt=disable;timeout=%v", Host, Username, Password, Port, time.Duration(common.Timeout)*time.Second)
+	dataSourceName := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%v;encrypt=disable;timeout=%v", Host, Username, Password, Port, time.Duration(timeout)*time.Second)
 	db, err := sql.Open("mssql", dataSourceName)
 	if err == nil {
-		db.SetConnMaxLifetime(time.Duration(common.Timeout) * time.Second)
-		db.SetConnMaxIdleTime(time.Duration(common.Timeout) * time.Second)
+		db.SetConnMaxLifetime(time.Duration(timeout) * time.Second)
+		db.SetConnMaxIdleTime(time.Duration(timeout) * time.Second)
 		db.SetMaxIdleConns(0)
 		defer db.Close()
 		err = db.Ping()

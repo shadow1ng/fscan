@@ -6,9 +6,6 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"github.com/shadow1ng/fscan/common"
-	"golang.org/x/net/proxy"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
 	"net"
@@ -16,6 +13,10 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/shadow1ng/fscan/common"
+	"golang.org/x/net/proxy"
+	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -25,15 +26,15 @@ var (
 	keepAlive        = 5 * time.Second
 )
 
-func Inithttp(PocInfo common.PocInfo) {
+func Inithttp(flags common.Flags) {
 	//PocInfo.Proxy = "http://127.0.0.1:8080"
-	err := InitHttpClient(common.PocNum, common.Proxy, time.Duration(common.WebTimeout)*time.Second)
+	err := InitHttpClient(flags.PocNum, flags.Proxy, common.Socks5{Address: flags.Socks5Proxy}, time.Duration(flags.WebTimeout)*time.Second)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func InitHttpClient(ThreadsNum int, DownProxy string, Timeout time.Duration) error {
+func InitHttpClient(ThreadsNum int, DownProxy string, socks5Proxy common.Socks5, Timeout time.Duration) error {
 	type DialContext = func(ctx context.Context, network, addr string) (net.Conn, error)
 	dialer := &net.Dialer{
 		Timeout:   dialTimout,
@@ -51,8 +52,8 @@ func InitHttpClient(ThreadsNum int, DownProxy string, Timeout time.Duration) err
 		DisableKeepAlives:   false,
 	}
 
-	if common.Socks5Proxy != "" {
-		dialSocksProxy, err := common.Socks5Dailer(dialer)
+	if socks5Proxy.Address != "" {
+		dialSocksProxy, err := common.Socks5Dailer(dialer, socks5Proxy)
 		if err != nil {
 			return err
 		}

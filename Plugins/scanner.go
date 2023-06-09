@@ -11,46 +11,46 @@ import (
 	"github.com/shadow1ng/fscan/common"
 )
 
-func Scan(info common.HostInfo) {
+func Scan(info common.HostInfo, flags common.Flags) {
 	fmt.Println("start infoscan")
-	Hosts, err := common.ParseIP(info.Host, common.HostFile, common.NoHosts)
+	Hosts, err := common.ParseIP(&info.HostPort, info.Host, flags.HostFile, flags.NoHosts)
 	if err != nil {
 		fmt.Println("len(hosts)==0", err)
 		return
 	}
-	lib.Inithttp(common.Pocinfo)
-	var ch = make(chan struct{}, common.Threads)
+	lib.Inithttp(flags)
+	var ch = make(chan struct{}, flags.Threads)
 	var wg = sync.WaitGroup{}
 	web := strconv.Itoa(common.PORTList["web"])
 	ms17010 := strconv.Itoa(common.PORTList["ms17010"])
-	if len(Hosts) > 0 || len(common.HostPort) > 0 {
-		if !common.NoPing && len(Hosts) > 0 {
-			Hosts = CheckLive(Hosts, common.Ping)
+	if len(Hosts) > 0 || len(info.HostPort) > 0 {
+		if !flags.NoPing && len(Hosts) > 0 {
+			Hosts = CheckLive(Hosts, flags.Ping, flags.LiveTop)
 			fmt.Println("[*] Icmp alive hosts len is:", len(Hosts))
 		}
-		if common.Scantype == "icmp" {
+		if flags.Scantype == "icmp" {
 			common.LogWG.Wait()
 			return
 		}
 
 		var AlivePorts []string
-		if common.Scantype == "webonly" || common.Scantype == "webpoc" {
-			AlivePorts = NoPortScan(Hosts, info.Ports)
-		} else if common.Scantype == "hostname" {
+		if flags.Scantype == "webonly" || flags.Scantype == "webpoc" {
+			AlivePorts = NoPortScan(Hosts, info.Ports, flags)
+		} else if flags.Scantype == "hostname" {
 			info.Ports = "139"
-			AlivePorts = NoPortScan(Hosts, info.Ports)
+			AlivePorts = NoPortScan(Hosts, info.Ports, flags)
 		} else if len(Hosts) > 0 {
-			AlivePorts = PortScan(Hosts, info.Ports, common.Timeout)
+			AlivePorts = PortScan(Hosts, info.Ports, flags)
 			fmt.Println("[*] alive ports len is:", len(AlivePorts))
-			if common.Scantype == "portscan" {
+			if flags.Scantype == "portscan" {
 				common.LogWG.Wait()
 				return
 			}
 		}
-		if len(common.HostPort) > 0 {
-			AlivePorts = append(AlivePorts, common.HostPort...)
+		if len(info.HostPort) > 0 {
+			AlivePorts = append(AlivePorts, info.HostPort...)
 			AlivePorts = common.RemoveDuplicate(AlivePorts)
-			common.HostPort = nil
+			info.HostPort = nil
 			fmt.Println("[*] AlivePorts len is:", len(AlivePorts))
 		}
 
@@ -61,35 +61,35 @@ func Scan(info common.HostInfo) {
 		fmt.Println("start vulscan")
 		for _, targetIP := range AlivePorts {
 			info.Host, info.Ports = strings.Split(targetIP, ":")[0], strings.Split(targetIP, ":")[1]
-			if common.Scantype == "all" || common.Scantype == "main" {
+			if flags.Scantype == "all" || flags.Scantype == "main" {
 				switch {
 				case info.Ports == "135":
-					AddScan(info.Ports, info, &ch, &wg) //findnet
-					if common.IsWmi {
-						AddScan("1000005", info, &ch, &wg) //wmiexec
+					AddScan(info.Ports, info, flags, &ch, &wg) //findnet
+					if flags.IsWmi {
+						AddScan("1000005", info, flags, &ch, &wg) //wmiexec
 					}
 				case info.Ports == "445":
-					AddScan(ms17010, info, &ch, &wg) //ms17010
+					AddScan(ms17010, info, flags, &ch, &wg) //ms17010
 					//AddScan(info.Ports, info, ch, &wg)  //smb
 					//AddScan("1000002", info, ch, &wg) //smbghost
 				case info.Ports == "9000":
-					AddScan(web, info, &ch, &wg)        //http
-					AddScan(info.Ports, info, &ch, &wg) //fcgiscan
+					AddScan(web, info, flags, &ch, &wg)        //http
+					AddScan(info.Ports, info, flags, &ch, &wg) //fcgiscan
 				case IsContain(severports, info.Ports):
-					AddScan(info.Ports, info, &ch, &wg) //plugins scan
+					AddScan(info.Ports, info, flags, &ch, &wg) //plugins scan
 				default:
-					AddScan(web, info, &ch, &wg) //webtitle
+					AddScan(web, info, flags, &ch, &wg) //webtitle
 				}
 			} else {
-				scantype := strconv.Itoa(common.PORTList[common.Scantype])
-				AddScan(scantype, info, &ch, &wg)
+				scantype := strconv.Itoa(common.PORTList[flags.Scantype])
+				AddScan(scantype, info, flags, &ch, &wg)
 			}
 		}
 	}
 
-	for _, url := range common.Urls {
+	for _, url := range flags.Urls {
 		info.Url = url
-		AddScan(web, info, &ch, &wg)
+		AddScan(web, info, flags, &ch, &wg)
 	}
 
 	wg.Wait()
@@ -101,14 +101,14 @@ func Scan(info common.HostInfo) {
 
 var Mutex = &sync.Mutex{}
 
-func AddScan(scantype string, info common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup) {
+func AddScan(scantype string, info common.HostInfo, flags common.Flags, ch *chan struct{}, wg *sync.WaitGroup) {
 	*ch <- struct{}{}
 	wg.Add(1)
 	go func() {
 		Mutex.Lock()
 		common.Num += 1
 		Mutex.Unlock()
-		ScanFunc(&scantype, &info)
+		ScanFunc(scantype, info, flags)
 		Mutex.Lock()
 		common.End += 1
 		Mutex.Unlock()
@@ -117,9 +117,9 @@ func AddScan(scantype string, info common.HostInfo, ch *chan struct{}, wg *sync.
 	}()
 }
 
-func ScanFunc(name *string, info *common.HostInfo) {
-	f := reflect.ValueOf(PluginList[*name])
-	in := []reflect.Value{reflect.ValueOf(info)}
+func ScanFunc(name string, info common.HostInfo, flags common.Flags) {
+	f := reflect.ValueOf(PluginList[name])
+	in := []reflect.Value{reflect.ValueOf(info), reflect.ValueOf(flags)}
 	f.Call(in)
 }
 

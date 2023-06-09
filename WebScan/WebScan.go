@@ -3,13 +3,14 @@ package WebScan
 import (
 	"embed"
 	"fmt"
-	"github.com/shadow1ng/fscan/WebScan/lib"
-	"github.com/shadow1ng/fscan/common"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/shadow1ng/fscan/WebScan/lib"
+	"github.com/shadow1ng/fscan/common"
 )
 
 //go:embed pocs
@@ -17,23 +18,23 @@ var Pocs embed.FS
 var once sync.Once
 var AllPocs []*lib.Poc
 
-func WebScan(info *common.HostInfo) {
-	once.Do(initpoc)
-	var pocinfo = common.Pocinfo
+func WebScan(info common.HostInfo, flags common.Flags) {
+	once.Do(func() { initpoc(flags.PocPath) })
+	var pocinfo = flags.Pocinfo
 	buf := strings.Split(info.Url, "/")
 	pocinfo.Target = strings.Join(buf[:3], "/")
 
 	if pocinfo.PocName != "" {
-		Execute(pocinfo)
+		Execute(pocinfo, flags)
 	} else {
 		for _, infostr := range info.Infostr {
 			pocinfo.PocName = lib.CheckInfoPoc(infostr)
-			Execute(pocinfo)
+			Execute(pocinfo, flags)
 		}
 	}
 }
 
-func Execute(PocInfo common.PocInfo) {
+func Execute(PocInfo common.PocInfo, flags common.Flags) {
 	req, err := http.NewRequest("GET", PocInfo.Target, nil)
 	if err != nil {
 		errlog := fmt.Sprintf("[-] webpocinit %v %v", PocInfo.Target, err)
@@ -48,11 +49,11 @@ func Execute(PocInfo common.PocInfo) {
 	}
 	req.Header.Set("Connection", "close")
 	pocs := filterPoc(PocInfo.PocName)
-	lib.CheckMultiPoc(req, pocs, common.PocNum)
+	lib.CheckMultiPoc(req, pocs, flags)
 }
 
-func initpoc() {
-	if common.PocPath == "" {
+func initpoc(pocPath string) {
+	if pocPath == "" {
 		entries, err := Pocs.ReadDir("pocs")
 		if err != nil {
 			fmt.Printf("[-] init poc error: %v", err)
@@ -67,7 +68,7 @@ func initpoc() {
 			}
 		}
 	} else {
-		err := filepath.Walk(common.PocPath,
+		err := filepath.Walk(pocPath,
 			func(path string, info os.FileInfo, err error) error {
 				if err != nil || info == nil {
 					return err
