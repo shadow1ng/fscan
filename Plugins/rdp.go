@@ -52,12 +52,8 @@ func RdpScan(info *common.HostInfo) (tmperr error) {
 	}
 
 	close(brlist)
-	go func() {
-		wg.Wait()
-		signal = true
-	}()
-	for !signal {
-	}
+
+	wg.Wait()
 
 	return tmperr
 }
