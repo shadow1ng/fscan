@@ -3,6 +3,7 @@ package Plugins
 import (
 	"bytes"
 	"fmt"
+	"github.com/fatih/color"
 	"github.com/shadow1ng/fscan/common"
 	"golang.org/x/net/icmp"
 	"net"
@@ -26,11 +27,11 @@ func CheckLive(hostslist []string, Ping bool) []string {
 		for ip := range chanHosts {
 			if _, ok := ExistHosts[ip]; !ok && IsContain(hostslist, ip) {
 				ExistHosts[ip] = struct{}{}
-				if common.Silent == false {
-					if Ping == false {
-						fmt.Printf("(icmp) Target %-15s is alive\n", ip)
+				if !common.Silent {
+					if !Ping {
+						color.Green("(icmp) Target %-15s is alive\n", ip)
 					} else {
-						fmt.Printf("(ping) Target %-15s is alive\n", ip)
+						color.Green("(ping) Target %-15s is alive\n", ip)
 					}
 				}
 				AliveHosts = append(AliveHosts, ip)

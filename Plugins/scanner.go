@@ -2,6 +2,7 @@ package Plugins
 
 import (
 	"fmt"
+	"github.com/fatih/color"
 	"github.com/shadow1ng/fscan/WebScan/lib"
 	"github.com/shadow1ng/fscan/common"
 	"reflect"
@@ -25,7 +26,7 @@ func Scan(info common.HostInfo) {
 	if len(Hosts) > 0 || len(common.HostPort) > 0 {
 		if common.NoPing == false && len(Hosts) > 0 {
 			Hosts = CheckLive(Hosts, common.Ping)
-			fmt.Println("[*] Icmp alive hosts len is:", len(Hosts))
+			color.Cyan("[*] Icmp alive hosts len is: %d", len(Hosts))
 		}
 		if common.Scantype == "icmp" {
 			common.LogWG.Wait()
@@ -40,7 +41,7 @@ func Scan(info common.HostInfo) {
 			AlivePorts = NoPortScan(Hosts, info.Ports)
 		} else if len(Hosts) > 0 {
 			AlivePorts = PortScan(Hosts, info.Ports, common.Timeout)
-			fmt.Println("[*] alive ports len is:", len(AlivePorts))
+			color.Cyan("[*] alive ports len is: %d", len(AlivePorts))
 			if common.Scantype == "portscan" {
 				common.LogWG.Wait()
 				return
@@ -50,7 +51,7 @@ func Scan(info common.HostInfo) {
 			AlivePorts = append(AlivePorts, common.HostPort...)
 			AlivePorts = common.RemoveDuplicate(AlivePorts)
 			common.HostPort = nil
-			fmt.Println("[*] AlivePorts len is:", len(AlivePorts))
+			color.Cyan("[*] AlivePorts len is:", len(AlivePorts))
 		}
 		common.GC()
 		var severports []string //severports := []string{"21","22","135"."445","1433","3306","5432","6379","9200","11211","27017"...}

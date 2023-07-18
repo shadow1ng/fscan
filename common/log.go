@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"github.com/fatih/color"
 	"os"
 	"strings"
 	"sync"
@@ -31,12 +32,18 @@ func LogSuccess(result string) {
 
 func SaveLog() {
 	for result := range Results {
-		if Silent == false || strings.Contains(*result, "[+]") || strings.Contains(*result, "[*]") {
-			fmt.Println(*result)
+		if !Silent {
+			if strings.Contains(*result, "[+]") {
+				color.Green(*result)
+			} else if strings.Contains(*result, "[*]") {
+				color.Cyan(*result)
+			}
 		}
+
 		if IsSave {
 			WriteFile(*result, Outputfile)
 		}
+
 		LogWG.Done()
 	}
 }
@@ -48,19 +55,23 @@ func WriteFile(result string, filename string) {
 		fmt.Printf("Open %s error, %v\n", filename, err)
 		return
 	}
-	_, err = fl.Write(text)
-	fl.Close()
-	if err != nil {
+
+	defer func() {
+		_ = fl.Close()
+	}()
+
+	if _, err := fl.Write(text); err != nil {
 		fmt.Printf("Write %s error, %v\n", filename, err)
 	}
 }
 
 func LogError(errinfo interface{}) {
-	if WaitTime == 0 {
-		fmt.Printf("已完成 %v/%v %v \n", End, Num, errinfo)
-	} else if (time.Now().Unix()-LogSucTime) > WaitTime && (time.Now().Unix()-LogErrTime) > WaitTime {
-		fmt.Printf("已完成 %v/%v %v \n", End, Num, errinfo)
-		LogErrTime = time.Now().Unix()
+	if WaitTime == 0 || (time.Now().Unix()-LogSucTime) > WaitTime && (time.Now().Unix()-LogErrTime) > WaitTime {
+		color.Red(fmt.Sprintf("Completed %v/%v %v \n", End, Num, errinfo))
+
+		if WaitTime != 0 {
+			LogErrTime = time.Now().Unix()
+		}
 	}
 }
 
