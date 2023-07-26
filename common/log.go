@@ -2,11 +2,12 @@ package common
 
 import (
 	"fmt"
-	"github.com/fatih/color"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/fatih/color"
 )
 
 var Num int64
@@ -18,6 +19,7 @@ var LogErrTime int64
 var WaitTime int64
 var Silent bool
 var LogWG sync.WaitGroup
+var Outputfile string
 
 func init() {
 	LogSucTime = time.Now().Unix()

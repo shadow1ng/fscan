@@ -2,21 +2,22 @@ package Plugins
 
 import (
 	"fmt"
-	"github.com/shadow1ng/fscan/common"
 	"strings"
 	"time"
+
+	"github.com/shadow1ng/fscan/common"
 )
 
-func MemcachedScan(info *common.HostInfo) (err error) {
+func MemcachedScan(info common.HostInfo, flags common.Flags) (err error) {
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
-	client, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.Timeout)*time.Second)
+	client, err := common.WrapperTcpWithTimeout("tcp", realhost, common.Socks5{Address: flags.Socks5Proxy}, time.Duration(flags.Timeout)*time.Second)
 	defer func() {
 		if client != nil {
 			client.Close()
 		}
 	}()
 	if err == nil {
-		err = client.SetDeadline(time.Now().Add(time.Duration(common.Timeout) * time.Second))
+		err = client.SetDeadline(time.Now().Add(time.Duration(flags.Timeout) * time.Second))
 		if err == nil {
 			_, err = client.Write([]byte("stats\n")) //Set the key randomly to prevent the key on the server from being overwritten
 			if err == nil {

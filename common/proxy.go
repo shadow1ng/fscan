@@ -2,43 +2,47 @@ package common
 
 import (
 	"errors"
-	"golang.org/x/net/proxy"
 	"net"
 	"net/url"
 	"strings"
 	"time"
+
+	"golang.org/x/net/proxy"
 )
 
-func WrapperTcpWithTimeout(network, address string, timeout time.Duration) (net.Conn, error) {
-	d := &net.Dialer{Timeout: timeout}
-	return WrapperTCP(network, address, d)
+type Socks5 struct {
+	Address string
 }
 
-func WrapperTCP(network, address string,forward * net.Dialer) (net.Conn, error) {
+func WrapperTcpWithTimeout(network, address string, socks5Proxy Socks5, timeout time.Duration) (net.Conn, error) {
+	d := &net.Dialer{Timeout: timeout}
+	return WrapperTCP(network, address, socks5Proxy, d)
+}
+
+func WrapperTCP(network, address string, socks5Proxy Socks5, forward *net.Dialer) (net.Conn, error) {
 	//get conn
 	var conn net.Conn
-	if Socks5Proxy == "" {
+	if socks5Proxy.Address == "" {
 		var err error
-		conn,err = forward.Dial(network, address)
+		conn, err = forward.Dial(network, address)
 		if err != nil {
 			return nil, err
 		}
-	}else {
-		dailer, err := Socks5Dailer(forward)
-		if err != nil{
+	} else {
+		dailer, err := Socks5Dailer(forward, socks5Proxy)
+		if err != nil {
 			return nil, err
 		}
-		conn,err = dailer.Dial(network, address)
+		conn, err = dailer.Dial(network, address)
 		if err != nil {
 			return nil, err
 		}
 	}
 	return conn, nil
-
 }
 
-func Socks5Dailer(forward * net.Dialer) (proxy.Dialer, error) {
-	u,err := url.Parse(Socks5Proxy)
+func Socks5Dailer(forward *net.Dialer, socks5Proxy Socks5) (proxy.Dialer, error) {
+	u, err := url.Parse(socks5Proxy.Address)
 	if err != nil {
 		return nil, err
 	}
@@ -51,10 +55,10 @@ func Socks5Dailer(forward * net.Dialer) (proxy.Dialer, error) {
 	if u.User.String() != "" {
 		auth = proxy.Auth{}
 		auth.User = u.User.Username()
-		password,_ := u.User.Password()
+		password, _ := u.User.Password()
 		auth.Password = password
 		dailer, err = proxy.SOCKS5("tcp", address, &auth, forward)
-	}else {
+	} else {
 		dailer, err = proxy.SOCKS5("tcp", address, nil, forward)
 	}
 

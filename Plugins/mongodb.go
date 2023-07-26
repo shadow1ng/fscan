@@ -2,16 +2,17 @@ package Plugins
 
 import (
 	"fmt"
-	"github.com/shadow1ng/fscan/common"
 	"strings"
 	"time"
+
+	"github.com/shadow1ng/fscan/common"
 )
 
-func MongodbScan(info *common.HostInfo) error {
-	if common.IsBrute {
+func MongodbScan(info common.HostInfo, flags common.Flags) error {
+	if flags.IsBrute {
 		return nil
 	}
-	_, err := MongodbUnauth(info)
+	_, err := MongodbUnauth(info, flags)
 	if err != nil {
 		errlog := fmt.Sprintf("[-] Mongodb %v:%v %v", info.Host, info.Ports, err)
 		common.LogError(errlog)
@@ -19,7 +20,7 @@ func MongodbScan(info *common.HostInfo) error {
 	return err
 }
 
-func MongodbUnauth(info *common.HostInfo) (flag bool, err error) {
+func MongodbUnauth(info common.HostInfo, flags common.Flags) (flag bool, err error) {
 	flag = false
 	// op_msg
 	packet1 := []byte{
@@ -48,7 +49,7 @@ func MongodbUnauth(info *common.HostInfo) (flag bool, err error) {
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 
 	checkUnAuth := func(address string, packet []byte) (string, error) {
-		conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.Timeout)*time.Second)
+		conn, err := common.WrapperTcpWithTimeout("tcp", realhost, common.Socks5{Address: flags.Socks5Proxy}, time.Duration(flags.Timeout)*time.Second)
 		if err != nil {
 			return "", err
 		}
@@ -57,7 +58,7 @@ func MongodbUnauth(info *common.HostInfo) (flag bool, err error) {
 				conn.Close()
 			}
 		}()
-		err = conn.SetReadDeadline(time.Now().Add(time.Duration(common.Timeout) * time.Second))
+		err = conn.SetReadDeadline(time.Now().Add(time.Duration(flags.Timeout) * time.Second))
 		if err != nil {
 			return "", err
 		}

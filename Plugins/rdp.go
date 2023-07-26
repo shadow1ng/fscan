@@ -3,6 +3,13 @@ package Plugins
 import (
 	"errors"
 	"fmt"
+	"log"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/shadow1ng/fscan/common"
 	"github.com/tomatome/grdp/core"
 	"github.com/tomatome/grdp/glog"
@@ -13,12 +20,6 @@ import (
 	"github.com/tomatome/grdp/protocol/t125"
 	"github.com/tomatome/grdp/protocol/tpkt"
 	"github.com/tomatome/grdp/protocol/x224"
-	"log"
-	"os"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
 )
 
 type Brutelist struct {
@@ -26,11 +27,13 @@ type Brutelist struct {
 	pass string
 }
 
-func RdpScan(info *common.HostInfo) (tmperr error) {
-	if common.IsBrute {
+var sock5Proxy common.Socks5 = common.Socks5{Address: ""}
+
+func RdpScan(info common.HostInfo, flags common.Flags) (tmperr error) {
+	if flags.IsBrute {
 		return
 	}
-
+	sock5Proxy = common.Socks5{Address: flags.Socks5Proxy}
 	var wg sync.WaitGroup
 	var signal bool
 	var num = 0
@@ -46,9 +49,9 @@ func RdpScan(info *common.HostInfo) (tmperr error) {
 		}
 	}
 
-	for i := 0; i < common.BruteThread; i++ {
+	for i := 0; i < flags.BruteThread; i++ {
 		wg.Add(1)
-		go worker(info.Host, common.Domain, port, &wg, brlist, &signal, &num, all, &mutex, common.Timeout)
+		go worker(info.Host, flags.Domain, port, &wg, brlist, &signal, &num, all, &mutex, flags.Timeout)
 	}
 
 	close(brlist)
@@ -107,13 +110,14 @@ func RdpConn(ip, domain, user, password string, port int, timeout int64) (bool, 
 }
 
 type Client struct {
-	Host string // ip:port
-	tpkt *tpkt.TPKT
-	x224 *x224.X224
-	mcs  *t125.MCSClient
-	sec  *sec.Client
-	pdu  *pdu.Client
-	vnc  *rfb.RFB
+	Host  string // ip:port
+	proxy common.Socks5
+	tpkt  *tpkt.TPKT
+	x224  *x224.X224
+	mcs   *t125.MCSClient
+	sec   *sec.Client
+	pdu   *pdu.Client
+	vnc   *rfb.RFB
 }
 
 func NewClient(host string, logLevel glog.LEVEL) *Client {
@@ -125,8 +129,12 @@ func NewClient(host string, logLevel glog.LEVEL) *Client {
 	}
 }
 
+func (g *Client) setProxy(proxy common.Socks5) {
+	g.proxy = proxy
+}
+
 func (g *Client) Login(domain, user, pwd string, timeout int64) error {
-	conn, err := common.WrapperTcpWithTimeout("tcp", g.Host, time.Duration(timeout)*time.Second)
+	conn, err := common.WrapperTcpWithTimeout("tcp", g.Host, sock5Proxy, time.Duration(timeout)*time.Second)
 	defer func() {
 		if conn != nil {
 			conn.Close()
@@ -187,7 +195,7 @@ func (g *Client) Login(domain, user, pwd string, timeout int64) error {
 		glog.Info("on update:", rectangles)
 	})
 	g.pdu.On("done", func() {
-		if breakFlag == false {
+		if !breakFlag {
 			breakFlag = true
 			wg.Done()
 		}

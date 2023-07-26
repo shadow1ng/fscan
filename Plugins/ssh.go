@@ -3,24 +3,25 @@ package Plugins
 import (
 	"errors"
 	"fmt"
-	"github.com/shadow1ng/fscan/common"
-	"golang.org/x/crypto/ssh"
-	"io/ioutil"
 	"net"
+	"os"
 	"strings"
 	"time"
+
+	"github.com/shadow1ng/fscan/common"
+	"golang.org/x/crypto/ssh"
 )
 
-func SshScan(info *common.HostInfo) (tmperr error) {
-	if common.IsBrute {
+func SshScan(info common.HostInfo, flags common.Flags) (tmperr error) {
+	if flags.IsBrute {
 		return
 	}
 	starttime := time.Now().Unix()
 	for _, user := range common.Userdict["ssh"] {
 		for _, pass := range common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
-			flag, err := SshConn(info, user, pass)
-			if flag == true && err == nil {
+			flag, err := SshConn(info, flags, user, pass)
+			if flag && err == nil {
 				return err
 			} else {
 				errlog := fmt.Sprintf("[-] ssh %v:%v %v %v %v", info.Host, info.Ports, user, pass, err)
@@ -29,11 +30,11 @@ func SshScan(info *common.HostInfo) (tmperr error) {
 				if common.CheckErrs(err) {
 					return err
 				}
-				if time.Now().Unix()-starttime > (int64(len(common.Userdict["ssh"])*len(common.Passwords)) * common.Timeout) {
+				if time.Now().Unix()-starttime > (int64(len(common.Userdict["ssh"])*len(common.Passwords)) * flags.Timeout) {
 					return err
 				}
 			}
-			if common.SshKey != "" {
+			if flags.SshKey != "" {
 				return err
 			}
 		}
@@ -41,12 +42,12 @@ func SshScan(info *common.HostInfo) (tmperr error) {
 	return tmperr
 }
 
-func SshConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
+func SshConn(info common.HostInfo, flags common.Flags, user string, pass string) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
-	Auth := []ssh.AuthMethod{}
-	if common.SshKey != "" {
-		pemBytes, err := ioutil.ReadFile(common.SshKey)
+	var Auth []ssh.AuthMethod
+	if flags.SshKey != "" {
+		pemBytes, err := os.ReadFile(flags.SshKey)
 		if err != nil {
 			return false, errors.New("read key failed" + err.Error())
 		}
@@ -62,7 +63,7 @@ func SshConn(info *common.HostInfo, user string, pass string) (flag bool, err er
 	config := &ssh.ClientConfig{
 		User:    Username,
 		Auth:    Auth,
-		Timeout: time.Duration(common.Timeout) * time.Second,
+		Timeout: time.Duration(flags.Timeout) * time.Second,
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			return nil
 		},
@@ -76,16 +77,16 @@ func SshConn(info *common.HostInfo, user string, pass string) (flag bool, err er
 			defer session.Close()
 			flag = true
 			var result string
-			if common.Command != "" {
-				combo, _ := session.CombinedOutput(common.Command)
+			if flags.Command != "" {
+				combo, _ := session.CombinedOutput(flags.Command)
 				result = fmt.Sprintf("[+] SSH:%v:%v:%v %v \n %v", Host, Port, Username, Password, string(combo))
-				if common.SshKey != "" {
+				if flags.SshKey != "" {
 					result = fmt.Sprintf("[+] SSH:%v:%v sshkey correct \n %v", Host, Port, string(combo))
 				}
 				common.LogSuccess(result)
 			} else {
 				result = fmt.Sprintf("[+] SSH:%v:%v:%v %v", Host, Port, Username, Password)
-				if common.SshKey != "" {
+				if flags.SshKey != "" {
 					result = fmt.Sprintf("[+] SSH:%v:%v sshkey correct", Host, Port)
 				}
 				common.LogSuccess(result)

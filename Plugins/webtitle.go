@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -19,23 +18,23 @@ import (
 	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
-func WebTitle(info *common.HostInfo) error {
-	if common.Scantype == "webpoc" {
-		WebScan.WebScan(info)
+func WebTitle(info common.HostInfo, flags common.Flags) error {
+	if flags.Scantype == "webpoc" {
+		WebScan.WebScan(info, flags)
 		return nil
 	}
-	err, CheckData := GOWebTitle(info)
+	err, CheckData := GOWebTitle(info, flags)
 	info.Infostr = WebScan.InfoCheck(info.Url, &CheckData)
 
-	if common.IsWebCan == false && err == nil {
-		WebScan.WebScan(info)
+	if flags.IsWebCan && err == nil {
+		WebScan.WebScan(info, flags)
 	} else {
 		errlog := fmt.Sprintf("[-] webtitle %v %v", info.Url, err)
 		common.LogError(errlog)
 	}
 	return err
 }
-func GOWebTitle(info *common.HostInfo) (err error, CheckData []WebScan.CheckDatas) {
+func GOWebTitle(info common.HostInfo, flags common.Flags) (err error, CheckData []WebScan.CheckDatas) {
 	if info.Url == "" {
 		switch info.Ports {
 		case "80":
@@ -44,26 +43,26 @@ func GOWebTitle(info *common.HostInfo) (err error, CheckData []WebScan.CheckData
 			info.Url = fmt.Sprintf("https://%s", info.Host)
 		default:
 			host := fmt.Sprintf("%s:%s", info.Host, info.Ports)
-			protocol := GetProtocol(host, common.Timeout)
+			protocol := GetProtocol(host, common.Socks5{Address: flags.Socks5Proxy}, flags.Timeout)
 			info.Url = fmt.Sprintf("%s://%s:%s", protocol, info.Host, info.Ports)
 		}
 	} else {
 		if !strings.Contains(info.Url, "://") {
 			host := strings.Split(info.Url, "/")[0]
-			protocol := GetProtocol(host, common.Timeout)
+			protocol := GetProtocol(host, common.Socks5{Address: flags.Socks5Proxy}, flags.Timeout)
 			info.Url = fmt.Sprintf("%s://%s", protocol, info.Url)
 		}
 	}
 
-	err, result, CheckData := geturl(info, 1, CheckData)
+	err, result, CheckData := geturl(info, flags, 1, CheckData)
 	if err != nil && !strings.Contains(err.Error(), "EOF") {
 		return
 	}
 
-	//有跳转
+	// there is a jump
 	if strings.Contains(result, "://") {
 		info.Url = result
-		err, result, CheckData = geturl(info, 3, CheckData)
+		err, result, CheckData = geturl(info, flags, 3, CheckData)
 		if err != nil {
 			return
 		}
@@ -71,25 +70,24 @@ func GOWebTitle(info *common.HostInfo) (err error, CheckData []WebScan.CheckData
 
 	if result == "https" && !strings.HasPrefix(info.Url, "https://") {
 		info.Url = strings.Replace(info.Url, "http://", "https://", 1)
-		err, result, CheckData = geturl(info, 1, CheckData)
-		//有跳转
+		err, result, CheckData = geturl(info, flags, 1, CheckData)
+		// there is a jump
 		if strings.Contains(result, "://") {
 			info.Url = result
-			err, result, CheckData = geturl(info, 3, CheckData)
+			err, _, CheckData = geturl(info, flags, 3, CheckData)
 			if err != nil {
 				return
 			}
 		}
 	}
-	//是否访问图标
-	//err, _, CheckData = geturl(info, 2, CheckData)
+
 	if err != nil {
 		return
 	}
 	return
 }
 
-func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (error, string, []WebScan.CheckDatas) {
+func geturl(info common.HostInfo, flags common.Flags, flag int, CheckData []WebScan.CheckDatas) (error, string, []WebScan.CheckDatas) {
 	//flag 1 first try
 	//flag 2 /favicon.ico
 	//flag 3 302
@@ -114,11 +112,7 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 	if common.Cookie != "" {
 		req.Header.Set("Cookie", common.Cookie)
 	}
-	//if common.Pocinfo.Cookie != "" {
-	//	req.Header.Set("Cookie", "rememberMe=1;"+common.Pocinfo.Cookie)
-	//} else {
-	//	req.Header.Set("Cookie", "rememberMe=1")
-	//}
+
 	req.Header.Set("Connection", "close")
 	var client *http.Client
 	if flag == 1 {
@@ -155,7 +149,7 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 		}
 		result := fmt.Sprintf("[*] WebTitle: %-25v code:%-3v len:%-6v title:%v", resp.Request.URL, resp.StatusCode, length, title)
 		if reurl != "" {
-			result += fmt.Sprintf(" 跳转url: %s", reurl)
+			result += fmt.Sprintf(" jump url: %s", reurl)
 		}
 		common.LogSuccess(result)
 	}
@@ -188,7 +182,7 @@ func getRespBody(oResp *http.Response) ([]byte, error) {
 			body = append(body, buf...)
 		}
 	} else {
-		raw, err := ioutil.ReadAll(oResp.Body)
+		raw, err := io.ReadAll(oResp.Body)
 		if err != nil {
 			return nil, err
 		}
@@ -216,17 +210,16 @@ func gettitle(body []byte) (title string) {
 	return
 }
 
-func GetProtocol(host string, Timeout int64) (protocol string) {
-	protocol = "http"
-	//如果端口是80或443,跳过Protocol判断
+func GetProtocol(host string, proxy common.Socks5, Timeout int64) (protocol string) {
 	if strings.HasSuffix(host, ":80") || !strings.Contains(host, ":") {
-		return
-	} else if strings.HasSuffix(host, ":443") {
-		protocol = "https"
-		return
+		return "http"
 	}
 
-	socksconn, err := common.WrapperTcpWithTimeout("tcp", host, time.Duration(Timeout)*time.Second)
+	if strings.HasSuffix(host, ":443") {
+		return "https"
+	}
+
+	socksconn, err := common.WrapperTcpWithTimeout("tcp", host, proxy, time.Duration(Timeout)*time.Second)
 	if err != nil {
 		return
 	}

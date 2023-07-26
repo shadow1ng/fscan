@@ -23,11 +23,11 @@ var ParseIPErr = errors.New(" host parsing error\n" +
 	"192.168.1.1-192.168.255.255\n" +
 	"192.168.1.1-255")
 
-func ParseIP(host string, filename string, nohosts ...string) (hosts []string, err error) {
+func ParseIP(hostPort *[]string, host string, filename string, nohosts ...string) (hosts []string, err error) {
 	hosts = ParseIPs(host)
 	if filename != "" {
 		var filehost []string
-		filehost, _ = Readipfile(filename)
+		filehost, _ = readipfile(hostPort, filename)
 		hosts = append(hosts, filehost...)
 	}
 
@@ -55,7 +55,7 @@ func ParseIP(host string, filename string, nohosts ...string) (hosts []string, e
 		}
 	}
 	hosts = RemoveDuplicate(hosts)
-	if len(hosts) == 0 && len(HostPort) == 0 && host != "" && filename != "" {
+	if len(hosts) == 0 && len(*hostPort) == 0 && host != "" && filename != "" {
 		err = ParseIPErr
 	}
 	return
@@ -115,7 +115,8 @@ func parseIP2(host string) (hosts []string) {
 }
 
 // 解析ip段: 192.168.111.1-255
-//          192.168.111.1-192.168.112.255
+//
+//	192.168.111.1-192.168.112.255
 func parseIP1(ip string) []string {
 	IPRange := strings.Split(ip, "-")
 	testIP := net.ParseIP(IPRange[0])
@@ -175,19 +176,22 @@ func IPRange(c *net.IPNet) string {
 }
 
 // 按行读ip
-func Readipfile(filename string) ([]string, error) {
+func readipfile(hostPort *[]string, filename string) ([]string, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		fmt.Printf("Open %s error, %v", filename, err)
 		os.Exit(0)
 	}
 	defer file.Close()
-	var content []string
+
 	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanLines)
+
+	var content []string
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" {
+			var hosts []string
 			text := strings.Split(line, ":")
 			if len(text) == 2 {
 				port := strings.Split(text[1], " ")[0]
@@ -195,14 +199,14 @@ func Readipfile(filename string) ([]string, error) {
 				if err != nil || (num < 1 || num > 65535) {
 					continue
 				}
-				hosts := ParseIPs(text[0])
+				hosts = ParseIPs(text[0])
 				for _, host := range hosts {
-					HostPort = append(HostPort, fmt.Sprintf("%s:%s", host, port))
+					*hostPort = append(*hostPort, fmt.Sprintf("%s:%s", host, port))
 				}
 			} else {
-				host := ParseIPs(line)
-				content = append(content, host...)
+				hosts = ParseIPs(line)
 			}
+			content = append(content, hosts...)
 		}
 	}
 	return content, nil
