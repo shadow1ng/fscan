@@ -19,7 +19,7 @@ func NetBIOS(info common.HostInfo, flags common.Flags) error {
 	netbios, _ := NetBIOS1(info, flags)
 	output := netbios.String()
 	if len(output) > 0 {
-		result := fmt.Sprintf("[*] NetBios: %-15s %s ", info.Host, output)
+		result := fmt.Sprintf("[*] NetBios: %-15s %s", info.Host, output)
 		common.LogSuccess(result)
 		return nil
 	}
@@ -238,7 +238,7 @@ func (info NetBiosInfo) String() (output string) {
 	}
 	if text == "" {
 	} else if info.DomainControllers != "" {
-		output = fmt.Sprintf("[+]DC %-24s", text)
+		output = fmt.Sprintf("[+] DC:%-24s", text)
 	} else {
 		output = fmt.Sprintf("%-30s", text)
 	}

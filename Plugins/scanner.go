@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/fatih/color"
 	"github.com/shadow1ng/fscan/WebScan/lib"
 	"github.com/shadow1ng/fscan/common"
 )
@@ -24,9 +25,9 @@ func Scan(info common.HostInfo, flags common.Flags) {
 	web := strconv.Itoa(common.PORTList["web"])
 	ms17010 := strconv.Itoa(common.PORTList["ms17010"])
 	if len(Hosts) > 0 || len(info.HostPort) > 0 {
-		if !flags.NoPing && len(Hosts) > 0 {
+		if flags.NoPing == false && len(Hosts) > 0 {
 			Hosts = CheckLive(Hosts, flags.Ping, flags.LiveTop)
-			fmt.Println("[*] Icmp alive hosts len is:", len(Hosts))
+			color.Cyan("[*] Icmp alive hosts len is: %d", len(Hosts))
 		}
 		if flags.Scantype == "icmp" {
 			common.LogWG.Wait()
@@ -41,7 +42,7 @@ func Scan(info common.HostInfo, flags common.Flags) {
 			AlivePorts = NoPortScan(Hosts, info.Ports, flags)
 		} else if len(Hosts) > 0 {
 			AlivePorts = PortScan(Hosts, info.Ports, flags)
-			fmt.Println("[*] alive ports len is:", len(AlivePorts))
+			color.Cyan("[*] alive ports len is: %d", len(AlivePorts))
 			if flags.Scantype == "portscan" {
 				common.LogWG.Wait()
 				return
@@ -51,7 +52,7 @@ func Scan(info common.HostInfo, flags common.Flags) {
 			AlivePorts = append(AlivePorts, info.HostPort...)
 			AlivePorts = common.RemoveDuplicate(AlivePorts)
 			info.HostPort = nil
-			fmt.Println("[*] AlivePorts len is:", len(AlivePorts))
+			color.Cyan("[*] AlivePorts len is:", len(AlivePorts))
 		}
 
 		var severports []string //severports := []string{"21","22","135"."445","1433","3306","5432","6379","9200","11211","27017"...}

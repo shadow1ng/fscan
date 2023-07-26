@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/shadow1ng/fscan/common"
 	"golang.org/x/net/icmp"
 )
@@ -29,9 +30,9 @@ func CheckLive(hostslist []string, ping bool, liveTop int) []string {
 				ExistHosts[ip] = struct{}{}
 				if !common.Silent {
 					if !ping {
-						fmt.Printf("(icmp) Target %-15s is alive\n", ip)
+						color.Green("(icmp) Target %-15s is alive\n", ip)
 					} else {
-						fmt.Printf("(ping) Target %-15s is alive\n", ip)
+						color.Green("(ping) Target %-15s is alive\n", ip)
 					}
 				}
 				AliveHosts = append(AliveHosts, ip)
