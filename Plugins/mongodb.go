@@ -52,11 +52,7 @@ func MongodbUnauth(info *common.HostInfo) (flag bool, err error) {
 		if err != nil {
 			return "", err
 		}
-		defer func() {
-			if conn != nil {
-				conn.Close()
-			}
-		}()
+		defer conn.Close()
 		err = conn.SetReadDeadline(time.Now().Add(time.Duration(common.Timeout) * time.Second))
 		if err != nil {
 			return "", err
@@ -83,7 +79,7 @@ func MongodbUnauth(info *common.HostInfo) (flag bool, err error) {
 	}
 	if strings.Contains(reply, "totalLinesWritten") {
 		flag = true
-		result := fmt.Sprintf("[+] Mongodb:%v unauthorized", realhost)
+		result := fmt.Sprintf("[+] Mongodb %v unauthorized", realhost)
 		common.LogSuccess(result)
 	}
 	return flag, err

@@ -74,9 +74,9 @@ func worker(host, domain string, port int, wg *sync.WaitGroup, brlist chan Brute
 		if flag == true && err == nil {
 			var result string
 			if domain != "" {
-				result = fmt.Sprintf("[+] RDP:%v:%v:%v\\%v %v", host, port, domain, user, pass)
+				result = fmt.Sprintf("[+] RDP %v:%v:%v\\%v %v", host, port, domain, user, pass)
 			} else {
-				result = fmt.Sprintf("[+] RDP:%v:%v:%v %v", host, port, user, pass)
+				result = fmt.Sprintf("[+] RDP %v:%v:%v %v", host, port, user, pass)
 			}
 			common.LogSuccess(result)
 			*signal = true
@@ -127,11 +127,7 @@ func NewClient(host string, logLevel glog.LEVEL) *Client {
 
 func (g *Client) Login(domain, user, pwd string, timeout int64) error {
 	conn, err := common.WrapperTcpWithTimeout("tcp", g.Host, time.Duration(timeout)*time.Second)
-	defer func() {
-		if conn != nil {
-			conn.Close()
-		}
-	}()
+	defer conn.Close()
 	if err != nil {
 		return fmt.Errorf("[dial err] %v", err)
 	}
@@ -187,7 +183,7 @@ func (g *Client) Login(domain, user, pwd string, timeout int64) error {
 		glog.Info("on update:", rectangles)
 	})
 	g.pdu.On("done", func() {
-		if !breakFlag {
+		if breakFlag == false {
 			breakFlag = true
 			wg.Done()
 		}

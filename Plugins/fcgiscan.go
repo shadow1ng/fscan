@@ -96,16 +96,16 @@ func FcgiScan(info *common.HostInfo) {
 	if strings.Contains(output, cutLine) { //命令成功回显
 		output = strings.SplitN(output, cutLine, 2)[0]
 		if len(stderr) > 0 {
-			result = fmt.Sprintf("[+] FCGI: %v:%v \n%vstderr:%v\nplesa try other path,as -path /www/wwwroot/index.php", info.Host, info.Ports, output, string(stderr))
+			result = fmt.Sprintf("[+] FCGI %v:%v \n%vstderr:%v\nplesa try other path,as -path /www/wwwroot/index.php", info.Host, info.Ports, output, string(stderr))
 		} else {
-			result = fmt.Sprintf("[+] FCGI: %v:%v \n%v", info.Host, info.Ports, output)
+			result = fmt.Sprintf("[+] FCGI %v:%v \n%v", info.Host, info.Ports, output)
 		}
 		common.LogSuccess(result)
 	} else if strings.Contains(output, "File not found") || strings.Contains(output, "Content-type") || strings.Contains(output, "Status") {
 		if len(stderr) > 0 {
-			result = fmt.Sprintf("[+] FCGI:%v:%v \n%vstderr:%v\nplesa try other path,as -path /www/wwwroot/index.php", info.Host, info.Ports, output, string(stderr))
+			result = fmt.Sprintf("[+] FCGI %v:%v \n%vstderr:%v\nplesa try other path,as -path /www/wwwroot/index.php", info.Host, info.Ports, output, string(stderr))
 		} else {
-			result = fmt.Sprintf("[+] FCGI:%v:%v \n%v", info.Host, info.Ports, output)
+			result = fmt.Sprintf("[+] FCGI %v:%v \n%v", info.Host, info.Ports, output)
 		}
 		common.LogSuccess(result)
 	}
@@ -191,38 +191,38 @@ func New(addr string, timeout int64) (fcgi *FCGIClient, err error) {
 	return
 }
 
-func (c *FCGIClient) writeRecord(recType uint8, reqId uint16, content []byte) (err error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	c.buf.Reset()
-	c.h.init(recType, reqId, len(content))
-	if err := binary.Write(&c.buf, binary.BigEndian, c.h); err != nil {
+func (this *FCGIClient) writeRecord(recType uint8, reqId uint16, content []byte) (err error) {
+	this.mutex.Lock()
+	defer this.mutex.Unlock()
+	this.buf.Reset()
+	this.h.init(recType, reqId, len(content))
+	if err := binary.Write(&this.buf, binary.BigEndian, this.h); err != nil {
 		return err
 	}
-	if _, err := c.buf.Write(content); err != nil {
+	if _, err := this.buf.Write(content); err != nil {
 		return err
 	}
-	if _, err := c.buf.Write(pad[:c.h.PaddingLength]); err != nil {
+	if _, err := this.buf.Write(pad[:this.h.PaddingLength]); err != nil {
 		return err
 	}
-	_, err = c.rwc.Write(c.buf.Bytes())
+	_, err = this.rwc.Write(this.buf.Bytes())
 	return err
 }
 
-func (c *FCGIClient) writeBeginRequest(reqId uint16, role uint16, flags uint8) error {
+func (this *FCGIClient) writeBeginRequest(reqId uint16, role uint16, flags uint8) error {
 	b := [8]byte{byte(role >> 8), byte(role), flags}
-	return c.writeRecord(FCGI_BEGIN_REQUEST, reqId, b[:])
+	return this.writeRecord(FCGI_BEGIN_REQUEST, reqId, b[:])
 }
 
-func (c *FCGIClient) writeEndRequest(reqId uint16, appStatus int, protocolStatus uint8) error {
+func (this *FCGIClient) writeEndRequest(reqId uint16, appStatus int, protocolStatus uint8) error {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint32(b, uint32(appStatus))
 	b[4] = protocolStatus
-	return c.writeRecord(FCGI_END_REQUEST, reqId, b)
+	return this.writeRecord(FCGI_END_REQUEST, reqId, b)
 }
 
-func (c *FCGIClient) writePairs(recType uint8, reqId uint16, pairs map[string]string) error {
-	w := newWriter(c, recType, reqId)
+func (this *FCGIClient) writePairs(recType uint8, reqId uint16, pairs map[string]string) error {
+	w := newWriter(this, recType, reqId)
 	b := make([]byte, 8)
 	for k, v := range pairs {
 		n := encodeSize(b, uint32(len(k)))
@@ -239,6 +239,29 @@ func (c *FCGIClient) writePairs(recType uint8, reqId uint16, pairs map[string]st
 	}
 	w.Close()
 	return nil
+}
+
+func readSize(s []byte) (uint32, int) {
+	if len(s) == 0 {
+		return 0, 0
+	}
+	size, n := uint32(s[0]), 1
+	if size&(1<<7) != 0 {
+		if len(s) < 4 {
+			return 0, 0
+		}
+		n = 4
+		size = binary.BigEndian.Uint32(s)
+		size &^= 1 << 31
+	}
+	return size, n
+}
+
+func readString(s []byte, size uint32) string {
+	if size > uint32(len(s)) {
+		return ""
+	}
+	return string(s[:size])
 }
 
 func encodeSize(b []byte, size uint32) int {
@@ -301,21 +324,21 @@ func (w *streamWriter) Close() error {
 	return w.c.writeRecord(w.recType, w.reqId, nil)
 }
 
-func (c *FCGIClient) Request(env map[string]string, reqStr string) (retout []byte, reterr []byte, err error) {
+func (this *FCGIClient) Request(env map[string]string, reqStr string) (retout []byte, reterr []byte, err error) {
 
 	var reqId uint16 = 1
-	defer c.rwc.Close()
+	defer this.rwc.Close()
 
-	err = c.writeBeginRequest(reqId, uint16(FCGI_RESPONDER), 0)
+	err = this.writeBeginRequest(reqId, uint16(FCGI_RESPONDER), 0)
 	if err != nil {
 		return
 	}
-	err = c.writePairs(FCGI_PARAMS, reqId, env)
+	err = this.writePairs(FCGI_PARAMS, reqId, env)
 	if err != nil {
 		return
 	}
 	if len(reqStr) > 0 {
-		err = c.writeRecord(FCGI_STDIN, reqId, []byte(reqStr))
+		err = this.writeRecord(FCGI_STDIN, reqId, []byte(reqStr))
 		if err != nil {
 			return
 		}
@@ -325,27 +348,25 @@ func (c *FCGIClient) Request(env map[string]string, reqStr string) (retout []byt
 	var err1 error
 
 	// recive untill EOF or FCGI_END_REQUEST
-OUTER:
 	for {
-		err1 = rec.read(c.rwc)
+		err1 = rec.read(this.rwc)
 		if err1 != nil {
 			if err1 != io.EOF {
 				err = err1
 			}
-
 			break
 		}
-
-		switch rec.h.Type {
-		case FCGI_STDOUT:
+		switch {
+		case rec.h.Type == FCGI_STDOUT:
 			retout = append(retout, rec.content()...)
-		case FCGI_STDERR:
+		case rec.h.Type == FCGI_STDERR:
 			reterr = append(reterr, rec.content()...)
-		case FCGI_END_REQUEST:
+		case rec.h.Type == FCGI_END_REQUEST:
 			fallthrough
 		default:
-			break OUTER
+			break
 		}
 	}
+
 	return
 }

@@ -13,6 +13,6 @@ func main() {
 	common.Flag(&Info)
 	common.Parse(&Info)
 	Plugins.Scan(Info)
-	t := time.Now().Sub(start)
+	t := time.Since(start)
 	fmt.Printf("[*] 扫描结束,耗时: %s\n", t)
 }

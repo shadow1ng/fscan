@@ -74,11 +74,7 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 func PortConnect(addr Addr, respondingHosts chan<- string, adjustedTimeout int64, wg *sync.WaitGroup) {
 	host, port := addr.ip, addr.port
 	conn, err := common.WrapperTcpWithTimeout("tcp4", fmt.Sprintf("%s:%v", host, port), time.Duration(adjustedTimeout)*time.Second)
-	defer func() {
-		if conn != nil {
-			conn.Close()
-		}
-	}()
+	defer conn.Close()
 	if err == nil {
 		address := host + ":" + strconv.Itoa(port)
 		result := fmt.Sprintf("%s open", address)

@@ -48,7 +48,7 @@ func MssqlConn(info *common.HostInfo, user string, pass string) (flag bool, err 
 		defer db.Close()
 		err = db.Ping()
 		if err == nil {
-			result := fmt.Sprintf("[+] mssql:%v:%v:%v %v", Host, Port, Username, Password)
+			result := fmt.Sprintf("[+] mssql %v:%v:%v %v", Host, Port, Username, Password)
 			common.LogSuccess(result)
 			flag = true
 		}

@@ -67,11 +67,7 @@ func SmbScan2(info *common.HostInfo) (tmperr error) {
 
 func Smb2Con(info *common.HostInfo, user string, pass string, hash []byte, hasprint bool) (flag bool, err error, flag2 bool) {
 	conn, err := net.DialTimeout("tcp", info.Host+":445", time.Duration(common.Timeout)*time.Second)
-	defer func() {
-		if conn != nil {
-			conn.Close()
-		}
-	}()
+	defer conn.Close()
 	if err != nil {
 		return
 	}
@@ -100,9 +96,9 @@ func Smb2Con(info *common.HostInfo, user string, pass string, hash []byte, haspr
 	if !hasprint {
 		var result string
 		if common.Domain != "" {
-			result = fmt.Sprintf("[*] SMB2-shares:%v:%v:%v\\%v ", info.Host, info.Ports, common.Domain, user)
+			result = fmt.Sprintf("[*] SMB2-shares %v:%v:%v\\%v ", info.Host, info.Ports, common.Domain, user)
 		} else {
-			result = fmt.Sprintf("[*] SMB2-shares:%v:%v:%v ", info.Host, info.Ports, user)
+			result = fmt.Sprintf("[*] SMB2-shares %v:%v:%v ", info.Host, info.Ports, user)
 		}
 		if len(hash) > 0 {
 			result += "hash: " + common.Hash

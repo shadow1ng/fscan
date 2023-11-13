@@ -31,7 +31,6 @@ func Scan(info common.HostInfo) {
 			common.LogWG.Wait()
 			return
 		}
-		common.GC()
 		var AlivePorts []string
 		if common.Scantype == "webonly" || common.Scantype == "webpoc" {
 			AlivePorts = NoPortScan(Hosts, info.Ports)
@@ -52,7 +51,6 @@ func Scan(info common.HostInfo) {
 			common.HostPort = nil
 			fmt.Println("[*] AlivePorts len is:", len(AlivePorts))
 		}
-		common.GC()
 		var severports []string //severports := []string{"21","22","135"."445","1433","3306","5432","6379","9200","11211","27017"...}
 		for _, port := range common.PORTList {
 			severports = append(severports, strconv.Itoa(port))
@@ -85,12 +83,10 @@ func Scan(info common.HostInfo) {
 			}
 		}
 	}
-	common.GC()
 	for _, url := range common.Urls {
 		info.Url = url
 		AddScan(web, info, &ch, &wg)
 	}
-	common.GC()
 	wg.Wait()
 	common.LogWG.Wait()
 	close(common.Results)

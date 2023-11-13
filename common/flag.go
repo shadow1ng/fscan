@@ -66,5 +66,6 @@ func Flag(Info *HostInfo) {
 	flag.BoolVar(&IsWmi, "wmi", false, "start wmi")
 	flag.StringVar(&Hash, "hash", "", "hash")
 	flag.BoolVar(&Noredistest, "noredis", false, "no redis sec test")
+	flag.BoolVar(&JsonOutput, "json", false, "json output")
 	flag.Parse()
 }

@@ -39,11 +39,7 @@ func MS17010Scan(info *common.HostInfo) error {
 	ip := info.Host
 	// connecting to a host in LAN if reachable should be very quick
 	conn, err := common.WrapperTcpWithTimeout("tcp", ip+":445", time.Duration(common.Timeout)*time.Second)
-	defer func() {
-		if conn != nil {
-			conn.Close()
-		}
-	}()
+	defer conn.Close()
 	if err != nil {
 		//fmt.Printf("failed to connect to %s\n", ip)
 		return err
@@ -134,7 +130,7 @@ func MS17010Scan(info *common.HostInfo) error {
 		//fmt.Printf("%s\tMS17-010\t(%s)\n", ip, os)
 		//if runtime.GOOS=="windows" {fmt.Printf("%s\tMS17-010\t(%s)\n", ip, os)
 		//} else{fmt.Printf("\033[33m%s\tMS17-010\t(%s)\033[0m\n", ip, os)}
-		result := fmt.Sprintf("[+] %s\tMS17-010\t(%s)", ip, os)
+		result := fmt.Sprintf("[+] MS17-010 %s\t(%s)", ip, os)
 		common.LogSuccess(result)
 		defer func() {
 			if common.SC != "" {
@@ -156,12 +152,12 @@ func MS17010Scan(info *common.HostInfo) error {
 		}
 
 		if reply[34] == 0x51 {
-			result := fmt.Sprintf("[+] %s has DOUBLEPULSAR SMB IMPLANT", ip)
+			result := fmt.Sprintf("[+] MS17-010 %s has DOUBLEPULSAR SMB IMPLANT", ip)
 			common.LogSuccess(result)
 		}
 
 	} else {
-		result := fmt.Sprintf("[*] %s  (%s)", ip, os)
+		result := fmt.Sprintf("[*] OsInfo %s\t(%s)", ip, os)
 		common.LogSuccess(result)
 	}
 	return err

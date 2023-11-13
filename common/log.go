@@ -1,6 +1,7 @@
 package common
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/fatih/color"
 	"os"
@@ -18,7 +19,13 @@ var LogErrTime int64
 var WaitTime int64
 var Silent bool
 var Nocolor bool
+var JsonOutput bool
 var LogWG sync.WaitGroup
+
+type JsonText struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
 
 func init() {
 	LogSucTime = time.Now().Unix()
@@ -54,13 +61,50 @@ func SaveLog() {
 }
 
 func WriteFile(result string, filename string) {
-	var text = []byte(result + "\n")
 	fl, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		fmt.Printf("Open %s error, %v\n", filename, err)
 		return
 	}
-	_, err = fl.Write(text)
+	if JsonOutput {
+		var scantype string
+		var text string
+		if strings.HasPrefix(result, "[+]") || strings.HasPrefix(result, "[*]") || strings.HasPrefix(result, "[-]") {
+			//找到第二个空格的位置
+			index := strings.Index(result[4:], " ")
+			if index == -1 {
+				scantype = "msg"
+				text = result[4:]
+			} else {
+				scantype = result[4 : 4+index]
+				text = result[4+index+1:]
+			}
+		} else {
+			scantype = "msg"
+			text = result
+		}
+		jsonText := JsonText{
+			Type: scantype,
+			Text: text,
+		}
+		jsonData, err := json.Marshal(jsonText)
+		if err != nil {
+			fmt.Println(err)
+			jsonText = JsonText{
+				Type: "msg",
+				Text: result,
+			}
+			jsonData, err = json.Marshal(jsonText)
+			if err != nil {
+				fmt.Println(err)
+				jsonData = []byte(result)
+			}
+		}
+		jsonData = append(jsonData, []byte(",\n")...)
+		_, err = fl.Write(jsonData)
+	} else {
+		_, err = fl.Write([]byte(result + "\n"))
+	}
 	fl.Close()
 	if err != nil {
 		fmt.Printf("Write %s error, %v\n", filename, err)

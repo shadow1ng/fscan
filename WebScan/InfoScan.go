@@ -38,7 +38,7 @@ func InfoCheck(Url string, CheckData *[]CheckDatas) []string {
 	infoname = removeDuplicateElement(infoname)
 
 	if len(infoname) > 0 {
-		result := fmt.Sprintf("[+] InfoScan: %-25v %s ", Url, infoname)
+		result := fmt.Sprintf("[+] InfoScan %-25v %s ", Url, infoname)
 		common.LogSuccess(result)
 		return infoname
 	}

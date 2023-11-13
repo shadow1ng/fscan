@@ -18,7 +18,7 @@ func NetBIOS(info *common.HostInfo) error {
 	netbios, _ := NetBIOS1(info)
 	output := netbios.String()
 	if len(output) > 0 {
-		result := fmt.Sprintf("[*] NetBios: %-15s %s", info.Host, output)
+		result := fmt.Sprintf("[*] NetBios %-15s %s", info.Host, output)
 		common.LogSuccess(result)
 		return nil
 	}
@@ -41,11 +41,7 @@ func NetBIOS1(info *common.HostInfo) (netbios NetBiosInfo, err error) {
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	var conn net.Conn
 	conn, err = common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.Timeout)*time.Second)
-	defer func() {
-		if conn != nil {
-			conn.Close()
-		}
-	}()
+	defer conn.Close()
 	if err != nil {
 		return
 	}
@@ -93,11 +89,7 @@ func GetNbnsname(info *common.HostInfo) (netbios NetBiosInfo, err error) {
 	//senddata1 := []byte("ff\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00 CKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\x00\x00!\x00\x01")
 	realhost := fmt.Sprintf("%s:137", info.Host)
 	conn, err := net.DialTimeout("udp", realhost, time.Duration(common.Timeout)*time.Second)
-	defer func() {
-		if conn != nil {
-			conn.Close()
-		}
-	}()
+	defer conn.Close()
 	if err != nil {
 		return
 	}

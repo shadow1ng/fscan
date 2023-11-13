@@ -24,11 +24,7 @@ func Findnet(info *common.HostInfo) error {
 func FindnetScan(info *common.HostInfo) error {
 	realhost := fmt.Sprintf("%s:%v", info.Host, 135)
 	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.Timeout)*time.Second)
-	defer func() {
-		if conn != nil {
-			conn.Close()
-		}
-	}()
+	defer conn.Close()
 	if err != nil {
 		return err
 	}
@@ -109,7 +105,7 @@ func read(text []byte, host string) error {
 
 	hostnames := strings.Replace(encodedStr, "0700", "", -1)
 	hostname := strings.Split(hostnames, "000000")
-	result := "[*] NetInfo:\n[*]" + host
+	result := "[*] NetInfo \n[*]" + host
 	if name != "" {
 		result += "\n   [->]" + name
 	}

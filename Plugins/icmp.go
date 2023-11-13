@@ -159,11 +159,7 @@ func RunIcmp2(hostslist []string, chanHosts chan string) {
 func icmpalive(host string) bool {
 	startTime := time.Now()
 	conn, err := net.DialTimeout("ip4:icmp", host, 6*time.Second)
-	defer func() {
-		if conn != nil {
-			conn.Close()
-		}
-	}()
+	defer conn.Close()
 	if err != nil {
 		return false
 	}
