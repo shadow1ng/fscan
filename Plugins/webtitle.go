@@ -4,10 +4,6 @@ import (
 	"compress/gzip"
 	"crypto/tls"
 	"fmt"
-	"github.com/shadow1ng/fscan/WebScan"
-	"github.com/shadow1ng/fscan/WebScan/lib"
-	"github.com/shadow1ng/fscan/common"
-	"golang.org/x/text/encoding/simplifiedchinese"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -16,6 +12,11 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/shadow1ng/fscan/WebScan"
+	"github.com/shadow1ng/fscan/WebScan/lib"
+	"github.com/shadow1ng/fscan/common"
+	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
 func WebTitle(info *common.HostInfo) error {
@@ -140,7 +141,7 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 	if !utf8.Valid(body) {
 		body, _ = simplifiedchinese.GBK.NewDecoder().Bytes(body)
 	}
-	CheckData = append(CheckData, WebScan.CheckDatas{body, fmt.Sprintf("%s", resp.Header)})
+	CheckData = append(CheckData, WebScan.CheckDatas{Body: body, Headers: fmt.Sprintf("%s", resp.Header)})
 	var reurl string
 	if flag != 2 {
 		title = gettitle(body)

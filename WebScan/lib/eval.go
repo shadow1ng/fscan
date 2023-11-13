@@ -627,7 +627,7 @@ func DoRequest(req *http.Request, redirect bool) (*Response, error) {
 	defer oResp.Body.Close()
 	resp, err := ParseResponse(oResp)
 	if err != nil {
-		common.LogError("[-]ParseResponse error: " + err.Error())
+		common.LogError("[-] ParseResponse error: " + err.Error())
 		//return nil, err
 	}
 	return resp, err
