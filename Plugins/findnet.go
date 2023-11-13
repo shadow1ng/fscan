@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/shadow1ng/fscan/common"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -66,11 +67,53 @@ func FindnetScan(info *common.HostInfo) error {
 	err = read(text, info.Host)
 	return err
 }
+
+func HexUnicodeStringToString(src string) string {
+	sText := ""
+	if len(src)%4 != 0 {
+		src += src[:len(src)-len(src)%4]
+	}
+	for i := 0; i < len(src); i = i + 4 {
+		sText += "\\u" + src[i+2:i+4] + src[i:i+2]
+	}
+
+	textUnquoted := sText
+	sUnicodev := strings.Split(textUnquoted, "\\u")
+	var context string
+	for _, v := range sUnicodev {
+		if len(v) < 1 {
+			continue
+		}
+		temp, err := strconv.ParseInt(v, 16, 32)
+		if err != nil {
+			return ""
+		}
+		context += fmt.Sprintf("%c", temp)
+	}
+	return context
+}
+
 func read(text []byte, host string) error {
 	encodedStr := hex.EncodeToString(text)
+
+	hn := ""
+	for i := 0; i < len(encodedStr)-4; i = i + 4 {
+		if encodedStr[i:i+4] == "0000" {
+			break
+		}
+		hn += encodedStr[i : i+4]
+	}
+
+	var name string
+	name = HexUnicodeStringToString(hn)
+
 	hostnames := strings.Replace(encodedStr, "0700", "", -1)
 	hostname := strings.Split(hostnames, "000000")
 	result := "[*] NetInfo:\n[*]" + host
+	if name != "" {
+		result += "\n   [->]" + name
+	}
+	hostname = hostname[1:]
 	for i := 0; i < len(hostname); i++ {
 		hostname[i] = strings.Replace(hostname[i], "00", "", -1)
 		host, err := hex.DecodeString(hostname[i])
