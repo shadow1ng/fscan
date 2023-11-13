@@ -113,8 +113,8 @@ func read(text []byte, host string) error {
 	if name != "" {
 		result += "\n   [->]" + name
 	}
-
-	for i := 1; i < len(hostname); i++ {
+	hostname = hostname[1:]
+	for i := 0; i < len(hostname); i++ {
 		hostname[i] = strings.Replace(hostname[i], "00", "", -1)
 		host, err := hex.DecodeString(hostname[i])
 		if err != nil {
