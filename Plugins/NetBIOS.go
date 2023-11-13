@@ -328,7 +328,7 @@ func ParseNTLM(ret []byte) (netbios NetBiosInfo, err error) {
 		return
 	}
 	length = num1 + num2*256
-	num1, err = bytetoint(ret[start+44 : start+45][0])
+	_, err = bytetoint(ret[start+44 : start+45][0])
 	if err != nil {
 		return
 	}
