@@ -36,8 +36,13 @@ func RdpScan(info *common.HostInfo) (tmperr error) {
 	var num = 0
 	var all = len(common.Userdict["rdp"]) * len(common.Passwords)
 	var mutex sync.Mutex
-	brlist := make(chan Brutelist, all)
+	brlist := make(chan Brutelist)
 	port, _ := strconv.Atoi(info.Ports)
+
+	for i := 0; i < common.BruteThread; i++ {
+		wg.Add(1)
+		go worker(info.Host, common.Domain, port, &wg, brlist, &signal, &num, all, &mutex, common.Timeout)
+	}
 
 	for _, user := range common.Userdict["rdp"] {
 		for _, pass := range common.Passwords {
@@ -45,12 +50,6 @@ func RdpScan(info *common.HostInfo) (tmperr error) {
 			brlist <- Brutelist{user, pass}
 		}
 	}
-
-	for i := 0; i < common.BruteThread; i++ {
-		wg.Add(1)
-		go worker(info.Host, common.Domain, port, &wg, brlist, &signal, &num, all, &mutex, common.Timeout)
-	}
-
 	close(brlist)
 	go func() {
 		wg.Wait()

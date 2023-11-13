@@ -26,7 +26,7 @@ func WebTitle(info *common.HostInfo) error {
 	err, CheckData := GOWebTitle(info)
 	info.Infostr = WebScan.InfoCheck(info.Url, &CheckData)
 
-	if !common.NoWebCan && err == nil {
+	if !common.NoPoc && err == nil {
 		WebScan.WebScan(info)
 	} else {
 		errlog := fmt.Sprintf("[-] webtitle %v %v", info.Url, err)
@@ -137,12 +137,12 @@ func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 	if err != nil {
 		return err, "https", CheckData
 	}
-	if !utf8.Valid(body) {
-		body, _ = simplifiedchinese.GBK.NewDecoder().Bytes(body)
-	}
-	CheckData = append(CheckData, WebScan.CheckDatas{Body: body, Headers: fmt.Sprintf("%s", resp.Header)})
+	CheckData = append(CheckData, WebScan.CheckDatas{body, fmt.Sprintf("%s", resp.Header)})
 	var reurl string
 	if flag != 2 {
+		if !utf8.Valid(body) {
+			body, _ = simplifiedchinese.GBK.NewDecoder().Bytes(body)
+		}
 		title = gettitle(body)
 		length := resp.Header.Get("Content-Length")
 		if length == "" {
@@ -208,9 +208,11 @@ func gettitle(body []byte) (title string) {
 		if len(title) > 100 {
 			title = title[:100]
 		}
-	}
-	if title == "" {
-		title = "None"
+		if title == "" {
+			title = "\"\"" //空格
+		}
+	} else {
+		title = "None" //没有title
 	}
 	return
 }

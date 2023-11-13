@@ -15,7 +15,6 @@ import (
 
 var (
 	AliveHosts []string
-	OS         = runtime.GOOS
 	ExistHosts = make(map[string]struct{})
 	livewg     sync.WaitGroup
 )
@@ -159,10 +158,10 @@ func RunIcmp2(hostslist []string, chanHosts chan string) {
 func icmpalive(host string) bool {
 	startTime := time.Now()
 	conn, err := net.DialTimeout("ip4:icmp", host, 6*time.Second)
-	defer conn.Close()
 	if err != nil {
 		return false
 	}
+	defer conn.Close()
 	if err := conn.SetDeadline(startTime.Add(6 * time.Second)); err != nil {
 		return false
 	}
@@ -180,17 +179,13 @@ func icmpalive(host string) bool {
 }
 
 func RunPing(hostslist []string, chanHosts chan string) {
-	var bsenv = ""
-	if OS != "windows" {
-		bsenv = "/bin/bash"
-	}
 	var wg sync.WaitGroup
 	limiter := make(chan struct{}, 50)
 	for _, host := range hostslist {
 		wg.Add(1)
 		limiter <- struct{}{}
 		go func(host string) {
-			if ExecCommandPing(host, bsenv) {
+			if ExecCommandPing(host) {
 				livewg.Add(1)
 				chanHosts <- host
 			}
@@ -201,14 +196,15 @@ func RunPing(hostslist []string, chanHosts chan string) {
 	wg.Wait()
 }
 
-func ExecCommandPing(ip string, bsenv string) bool {
+func ExecCommandPing(ip string) bool {
 	var command *exec.Cmd
-	if OS == "windows" {
+	switch runtime.GOOS {
+	case "windows":
 		command = exec.Command("cmd", "/c", "ping -n 1 -w 1 "+ip+" && echo true || echo false") //ping -c 1 -i 0.5 -t 4 -W 2 -w 5 "+ip+" >/dev/null && echo true || echo false"
-	} else if OS == "linux" {
-		command = exec.Command(bsenv, "-c", "ping -c 1 -w 1 "+ip+" >/dev/null && echo true || echo false") //ping -c 1 -i 0.5 -t 4 -W 2 -w 5 "+ip+" >/dev/null && echo true || echo false"
-	} else if OS == "darwin" {
-		command = exec.Command(bsenv, "-c", "ping -c 1 -W 1 "+ip+" >/dev/null && echo true || echo false") //ping -c 1 -i 0.5 -t 4 -W 2 -w 5 "+ip+" >/dev/null && echo true || echo false"
+	case "darwin":
+		command = exec.Command("/bin/bash", "-c", "ping -c 1 -W 1 "+ip+" && echo true || echo false") //ping -c 1 -i 0.5 -t 4 -W 2 -w 5 "+ip+" >/dev/null && echo true || echo false"
+	default: //linux
+		command = exec.Command("/bin/bash", "-c", "ping -c 1 -w 1 "+ip+" && echo true || echo false") //ping -c 1 -i 0.5 -t 4 -W 2 -w 5 "+ip+" >/dev/null && echo true || echo false"
 	}
 	outinfo := bytes.Buffer{}
 	command.Stdout = &outinfo
@@ -219,7 +215,7 @@ func ExecCommandPing(ip string, bsenv string) bool {
 	if err = command.Wait(); err != nil {
 		return false
 	} else {
-		if strings.Contains(outinfo.String(), "true") {
+		if strings.Contains(outinfo.String(), "true") && strings.Count(outinfo.String(), ip) > 2 {
 			return true
 		} else {
 			return false

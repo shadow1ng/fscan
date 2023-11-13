@@ -15,7 +15,6 @@ import (
 	"github.com/shadow1ng/fscan/common"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -578,6 +577,7 @@ func reverseCheck(r *Reverse, timeout int64) bool {
 	}
 
 	if !bytes.Contains(resp.Body, []byte(`"data": []`)) && bytes.Contains(resp.Body, []byte(`"message": "OK"`)) { // api返回结果不为空
+		fmt.Println(urlStr)
 		return true
 	}
 	return false
@@ -657,12 +657,12 @@ func ParseRequest(oReq *http.Request) (*Request, error) {
 	req.ContentType = oReq.Header.Get("Content-Type")
 	if oReq.Body == nil || oReq.Body == http.NoBody {
 	} else {
-		data, err := ioutil.ReadAll(oReq.Body)
+		data, err := io.ReadAll(oReq.Body)
 		if err != nil {
 			return nil, err
 		}
 		req.Body = data
-		oReq.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+		oReq.Body = io.NopCloser(bytes.NewBuffer(data))
 	}
 	return req, nil
 }
@@ -677,9 +677,9 @@ func ParseResponse(oResp *http.Response) (*Response, error) {
 	}
 	resp.Headers = header
 	resp.ContentType = oResp.Header.Get("Content-Type")
-	body, err := getRespBody(oResp)
+	body, _ := getRespBody(oResp)
 	resp.Body = body
-	return &resp, err
+	return &resp, nil
 }
 
 func getRespBody(oResp *http.Response) (body []byte, err error) {

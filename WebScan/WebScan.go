@@ -46,7 +46,6 @@ func Execute(PocInfo common.PocInfo) {
 	if common.Cookie != "" {
 		req.Header.Set("Cookie", common.Cookie)
 	}
-	req.Header.Set("Connection", "close")
 	pocs := filterPoc(PocInfo.PocName)
 	lib.CheckMultiPoc(req, pocs, common.PocNum)
 }
@@ -67,6 +66,7 @@ func initpoc() {
 			}
 		}
 	} else {
+		fmt.Println("[+] load poc from " + common.PocPath)
 		err := filepath.Walk(common.PocPath,
 			func(path string, info os.FileInfo, err error) error {
 				if err != nil || info == nil {

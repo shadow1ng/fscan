@@ -240,6 +240,9 @@ func optimizeCookies(rawCookie string) (output string) {
 }
 
 func newReverse() *Reverse {
+	if !common.DnsLog {
+		return &Reverse{}
+	}
 	letters := "1234567890abcdefghijklmnopqrstuvwxyz"
 	randSource := rand.New(rand.NewSource(time.Now().UnixNano()))
 	sub := RandomStr(randSource, letters, 8)
@@ -532,7 +535,7 @@ func evalset1(env *cel.Env, variableMap map[string]interface{}, k string, expres
 
 func CheckInfoPoc(infostr string) string {
 	for _, poc := range info.PocDatas {
-		if strings.Compare(poc.Name, infostr) == 0 {
+		if strings.Contains(infostr, poc.Name) {
 			return poc.Alias
 		}
 	}

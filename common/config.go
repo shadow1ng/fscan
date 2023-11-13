@@ -97,7 +97,7 @@ var (
 	NoPing      bool
 	Ping        bool
 	Pocinfo     PocInfo
-	NoWebCan    bool
+	NoPoc       bool
 	IsBrute     bool
 	RedisFile   string
 	RedisShell  string

@@ -38,6 +38,9 @@ func ParsePort(ports string) (scanPorts []int) {
 		start, _ := strconv.Atoi(port)
 		end, _ := strconv.Atoi(upper)
 		for i := start; i <= end; i++ {
+			if i > 65535 || i < 1 {
+				continue
+			}
 			scanPorts = append(scanPorts, i)
 		}
 	}

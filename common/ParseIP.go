@@ -24,11 +24,21 @@ var ParseIPErr = errors.New(" host parsing error\n" +
 	"192.168.1.1-255")
 
 func ParseIP(host string, filename string, nohosts ...string) (hosts []string, err error) {
-	hosts = ParseIPs(host)
-	if filename != "" {
-		var filehost []string
-		filehost, _ = Readipfile(filename)
-		hosts = append(hosts, filehost...)
+	if filename == "" && strings.Contains(host, ":") {
+		//192.168.0.0/16:80
+		hostport := strings.Split(host, ":")
+		if len(hostport) == 2 {
+			host = hostport[0]
+			hosts = ParseIPs(host)
+			Ports = hostport[1]
+		}
+	} else {
+		hosts = ParseIPs(host)
+		if filename != "" {
+			var filehost []string
+			filehost, _ = Readipfile(filename)
+			hosts = append(hosts, filehost...)
+		}
 	}
 
 	if len(nohosts) > 0 {
@@ -78,6 +88,12 @@ func ParseIPs(ip string) (hosts []string) {
 func parseIP(ip string) []string {
 	reg := regexp.MustCompile(`[a-zA-Z]+`)
 	switch {
+	case ip == "192":
+		return parseIP("192.168.0.0/8")
+	case ip == "172":
+		return parseIP("172.16.0.0/12")
+	case ip == "10":
+		return parseIP("10.0.0.0/8")
 	// 扫描/8时,只扫网关和随机IP,避免扫描过多IP
 	case strings.HasSuffix(ip, "/8"):
 		return parseIP8(ip)

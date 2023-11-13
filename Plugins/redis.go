@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/shadow1ng/fscan/common"
+	"io"
 	"net"
 	"os"
 	"strings"
@@ -289,20 +290,13 @@ func Readfile(filename string) (string, error) {
 	return "", err
 }
 
-func readreply(conn net.Conn) (result string, err error) {
-	size := 5 * 1024
-	buf := make([]byte, size)
-	for {
-		count, err := conn.Read(buf)
-		if err != nil {
-			break
-		}
-		result += string(buf[0:count])
-		if count < size {
-			break
-		}
+func readreply(conn net.Conn) (string, error) {
+	conn.SetReadDeadline(time.Now().Add(time.Second))
+	bytes, err := io.ReadAll(conn)
+	if len(bytes) > 0 {
+		err = nil
 	}
-	return result, err
+	return string(bytes), err
 }
 
 func testwrite(conn net.Conn) (flag bool, flagCron bool, err error) {

@@ -191,38 +191,38 @@ func New(addr string, timeout int64) (fcgi *FCGIClient, err error) {
 	return
 }
 
-func (this *FCGIClient) writeRecord(recType uint8, reqId uint16, content []byte) (err error) {
-	this.mutex.Lock()
-	defer this.mutex.Unlock()
-	this.buf.Reset()
-	this.h.init(recType, reqId, len(content))
-	if err := binary.Write(&this.buf, binary.BigEndian, this.h); err != nil {
+func (c *FCGIClient) writeRecord(recType uint8, reqId uint16, content []byte) (err error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.buf.Reset()
+	c.h.init(recType, reqId, len(content))
+	if err := binary.Write(&c.buf, binary.BigEndian, c.h); err != nil {
 		return err
 	}
-	if _, err := this.buf.Write(content); err != nil {
+	if _, err := c.buf.Write(content); err != nil {
 		return err
 	}
-	if _, err := this.buf.Write(pad[:this.h.PaddingLength]); err != nil {
+	if _, err := c.buf.Write(pad[:c.h.PaddingLength]); err != nil {
 		return err
 	}
-	_, err = this.rwc.Write(this.buf.Bytes())
+	_, err = c.rwc.Write(c.buf.Bytes())
 	return err
 }
 
-func (this *FCGIClient) writeBeginRequest(reqId uint16, role uint16, flags uint8) error {
+func (c *FCGIClient) writeBeginRequest(reqId uint16, role uint16, flags uint8) error {
 	b := [8]byte{byte(role >> 8), byte(role), flags}
-	return this.writeRecord(FCGI_BEGIN_REQUEST, reqId, b[:])
+	return c.writeRecord(FCGI_BEGIN_REQUEST, reqId, b[:])
 }
 
-func (this *FCGIClient) writeEndRequest(reqId uint16, appStatus int, protocolStatus uint8) error {
+func (c *FCGIClient) writeEndRequest(reqId uint16, appStatus int, protocolStatus uint8) error {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint32(b, uint32(appStatus))
 	b[4] = protocolStatus
-	return this.writeRecord(FCGI_END_REQUEST, reqId, b)
+	return c.writeRecord(FCGI_END_REQUEST, reqId, b)
 }
 
-func (this *FCGIClient) writePairs(recType uint8, reqId uint16, pairs map[string]string) error {
-	w := newWriter(this, recType, reqId)
+func (c *FCGIClient) writePairs(recType uint8, reqId uint16, pairs map[string]string) error {
+	w := newWriter(c, recType, reqId)
 	b := make([]byte, 8)
 	for k, v := range pairs {
 		n := encodeSize(b, uint32(len(k)))
@@ -324,21 +324,21 @@ func (w *streamWriter) Close() error {
 	return w.c.writeRecord(w.recType, w.reqId, nil)
 }
 
-func (this *FCGIClient) Request(env map[string]string, reqStr string) (retout []byte, reterr []byte, err error) {
+func (c *FCGIClient) Request(env map[string]string, reqStr string) (retout []byte, reterr []byte, err error) {
 
 	var reqId uint16 = 1
-	defer this.rwc.Close()
+	defer c.rwc.Close()
 
-	err = this.writeBeginRequest(reqId, uint16(FCGI_RESPONDER), 0)
+	err = c.writeBeginRequest(reqId, uint16(FCGI_RESPONDER), 0)
 	if err != nil {
 		return
 	}
-	err = this.writePairs(FCGI_PARAMS, reqId, env)
+	err = c.writePairs(FCGI_PARAMS, reqId, env)
 	if err != nil {
 		return
 	}
 	if len(reqStr) > 0 {
-		err = this.writeRecord(FCGI_STDIN, reqId, []byte(reqStr))
+		err = c.writeRecord(FCGI_STDIN, reqId, []byte(reqStr))
 		if err != nil {
 			return
 		}
@@ -349,7 +349,7 @@ func (this *FCGIClient) Request(env map[string]string, reqStr string) (retout []
 
 	// recive untill EOF or FCGI_END_REQUEST
 	for {
-		err1 = rec.read(this.rwc)
+		err1 = rec.read(c.rwc)
 		if err1 != nil {
 			if err1 != io.EOF {
 				err = err1

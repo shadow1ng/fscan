@@ -17,6 +17,10 @@ type Addr struct {
 func PortScan(hostslist []string, ports string, timeout int64) []string {
 	var AliveAddress []string
 	probePorts := common.ParsePort(ports)
+	if len(probePorts) == 0 {
+		fmt.Printf("[-] parse port %s error, please check your port format\n", ports)
+		return AliveAddress
+	}
 	noPorts := common.ParsePort(common.NoPorts)
 	if len(noPorts) > 0 {
 		temp := map[int]struct{}{}

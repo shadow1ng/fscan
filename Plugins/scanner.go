@@ -23,7 +23,7 @@ func Scan(info common.HostInfo) {
 	web := strconv.Itoa(common.PORTList["web"])
 	ms17010 := strconv.Itoa(common.PORTList["ms17010"])
 	if len(Hosts) > 0 || len(common.HostPort) > 0 {
-		if common.NoPing == false && len(Hosts) > 0 {
+		if common.NoPing == false && len(Hosts) > 1 || common.Scantype == "icmp" {
 			Hosts = CheckLive(Hosts, common.Ping)
 			fmt.Println("[*] Icmp alive hosts len is:", len(Hosts))
 		}
