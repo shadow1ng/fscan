@@ -5,10 +5,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/shadow1ng/fscan/common"
 	"strings"
 	"time"
-
-	"github.com/shadow1ng/fscan/common"
 )
 
 var (
@@ -24,11 +23,11 @@ var (
 	trans2SessionSetupRequest, _  = hex.DecodeString(AesDecrypt(trans2SessionSetupRequest_enc, key))
 )
 
-func MS17010(info common.HostInfo, flags common.Flags) error {
-	if flags.IsBrute {
+func MS17010(info *common.HostInfo) error {
+	if common.IsBrute {
 		return nil
 	}
-	err := MS17010Scan(info, flags)
+	err := MS17010Scan(info)
 	if err != nil {
 		errlog := fmt.Sprintf("[-] Ms17010 %v %v", info.Host, err)
 		common.LogError(errlog)
@@ -36,10 +35,10 @@ func MS17010(info common.HostInfo, flags common.Flags) error {
 	return err
 }
 
-func MS17010Scan(info common.HostInfo, flags common.Flags) error {
+func MS17010Scan(info *common.HostInfo) error {
 	ip := info.Host
 	// connecting to a host in LAN if reachable should be very quick
-	conn, err := common.WrapperTcpWithTimeout("tcp", ip+":445", common.Socks5{Address: flags.Socks5Proxy}, time.Duration(flags.Timeout)*time.Second)
+	conn, err := common.WrapperTcpWithTimeout("tcp", ip+":445", time.Duration(common.Timeout)*time.Second)
 	defer func() {
 		if conn != nil {
 			conn.Close()
@@ -49,7 +48,7 @@ func MS17010Scan(info common.HostInfo, flags common.Flags) error {
 		//fmt.Printf("failed to connect to %s\n", ip)
 		return err
 	}
-	err = conn.SetDeadline(time.Now().Add(time.Duration(flags.Timeout) * time.Second))
+	err = conn.SetDeadline(time.Now().Add(time.Duration(common.Timeout) * time.Second))
 	if err != nil {
 		//fmt.Printf("failed to connect to %s\n", ip)
 		return err
@@ -138,8 +137,8 @@ func MS17010Scan(info common.HostInfo, flags common.Flags) error {
 		result := fmt.Sprintf("[+] %s\tMS17-010\t(%s)", ip, os)
 		common.LogSuccess(result)
 		defer func() {
-			if flags.SC != "" {
-				MS17010EXP(info, flags)
+			if common.SC != "" {
+				MS17010EXP(info)
 			}
 		}()
 		// detect present of DOUBLEPULSAR SMB implant
