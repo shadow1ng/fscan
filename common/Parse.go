@@ -101,7 +101,7 @@ func ParsePass(Info *HostInfo) {
 					newport += port + ","
 				}
 			}
-			Info.Ports = newport
+			Ports = newport
 		}
 	}
 }
@@ -140,15 +140,15 @@ func ParseInput(Info *HostInfo) {
 		IsSave = false
 	}
 
-	if Info.Ports == DefaultPorts {
-		Info.Ports += "," + Webport
+	if Ports == DefaultPorts {
+		Ports += "," + Webport
 	}
 
 	if PortAdd != "" {
-		if strings.HasSuffix(Info.Ports, ",") {
-			Info.Ports += PortAdd
+		if strings.HasSuffix(Ports, ",") {
+			Ports += PortAdd
 		} else {
-			Info.Ports += "," + PortAdd
+			Ports += "," + PortAdd
 		}
 	}
 
@@ -219,35 +219,35 @@ func ParseScantype(Info *HostInfo) {
 	if !ok {
 		showmode()
 	}
-	if Scantype != "all" && Info.Ports == DefaultPorts+","+Webport {
+	if Scantype != "all" && Ports == DefaultPorts+","+Webport {
 		switch Scantype {
 		case "wmiexec":
-			Info.Ports = "135"
+			Ports = "135"
 		case "wmiinfo":
-			Info.Ports = "135"
+			Ports = "135"
 		case "smbinfo":
-			Info.Ports = "445"
+			Ports = "445"
 		case "hostname":
-			Info.Ports = "135,137,139,445"
+			Ports = "135,137,139,445"
 		case "smb2":
-			Info.Ports = "445"
+			Ports = "445"
 		case "web":
-			Info.Ports = Webport
+			Ports = Webport
 		case "webonly":
-			Info.Ports = Webport
+			Ports = Webport
 		case "ms17010":
-			Info.Ports = "445"
+			Ports = "445"
 		case "cve20200796":
-			Info.Ports = "445"
+			Ports = "445"
 		case "portscan":
-			Info.Ports = DefaultPorts + "," + Webport
+			Ports = DefaultPorts + "," + Webport
 		case "main":
-			Info.Ports = DefaultPorts
+			Ports = DefaultPorts
 		default:
 			port, _ := PORTList[Scantype]
-			Info.Ports = strconv.Itoa(port)
+			Ports = strconv.Itoa(port)
 		}
-		fmt.Println("-m ", Scantype, " start scan the port:", Info.Ports)
+		fmt.Println("-m ", Scantype, " start scan the port:", Ports)
 	}
 }
 

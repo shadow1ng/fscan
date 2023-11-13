@@ -24,10 +24,10 @@ func Findnet(info *common.HostInfo) error {
 func FindnetScan(info *common.HostInfo) error {
 	realhost := fmt.Sprintf("%s:%v", info.Host, 135)
 	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.Timeout)*time.Second)
-	defer conn.Close()
 	if err != nil {
 		return err
 	}
+	defer conn.Close()
 	err = conn.SetDeadline(time.Now().Add(time.Duration(common.Timeout) * time.Second))
 	if err != nil {
 		return err

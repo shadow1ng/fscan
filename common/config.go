@@ -82,6 +82,7 @@ type PocInfo struct {
 }
 
 var (
+	Ports       string
 	Path        string
 	Scantype    string
 	Command     string

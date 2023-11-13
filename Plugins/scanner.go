@@ -33,12 +33,12 @@ func Scan(info common.HostInfo) {
 		}
 		var AlivePorts []string
 		if common.Scantype == "webonly" || common.Scantype == "webpoc" {
-			AlivePorts = NoPortScan(Hosts, info.Ports)
+			AlivePorts = NoPortScan(Hosts, common.Ports)
 		} else if common.Scantype == "hostname" {
-			info.Ports = "139"
-			AlivePorts = NoPortScan(Hosts, info.Ports)
+			common.Ports = "139"
+			AlivePorts = NoPortScan(Hosts, common.Ports)
 		} else if len(Hosts) > 0 {
-			AlivePorts = PortScan(Hosts, info.Ports, common.Timeout)
+			AlivePorts = PortScan(Hosts, common.Ports, common.Timeout)
 			fmt.Println("[*] alive ports len is:", len(AlivePorts))
 			if common.Scantype == "portscan" {
 				common.LogWG.Wait()
@@ -90,7 +90,7 @@ func Scan(info common.HostInfo) {
 	wg.Wait()
 	common.LogWG.Wait()
 	close(common.Results)
-	fmt.Println(fmt.Sprintf("已完成 %v/%v", common.End, common.Num))
+	fmt.Printf("已完成 %v/%v\n", common.End, common.Num)
 }
 
 var Mutex = &sync.Mutex{}

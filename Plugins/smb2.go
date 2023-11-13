@@ -67,10 +67,10 @@ func SmbScan2(info *common.HostInfo) (tmperr error) {
 
 func Smb2Con(info *common.HostInfo, user string, pass string, hash []byte, hasprint bool) (flag bool, err error, flag2 bool) {
 	conn, err := net.DialTimeout("tcp", info.Host+":445", time.Duration(common.Timeout)*time.Second)
-	defer conn.Close()
 	if err != nil {
 		return
 	}
+	defer conn.Close()
 	initiator := smb2.NTLMInitiator{
 		User:   user,
 		Domain: common.Domain,

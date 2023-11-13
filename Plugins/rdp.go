@@ -127,10 +127,10 @@ func NewClient(host string, logLevel glog.LEVEL) *Client {
 
 func (g *Client) Login(domain, user, pwd string, timeout int64) error {
 	conn, err := common.WrapperTcpWithTimeout("tcp", g.Host, time.Duration(timeout)*time.Second)
-	defer conn.Close()
 	if err != nil {
 		return fmt.Errorf("[dial err] %v", err)
 	}
+	defer conn.Close()
 	glog.Info(conn.LocalAddr().String())
 
 	g.tpkt = tpkt.New(core.NewSocketLayer(conn), nla.NewNTLMv2(domain, user, pwd))
