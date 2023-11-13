@@ -3,28 +3,27 @@ package Plugins
 import (
 	"errors"
 	"fmt"
-	"strings"
-	"time"
-
 	"github.com/shadow1ng/fscan/common"
 	"github.com/stacktitan/smb/smb"
+	"strings"
+	"time"
 )
 
-func SmbScan(info common.HostInfo, flags common.Flags) (tmperr error) {
-	if flags.IsBrute {
+func SmbScan(info *common.HostInfo) (tmperr error) {
+	if common.IsBrute {
 		return nil
 	}
 	starttime := time.Now().Unix()
 	for _, user := range common.Userdict["smb"] {
 		for _, pass := range common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
-			flag, err := doWithTimeOut(info, flags, user, pass)
-			if flag && err == nil {
+			flag, err := doWithTimeOut(info, user, pass)
+			if flag == true && err == nil {
 				var result string
-				if flags.Domain != "" {
-					result = fmt.Sprintf("[+] SMB:%v:%v:%v\\%v %v", info.Host, info.Ports, flags.Domain, user, pass)
+				if common.Domain != "" {
+					result = fmt.Sprintf("[+] SMB %v:%v:%v\\%v %v", info.Host, info.Ports, common.Domain, user, pass)
 				} else {
-					result = fmt.Sprintf("[+] SMB:%v:%v:%v %v", info.Host, info.Ports, user, pass)
+					result = fmt.Sprintf("[+] SMB %v:%v:%v %v", info.Host, info.Ports, user, pass)
 				}
 				common.LogSuccess(result)
 				return err
@@ -36,7 +35,7 @@ func SmbScan(info common.HostInfo, flags common.Flags) (tmperr error) {
 				if common.CheckErrs(err) {
 					return err
 				}
-				if time.Now().Unix()-starttime > (int64(len(common.Userdict["smb"])*len(common.Passwords)) * flags.Timeout) {
+				if time.Now().Unix()-starttime > (int64(len(common.Userdict["smb"])*len(common.Passwords)) * common.Timeout) {
 					return err
 				}
 			}
@@ -45,7 +44,7 @@ func SmbScan(info common.HostInfo, flags common.Flags) (tmperr error) {
 	return tmperr
 }
 
-func SmblConn(info common.HostInfo, flags common.Flags, user string, pass string, signal chan struct{}) (flag bool, err error) {
+func SmblConn(info *common.HostInfo, user string, pass string, signal chan struct{}) (flag bool, err error) {
 	flag = false
 	Host, Username, Password := info.Host, user, pass
 	options := smb.Options{
@@ -53,7 +52,7 @@ func SmblConn(info common.HostInfo, flags common.Flags, user string, pass string
 		Port:        445,
 		User:        Username,
 		Password:    Password,
-		Domain:      flags.Domain,
+		Domain:      common.Domain,
 		Workstation: "",
 	}
 
@@ -68,15 +67,15 @@ func SmblConn(info common.HostInfo, flags common.Flags, user string, pass string
 	return flag, err
 }
 
-func doWithTimeOut(info common.HostInfo, flags common.Flags, user string, pass string) (flag bool, err error) {
+func doWithTimeOut(info *common.HostInfo, user string, pass string) (flag bool, err error) {
 	signal := make(chan struct{})
 	go func() {
-		flag, err = SmblConn(info, flags, user, pass, signal)
+		flag, err = SmblConn(info, user, pass, signal)
 	}()
 	select {
 	case <-signal:
 		return flag, err
-	case <-time.After(time.Duration(flags.Timeout) * time.Second):
+	case <-time.After(time.Duration(common.Timeout) * time.Second):
 		return false, errors.New("time out")
 	}
 }
