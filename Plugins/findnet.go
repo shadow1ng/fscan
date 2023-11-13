@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/shadow1ng/fscan/common"
+	"strconv"
 	"strings"
 	"time"
-
-	"github.com/shadow1ng/fscan/common"
 )
 
 var (
@@ -16,14 +16,14 @@ var (
 	bufferV3, _ = hex.DecodeString("0900ffff0000")
 )
 
-func Findnet(info common.HostInfo, flags common.Flags) error {
-	err := FindnetScan(info, flags)
+func Findnet(info *common.HostInfo) error {
+	err := FindnetScan(info)
 	return err
 }
 
-func FindnetScan(info common.HostInfo, flags common.Flags) error {
+func FindnetScan(info *common.HostInfo) error {
 	realhost := fmt.Sprintf("%s:%v", info.Host, 135)
-	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, common.Socks5{Address: flags.Socks5Proxy}, time.Duration(flags.Timeout)*time.Second)
+	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.Timeout)*time.Second)
 	defer func() {
 		if conn != nil {
 			conn.Close()
@@ -32,7 +32,7 @@ func FindnetScan(info common.HostInfo, flags common.Flags) error {
 	if err != nil {
 		return err
 	}
-	err = conn.SetDeadline(time.Now().Add(time.Duration(flags.Timeout) * time.Second))
+	err = conn.SetDeadline(time.Now().Add(time.Duration(common.Timeout) * time.Second))
 	if err != nil {
 		return err
 	}
@@ -67,11 +67,53 @@ func FindnetScan(info common.HostInfo, flags common.Flags) error {
 	err = read(text, info.Host)
 	return err
 }
+
+func HexUnicodeStringToString(src string) string {
+	sText := ""
+	if len(src)%4 != 0 {
+		src += src[:len(src)-len(src)%4]
+	}
+	for i := 0; i < len(src); i = i + 4 {
+		sText += "\\u" + src[i+2:i+4] + src[i:i+2]
+	}
+
+	textUnquoted := sText
+	sUnicodev := strings.Split(textUnquoted, "\\u")
+	var context string
+	for _, v := range sUnicodev {
+		if len(v) < 1 {
+			continue
+		}
+		temp, err := strconv.ParseInt(v, 16, 32)
+		if err != nil {
+			return ""
+		}
+		context += fmt.Sprintf("%c", temp)
+	}
+	return context
+}
+
 func read(text []byte, host string) error {
 	encodedStr := hex.EncodeToString(text)
+
+	hn := ""
+	for i := 0; i < len(encodedStr)-4; i = i + 4 {
+		if encodedStr[i:i+4] == "0000" {
+			break
+		}
+		hn += encodedStr[i : i+4]
+	}
+
+	var name string
+	name = HexUnicodeStringToString(hn)
+
 	hostnames := strings.Replace(encodedStr, "0700", "", -1)
 	hostname := strings.Split(hostnames, "000000")
 	result := "[*] NetInfo:\n[*]" + host
+	if name != "" {
+		result += "\n   [->]" + name
+	}
+	hostname = hostname[1:]
 	for i := 0; i < len(hostname); i++ {
 		hostname[i] = strings.Replace(hostname[i], "00", "", -1)
 		host, err := hex.DecodeString(hostname[i])
