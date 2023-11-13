@@ -229,7 +229,7 @@ func GetProtocol(host string, Timeout int64) (protocol string) {
 	if err != nil {
 		return
 	}
-	conn := tls.Client(socksconn, &tls.Config{InsecureSkipVerify: true})
+	conn := tls.Client(socksconn, &tls.Config{MinVersion: tls.VersionTLS10, InsecureSkipVerify: true})
 	defer func() {
 		if conn != nil {
 			defer func() {

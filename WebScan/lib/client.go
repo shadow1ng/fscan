@@ -46,7 +46,7 @@ func InitHttpClient(ThreadsNum int, DownProxy string, Timeout time.Duration) err
 		MaxIdleConns:        0,
 		MaxIdleConnsPerHost: ThreadsNum * 2,
 		IdleConnTimeout:     keepAlive,
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig:     &tls.Config{MinVersion: tls.VersionTLS10, InsecureSkipVerify: true},
 		TLSHandshakeTimeout: 5 * time.Second,
 		DisableKeepAlives:   false,
 	}
