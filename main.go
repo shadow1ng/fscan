@@ -2,18 +2,17 @@ package main
 
 import (
 	"fmt"
-	"time"
-
 	"github.com/shadow1ng/fscan/Plugins"
 	"github.com/shadow1ng/fscan/common"
+	"time"
 )
 
 func main() {
 	start := time.Now()
-	var config common.InConfig
-	common.Flag(&config)
-	common.Parse(&config)
-	Plugins.Scan(config.HostInfo, config.Flags)
+	var Info common.HostInfo
+	common.Flag(&Info)
+	common.Parse(&Info)
+	Plugins.Scan(Info)
 	t := time.Now().Sub(start)
-	fmt.Printf("[*] The scan is done, spent time: %s\n", t)
+	fmt.Printf("[*] 扫描结束,耗时: %s\n", t)
 }
