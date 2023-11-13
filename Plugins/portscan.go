@@ -2,12 +2,11 @@ package Plugins
 
 import (
 	"fmt"
+	"github.com/shadow1ng/fscan/common"
 	"sort"
 	"strconv"
 	"sync"
 	"time"
-
-	"github.com/shadow1ng/fscan/common"
 )
 
 type Addr struct {
@@ -15,10 +14,10 @@ type Addr struct {
 	port int
 }
 
-func PortScan(hostslist []string, ports string, flags common.Flags) []string {
+func PortScan(hostslist []string, ports string, timeout int64) []string {
 	var AliveAddress []string
 	probePorts := common.ParsePort(ports)
-	noPorts := common.ParsePort(flags.NoPorts)
+	noPorts := common.ParsePort(common.NoPorts)
 	if len(noPorts) > 0 {
 		temp := map[int]struct{}{}
 		for _, port := range probePorts {
@@ -36,12 +35,12 @@ func PortScan(hostslist []string, ports string, flags common.Flags) []string {
 		probePorts = newDatas
 		sort.Ints(probePorts)
 	}
-	workers := flags.Threads
+	workers := common.Threads
 	Addrs := make(chan Addr, len(hostslist)*len(probePorts))
 	results := make(chan string, len(hostslist)*len(probePorts))
 	var wg sync.WaitGroup
 
-	// receive result
+	//接收结果
 	go func() {
 		for found := range results {
 			AliveAddress = append(AliveAddress, found)
@@ -49,35 +48,32 @@ func PortScan(hostslist []string, ports string, flags common.Flags) []string {
 		}
 	}()
 
-	// multithreaded scan
+	//多线程扫描
 	for i := 0; i < workers; i++ {
 		go func() {
 			for addr := range Addrs {
-				PortConnect(addr, common.Socks5{Address: flags.Socks5Proxy}, results, flags.Timeout, &wg)
+				PortConnect(addr, results, timeout, &wg)
 				wg.Done()
 			}
 		}()
 	}
 
-	// add scan target
+	//添加扫描目标
 	for _, port := range probePorts {
 		for _, host := range hostslist {
 			wg.Add(1)
 			Addrs <- Addr{host, port}
 		}
 	}
-
 	wg.Wait()
-
 	close(Addrs)
 	close(results)
-
 	return AliveAddress
 }
 
-func PortConnect(addr Addr, socks5Proxy common.Socks5, respondingHosts chan<- string, adjustedTimeout int64, wg *sync.WaitGroup) {
+func PortConnect(addr Addr, respondingHosts chan<- string, adjustedTimeout int64, wg *sync.WaitGroup) {
 	host, port := addr.ip, addr.port
-	conn, err := common.WrapperTcpWithTimeout("tcp4", fmt.Sprintf("%s:%v", host, port), socks5Proxy, time.Duration(adjustedTimeout)*time.Second)
+	conn, err := common.WrapperTcpWithTimeout("tcp4", fmt.Sprintf("%s:%v", host, port), time.Duration(adjustedTimeout)*time.Second)
 	defer func() {
 		if conn != nil {
 			conn.Close()
@@ -92,9 +88,9 @@ func PortConnect(addr Addr, socks5Proxy common.Socks5, respondingHosts chan<- st
 	}
 }
 
-func NoPortScan(hostslist []string, ports string, flags common.Flags) (AliveAddress []string) {
+func NoPortScan(hostslist []string, ports string) (AliveAddress []string) {
 	probePorts := common.ParsePort(ports)
-	noPorts := common.ParsePort(flags.NoPorts)
+	noPorts := common.ParsePort(common.NoPorts)
 	if len(noPorts) > 0 {
 		temp := map[int]struct{}{}
 		for _, port := range probePorts {
@@ -106,13 +102,12 @@ func NoPortScan(hostslist []string, ports string, flags common.Flags) (AliveAddr
 		}
 
 		var newDatas []int
-		for port := range temp {
+		for port, _ := range temp {
 			newDatas = append(newDatas, port)
 		}
 		probePorts = newDatas
 		sort.Ints(probePorts)
 	}
-
 	for _, port := range probePorts {
 		for _, host := range hostslist {
 			address := host + ":" + strconv.Itoa(port)
