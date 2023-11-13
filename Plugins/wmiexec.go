@@ -36,15 +36,15 @@ func WmiExec(info *common.HostInfo) (tmperr error) {
 		for _, pass := range common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
 			flag, err := Wmiexec(info, user, pass, common.Hash)
-			errlog := fmt.Sprintf("[-] WmiExec  %v:%v %v %v %v", info.Host, 445, user, pass, err)
+			errlog := fmt.Sprintf("[-] WmiExec %v:%v %v %v %v", info.Host, 445, user, pass, err)
 			errlog = strings.Replace(errlog, "\n", "", -1)
 			common.LogError(errlog)
 			if flag == true {
 				var result string
 				if common.Domain != "" {
-					result = fmt.Sprintf("[+] WmiExec:%v:%v:%v\\%v ", info.Host, info.Ports, common.Domain, user)
+					result = fmt.Sprintf("[+] WmiExec %v:%v:%v\\%v ", info.Host, info.Ports, common.Domain, user)
 				} else {
-					result = fmt.Sprintf("[+] WmiExec:%v:%v:%v ", info.Host, info.Ports, user)
+					result = fmt.Sprintf("[+] WmiExec %v:%v:%v ", info.Host, info.Ports, user)
 				}
 				if common.Hash != "" {
 					result += "hash: " + common.Hash

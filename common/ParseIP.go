@@ -114,8 +114,10 @@ func parseIP2(host string) (hosts []string) {
 	return
 }
 
-// 解析ip段: 192.168.111.1-255
-//          192.168.111.1-192.168.112.255
+// 解析ip段:
+//
+//	192.168.111.1-255
+//	192.168.111.1-192.168.112.255
 func parseIP1(ip string) []string {
 	IPRange := strings.Split(ip, "-")
 	testIP := net.ParseIP(IPRange[0])

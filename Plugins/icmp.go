@@ -117,7 +117,7 @@ func RunIcmp1(hostslist []string, conn *icmp.PacketConn, chanHosts chan string) 
 		if len(AliveHosts) == len(hostslist) {
 			break
 		}
-		since := time.Now().Sub(start)
+		since := time.Since(start)
 		var wait time.Duration
 		switch {
 		case len(hostslist) <= 256:
@@ -297,7 +297,7 @@ func ArrayCountValueTop(arrInit []string, length int, flag bool) (arrTop []strin
 	}
 
 	i := 0
-	for _ = range arrMap1 {
+	for range arrMap1 {
 		var maxCountKey string
 		var maxCountVal = 0
 		for key, val := range arrMap2 {

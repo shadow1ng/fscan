@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -27,7 +26,7 @@ func WebTitle(info *common.HostInfo) error {
 	err, CheckData := GOWebTitle(info)
 	info.Infostr = WebScan.InfoCheck(info.Url, &CheckData)
 
-	if common.IsWebCan == false && err == nil {
+	if !common.NoWebCan && err == nil {
 		WebScan.WebScan(info)
 	} else {
 		errlog := fmt.Sprintf("[-] webtitle %v %v", info.Url, err)
@@ -75,7 +74,7 @@ func GOWebTitle(info *common.HostInfo) (err error, CheckData []WebScan.CheckData
 		//有跳转
 		if strings.Contains(result, "://") {
 			info.Url = result
-			err, result, CheckData = geturl(info, 3, CheckData)
+			err, _, CheckData = geturl(info, 3, CheckData)
 			if err != nil {
 				return
 			}
@@ -188,7 +187,7 @@ func getRespBody(oResp *http.Response) ([]byte, error) {
 			body = append(body, buf...)
 		}
 	} else {
-		raw, err := ioutil.ReadAll(oResp.Body)
+		raw, err := io.ReadAll(oResp.Body)
 		if err != nil {
 			return nil, err
 		}

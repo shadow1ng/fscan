@@ -29,7 +29,7 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 		}
 
 		var newDatas []int
-		for port, _ := range temp {
+		for port := range temp {
 			newDatas = append(newDatas, port)
 		}
 		probePorts = newDatas

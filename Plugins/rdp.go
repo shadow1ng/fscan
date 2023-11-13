@@ -187,7 +187,7 @@ func (g *Client) Login(domain, user, pwd string, timeout int64) error {
 		glog.Info("on update:", rectangles)
 	})
 	g.pdu.On("done", func() {
-		if breakFlag == false {
+		if !breakFlag {
 			breakFlag = true
 			wg.Done()
 		}

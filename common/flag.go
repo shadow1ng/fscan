@@ -2,24 +2,7 @@ package common
 
 import (
 	"flag"
-	"runtime"
-	"runtime/debug"
-	"time"
 )
-
-func init() {
-	go func() {
-		for {
-			GC()
-			time.Sleep(10 * time.Second)
-		}
-	}()
-}
-
-func GC() {
-	runtime.GC()
-	debug.FreeOSMemory()
-}
 
 func Banner() {
 	banner := `
@@ -59,7 +42,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&PocPath, "pocpath", "", "poc file path")
 	flag.StringVar(&RedisFile, "rf", "", "redis file to write sshkey file (as: -rf id_rsa.pub)")
 	flag.StringVar(&RedisShell, "rs", "", "redis shell to write cron file (as: -rs 192.168.1.1:6666)")
-	flag.BoolVar(&IsWebCan, "nopoc", false, "not to scan web vul")
+	flag.BoolVar(&NoWebCan, "nopoc", false, "not to scan web vul")
 	flag.BoolVar(&IsBrute, "nobr", false, "not to Brute password")
 	flag.IntVar(&BruteThread, "br", 1, "Brute threads")
 	flag.BoolVar(&NoPing, "np", false, "not to ping")
@@ -68,6 +51,7 @@ func Flag(Info *HostInfo) {
 	flag.BoolVar(&TmpSave, "no", false, "not to save output log")
 	flag.Int64Var(&WaitTime, "debug", 60, "every time to LogErr")
 	flag.BoolVar(&Silent, "silent", false, "silent scan")
+	flag.BoolVar(&Nocolor, "nocolor", false, "no color")
 	flag.BoolVar(&PocFull, "full", false, "poc full scan,as: shiro 100 key")
 	flag.StringVar(&URL, "u", "", "url")
 	flag.StringVar(&UrlFile, "uf", "", "urlfile")
@@ -81,5 +65,6 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&SC, "sc", "", "ms17 shellcode,as -sc add")
 	flag.BoolVar(&IsWmi, "wmi", false, "start wmi")
 	flag.StringVar(&Hash, "hash", "", "hash")
+	flag.BoolVar(&Noredistest, "noredis", false, "no redis sec test")
 	flag.Parse()
 }

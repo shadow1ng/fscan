@@ -74,7 +74,7 @@ var (
 	NoPing      bool
 	Ping        bool
 	Pocinfo     PocInfo
-	IsWebCan    bool
+	NoWebCan    bool
 	IsBrute     bool
 	RedisFile   string
 	RedisShell  string
@@ -100,6 +100,7 @@ var (
 	HashBytes   []byte
 	HostPort    []string
 	IsWmi       bool
+	Noredistest bool
 )
 
 var (

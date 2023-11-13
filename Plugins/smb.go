@@ -21,9 +21,9 @@ func SmbScan(info *common.HostInfo) (tmperr error) {
 			if flag == true && err == nil {
 				var result string
 				if common.Domain != "" {
-					result = fmt.Sprintf("[+] SMB:%v:%v:%v\\%v %v", info.Host, info.Ports, common.Domain, user, pass)
+					result = fmt.Sprintf("[+] SMB %v:%v:%v\\%v %v", info.Host, info.Ports, common.Domain, user, pass)
 				} else {
-					result = fmt.Sprintf("[+] SMB:%v:%v:%v %v", info.Host, info.Ports, user, pass)
+					result = fmt.Sprintf("[+] SMB %v:%v:%v %v", info.Host, info.Ports, user, pass)
 				}
 				common.LogSuccess(result)
 				return err

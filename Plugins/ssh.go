@@ -44,7 +44,7 @@ func SshScan(info *common.HostInfo) (tmperr error) {
 func SshConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
-	Auth := []ssh.AuthMethod{}
+	var Auth []ssh.AuthMethod
 	if common.SshKey != "" {
 		pemBytes, err := ioutil.ReadFile(common.SshKey)
 		if err != nil {
@@ -78,15 +78,15 @@ func SshConn(info *common.HostInfo, user string, pass string) (flag bool, err er
 			var result string
 			if common.Command != "" {
 				combo, _ := session.CombinedOutput(common.Command)
-				result = fmt.Sprintf("[+] SSH:%v:%v:%v %v \n %v", Host, Port, Username, Password, string(combo))
+				result = fmt.Sprintf("[+] SSH %v:%v:%v %v \n %v", Host, Port, Username, Password, string(combo))
 				if common.SshKey != "" {
-					result = fmt.Sprintf("[+] SSH:%v:%v sshkey correct \n %v", Host, Port, string(combo))
+					result = fmt.Sprintf("[+] SSH %v:%v sshkey correct \n %v", Host, Port, string(combo))
 				}
 				common.LogSuccess(result)
 			} else {
-				result = fmt.Sprintf("[+] SSH:%v:%v:%v %v", Host, Port, Username, Password)
+				result = fmt.Sprintf("[+] SSH %v:%v:%v %v", Host, Port, Username, Password)
 				if common.SshKey != "" {
-					result = fmt.Sprintf("[+] SSH:%v:%v sshkey correct", Host, Port)
+					result = fmt.Sprintf("[+] SSH %v:%v sshkey correct", Host, Port)
 				}
 				common.LogSuccess(result)
 			}
