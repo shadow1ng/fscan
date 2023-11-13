@@ -149,7 +149,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 		// 先判断响应页面是否匹配search规则
 		if rule.Search != "" {
 			result := doSearch(rule.Search, GetHeader(resp.Headers)+string(resp.Body))
-			if len(result) > 0 { // 正则匹配成功
+			if result != nil && len(result) > 0 { // 正则匹配成功
 				for k, v := range result {
 					variableMap[k] = v
 				}
@@ -161,6 +161,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 		if err != nil {
 			return false, err
 		}
+		//fmt.Println(fmt.Sprintf("%v, %s", out, out.Type().TypeName()))
 		//如果false不继续执行后续rule
 		// 如果最后一步执行失败，就算前面成功了最终依旧是失败
 		flag, ok = out.Value().(bool)
@@ -353,15 +354,15 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 			if success {
 				if rule.Continue {
 					if p.Name == "poc-yaml-backup-file" || p.Name == "poc-yaml-sql-file" {
-						common.LogSuccess(fmt.Sprintf("[+] PocScan %s://%s%s %s", req.Url.Scheme, req.Url.Host, req.Url.Path, p.Name))
+						common.LogSuccess(fmt.Sprintf("[+] PocScan: %s://%s%s %s", req.Url.Scheme, req.Url.Host, req.Url.Path, p.Name))
 					} else {
-						common.LogSuccess(fmt.Sprintf("[+] PocScan %s://%s%s %s %v", req.Url.Scheme, req.Url.Host, req.Url.Path, p.Name, tmpMap))
+						common.LogSuccess(fmt.Sprintf("[+] PocScan: %s://%s%s %s %v", req.Url.Scheme, req.Url.Host, req.Url.Path, p.Name, tmpMap))
 					}
 					continue
 				}
 				strMap = append(strMap, tmpMap...)
 				if i == len(p.Rules)-1 {
-					common.LogSuccess(fmt.Sprintf("[+] PocScan %s://%s%s %s %v", req.Url.Scheme, req.Url.Host, req.Url.Path, p.Name, strMap))
+					common.LogSuccess(fmt.Sprintf("[+] PocScan: %s://%s%s %s %v", req.Url.Scheme, req.Url.Host, req.Url.Path, p.Name, strMap))
 					//防止后续继续打印poc成功信息
 					return false, nil
 				}
