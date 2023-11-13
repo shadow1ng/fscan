@@ -564,13 +564,13 @@ func randomString(n int) string {
 }
 
 func reverseCheck(r *Reverse, timeout int64) bool {
-	if ceyeApi == "" || r.Domain == "" {
+	if ceyeApi == "" || r.Domain == "" || !common.DnsLog {
 		return false
 	}
 	time.Sleep(time.Second * time.Duration(timeout))
 	sub := strings.Split(r.Domain, ".")[0]
 	urlStr := fmt.Sprintf("http://api.ceye.io/v1/records?token=%s&type=dns&filter=%s", ceyeApi, sub)
-
+	//fmt.Println(urlStr)
 	req, _ := http.NewRequest("GET", urlStr, nil)
 	resp, err := DoRequest(req, false)
 	if err != nil {
@@ -621,6 +621,7 @@ func DoRequest(req *http.Request, redirect bool) (*Response, error) {
 		oResp, err = ClientNoRedirect.Do(req)
 	}
 	if err != nil {
+		//fmt.Println("[-]DoRequest error: ",err)
 		return nil, err
 	}
 	defer oResp.Body.Close()
