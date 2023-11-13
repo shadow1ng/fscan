@@ -2,19 +2,18 @@ package Plugins
 
 import (
 	"fmt"
-	"strings"
-	"time"
-
 	"github.com/jlaffaye/ftp"
 	"github.com/shadow1ng/fscan/common"
+	"strings"
+	"time"
 )
 
-func FtpScan(info common.HostInfo, flags common.Flags) (tmperr error) {
-	if flags.IsBrute {
+func FtpScan(info *common.HostInfo) (tmperr error) {
+	if common.IsBrute {
 		return
 	}
 	starttime := time.Now().Unix()
-	flag, err := FtpConn(info, "anonymous", "", flags.Timeout)
+	flag, err := FtpConn(info, "anonymous", "")
 	if flag && err == nil {
 		return err
 	} else {
@@ -29,7 +28,7 @@ func FtpScan(info common.HostInfo, flags common.Flags) (tmperr error) {
 	for _, user := range common.Userdict["ftp"] {
 		for _, pass := range common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
-			flag, err := FtpConn(info, user, pass, flags.Timeout)
+			flag, err := FtpConn(info, user, pass)
 			if flag && err == nil {
 				return err
 			} else {
@@ -39,7 +38,7 @@ func FtpScan(info common.HostInfo, flags common.Flags) (tmperr error) {
 				if common.CheckErrs(err) {
 					return err
 				}
-				if time.Now().Unix()-starttime > (int64(len(common.Userdict["ftp"])*len(common.Passwords)) * flags.Timeout) {
+				if time.Now().Unix()-starttime > (int64(len(common.Userdict["ftp"])*len(common.Passwords)) * common.Timeout) {
 					return err
 				}
 			}
@@ -48,10 +47,10 @@ func FtpScan(info common.HostInfo, flags common.Flags) (tmperr error) {
 	return tmperr
 }
 
-func FtpConn(info common.HostInfo, user string, pass string, timeout int64) (flag bool, err error) {
+func FtpConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
-	conn, err := ftp.Dial(fmt.Sprintf("%v:%v", Host, Port), ftp.DialWithTimeout(time.Duration(timeout)*time.Second))
+	conn, err := ftp.DialTimeout(fmt.Sprintf("%v:%v", Host, Port), time.Duration(common.Timeout)*time.Second)
 	if err == nil {
 		err = conn.Login(Username, Password)
 		if err == nil {
