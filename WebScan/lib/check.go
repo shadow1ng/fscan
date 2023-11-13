@@ -33,7 +33,7 @@ func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int) {
 			for task := range tasks {
 				isVul, _, name := executePoc(task.Req, task.Poc)
 				if isVul {
-					result := fmt.Sprintf("[+] PocScan:%s %s %s", task.Req.URL, task.Poc.Name, name)
+					result := fmt.Sprintf("[+] PocScan: %s %s %s", task.Req.URL, task.Poc.Name, name)
 					common.LogSuccess(result)
 				}
 				wg.Done()
