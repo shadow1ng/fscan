@@ -17,6 +17,8 @@ func ParsePort(ports string) (scanPorts []int) {
 		}
 		if PortGroup[port] != "" {
 			port = PortGroup[port]
+			scanPorts = append(scanPorts, ParsePort(port)...)
+			continue
 		}
 		upper := port
 		if strings.Contains(port, "-") {
