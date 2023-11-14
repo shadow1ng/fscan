@@ -13,23 +13,31 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      -
-        name: Checkout
-        uses: actions/checkout@v2
+      - name: "Check out code"
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      -
-        name: Set up Go
-        uses: actions/setup-go@v2
+
+      - name: "Set up Go"
+        uses: actions/setup-go@v4
         with:
-          go-version: 1.19
+          go-version: 1.21.x
       -
-        name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v2
+        name: Install UPX
+        uses: crazy-max/ghaction-upx@v3
+        with:
+          install-only: true
+
+      - name: UPX version
+        run: upx --version
+
+      -
+        name: "Create release on GitHub"
+        uses: goreleaser/goreleaser-action@v4
         with:
           distribution: goreleaser
           version: latest
-          args: -f .github/conf/.goreleaser.yml
+          args: "release --clean --debug -f .github/conf/.goreleaser.yml"
           workdir: .
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

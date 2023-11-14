@@ -1,69 +1,54 @@
 before:
   hooks:
-    - sudo apt -y install libprotobuf-dev protobuf-compiler protoc-gen-go
     - go mod tidy
-    - go generate ./...
 builds:
-  - id: "with-upx"
+  -
+    id: default
     env:
       - CGO_ENABLED=0
     goos:
-      - linux
       - windows
+      - linux
       - darwin
+      - freebsd
     goarch:
       - amd64
-      - arm64
-      - arm
       - "386"
-    goarm:
-      - "6"
-      - "7"
-    flags:
-      - -trimpath
-    ldflags:
-      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{ .CommitDate }} -X main.builtBy=goreleaser
-    ignore:
-      - goos: windows
-        goarch: arm64
-      - goos: windows
-        goarch: arm
-      - goos: linux
-        goarch: mips64
-    hooks:
-       post: upx --best -f -q "{{ .Path }}"
-
-# UnknownExecutableFormatException
-# CantPackException: can't pack new-exe
-  - id: "without-upx"
-    env:
-      - CGO_ENABLED=0
-    goos:
-      - linux
-      - windows
-      - darwin
-    goarch:
-      - mips64
       - arm
+      - arm64
+      - mips
+      - mipsle
+      - mips64
     goarm:
       - "6"
       - "7"
     flags:
       - -trimpath
     ldflags:
-      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{ .CommitDate }} -X main.builtBy=goreleaser
-    ignore:
-      - goos: linux
-        goarch: arm
-
-
+      - -s -w
+upx:
+  -
+    ids: [ default ]
+    enabled: true
+    goos: ["windows", "linux"]
+    goarch: ["amd64", "386"]
+    compress: best
+    lzma: true
+    brute: true
 archives:
-  - replacements:
-      darwin: Darwin
-      linux: Linux
-      windows: Windows
-      386: i386
-      amd64: x86_64
+  -
+    format: binary
+    allow_different_binary_count: true
+    name_template: >-
+      {{- .ProjectName }}
+      {{- if eq .Os "darwin"}}_mac
+      {{- else if eq .Os "linux"}}
+      {{- else if eq .Os "windows"}}
+      {{- else }}_{{ .Os }}{{ end }}
+      {{- if eq .Arch "amd64" }}
+      {{- else if eq .Arch "386" }}32
+      {{- else }}_{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end -}}
 checksum:
   name_template: 'checksums.txt'
 snapshot:
@@ -74,3 +59,5 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
+      - "^*.md"
+      - "^*.ya?ml"
