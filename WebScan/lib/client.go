@@ -25,8 +25,14 @@ var (
 	keepAlive        = 5 * time.Second
 )
 
-func Inithttp(PocInfo common.PocInfo) {
-	//PocInfo.Proxy = "http://127.0.0.1:8080"
+func Inithttp() {
+	//common.Proxy = "http://127.0.0.1:8080"
+	if common.PocNum == 0 {
+		common.PocNum = 20
+	}
+	if common.WebTimeout == 0 {
+		common.WebTimeout = 5
+	}
 	err := InitHttpClient(common.PocNum, common.Proxy, time.Duration(common.WebTimeout)*time.Second)
 	if err != nil {
 		log.Fatal(err)

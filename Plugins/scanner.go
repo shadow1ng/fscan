@@ -17,7 +17,7 @@ func Scan(info common.HostInfo) {
 		fmt.Println("len(hosts)==0", err)
 		return
 	}
-	lib.Inithttp(common.Pocinfo)
+	lib.Inithttp()
 	var ch = make(chan struct{}, common.Threads)
 	var wg = sync.WaitGroup{}
 	web := strconv.Itoa(common.PORTList["web"])
