@@ -9,11 +9,10 @@ import (
 	"github.com/shadow1ng/fscan/common"
 	"golang.org/x/net/proxy"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -35,7 +34,7 @@ func Inithttp() {
 	}
 	err := InitHttpClient(common.PocNum, common.Proxy, time.Duration(common.WebTimeout)*time.Second)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 }
 
@@ -247,7 +246,7 @@ func SelectPoc(Pocs embed.FS, pocname string) []string {
 
 func LoadPocbyPath(fileName string) (*Poc, error) {
 	p := &Poc{}
-	data, err := ioutil.ReadFile(fileName)
+	data, err := os.ReadFile(fileName)
 	if err != nil {
 		fmt.Printf("[-] load poc %s error3: %v\n", fileName, err)
 		return nil, err

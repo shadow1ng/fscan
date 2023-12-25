@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/fatih/color"
+	"io"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -13,7 +15,6 @@ import (
 var Num int64
 var End int64
 var Results = make(chan *string)
-var Start = true
 var LogSucTime int64
 var LogErrTime int64
 var WaitTime int64
@@ -28,6 +29,7 @@ type JsonText struct {
 }
 
 func init() {
+	log.SetOutput(io.Discard)
 	LogSucTime = time.Now().Unix()
 	go SaveLog()
 }
