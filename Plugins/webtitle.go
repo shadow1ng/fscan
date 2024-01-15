@@ -197,7 +197,7 @@ func getRespBody(oResp *http.Response) ([]byte, error) {
 }
 
 func gettitle(body []byte) (title string) {
-	re := regexp.MustCompile("(?ims)<title>(.*?)</title>")
+	re := regexp.MustCompile("(?ims)<title.*?>(.*?)</title>")
 	find := re.FindSubmatch(body)
 	if len(find) > 1 {
 		title = string(find[1])
