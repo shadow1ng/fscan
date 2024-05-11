@@ -221,14 +221,26 @@ func writekey(conn net.Conn, filename string) (flag bool, text string, err error
 
 func writecron(conn net.Conn, host string) (flag bool, text string, err error) {
 	flag = false
-	_, err = conn.Write([]byte("CONFIG SET dir /var/spool/cron/\r\n"))
+    	// 尝试写入Ubuntu的路径
+    	_, err = conn.Write([]byte("CONFIG SET dir /var/spool/cron/crontabs/\r\n"))
+    	if err != nil {
+		return flag, text, err
+    	}
+    	text, err = readreply(conn)
 	if err != nil {
 		return flag, text, err
 	}
-	text, err = readreply(conn)
-	if err != nil {
-		return flag, text, err
-	}
+    	if !strings.Contains(text, "OK") {
+		// 如果没有返回"OK"，可能是CentOS，尝试CentOS的路径
+		_, err = conn.Write([]byte("CONFIG SET dir /var/spool/cron/\r\n"))
+		if err != nil {
+	    		return flag, text, err
+		}
+		text, err = readreply(conn)
+		if err != nil {
+	    		return flag, text, err
+		}
+    	}
 	if strings.Contains(text, "OK") {
 		_, err = conn.Write([]byte("CONFIG SET dbfilename root\r\n"))
 		if err != nil {
