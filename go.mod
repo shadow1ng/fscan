@@ -4,15 +4,15 @@ go 1.19
 
 require (
 	github.com/C-Sto/goWMIExec v0.0.1-deva.0.20210704154847-b8ebd6464a06
-	github.com/denisenkom/go-mssqldb v0.12.2
+	github.com/denisenkom/go-mssqldb v0.12.3
 	github.com/fatih/color v1.7.0
-	github.com/go-sql-driver/mysql v1.6.0
+	github.com/go-sql-driver/mysql v1.8.1
 	github.com/google/cel-go v0.13.0
 	github.com/hirochachacha/go-smb2 v1.1.0
-	github.com/jlaffaye/ftp v0.0.0-20220829015825-b85cf1edccd4
-	github.com/lib/pq v1.10.6
+	github.com/jlaffaye/ftp v0.2.0
+	github.com/lib/pq v1.10.9
 	github.com/satori/go.uuid v1.2.0
-	github.com/sijms/go-ora/v2 v2.5.3
+	github.com/sijms/go-ora/v2 v2.8.17
 	github.com/stacktitan/smb v0.0.0-20190531122847-da9a425dceb8
 	github.com/tomatome/grdp v0.0.0-20211231062539-be8adab7eaf3
 	golang.org/x/crypto v0.3.0
@@ -25,6 +25,7 @@ require (
 )
 
 require (
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr v1.4.10 // indirect
 	github.com/geoffgarside/ber v1.1.0 // indirect

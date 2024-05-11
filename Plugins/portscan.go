@@ -40,8 +40,8 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 		sort.Ints(probePorts)
 	}
 	workers := common.Threads
-	Addrs := make(chan Addr, len(hostslist)*len(probePorts))
-	results := make(chan string, len(hostslist)*len(probePorts))
+	Addrs := make(chan Addr, 100)
+	results := make(chan string, 100)
 	var wg sync.WaitGroup
 
 	//接收结果

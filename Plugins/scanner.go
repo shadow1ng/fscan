@@ -112,6 +112,11 @@ func AddScan(scantype string, info common.HostInfo, ch *chan struct{}, wg *sync.
 }
 
 func ScanFunc(name *string, info *common.HostInfo) {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Printf("[-] %v:%v scan error: %v\n", info.Host, info.Ports, err)
+		}
+	}()
 	f := reflect.ValueOf(PluginList[*name])
 	in := []reflect.Value{reflect.ValueOf(info)}
 	f.Call(in)
