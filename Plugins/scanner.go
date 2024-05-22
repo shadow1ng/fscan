@@ -25,7 +25,8 @@ func Scan(info common.HostInfo) {
 	if len(Hosts) > 0 || len(common.HostPort) > 0 {
 		if common.NoPing == false && len(Hosts) > 1 || common.Scantype == "icmp" {
 			Hosts = CheckLive(Hosts, common.Ping)
-			fmt.Println("[*] Icmp alive hosts len is:", len(Hosts))
+			result := fmt.Sprintf("[*] Icmp alive hosts len is: %d", len(Hosts))
+			common.LogSuccess(result)
 		}
 		if common.Scantype == "icmp" {
 			common.LogWG.Wait()
