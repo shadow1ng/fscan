@@ -12,7 +12,7 @@ require (
 	github.com/jlaffaye/ftp v0.2.0
 	github.com/lib/pq v1.10.9
 	github.com/satori/go.uuid v1.2.0
-	github.com/sijms/go-ora/v2 v2.8.17
+	github.com/sijms/go-ora/v2 v2.5.29
 	github.com/stacktitan/smb v0.0.0-20190531122847-da9a425dceb8
 	github.com/tomatome/grdp v0.0.0-20211231062539-be8adab7eaf3
 	golang.org/x/crypto v0.3.0
