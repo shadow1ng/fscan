@@ -21,7 +21,7 @@ jobs:
       - name: "Set up Go"
         uses: actions/setup-go@v4
         with:
-          go-version: 1.21.x
+          go-version: 1.20.14
       -
         name: Install UPX
         uses: crazy-max/ghaction-upx@v3
