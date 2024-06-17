@@ -8,6 +8,7 @@ import (
 	"net"
 	"os/exec"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -19,24 +20,51 @@ var (
 	livewg     sync.WaitGroup
 )
 
-func CheckLive(hostslist []string, Ping bool) []string {
-	chanHosts := make(chan string, len(hostslist))
-	go func() {
-		for ip := range chanHosts {
-			if _, ok := ExistHosts[ip]; !ok && IsContain(hostslist, ip) {
-				ExistHosts[ip] = struct{}{}
-				if common.Silent == false {
-					if Ping == false {
-						fmt.Printf("(icmp) Target %-15s is alive\n", ip)
-					} else {
-						fmt.Printf("(ping) Target %-15s is alive\n", ip)
-					}
-				}
-				AliveHosts = append(AliveHosts, ip)
-			}
-			livewg.Done()
+// sortIPs sorts an array of IP addresses in ascending order
+func sortIPs(ips []string) {
+	sort.Slice(ips, func(i, j int) bool {
+		ip1 := net.ParseIP(ips[i])
+		ip2 := net.ParseIP(ips[j])
+
+		// If either IP address is invalid, use string comparison
+		if ip1 == nil || ip2 == nil {
+			return ips[i] < ips[j]
 		}
-	}()
+
+		// Compare the IP addresses using byte comparison
+		return bytes.Compare(ip1.To16(), ip2.To16()) < 0
+	})
+}
+
+func ipSortHandleWorker(Ping bool, WaitCheckHosts []string, AliveHostsChan chan string) {
+	for ip := range AliveHostsChan {
+		AliveHosts = append(AliveHosts, ip)
+		livewg.Done()
+	}
+	livewg.Wait()
+	sortIPs(AliveHosts)
+	tmpList := AliveHosts
+	if common.Silent == false {
+		if Ping == false {
+			for _, ip := range tmpList {
+				result := fmt.Sprintf(" {icmp} Target %-15s is alive", ip)
+				common.LogSuccess(result)
+			}
+		} else {
+			for _, ip := range tmpList {
+				result := fmt.Sprintf(" {ping} Target %-15s is alive", ip)
+				common.LogSuccess(result)
+			}
+		}
+	}
+	tips := fmt.Sprintf("[*] Alive_Hosts: %d", len(tmpList))
+	common.LogSuccess(tips)
+}
+
+func CheckLive(hostslist []string, Ping bool) []string {
+	// chan 接收存活主机并处理
+	chanHosts := make(chan string, len(hostslist))
+	go ipSortHandleWorker(Ping, hostslist, chanHosts)
 
 	if Ping == true {
 		//使用ping探测
