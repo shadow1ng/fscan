@@ -46,50 +46,46 @@ func ParseUser() {
 
 func ParsePass() {
 	var PwdList []string
-	if Password != "" {
-		passs := strings.Split(Password, ",")
-		for _, pass := range passs {
-			if pass != "" {
-				PwdList = append(PwdList, pass)
+
+	processPwd := func(list []string, items []string) []string {
+		for _, item := range items {
+			if item != "" {
+				list = append(list, item)
 			}
 		}
+		return list
+	}
+
+	processURL := func(urls []string, target *[]string) {
+		TmpUrls := make(map[string]struct{})
+		for _, url := range urls {
+			if _, ok := TmpUrls[url]; !ok && url != "" {
+				TmpUrls[url] = struct{}{}
+				*target = append(*target, url)
+			}
+		}
+	}
+
+	if Password != "" {
+		passs := strings.Split(Password, ",")
+		PwdList = processPwd(PwdList, passs)
 		Passwords = PwdList
 	}
 	if Passfile != "" {
 		passs, err := Readfile(Passfile)
 		if err == nil {
-			for _, pass := range passs {
-				if pass != "" {
-					PwdList = append(PwdList, pass)
-				}
-			}
+			PwdList = processPwd(PwdList, passs)
 			Passwords = PwdList
 		}
 	}
 	if URL != "" {
 		urls := strings.Split(URL, ",")
-		TmpUrls := make(map[string]struct{})
-		for _, url := range urls {
-			if _, ok := TmpUrls[url]; !ok {
-				TmpUrls[url] = struct{}{}
-				if url != "" {
-					Urls = append(Urls, url)
-				}
-			}
-		}
+		processURL(urls, &Urls)
 	}
 	if UrlFile != "" {
 		urls, err := Readfile(UrlFile)
 		if err == nil {
-			TmpUrls := make(map[string]struct{})
-			for _, url := range urls {
-				if _, ok := TmpUrls[url]; !ok {
-					TmpUrls[url] = struct{}{}
-					if url != "" {
-						Urls = append(Urls, url)
-					}
-				}
-			}
+			processURL(urls, &Urls)
 		}
 	}
 	if PortFile != "" {
