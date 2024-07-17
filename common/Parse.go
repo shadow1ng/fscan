@@ -13,9 +13,9 @@ import (
 
 func Parse(Info *HostInfo) {
 	ParseUser()
-	ParsePass(Info)
+	ParsePass()
 	ParseInput(Info)
-	ParseScantype(Info)
+	ParseScantype()
 }
 
 func ParseUser() {
@@ -44,7 +44,7 @@ func ParseUser() {
 	}
 }
 
-func ParsePass(Info *HostInfo) {
+func ParsePass() {
 	var PwdList []string
 	if Password != "" {
 		passs := strings.Split(Password, ",")
@@ -214,7 +214,7 @@ func ParseInput(Info *HostInfo) {
 	}
 }
 
-func ParseScantype(Info *HostInfo) {
+func ParseScantype() {
 	_, ok := PORTList[Scantype]
 	if !ok {
 		showmode()
