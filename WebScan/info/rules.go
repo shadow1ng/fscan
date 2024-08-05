@@ -17,13 +17,13 @@ type PocData struct {
 }
 
 var RuleDatas = []RuleData{
-	{"宝塔", "body", "(app.bt.cn/static/app.png|安全入口校验失败|<title>入口校验失败</title>|href=\"http://www.bt.cn/bbs)"},
+	{"宝塔", "code", "(app.bt.cn/static/app.png|安全入口校验失败|<title>入口校验失败</title>|href=\"http://www.bt.cn/bbs)"},
 	{"深信服防火墙类产品", "code", "(SANGFOR FW)"},
 	{"360网站卫士", "code", "(webscan.360.cn/status/pai/hash|wzws-waf-cgi|zhuji.360.cn/guard/firewall/stopattack.html)"},
 	{"360网站卫士", "headers", "(360wzws|CWAP-waf|zhuji.360.cn|X-Safe-Firewall)"},
 	{"绿盟防火墙", "code", "(NSFOCUS NF)"},
 	{"绿盟防火墙", "headers", "(NSFocus)"},
-	{"Topsec-Waf", "index", `(<META NAME="Copyright" CONTENT="Topsec Network Security Technology Co.,Ltd"/>","<META NAME="DESCRIPTION" CONTENT="Topsec web UI"/>)`},
+	{"Topsec-Waf", "code", `(<META NAME="Copyright" CONTENT="Topsec Network Security Technology Co.,Ltd"/>","<META NAME="DESCRIPTION" CONTENT="Topsec web UI"/>)`},
 	{"Anquanbao", "headers", "(Anquanbao)"},
 	{"BaiduYunjiasu", "headers", "(yunjiasu)"},
 	{"BigIP", "headers", "(BigIP|BIGipServer)"},
