@@ -19,7 +19,7 @@ func InfoCheck(Url string, CheckData *[]CheckDatas) []string {
 
 	for _, data := range *CheckData {
 		for _, rule := range info.RuleDatas {
-			if rule.Type == "code" {
+			if rule.Type == "code" || rule.Type == "body" {
 				matched, _ = regexp.MatchString(rule.Rule, string(data.Body))
 			} else {
 				matched, _ = regexp.MatchString(rule.Rule, data.Headers)
