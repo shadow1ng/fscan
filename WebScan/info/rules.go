@@ -17,7 +17,7 @@ type PocData struct {
 }
 
 var RuleDatas = []RuleData{
-	{"宝塔", "body", "(app.bt.cn/static/app.png|安全入口校验失败|<title>入口校验失败</title>|href=\"http://www.bt.cn/bbs)"},
+	{"宝塔", "code", "(app.bt.cn/static/app.png|安全入口校验失败|<title>入口校验失败</title>|href=\"http://www.bt.cn/bbs)"},
 	{"深信服防火墙类产品", "code", "(SANGFOR FW)"},
 	{"360网站卫士", "code", "(webscan.360.cn/status/pai/hash|wzws-waf-cgi|zhuji.360.cn/guard/firewall/stopattack.html)"},
 	{"360网站卫士", "headers", "(360wzws|CWAP-waf|zhuji.360.cn|X-Safe-Firewall)"},
@@ -55,7 +55,7 @@ var RuleDatas = []RuleData{
 	{"Yundun", "headers", "(YUNDUN)"},
 	{"Yunsuo", "headers", "(yunsuo)"},
 	{"Coding pages", "header", "(Coding Pages)"},
-	{"启明防火墙", "body", "(/cgi-bin/webui?op=get_product_model)"},
+	{"启明防火墙", "code", "(/cgi-bin/webui?op=get_product_model)"},
 	{"Shiro", "headers", "(=deleteMe|rememberMe=)"},
 	{"Portainer(Docker管理)", "code", "(portainer.updatePassword|portainer.init.admin)"},
 	{"Gogs简易Git服务", "cookie", "(i_like_gogs)"},

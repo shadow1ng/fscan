@@ -17,51 +17,97 @@ func SmbScan2(info *common.HostInfo) (tmperr error) {
 	}
 	hasprint := false
 	starttime := time.Now().Unix()
-	hash := common.HashBytes
-	for _, user := range common.Userdict["smb"] {
-	PASS:
-		for _, pass := range common.Passwords {
-			pass = strings.Replace(pass, "{user}", user, -1)
-			flag, err, flag2 := Smb2Con(info, user, pass, hash, hasprint)
-			if flag2 {
-				hasprint = true
-			}
-			if flag == true {
-				var result string
-				if common.Domain != "" {
-					result = fmt.Sprintf("[+] SMB2 %v:%v:%v\\%v ", info.Host, info.Ports, common.Domain, user)
-				} else {
-					result = fmt.Sprintf("[+] SMB2 %v:%v:%v ", info.Host, info.Ports, user)
+	if len(common.HashBytes) > 0 {
+		for _, user := range common.Userdict["smb"] {
+			for _, hash := range common.HashBytes {
+				pass := ""
+				flag, err, flag2 := Smb2Con(info, user, pass, hash, hasprint)
+				if flag2 {
+					hasprint = true
 				}
-				if len(hash) > 0 {
-					result += "hash: " + common.Hash
+				if flag == true {
+					var result string
+					if common.Domain != "" {
+						result = fmt.Sprintf("[+] SMB2 %v:%v:%v\\%v ", info.Host, info.Ports, common.Domain, user)
+					} else {
+						result = fmt.Sprintf("[+] SMB2 %v:%v:%v ", info.Host, info.Ports, user)
+					}
+					if len(hash) > 0 {
+						result += "hash: " + common.Hash
+					} else {
+						result += pass
+					}
+					common.LogSuccess(result)
+					return err
 				} else {
-					result += pass
+					var errlog string
+					if len(common.Hash) > 0 {
+						errlog = fmt.Sprintf("[-] smb2 %v:%v %v %v %v", info.Host, 445, user, common.Hash, err)
+					} else {
+						errlog = fmt.Sprintf("[-] smb2 %v:%v %v %v %v", info.Host, 445, user, pass, err)
+					}
+					errlog = strings.Replace(errlog, "\n", " ", -1)
+					common.LogError(errlog)
+					tmperr = err
+					if common.CheckErrs(err) {
+						return err
+					}
+					if time.Now().Unix()-starttime > (int64(len(common.Userdict["smb"])*len(common.HashBytes)) * common.Timeout) {
+						return err
+					}
 				}
-				common.LogSuccess(result)
-				return err
-			} else {
-				var errlog string
 				if len(common.Hash) > 0 {
-					errlog = fmt.Sprintf("[-] smb2 %v:%v %v %v %v", info.Host, 445, user, common.Hash, err)
-				} else {
-					errlog = fmt.Sprintf("[-] smb2 %v:%v %v %v %v", info.Host, 445, user, pass, err)
-				}
-				errlog = strings.Replace(errlog, "\n", " ", -1)
-				common.LogError(errlog)
-				tmperr = err
-				if common.CheckErrs(err) {
-					return err
-				}
-				if time.Now().Unix()-starttime > (int64(len(common.Userdict["smb"])*len(common.Passwords)) * common.Timeout) {
-					return err
+					break
 				}
 			}
-			if len(common.Hash) > 0 {
-				break PASS
+		}
+	} else {
+		for _, user := range common.Userdict["smb"] {
+			for _, pass := range common.Passwords {
+				pass = strings.Replace(pass, "{user}", user, -1)
+				hash := []byte{}
+				flag, err, flag2 := Smb2Con(info, user, pass, hash, hasprint)
+				if flag2 {
+					hasprint = true
+				}
+				if flag == true {
+					var result string
+					if common.Domain != "" {
+						result = fmt.Sprintf("[+] SMB2 %v:%v:%v\\%v ", info.Host, info.Ports, common.Domain, user)
+					} else {
+						result = fmt.Sprintf("[+] SMB2 %v:%v:%v ", info.Host, info.Ports, user)
+					}
+					if len(hash) > 0 {
+						result += "hash: " + common.Hash
+					} else {
+						result += pass
+					}
+					common.LogSuccess(result)
+					return err
+				} else {
+					var errlog string
+					if len(common.Hash) > 0 {
+						errlog = fmt.Sprintf("[-] smb2 %v:%v %v %v %v", info.Host, 445, user, common.Hash, err)
+					} else {
+						errlog = fmt.Sprintf("[-] smb2 %v:%v %v %v %v", info.Host, 445, user, pass, err)
+					}
+					errlog = strings.Replace(errlog, "\n", " ", -1)
+					common.LogError(errlog)
+					tmperr = err
+					if common.CheckErrs(err) {
+						return err
+					}
+					if time.Now().Unix()-starttime > (int64(len(common.Userdict["smb"])*len(common.Passwords)) * common.Timeout) {
+						return err
+					}
+				}
+				if len(common.Hash) > 0 {
+					break
+				}
 			}
 		}
 	}
+
 	return tmperr
 }
 
