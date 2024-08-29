@@ -66,6 +66,21 @@ func ParsePass(Info *HostInfo) {
 			Passwords = PwdList
 		}
 	}
+	if Hashfile != "" {
+		hashs, err := Readfile(Hashfile)
+		if err == nil {
+			for _, line := range hashs {
+				if line == "" {
+					continue
+				}
+				if len(line) == 32 {
+					Hashs = append(Hashs, line)
+				} else {
+					fmt.Println("[-] len(hash) != 32 " + line)
+				}
+			}
+		}
+	}
 	if URL != "" {
 		urls := strings.Split(URL, ",")
 		TmpUrls := make(map[string]struct{})
@@ -205,13 +220,19 @@ func ParseInput(Info *HostInfo) {
 		fmt.Println("[-] Hash is error,len(hash) must be 32")
 		os.Exit(0)
 	} else {
-		var err error
-		HashBytes, err = hex.DecodeString(Hash)
+		Hashs = append(Hashs, Hash)
+	}
+	Hashs = RemoveDuplicate(Hashs)
+	for _, hash := range Hashs {
+		hashbyte, err := hex.DecodeString(Hash)
 		if err != nil {
-			fmt.Println("[-] Hash is error,hex decode error")
-			os.Exit(0)
+			fmt.Println("[-] Hash is error,hex decode error ", hash)
+			continue
+		} else {
+			HashBytes = append(HashBytes, hashbyte)
 		}
 	}
+	Hashs = []string{}
 }
 
 func ParseScantype(Info *HostInfo) {

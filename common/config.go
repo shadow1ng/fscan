@@ -103,6 +103,7 @@ var (
 	RedisShell  string
 	Userfile    string
 	Passfile    string
+	Hashfile    string
 	HostFile    string
 	PortFile    string
 	PocPath     string
@@ -120,7 +121,8 @@ var (
 	LiveTop     int
 	Socks5Proxy string
 	Hash        string
-	HashBytes   []byte
+	Hashs       []string
+	HashBytes   [][]byte
 	HostPort    []string
 	IsWmi       bool
 	Noredistest bool

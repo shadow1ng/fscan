@@ -38,6 +38,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&HostFile, "hf", "", "host file, -hf ip.txt")
 	flag.StringVar(&Userfile, "userf", "", "username file")
 	flag.StringVar(&Passfile, "pwdf", "", "password file")
+	flag.StringVar(&Hashfile, "hashf", "", "hash file")
 	flag.StringVar(&PortFile, "portf", "", "Port File")
 	flag.StringVar(&PocPath, "pocpath", "", "poc file path")
 	flag.StringVar(&RedisFile, "rf", "", "redis file to write sshkey file (as: -rf id_rsa.pub)")
