@@ -25,7 +25,12 @@ func WebTitle(info *common.HostInfo) error {
 	}
 	err, CheckData := GOWebTitle(info)
 	info.Infostr = WebScan.InfoCheck(info.Url, &CheckData)
-
+	//不扫描打印机,避免打纸
+	for _, v := range info.Infostr {
+		if v == "打印机" {
+			return nil
+		}
+	}
 	if !common.NoPoc && err == nil {
 		WebScan.WebScan(info)
 	} else {
