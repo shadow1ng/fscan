@@ -210,8 +210,9 @@ func gettitle(body []byte) (title string) {
 		title = strings.Replace(title, "\n", "", -1)
 		title = strings.Replace(title, "\r", "", -1)
 		title = strings.Replace(title, "&nbsp;", " ", -1)
-		if len(title) > 100 {
-			title = title[:100]
+		titleRune := []rune(title)
+		if len(titleRune) > 5 {
+			title = string(titleRune[:100])
 		}
 		if title == "" {
 			title = "\"\"" //空格
