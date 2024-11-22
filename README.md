@@ -12,7 +12,7 @@
 
 2.爆破功能:
 * 各类服务爆破(ssh、smb、rdp等)
-* 数据库密码爆破(mysql、mssql、redis、psql、oracle等)  
+* 数据库密码爆破(mariadb、mysql、mssql、redis、psql、oracle等)  
 
 3.系统信息、漏洞扫描:  
 * netbios探测、域控识别  
