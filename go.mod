@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/C-Sto/goWMIExec v0.0.1-deva.0.20210704154847-b8ebd6464a06
+	github.com/Run0nceEx/go-vnc v0.0.0-20241202154954-fb59a61ca735
 	github.com/denisenkom/go-mssqldb v0.12.3
 	github.com/fatih/color v1.7.0
 	github.com/go-sql-driver/mysql v1.8.1

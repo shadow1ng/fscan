@@ -19,6 +19,7 @@ var PluginList = map[string]interface{}{
 	"3306":    MysqlScan,
 	"3389":    RdpScan,
 	"5432":    PostgresScan,
+	"5900":    VncScan,
 	"6379":    RedisScan,
 	"9000":    FcgiScan,
 	"11211":   MemcachedScan,
