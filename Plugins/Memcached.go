@@ -8,32 +8,42 @@ import (
 	"time"
 )
 
-func MemcachedScan(info *Config.HostInfo) (err error) {
+// MemcachedScan 检测Memcached未授权访问
+func MemcachedScan(info *Config.HostInfo) error {
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
-	client, err := Common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(Common.Timeout)*time.Second)
-	defer func() {
-		if client != nil {
-			client.Close()
-		}
-	}()
-	if err == nil {
-		err = client.SetDeadline(time.Now().Add(time.Duration(Common.Timeout) * time.Second))
-		if err == nil {
-			_, err = client.Write([]byte("stats\n")) //Set the key randomly to prevent the key on the server from being overwritten
-			if err == nil {
-				rev := make([]byte, 1024)
-				n, err := client.Read(rev)
-				if err == nil {
-					if strings.Contains(string(rev[:n]), "STAT") {
-						result := fmt.Sprintf("[+] Memcached %s unauthorized", realhost)
-						Common.LogSuccess(result)
-					}
-				} else {
-					errlog := fmt.Sprintf("[-] Memcached %v:%v %v", info.Host, info.Ports, err)
-					Common.LogError(errlog)
-				}
-			}
-		}
+	timeout := time.Duration(Common.Timeout) * time.Second
+
+	// 建立TCP连接
+	client, err := Common.WrapperTcpWithTimeout("tcp", realhost, timeout)
+	if err != nil {
+		return err
 	}
-	return err
+	defer client.Close()
+
+	// 设置超时时间
+	if err := client.SetDeadline(time.Now().Add(timeout)); err != nil {
+		return err
+	}
+
+	// 发送stats命令
+	if _, err := client.Write([]byte("stats\n")); err != nil {
+		return err
+	}
+
+	// 读取响应
+	rev := make([]byte, 1024)
+	n, err := client.Read(rev)
+	if err != nil {
+		errlog := fmt.Sprintf("[-] Memcached %v:%v %v", info.Host, info.Ports, err)
+		Common.LogError(errlog)
+		return err
+	}
+
+	// 检查响应内容
+	if strings.Contains(string(rev[:n]), "STAT") {
+		result := fmt.Sprintf("[+] Memcached %s 未授权访问", realhost)
+		Common.LogSuccess(result)
+	}
+
+	return nil
 }
