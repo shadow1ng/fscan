@@ -5,79 +5,123 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/base64"
+	"errors"
+	"fmt"
 	"net"
 )
 
-func ReadBytes(conn net.Conn) (result []byte, err error) {
-	size := 4096
+// ReadBytes 从连接读取数据直到EOF或错误
+func ReadBytes(conn net.Conn) ([]byte, error) {
+	size := 4096 // 缓冲区大小
 	buf := make([]byte, size)
+	var result []byte
+	var lastErr error
+
+	// 循环读取数据
 	for {
 		count, err := conn.Read(buf)
 		if err != nil {
+			lastErr = err
 			break
 		}
+
 		result = append(result, buf[0:count]...)
+
+		// 如果读取的数据小于缓冲区,说明已经读完
 		if count < size {
 			break
 		}
 	}
+
+	// 如果读到了数据,则忽略错误
 	if len(result) > 0 {
-		err = nil
+		return result, nil
 	}
-	return result, err
+
+	return result, lastErr
 }
 
+// 默认AES加密密钥
 var key = "0123456789abcdef"
 
-func AesEncrypt(orig string, key string) string {
-	// 转成字节数组
+// AesEncrypt 使用AES-CBC模式加密字符串
+func AesEncrypt(orig string, key string) (string, error) {
+	// 转为字节数组
 	origData := []byte(orig)
-	k := []byte(key)
-	// 分组秘钥
-	// NewCipher该函数限制了输入k的长度必须为16, 24或者32
-	block, _ := aes.NewCipher(k)
-	// 获取秘钥块的长度
+	keyBytes := []byte(key)
+
+	// 创建加密块,要求密钥长度必须为16/24/32字节
+	block, err := aes.NewCipher(keyBytes)
+	if err != nil {
+		return "", fmt.Errorf("创建加密块失败: %v", err)
+	}
+
+	// 获取块大小并填充数据
 	blockSize := block.BlockSize()
-	// 补全码
 	origData = PKCS7Padding(origData, blockSize)
-	// 加密模式
-	blockMode := cipher.NewCBCEncrypter(block, k[:blockSize])
-	// 创建数组
-	cryted := make([]byte, len(origData))
-	// 加密
-	blockMode.CryptBlocks(cryted, origData)
-	return base64.StdEncoding.EncodeToString(cryted)
+
+	// 创建CBC加密模式
+	blockMode := cipher.NewCBCEncrypter(block, keyBytes[:blockSize])
+
+	// 加密数据
+	encrypted := make([]byte, len(origData))
+	blockMode.CryptBlocks(encrypted, origData)
+
+	// base64编码
+	return base64.StdEncoding.EncodeToString(encrypted), nil
 }
-func AesDecrypt(cryted string, key string) string {
-	// 转成字节数组
-	crytedByte, _ := base64.StdEncoding.DecodeString(cryted)
-	k := []byte(key)
-	// 分组秘钥
-	block, _ := aes.NewCipher(k)
-	// 获取秘钥块的长度
+
+// AesDecrypt 使用AES-CBC模式解密字符串
+func AesDecrypt(crypted string, key string) (string, error) {
+	// base64解码
+	cryptedBytes, err := base64.StdEncoding.DecodeString(crypted)
+	if err != nil {
+		return "", fmt.Errorf("base64解码失败: %v", err)
+	}
+
+	keyBytes := []byte(key)
+
+	// 创建解密块
+	block, err := aes.NewCipher(keyBytes)
+	if err != nil {
+		return "", fmt.Errorf("创建解密块失败: %v", err)
+	}
+
+	// 创建CBC解密模式
 	blockSize := block.BlockSize()
-	// 加密模式
-	blockMode := cipher.NewCBCDecrypter(block, k[:blockSize])
-	// 创建数组
-	orig := make([]byte, len(crytedByte))
-	// 解密
-	blockMode.CryptBlocks(orig, crytedByte)
-	// 去补全码
-	orig = PKCS7UnPadding(orig)
-	return string(orig)
+	blockMode := cipher.NewCBCDecrypter(block, keyBytes[:blockSize])
+
+	// 解密数据
+	origData := make([]byte, len(cryptedBytes))
+	blockMode.CryptBlocks(origData, cryptedBytes)
+
+	// 去除填充
+	origData, err = PKCS7UnPadding(origData)
+	if err != nil {
+		return "", fmt.Errorf("去除PKCS7填充失败: %v", err)
+	}
+
+	return string(origData), nil
 }
 
-// 补码
-// AES加密数据块分组长度必须为128bit(byte[16])，密钥长度可以是128bit(byte[16])、192bit(byte[24])、256bit(byte[32])中的任意一个。
-func PKCS7Padding(ciphertext []byte, blocksize int) []byte {
-	padding := blocksize - len(ciphertext)%blocksize
+// PKCS7Padding 对数据进行PKCS7填充
+func PKCS7Padding(data []byte, blockSize int) []byte {
+	padding := blockSize - len(data)%blockSize
 	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
-	return append(ciphertext, padtext...)
+	return append(data, padtext...)
 }
 
-// 去码
-func PKCS7UnPadding(origData []byte) []byte {
-	length := len(origData)
-	unpadding := int(origData[length-1])
-	return origData[:(length - unpadding)]
+// PKCS7UnPadding 去除PKCS7填充
+func PKCS7UnPadding(data []byte) ([]byte, error) {
+	length := len(data)
+	if length == 0 {
+		return nil, errors.New("数据长度为0")
+	}
+
+	padding := int(data[length-1])
+	if padding > length {
+		return nil, errors.New("填充长度无效")
+	}
+
+	return data[:length-padding], nil
 }
