@@ -236,53 +236,42 @@ func ParseInput(Info *HostInfo) {
 }
 
 func ParseScantype(Info *HostInfo) {
-	_, ok := PORTList[Scantype]
-	if !ok {
+	if _, validType := PORTList[Scantype]; !validType {
 		showmode()
+		return
 	}
+
 	if Scantype != "all" && Ports == DefaultPorts+","+Webport {
 		switch Scantype {
-		case "wmiexec":
-			Ports = "135"
-		case "wmiinfo":
-			Ports = "135"
-		case "smbinfo":
-			Ports = "445"
 		case "hostname":
 			Ports = "135,137,139,445"
-		case "smb2":
-			Ports = "445"
-		case "web":
+		case "web", "webonly", "webpoc":
 			Ports = Webport
-		case "webonly":
-			Ports = Webport
-		case "ms17010":
-			Ports = "445"
-		case "cve20200796":
-			Ports = "445"
 		case "portscan":
 			Ports = DefaultPorts + "," + Webport
 		case "main":
 			Ports = DefaultPorts
 		default:
-			port, _ := PORTList[Scantype]
-			Ports = strconv.Itoa(port)
+			if port := PORTList[Scantype]; port > 0 {
+				Ports = strconv.Itoa(port)
+			}
 		}
-		fmt.Println("-m ", Scantype, " start scan the port:", Ports)
+
+		fmt.Printf("[*] Scan type: %s, target ports: %s\n", Scantype, Ports)
 	}
 }
 
-func CheckErr(text string, err error, flag bool) {
-	if err != nil {
-		fmt.Println("Parse", text, "error: ", err.Error())
-		if flag {
-			if err != ParseIPErr {
-				fmt.Println(ParseIPErr)
-			}
-			os.Exit(0)
-		}
-	}
-}
+//func CheckErr(text string, err error, flag bool) {
+//	if err != nil {
+//		fmt.Println("Parse", text, "error: ", err.Error())
+//		if flag {
+//			if err != ParseIPErr {
+//				fmt.Println(ParseIPErr)
+//			}
+//			os.Exit(0)
+//		}
+//	}
+//}
 
 func showmode() {
 	fmt.Println("The specified scan type does not exist")
