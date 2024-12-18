@@ -3,6 +3,7 @@ package Plugins
 import (
 	"errors"
 	"fmt"
+	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/common"
 	"github.com/tomatome/grdp/core"
 	"github.com/tomatome/grdp/glog"
@@ -26,7 +27,7 @@ type Brutelist struct {
 	pass string
 }
 
-func RdpScan(info *common.HostInfo) (tmperr error) {
+func RdpScan(info *Config.HostInfo) (tmperr error) {
 	if common.IsBrute {
 		return
 	}

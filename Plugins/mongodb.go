@@ -2,12 +2,13 @@ package Plugins
 
 import (
 	"fmt"
+	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/common"
 	"strings"
 	"time"
 )
 
-func MongodbScan(info *common.HostInfo) error {
+func MongodbScan(info *Config.HostInfo) error {
 	if common.IsBrute {
 		return nil
 	}
@@ -19,7 +20,7 @@ func MongodbScan(info *common.HostInfo) error {
 	return err
 }
 
-func MongodbUnauth(info *common.HostInfo) (flag bool, err error) {
+func MongodbUnauth(info *Config.HostInfo) (flag bool, err error) {
 	flag = false
 	// op_msg
 	packet1 := []byte{

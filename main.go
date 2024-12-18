@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/Plugins"
 	"github.com/shadow1ng/fscan/common"
 	"time"
@@ -9,7 +10,7 @@ import (
 
 func main() {
 	start := time.Now()
-	var Info common.HostInfo
+	var Info Config.HostInfo
 	common.Flag(&Info)
 	common.Parse(&Info)
 	Plugins.Scan(Info)

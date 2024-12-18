@@ -3,6 +3,7 @@ package WebScan
 import (
 	"embed"
 	"fmt"
+	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/WebScan/lib"
 	"github.com/shadow1ng/fscan/common"
 	"net/http"
@@ -17,7 +18,7 @@ var Pocs embed.FS
 var once sync.Once
 var AllPocs []*lib.Poc
 
-func WebScan(info *common.HostInfo) {
+func WebScan(info *Config.HostInfo) {
 	once.Do(initpoc)
 	var pocinfo = common.Pocinfo
 	buf := strings.Split(info.Url, "/")

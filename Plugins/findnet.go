@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/common"
 	"strconv"
 	"strings"
@@ -16,12 +17,12 @@ var (
 	bufferV3, _ = hex.DecodeString("0900ffff0000")
 )
 
-func Findnet(info *common.HostInfo) error {
+func Findnet(info *Config.HostInfo) error {
 	err := FindnetScan(info)
 	return err
 }
 
-func FindnetScan(info *common.HostInfo) error {
+func FindnetScan(info *Config.HostInfo) error {
 	realhost := fmt.Sprintf("%s:%v", info.Host, 135)
 	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.Timeout)*time.Second)
 	if err != nil {

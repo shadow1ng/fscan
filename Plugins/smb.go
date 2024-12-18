@@ -3,6 +3,7 @@ package Plugins
 import (
 	"errors"
 	"fmt"
+	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/common"
 	"github.com/stacktitan/smb/smb"
 	"strings"
@@ -10,7 +11,7 @@ import (
 )
 
 // SmbScan 执行SMB服务的认证扫描
-func SmbScan(info *common.HostInfo) (tmperr error) {
+func SmbScan(info *Config.HostInfo) (tmperr error) {
 	// 如果未启用暴力破解则直接返回
 	if common.IsBrute {
 		return nil
@@ -64,7 +65,7 @@ func SmbScan(info *common.HostInfo) (tmperr error) {
 }
 
 // SmblConn 尝试建立SMB连接并进行认证
-func SmblConn(info *common.HostInfo, user string, pass string, signal chan struct{}) (flag bool, err error) {
+func SmblConn(info *Config.HostInfo, user string, pass string, signal chan struct{}) (flag bool, err error) {
 	flag = false
 
 	// 配置SMB连接选项
@@ -92,7 +93,7 @@ func SmblConn(info *common.HostInfo, user string, pass string, signal chan struc
 }
 
 // doWithTimeOut 执行带超时的SMB连接认证
-func doWithTimeOut(info *common.HostInfo, user string, pass string) (flag bool, err error) {
+func doWithTimeOut(info *Config.HostInfo, user string, pass string) (flag bool, err error) {
 	signal := make(chan struct{})
 
 	// 在goroutine中执行SMB连接

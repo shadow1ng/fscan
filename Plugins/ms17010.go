@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/common"
 	"strings"
 	"time"
@@ -23,7 +24,7 @@ var (
 	trans2SessionSetupRequest, _  = hex.DecodeString(AesDecrypt(trans2SessionSetupRequest_enc, key))
 )
 
-func MS17010(info *common.HostInfo) error {
+func MS17010(info *Config.HostInfo) error {
 	if common.IsBrute {
 		return nil
 	}
@@ -35,7 +36,7 @@ func MS17010(info *common.HostInfo) error {
 	return err
 }
 
-func MS17010Scan(info *common.HostInfo) error {
+func MS17010Scan(info *Config.HostInfo) error {
 	ip := info.Host
 	// connecting to a host in LAN if reachable should be very quick
 	conn, err := common.WrapperTcpWithTimeout("tcp", ip+":445", time.Duration(common.Timeout)*time.Second)

@@ -4,12 +4,13 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/lib/pq"
+	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/common"
 	"strings"
 	"time"
 )
 
-func PostgresScan(info *common.HostInfo) (tmperr error) {
+func PostgresScan(info *Config.HostInfo) (tmperr error) {
 	if common.IsBrute {
 		return
 	}
@@ -36,7 +37,7 @@ func PostgresScan(info *common.HostInfo) (tmperr error) {
 	return tmperr
 }
 
-func PostgresConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
+func PostgresConn(info *Config.HostInfo, user string, pass string) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
 	dataSourceName := fmt.Sprintf("postgres://%v:%v@%v:%v/%v?sslmode=%v", Username, Password, Host, Port, "postgres", "disable")

@@ -4,12 +4,13 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/common"
 	"strings"
 	"time"
 )
 
-func MysqlScan(info *common.HostInfo) (tmperr error) {
+func MysqlScan(info *Config.HostInfo) (tmperr error) {
 	if common.IsBrute {
 		return
 	}
@@ -36,7 +37,7 @@ func MysqlScan(info *common.HostInfo) (tmperr error) {
 	return tmperr
 }
 
-func MysqlConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
+func MysqlConn(info *Config.HostInfo, user string, pass string) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
 	dataSourceName := fmt.Sprintf("%v:%v@tcp(%v:%v)/mysql?charset=utf8&timeout=%v", Username, Password, Host, Port, time.Duration(common.Timeout)*time.Second)

@@ -4,12 +4,13 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/denisenkom/go-mssqldb"
+	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/common"
 	"strings"
 	"time"
 )
 
-func MssqlScan(info *common.HostInfo) (tmperr error) {
+func MssqlScan(info *Config.HostInfo) (tmperr error) {
 	if common.IsBrute {
 		return
 	}
@@ -36,7 +37,7 @@ func MssqlScan(info *common.HostInfo) (tmperr error) {
 	return tmperr
 }
 
-func MssqlConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
+func MssqlConn(info *Config.HostInfo, user string, pass string) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
 	dataSourceName := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%v;encrypt=disable;timeout=%v", Host, Username, Password, Port, time.Duration(common.Timeout)*time.Second)

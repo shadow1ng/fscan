@@ -3,13 +3,14 @@ package Plugins
 import (
 	"database/sql"
 	"fmt"
+	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/common"
 	_ "github.com/sijms/go-ora/v2"
 	"strings"
 	"time"
 )
 
-func OracleScan(info *common.HostInfo) (tmperr error) {
+func OracleScan(info *Config.HostInfo) (tmperr error) {
 	if common.IsBrute {
 		return
 	}
@@ -36,7 +37,7 @@ func OracleScan(info *common.HostInfo) (tmperr error) {
 	return tmperr
 }
 
-func OracleConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
+func OracleConn(info *Config.HostInfo, user string, pass string) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
 	dataSourceName := fmt.Sprintf("oracle://%s:%s@%s:%s/orcl", Username, Password, Host, Port)

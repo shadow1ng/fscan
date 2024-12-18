@@ -2,6 +2,7 @@ package common
 
 import (
 	"flag"
+	"github.com/shadow1ng/fscan/Config"
 )
 
 func Banner() {
@@ -16,7 +17,7 @@ func Banner() {
 	print(banner)
 }
 
-func Flag(Info *HostInfo) {
+func Flag(Info *Config.HostInfo) {
 	Banner()
 	flag.StringVar(&Info.Host, "h", "", "IP address of the host you want to scan,for example: 192.168.11.11 | 192.168.11.11-255 | 192.168.11.11,192.168.11.12")
 	flag.StringVar(&NoHosts, "hn", "", "the hosts no scan,as: -hn 192.168.1.1/24")

@@ -3,12 +3,13 @@ package Plugins
 import (
 	"fmt"
 	"github.com/jlaffaye/ftp"
+	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/common"
 	"strings"
 	"time"
 )
 
-func FtpScan(info *common.HostInfo) (tmperr error) {
+func FtpScan(info *Config.HostInfo) (tmperr error) {
 	if common.IsBrute {
 		return
 	}
@@ -47,7 +48,7 @@ func FtpScan(info *common.HostInfo) (tmperr error) {
 	return tmperr
 }
 
-func FtpConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
+func FtpConn(info *Config.HostInfo, user string, pass string) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
 	conn, err := ftp.DialTimeout(fmt.Sprintf("%v:%v", Host, Port), time.Duration(common.Timeout)*time.Second)

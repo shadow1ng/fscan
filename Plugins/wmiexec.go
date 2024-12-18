@@ -3,6 +3,7 @@ package Plugins
 import (
 	"errors"
 	"fmt"
+	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/common"
 	"os"
 	"strings"
@@ -26,7 +27,7 @@ func init() {
 	flag = true
 }
 
-func WmiExec(info *common.HostInfo) (tmperr error) {
+func WmiExec(info *Config.HostInfo) (tmperr error) {
 	if common.IsBrute {
 		return nil
 	}
@@ -70,7 +71,7 @@ func WmiExec(info *common.HostInfo) (tmperr error) {
 	return tmperr
 }
 
-func Wmiexec(info *common.HostInfo, user string, pass string, hash string) (flag bool, err error) {
+func Wmiexec(info *Config.HostInfo, user string, pass string, hash string) (flag bool, err error) {
 	target := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	wmiexec.Timeout = int(common.Timeout)
 	return WMIExec(target, user, pass, hash, common.Domain, common.Command, ClientHost, "", nil)

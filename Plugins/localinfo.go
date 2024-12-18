@@ -2,6 +2,7 @@ package Plugins
 
 import (
 	"fmt"
+	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/common"
 	"os"
 	"path/filepath"
@@ -88,7 +89,7 @@ var (
 	}
 )
 
-func LocalInfoScan(info *common.HostInfo) (err error) {
+func LocalInfoScan(info *Config.HostInfo) (err error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		errlog := fmt.Sprintf("[-] Get UserHomeDir error: %v", err)

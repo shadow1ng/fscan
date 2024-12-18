@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/common"
 	"io"
 	"io/ioutil"
@@ -13,7 +14,7 @@ import (
 	"time"
 )
 
-func MS17010EXP(info *common.HostInfo) {
+func MS17010EXP(info *Config.HostInfo) {
 	address := info.Host + ":445"
 	var sc string
 	switch common.SC {

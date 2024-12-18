@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"crypto/tls"
 	"fmt"
+	"github.com/shadow1ng/fscan/Config"
 	"io"
 	"net/http"
 	"net/url"
@@ -18,7 +19,7 @@ import (
 	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
-func WebTitle(info *common.HostInfo) error {
+func WebTitle(info *Config.HostInfo) error {
 	if common.Scantype == "webpoc" {
 		WebScan.WebScan(info)
 		return nil
@@ -39,7 +40,7 @@ func WebTitle(info *common.HostInfo) error {
 	}
 	return err
 }
-func GOWebTitle(info *common.HostInfo) (err error, CheckData []WebScan.CheckDatas) {
+func GOWebTitle(info *Config.HostInfo) (err error, CheckData []WebScan.CheckDatas) {
 	if info.Url == "" {
 		switch info.Ports {
 		case "80":
@@ -93,7 +94,7 @@ func GOWebTitle(info *common.HostInfo) (err error, CheckData []WebScan.CheckData
 	return
 }
 
-func geturl(info *common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (error, string, []WebScan.CheckDatas) {
+func geturl(info *Config.HostInfo, flag int, CheckData []WebScan.CheckDatas) (error, string, []WebScan.CheckDatas) {
 	//flag 1 first try
 	//flag 2 /favicon.ico
 	//flag 3 302

@@ -2,12 +2,13 @@ package Plugins
 
 import (
 	"fmt"
+	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/common"
 	"strings"
 	"time"
 )
 
-func MemcachedScan(info *common.HostInfo) (err error) {
+func MemcachedScan(info *Config.HostInfo) (err error) {
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	client, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.Timeout)*time.Second)
 	defer func() {

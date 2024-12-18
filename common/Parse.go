@@ -5,13 +5,14 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"github.com/shadow1ng/fscan/Config"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
 )
 
-func Parse(Info *HostInfo) {
+func Parse(Info *Config.HostInfo) {
 	ParseUser()
 	ParsePass(Info)
 	ParseInput(Info)
@@ -44,7 +45,7 @@ func ParseUser() {
 	}
 }
 
-func ParsePass(Info *HostInfo) {
+func ParsePass(Info *Config.HostInfo) {
 	var PwdList []string
 	if Password != "" {
 		passs := strings.Split(Password, ",")
@@ -140,7 +141,7 @@ func Readfile(filename string) ([]string, error) {
 	return content, nil
 }
 
-func ParseInput(Info *HostInfo) {
+func ParseInput(Info *Config.HostInfo) {
 	if Info.Host == "" && HostFile == "" && URL == "" && UrlFile == "" {
 		fmt.Println("Host is none")
 		flag.Usage()
@@ -235,49 +236,74 @@ func ParseInput(Info *HostInfo) {
 	Hashs = []string{}
 }
 
-func ParseScantype(Info *HostInfo) {
-	if _, validType := PORTList[Scantype]; !validType {
-		showmode()
-		return
+// ParseScantype 解析扫描类型并设置对应的端口
+func ParseScantype(Info *Config.HostInfo) error {
+	// 先处理特殊扫描类型
+	specialTypes := map[string]string{
+		"hostname": "135,137,139,445",
+		"webonly":  Webport,
+		"webpoc":   Webport,
+		"web":      Webport,
+		"portscan": DefaultPorts + "," + Webport,
+		"main":     DefaultPorts,
+		"all":      DefaultPorts + "," + Webport,
+		"icmp":     "", // ICMP不需要端口
 	}
 
-	if Scantype != "all" && Ports == DefaultPorts+","+Webport {
-		switch Scantype {
-		case "hostname":
-			Ports = "135,137,139,445"
-		case "web", "webonly", "webpoc":
-			Ports = Webport
-		case "portscan":
-			Ports = DefaultPorts + "," + Webport
-		case "main":
-			Ports = DefaultPorts
-		default:
-			if port := PORTList[Scantype]; port > 0 {
-				Ports = strconv.Itoa(port)
-			}
+	// 如果是特殊扫描类型
+	if customPorts, isSpecial := specialTypes[Scantype]; isSpecial {
+		if Scantype != "all" && Ports == DefaultPorts+","+Webport {
+			Ports = customPorts
 		}
-
-		fmt.Printf("[*] Scan type: %s, target ports: %s\n", Scantype, Ports)
+		fmt.Printf("[*] 扫描类型: %s, 目标端口: %s\n", Scantype, Ports)
+		return nil
 	}
+
+	// 检查是否是注册的插件类型
+	plugin, validType := Config.PluginManager[Scantype]
+	if !validType {
+		showmode()
+		return fmt.Errorf("无效的扫描类型: %s", Scantype)
+	}
+
+	// 如果是插件扫描且使用默认端口配置
+	if Ports == DefaultPorts+","+Webport {
+		if plugin.Port > 0 {
+			Ports = strconv.Itoa(plugin.Port)
+		}
+		fmt.Printf("[*] 扫描类型: %s, 目标端口: %s\n", plugin.Name, Ports)
+	}
+
+	return nil
 }
 
-//func CheckErr(text string, err error, flag bool) {
-//	if err != nil {
-//		fmt.Println("Parse", text, "error: ", err.Error())
-//		if flag {
-//			if err != ParseIPErr {
-//				fmt.Println(ParseIPErr)
-//			}
-//			os.Exit(0)
-//		}
-//	}
-//}
-
+// showmode 显示所有支持的扫描类型
 func showmode() {
-	fmt.Println("The specified scan type does not exist")
-	fmt.Println("-m")
-	for name := range PORTList {
-		fmt.Println("   [" + name + "]")
+	fmt.Println("[!] 指定的扫描类型不存在")
+	fmt.Println("[*] 支持的扫描类型:")
+
+	// 显示常规服务扫描类型
+	fmt.Println("\n[+] 常规服务扫描:")
+	for name, plugin := range Config.PluginManager {
+		if plugin.Port > 0 && plugin.Port < 1000000 {
+			fmt.Printf("   - %-10s (端口: %d)\n", name, plugin.Port)
+		}
 	}
+
+	// 显示特殊漏洞扫描类型
+	fmt.Println("\n[+] 特殊漏洞扫描:")
+	for name, plugin := range Config.PluginManager {
+		if plugin.Port >= 1000000 || plugin.Port == 0 {
+			fmt.Printf("   - %-10s\n", name)
+		}
+	}
+
+	// 显示其他扫描类型
+	fmt.Println("\n[+] 其他扫描类型:")
+	specialTypes := []string{"all", "portscan", "icmp", "main", "webonly", "webpoc"}
+	for _, name := range specialTypes {
+		fmt.Printf("   - %s\n", name)
+	}
+
 	os.Exit(0)
 }
