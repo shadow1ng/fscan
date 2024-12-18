@@ -9,33 +9,52 @@ import (
 	"time"
 )
 
+// SmbScan 执行SMB服务的认证扫描
 func SmbScan(info *common.HostInfo) (tmperr error) {
+	// 如果未启用暴力破解则直接返回
 	if common.IsBrute {
 		return nil
 	}
-	starttime := time.Now().Unix()
+
+	startTime := time.Now().Unix()
+
+	// 遍历用户名和密码字典进行认证尝试
 	for _, user := range common.Userdict["smb"] {
 		for _, pass := range common.Passwords {
+			// 替换密码中的用户名占位符
 			pass = strings.Replace(pass, "{user}", user, -1)
-			flag, err := doWithTimeOut(info, user, pass)
-			if flag == true && err == nil {
+
+			// 执行带超时的认证
+			success, err := doWithTimeOut(info, user, pass)
+
+			if success && err == nil {
+				// 认证成功,记录结果
 				var result string
 				if common.Domain != "" {
-					result = fmt.Sprintf("[+] SMB %v:%v:%v\\%v %v", info.Host, info.Ports, common.Domain, user, pass)
+					result = fmt.Sprintf("[✓] SMB认证成功 %v:%v Domain:%v\\%v Pass:%v",
+						info.Host, info.Ports, common.Domain, user, pass)
 				} else {
-					result = fmt.Sprintf("[+] SMB %v:%v:%v %v", info.Host, info.Ports, user, pass)
+					result = fmt.Sprintf("[✓] SMB认证成功 %v:%v User:%v Pass:%v",
+						info.Host, info.Ports, user, pass)
 				}
 				common.LogSuccess(result)
 				return err
 			} else {
-				errlog := fmt.Sprintf("[-] smb %v:%v %v %v %v", info.Host, 445, user, pass, err)
-				errlog = strings.Replace(errlog, "\n", "", -1)
-				common.LogError(errlog)
+				// 认证失败,记录错误
+				errorMsg := fmt.Sprintf("[x] SMB认证失败 %v:%v User:%v Pass:%v Err:%v",
+					info.Host, info.Ports, user, pass,
+					strings.ReplaceAll(err.Error(), "\n", ""))
+				common.LogError(errorMsg)
 				tmperr = err
+
+				// 检查是否需要中断扫描
 				if common.CheckErrs(err) {
 					return err
 				}
-				if time.Now().Unix()-starttime > (int64(len(common.Userdict["smb"])*len(common.Passwords)) * common.Timeout) {
+
+				// 检查是否超时
+				timeoutLimit := int64(len(common.Userdict["smb"])*len(common.Passwords)) * common.Timeout
+				if time.Now().Unix()-startTime > timeoutLimit {
 					return err
 				}
 			}
@@ -44,38 +63,48 @@ func SmbScan(info *common.HostInfo) (tmperr error) {
 	return tmperr
 }
 
+// SmblConn 尝试建立SMB连接并进行认证
 func SmblConn(info *common.HostInfo, user string, pass string, signal chan struct{}) (flag bool, err error) {
 	flag = false
-	Host, Username, Password := info.Host, user, pass
+
+	// 配置SMB连接选项
 	options := smb.Options{
-		Host:        Host,
+		Host:        info.Host,
 		Port:        445,
-		User:        Username,
-		Password:    Password,
+		User:        user,
+		Password:    pass,
 		Domain:      common.Domain,
 		Workstation: "",
 	}
 
+	// 尝试建立SMB会话
 	session, err := smb.NewSession(options, false)
 	if err == nil {
-		session.Close()
+		defer session.Close()
 		if session.IsAuthenticated {
 			flag = true
 		}
 	}
+
+	// 发送完成信号
 	signal <- struct{}{}
 	return flag, err
 }
 
+// doWithTimeOut 执行带超时的SMB连接认证
 func doWithTimeOut(info *common.HostInfo, user string, pass string) (flag bool, err error) {
 	signal := make(chan struct{})
+
+	// 在goroutine中执行SMB连接
 	go func() {
 		flag, err = SmblConn(info, user, pass, signal)
 	}()
+
+	// 等待连接结果或超时
 	select {
 	case <-signal:
 		return flag, err
 	case <-time.After(time.Duration(common.Timeout) * time.Second):
-		return false, errors.New("time out")
+		return false, errors.New("[!] SMB连接超时")
 	}
 }
