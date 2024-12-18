@@ -12,113 +12,151 @@ import (
 )
 
 var (
+	// RPC请求数据包
 	bufferV1, _ = hex.DecodeString("05000b03100000004800000001000000b810b810000000000100000000000100c4fefc9960521b10bbcb00aa0021347a00000000045d888aeb1cc9119fe808002b10486002000000")
 	bufferV2, _ = hex.DecodeString("050000031000000018000000010000000000000000000500")
 	bufferV3, _ = hex.DecodeString("0900ffff0000")
 )
 
+// Findnet 探测Windows网络主机信息的入口函数
 func Findnet(info *Config.HostInfo) error {
-	err := FindnetScan(info)
-	return err
+	return FindnetScan(info)
 }
 
+// FindnetScan 通过RPC协议扫描网络主机信息
 func FindnetScan(info *Config.HostInfo) error {
-	realhost := fmt.Sprintf("%s:%v", info.Host, 135)
-	conn, err := Common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(Common.Timeout)*time.Second)
+	// 连接目标RPC端口
+	target := fmt.Sprintf("%s:%v", info.Host, 135)
+	conn, err := Common.WrapperTcpWithTimeout("tcp", target, time.Duration(Common.Timeout)*time.Second)
 	if err != nil {
-		return err
+		return fmt.Errorf("连接RPC端口失败: %v", err)
 	}
 	defer conn.Close()
-	err = conn.SetDeadline(time.Now().Add(time.Duration(Common.Timeout) * time.Second))
-	if err != nil {
-		return err
+
+	// 设置连接超时
+	if err = conn.SetDeadline(time.Now().Add(time.Duration(Common.Timeout) * time.Second)); err != nil {
+		return fmt.Errorf("设置超时失败: %v", err)
 	}
-	_, err = conn.Write(bufferV1)
-	if err != nil {
-		return err
+
+	// 发送第一个RPC请求
+	if _, err = conn.Write(bufferV1); err != nil {
+		return fmt.Errorf("发送RPC请求1失败: %v", err)
 	}
+
+	// 读取响应
 	reply := make([]byte, 4096)
-	_, err = conn.Read(reply)
-	if err != nil {
-		return err
+	if _, err = conn.Read(reply); err != nil {
+		return fmt.Errorf("读取RPC响应1失败: %v", err)
 	}
-	_, err = conn.Write(bufferV2)
-	if err != nil {
-		return err
+
+	// 发送第二个RPC请求
+	if _, err = conn.Write(bufferV2); err != nil {
+		return fmt.Errorf("发送RPC请求2失败: %v", err)
 	}
-	if n, err := conn.Read(reply); err != nil || n < 42 {
-		return err
+
+	// 读取并检查响应
+	n, err := conn.Read(reply)
+	if err != nil || n < 42 {
+		return fmt.Errorf("读取RPC响应2失败: %v", err)
 	}
+
+	// 解析响应数据
 	text := reply[42:]
-	flag := true
+	found := false
 	for i := 0; i < len(text)-5; i++ {
 		if bytes.Equal(text[i:i+6], bufferV3) {
 			text = text[:i-4]
-			flag = false
+			found = true
 			break
 		}
 	}
-	if flag {
-		return err
+
+	if !found {
+		return fmt.Errorf("未找到有效的响应标记")
 	}
-	err = read(text, info.Host)
-	return err
+
+	// 解析主机信息
+	return read(text, info.Host)
 }
 
+// HexUnicodeStringToString 将16进制Unicode字符串转换为可读字符串
 func HexUnicodeStringToString(src string) string {
-	sText := ""
+	// 确保输入长度是4的倍数
 	if len(src)%4 != 0 {
 		src += src[:len(src)-len(src)%4]
 	}
-	for i := 0; i < len(src); i = i + 4 {
-		sText += "\\u" + src[i+2:i+4] + src[i:i+2]
+
+	// 转换为标准Unicode格式
+	var sText string
+	for i := 0; i < len(src); i += 4 {
+		sText += "\\u" + src[i+2:i+4] + src[i:i+2] // 调整字节顺序
 	}
 
-	textUnquoted := sText
-	sUnicodev := strings.Split(textUnquoted, "\\u")
-	var context string
-	for _, v := range sUnicodev {
-		if len(v) < 1 {
+	// 解析每个Unicode字符
+	unicodeChars := strings.Split(sText, "\\u")
+	var result string
+
+	for _, char := range unicodeChars {
+		// 跳过空字符
+		if len(char) < 1 {
 			continue
 		}
-		temp, err := strconv.ParseInt(v, 16, 32)
+
+		// 将16进制转换为整数
+		codePoint, err := strconv.ParseInt(char, 16, 32)
 		if err != nil {
 			return ""
 		}
-		context += fmt.Sprintf("%c", temp)
+
+		// 转换为实际字符
+		result += fmt.Sprintf("%c", codePoint)
 	}
-	return context
+
+	return result
 }
 
+// read 解析并显示主机网络信息
 func read(text []byte, host string) error {
+	// 将原始数据转换为16进制字符串
 	encodedStr := hex.EncodeToString(text)
 
-	hn := ""
-	for i := 0; i < len(encodedStr)-4; i = i + 4 {
+	// 解析主机名
+	var hostName string
+	for i := 0; i < len(encodedStr)-4; i += 4 {
 		if encodedStr[i:i+4] == "0000" {
 			break
 		}
-		hn += encodedStr[i : i+4]
+		hostName += encodedStr[i : i+4]
 	}
 
-	var name string
-	name = HexUnicodeStringToString(hn)
+	// 转换主机名为可读字符串
+	name := HexUnicodeStringToString(hostName)
 
-	hostnames := strings.Replace(encodedStr, "0700", "", -1)
-	hostname := strings.Split(hostnames, "000000")
-	result := "[*] NetInfo \n[*]" + host
+	// 解析网络信息
+	netInfo := strings.Replace(encodedStr, "0700", "", -1)
+	hosts := strings.Split(netInfo, "000000")
+	hosts = hosts[1:] // 跳过第一个空元素
+
+	// 构造输出结果
+	result := fmt.Sprintf("[*] NetInfo\n[*] %s", host)
 	if name != "" {
-		result += "\n   [->]" + name
+		result += fmt.Sprintf("\n   [->] %s", name)
 	}
-	hostname = hostname[1:]
-	for i := 0; i < len(hostname); i++ {
-		hostname[i] = strings.Replace(hostname[i], "00", "", -1)
-		host, err := hex.DecodeString(hostname[i])
+
+	// 解析每个网络主机信息
+	for _, h := range hosts {
+		// 移除填充字节
+		h = strings.Replace(h, "00", "", -1)
+
+		// 解码主机信息
+		hostInfo, err := hex.DecodeString(h)
 		if err != nil {
-			return err
+			return fmt.Errorf("解码主机信息失败: %v", err)
 		}
-		result += "\n   [->]" + string(host)
+		result += fmt.Sprintf("\n   [->] %s", string(hostInfo))
 	}
+
+	// 输出结果
 	Common.LogSuccess(result)
 	return nil
 }
