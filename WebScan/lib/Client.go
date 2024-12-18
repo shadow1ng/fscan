@@ -57,7 +57,7 @@ func InitHttpClient(ThreadsNum int, DownProxy string, Timeout time.Duration) err
 	}
 
 	if Common.Socks5Proxy != "" {
-		dialSocksProxy, err := Common.Socks5Dailer(dialer)
+		dialSocksProxy, err := Common.Socks5Dialer(dialer)
 		if err != nil {
 			return err
 		}
