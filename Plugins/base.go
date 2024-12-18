@@ -28,6 +28,7 @@ var PluginList = map[string]interface{}{
 	"1000003": WebTitle,
 	"1000004": SmbScan2,
 	"1000005": WmiExec,
+	"1000006": LocalInfoScan,
 }
 
 func ReadBytes(conn net.Conn) (result []byte, err error) {
