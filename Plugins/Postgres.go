@@ -10,47 +10,71 @@ import (
 	"time"
 )
 
+// PostgresScan 执行PostgreSQL服务扫描
 func PostgresScan(info *Config.HostInfo) (tmperr error) {
 	if Common.IsBrute {
 		return
 	}
+
 	starttime := time.Now().Unix()
+
+	// 尝试用户名密码组合
 	for _, user := range Common.Userdict["postgresql"] {
 		for _, pass := range Common.Passwords {
-			pass = strings.Replace(pass, "{user}", string(user), -1)
+			// 替换密码中的用户名占位符
+			pass = strings.Replace(pass, "{user}", user, -1)
+
 			flag, err := PostgresConn(info, user, pass)
-			if flag == true && err == nil {
+			if flag && err == nil {
 				return err
-			} else {
-				errlog := fmt.Sprintf("[-] psql %v:%v %v %v %v", info.Host, info.Ports, user, pass, err)
-				Common.LogError(errlog)
-				tmperr = err
-				if Common.CheckErrs(err) {
-					return err
-				}
-				if time.Now().Unix()-starttime > (int64(len(Common.Userdict["postgresql"])*len(Common.Passwords)) * Common.Timeout) {
-					return err
-				}
+			}
+
+			// 记录错误信息
+			errlog := fmt.Sprintf("[-] PostgreSQL %v:%v %v %v %v", info.Host, info.Ports, user, pass, err)
+			Common.LogError(errlog)
+			tmperr = err
+
+			if Common.CheckErrs(err) {
+				return err
+			}
+
+			// 超时检查
+			if time.Now().Unix()-starttime > (int64(len(Common.Userdict["postgresql"])*len(Common.Passwords)) * Common.Timeout) {
+				return err
 			}
 		}
 	}
 	return tmperr
 }
 
-func PostgresConn(info *Config.HostInfo, user string, pass string) (flag bool, err error) {
-	flag = false
-	Host, Port, Username, Password := info.Host, info.Ports, user, pass
-	dataSourceName := fmt.Sprintf("postgres://%v:%v@%v:%v/%v?sslmode=%v", Username, Password, Host, Port, "postgres", "disable")
-	db, err := sql.Open("postgres", dataSourceName)
-	if err == nil {
-		db.SetConnMaxLifetime(time.Duration(Common.Timeout) * time.Second)
-		defer db.Close()
-		err = db.Ping()
-		if err == nil {
-			result := fmt.Sprintf("[+] Postgres:%v:%v:%v %v", Host, Port, Username, Password)
-			Common.LogSuccess(result)
-			flag = true
-		}
+// PostgresConn 尝试PostgreSQL连接
+func PostgresConn(info *Config.HostInfo, user string, pass string) (bool, error) {
+	host, port, username, password := info.Host, info.Ports, user, pass
+	timeout := time.Duration(Common.Timeout) * time.Second
+
+	// 构造连接字符串
+	connStr := fmt.Sprintf(
+		"postgres://%v:%v@%v:%v/postgres?sslmode=disable",
+		username, password, host, port,
+	)
+
+	// 建立数据库连接
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		return false, err
 	}
-	return flag, err
+	defer db.Close()
+
+	// 设置连接参数
+	db.SetConnMaxLifetime(timeout)
+
+	// 测试连接
+	if err = db.Ping(); err != nil {
+		return false, err
+	}
+
+	// 连接成功
+	result := fmt.Sprintf("[+] PostgreSQL %v:%v:%v %v", host, port, username, password)
+	Common.LogSuccess(result)
+	return true, nil
 }
