@@ -2,8 +2,8 @@ package Plugins
 
 import (
 	"fmt"
+	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/Config"
-	"github.com/shadow1ng/fscan/common"
 	"net"
 	"os"
 	"strings"
@@ -15,7 +15,7 @@ import (
 // SmbScan2 执行SMB2服务的认证扫描，支持密码和哈希两种认证方式
 func SmbScan2(info *Config.HostInfo) (tmperr error) {
 	// 如果未启用暴力破解则直接返回
-	if common.IsBrute {
+	if Common.IsBrute {
 		return nil
 	}
 
@@ -23,7 +23,7 @@ func SmbScan2(info *Config.HostInfo) (tmperr error) {
 	startTime := time.Now().Unix()
 
 	// 使用哈希认证模式
-	if len(common.HashBytes) > 0 {
+	if len(Common.HashBytes) > 0 {
 		return smbHashScan(info, hasprint, startTime)
 	}
 
@@ -33,8 +33,8 @@ func SmbScan2(info *Config.HostInfo) (tmperr error) {
 
 // smbHashScan 使用哈希进行认证扫描
 func smbHashScan(info *Config.HostInfo, hasprint bool, startTime int64) error {
-	for _, user := range common.Userdict["smb"] {
-		for _, hash := range common.HashBytes {
+	for _, user := range Common.Userdict["smb"] {
+		for _, hash := range Common.HashBytes {
 			success, err, printed := Smb2Con(info, user, "", hash, hasprint)
 			if printed {
 				hasprint = true
@@ -47,11 +47,11 @@ func smbHashScan(info *Config.HostInfo, hasprint bool, startTime int64) error {
 
 			logFailedAuth(info, user, "", hash, err)
 
-			if shouldStopScan(err, startTime, len(common.Userdict["smb"])*len(common.HashBytes)) {
+			if shouldStopScan(err, startTime, len(Common.Userdict["smb"])*len(Common.HashBytes)) {
 				return err
 			}
 
-			if len(common.Hash) > 0 {
+			if len(Common.Hash) > 0 {
 				break
 			}
 		}
@@ -61,8 +61,8 @@ func smbHashScan(info *Config.HostInfo, hasprint bool, startTime int64) error {
 
 // smbPasswordScan 使用密码进行认证扫描
 func smbPasswordScan(info *Config.HostInfo, hasprint bool, startTime int64) error {
-	for _, user := range common.Userdict["smb"] {
-		for _, pass := range common.Passwords {
+	for _, user := range Common.Userdict["smb"] {
+		for _, pass := range Common.Passwords {
 			pass = strings.ReplaceAll(pass, "{user}", user)
 			success, err, printed := Smb2Con(info, user, pass, []byte{}, hasprint)
 			if printed {
@@ -76,11 +76,11 @@ func smbPasswordScan(info *Config.HostInfo, hasprint bool, startTime int64) erro
 
 			logFailedAuth(info, user, pass, []byte{}, err)
 
-			if shouldStopScan(err, startTime, len(common.Userdict["smb"])*len(common.Passwords)) {
+			if shouldStopScan(err, startTime, len(Common.Userdict["smb"])*len(Common.Passwords)) {
 				return err
 			}
 
-			if len(common.Hash) > 0 {
+			if len(Common.Hash) > 0 {
 				break
 			}
 		}
@@ -91,20 +91,20 @@ func smbPasswordScan(info *Config.HostInfo, hasprint bool, startTime int64) erro
 // logSuccessfulAuth 记录成功的认证
 func logSuccessfulAuth(info *Config.HostInfo, user, pass string, hash []byte) {
 	var result string
-	if common.Domain != "" {
+	if Common.Domain != "" {
 		result = fmt.Sprintf("[✓] SMB2认证成功 %v:%v Domain:%v\\%v ",
-			info.Host, info.Ports, common.Domain, user)
+			info.Host, info.Ports, Common.Domain, user)
 	} else {
 		result = fmt.Sprintf("[✓] SMB2认证成功 %v:%v User:%v ",
 			info.Host, info.Ports, user)
 	}
 
 	if len(hash) > 0 {
-		result += fmt.Sprintf("Hash:%v", common.Hash)
+		result += fmt.Sprintf("Hash:%v", Common.Hash)
 	} else {
 		result += fmt.Sprintf("Pass:%v", pass)
 	}
-	common.LogSuccess(result)
+	Common.LogSuccess(result)
 }
 
 // logFailedAuth 记录失败的认证
@@ -112,22 +112,22 @@ func logFailedAuth(info *Config.HostInfo, user, pass string, hash []byte, err er
 	var errlog string
 	if len(hash) > 0 {
 		errlog = fmt.Sprintf("[x] SMB2认证失败 %v:%v User:%v Hash:%v Err:%v",
-			info.Host, info.Ports, user, common.Hash, err)
+			info.Host, info.Ports, user, Common.Hash, err)
 	} else {
 		errlog = fmt.Sprintf("[x] SMB2认证失败 %v:%v User:%v Pass:%v Err:%v",
 			info.Host, info.Ports, user, pass, err)
 	}
 	errlog = strings.ReplaceAll(errlog, "\n", " ")
-	common.LogError(errlog)
+	Common.LogError(errlog)
 }
 
 // shouldStopScan 检查是否应该停止扫描
 func shouldStopScan(err error, startTime int64, totalAttempts int) bool {
-	if common.CheckErrs(err) {
+	if Common.CheckErrs(err) {
 		return true
 	}
 
-	if time.Now().Unix()-startTime > (int64(totalAttempts) * common.Timeout) {
+	if time.Now().Unix()-startTime > (int64(totalAttempts) * Common.Timeout) {
 		return true
 	}
 
@@ -138,7 +138,7 @@ func shouldStopScan(err error, startTime int64, totalAttempts int) bool {
 func Smb2Con(info *Config.HostInfo, user string, pass string, hash []byte, hasprint bool) (flag bool, err error, flag2 bool) {
 	// 建立TCP连接
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:445", info.Host),
-		time.Duration(common.Timeout)*time.Second)
+		time.Duration(Common.Timeout)*time.Second)
 	if err != nil {
 		return false, fmt.Errorf("连接失败: %v", err), false
 	}
@@ -147,7 +147,7 @@ func Smb2Con(info *Config.HostInfo, user string, pass string, hash []byte, haspr
 	// 配置NTLM认证
 	initiator := smb2.NTLMInitiator{
 		User:   user,
-		Domain: common.Domain,
+		Domain: Common.Domain,
 	}
 
 	// 设置认证方式(哈希或密码)
@@ -202,9 +202,9 @@ func logShareInfo(info *Config.HostInfo, user string, pass string, hash []byte, 
 	var result string
 
 	// 构建基础信息
-	if common.Domain != "" {
+	if Common.Domain != "" {
 		result = fmt.Sprintf("[*] SMB2共享信息 %v:%v Domain:%v\\%v ",
-			info.Host, info.Ports, common.Domain, user)
+			info.Host, info.Ports, Common.Domain, user)
 	} else {
 		result = fmt.Sprintf("[*] SMB2共享信息 %v:%v User:%v ",
 			info.Host, info.Ports, user)
@@ -212,12 +212,12 @@ func logShareInfo(info *Config.HostInfo, user string, pass string, hash []byte, 
 
 	// 添加认证信息
 	if len(hash) > 0 {
-		result += fmt.Sprintf("Hash:%v ", common.Hash)
+		result += fmt.Sprintf("Hash:%v ", Common.Hash)
 	} else {
 		result += fmt.Sprintf("Pass:%v ", pass)
 	}
 
 	// 添加共享列表
 	result += fmt.Sprintf("可用共享: %v", shares)
-	common.LogSuccess(result)
+	Common.LogSuccess(result)
 }

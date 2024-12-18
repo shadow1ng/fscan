@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/Config"
-	"github.com/shadow1ng/fscan/common"
 	"strings"
 	"time"
 )
@@ -25,13 +25,13 @@ var (
 )
 
 func MS17010(info *Config.HostInfo) error {
-	if common.IsBrute {
+	if Common.IsBrute {
 		return nil
 	}
 	err := MS17010Scan(info)
 	if err != nil {
 		errlog := fmt.Sprintf("[-] Ms17010 %v %v", info.Host, err)
-		common.LogError(errlog)
+		Common.LogError(errlog)
 	}
 	return err
 }
@@ -39,13 +39,13 @@ func MS17010(info *Config.HostInfo) error {
 func MS17010Scan(info *Config.HostInfo) error {
 	ip := info.Host
 	// connecting to a host in LAN if reachable should be very quick
-	conn, err := common.WrapperTcpWithTimeout("tcp", ip+":445", time.Duration(common.Timeout)*time.Second)
+	conn, err := Common.WrapperTcpWithTimeout("tcp", ip+":445", time.Duration(Common.Timeout)*time.Second)
 	if err != nil {
 		//fmt.Printf("failed to connect to %s\n", ip)
 		return err
 	}
 	defer conn.Close()
-	err = conn.SetDeadline(time.Now().Add(time.Duration(common.Timeout) * time.Second))
+	err = conn.SetDeadline(time.Now().Add(time.Duration(Common.Timeout) * time.Second))
 	if err != nil {
 		//fmt.Printf("failed to connect to %s\n", ip)
 		return err
@@ -132,9 +132,9 @@ func MS17010Scan(info *Config.HostInfo) error {
 		//if runtime.GOOS=="windows" {fmt.Printf("%s\tMS17-010\t(%s)\n", ip, os)
 		//} else{fmt.Printf("\033[33m%s\tMS17-010\t(%s)\033[0m\n", ip, os)}
 		result := fmt.Sprintf("[+] MS17-010 %s\t(%s)", ip, os)
-		common.LogSuccess(result)
+		Common.LogSuccess(result)
 		defer func() {
-			if common.SC != "" {
+			if Common.SC != "" {
 				MS17010EXP(info)
 			}
 		}()
@@ -154,12 +154,12 @@ func MS17010Scan(info *Config.HostInfo) error {
 
 		if reply[34] == 0x51 {
 			result := fmt.Sprintf("[+] MS17-010 %s has DOUBLEPULSAR SMB IMPLANT", ip)
-			common.LogSuccess(result)
+			Common.LogSuccess(result)
 		}
 
 	} else {
 		result := fmt.Sprintf("[*] OsInfo %s\t(%s)", ip, os)
-		common.LogSuccess(result)
+		Common.LogSuccess(result)
 	}
 	return err
 

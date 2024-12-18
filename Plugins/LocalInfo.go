@@ -2,8 +2,8 @@ package Plugins
 
 import (
 	"fmt"
+	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/Config"
-	"github.com/shadow1ng/fscan/common"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -93,7 +93,7 @@ func LocalInfoScan(info *Config.HostInfo) (err error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		errlog := fmt.Sprintf("[-] Get UserHomeDir error: %v", err)
-		common.LogError(errlog)
+		Common.LogError(errlog)
 		return err
 	}
 
@@ -148,7 +148,7 @@ func scanFixedLocations(home string) {
 func checkAndLogFile(path string) {
 	if _, err := os.Stat(path); err == nil {
 		result := fmt.Sprintf("[+] Found sensitive file: %s", path)
-		common.LogSuccess(result)
+		Common.LogSuccess(result)
 	}
 }
 
@@ -202,7 +202,7 @@ func searchSensitiveFiles() {
 				fileName := strings.ToLower(info.Name())
 				if strings.Contains(fileName, white) {
 					result := fmt.Sprintf("[+] Found potential sensitive file: %s", path)
-					common.LogSuccess(result)
+					Common.LogSuccess(result)
 					break
 				}
 			}

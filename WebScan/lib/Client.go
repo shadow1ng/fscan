@@ -6,7 +6,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/Common"
 	"golang.org/x/net/proxy"
 	"gopkg.in/yaml.v2"
 	"net"
@@ -25,14 +25,14 @@ var (
 )
 
 func Inithttp() {
-	//common.Proxy = "http://127.0.0.1:8080"
-	if common.PocNum == 0 {
-		common.PocNum = 20
+	//Common.Proxy = "http://127.0.0.1:8080"
+	if Common.PocNum == 0 {
+		Common.PocNum = 20
 	}
-	if common.WebTimeout == 0 {
-		common.WebTimeout = 5
+	if Common.WebTimeout == 0 {
+		Common.WebTimeout = 5
 	}
-	err := InitHttpClient(common.PocNum, common.Proxy, time.Duration(common.WebTimeout)*time.Second)
+	err := InitHttpClient(Common.PocNum, Common.Proxy, time.Duration(Common.WebTimeout)*time.Second)
 	if err != nil {
 		panic(err)
 	}
@@ -56,8 +56,8 @@ func InitHttpClient(ThreadsNum int, DownProxy string, Timeout time.Duration) err
 		DisableKeepAlives:   false,
 	}
 
-	if common.Socks5Proxy != "" {
-		dialSocksProxy, err := common.Socks5Dailer(dialer)
+	if Common.Socks5Proxy != "" {
+		dialSocksProxy, err := Common.Socks5Dailer(dialer)
 		if err != nil {
 			return err
 		}

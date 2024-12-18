@@ -2,20 +2,20 @@ package Plugins
 
 import (
 	"fmt"
+	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/Config"
-	"github.com/shadow1ng/fscan/common"
 	"strings"
 	"time"
 )
 
 func MongodbScan(info *Config.HostInfo) error {
-	if common.IsBrute {
+	if Common.IsBrute {
 		return nil
 	}
 	_, err := MongodbUnauth(info)
 	if err != nil {
 		errlog := fmt.Sprintf("[-] Mongodb %v:%v %v", info.Host, info.Ports, err)
-		common.LogError(errlog)
+		Common.LogError(errlog)
 	}
 	return err
 }
@@ -49,12 +49,12 @@ func MongodbUnauth(info *Config.HostInfo) (flag bool, err error) {
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 
 	checkUnAuth := func(address string, packet []byte) (string, error) {
-		conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.Timeout)*time.Second)
+		conn, err := Common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(Common.Timeout)*time.Second)
 		if err != nil {
 			return "", err
 		}
 		defer conn.Close()
-		err = conn.SetReadDeadline(time.Now().Add(time.Duration(common.Timeout) * time.Second))
+		err = conn.SetReadDeadline(time.Now().Add(time.Duration(Common.Timeout) * time.Second))
 		if err != nil {
 			return "", err
 		}
@@ -81,7 +81,7 @@ func MongodbUnauth(info *Config.HostInfo) (flag bool, err error) {
 	if strings.Contains(reply, "totalLinesWritten") {
 		flag = true
 		result := fmt.Sprintf("[+] Mongodb %v unauthorized", realhost)
-		common.LogSuccess(result)
+		Common.LogSuccess(result)
 	}
 	return flag, err
 }

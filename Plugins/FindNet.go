@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/Config"
-	"github.com/shadow1ng/fscan/common"
 	"strconv"
 	"strings"
 	"time"
@@ -24,12 +24,12 @@ func Findnet(info *Config.HostInfo) error {
 
 func FindnetScan(info *Config.HostInfo) error {
 	realhost := fmt.Sprintf("%s:%v", info.Host, 135)
-	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.Timeout)*time.Second)
+	conn, err := Common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(Common.Timeout)*time.Second)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
-	err = conn.SetDeadline(time.Now().Add(time.Duration(common.Timeout) * time.Second))
+	err = conn.SetDeadline(time.Now().Add(time.Duration(Common.Timeout) * time.Second))
 	if err != nil {
 		return err
 	}
@@ -119,6 +119,6 @@ func read(text []byte, host string) error {
 		}
 		result += "\n   [->]" + string(host)
 	}
-	common.LogSuccess(result)
+	Common.LogSuccess(result)
 	return nil
 }

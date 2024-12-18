@@ -1,4 +1,4 @@
-package common
+package Common
 
 var version = "1.8.4"
 var Userdict = map[string][]string{

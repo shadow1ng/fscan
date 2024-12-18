@@ -3,8 +3,8 @@ package WebScan
 import (
 	"crypto/md5"
 	"fmt"
+	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/WebScan/info"
-	"github.com/shadow1ng/fscan/common"
 	"regexp"
 )
 
@@ -39,7 +39,7 @@ func InfoCheck(Url string, CheckData *[]CheckDatas) []string {
 
 	if len(infoname) > 0 {
 		result := fmt.Sprintf("[+] InfoScan %-25v %s ", Url, infoname)
-		common.LogSuccess(result)
+		Common.LogSuccess(result)
 		return infoname
 	}
 	return []string{""}

@@ -2,9 +2,9 @@ package Plugins
 
 import (
 	"fmt"
+	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/WebScan/lib"
-	"github.com/shadow1ng/fscan/common"
 	"strconv"
 	"strings"
 	"sync"
@@ -14,19 +14,19 @@ func Scan(info Config.HostInfo) {
 	fmt.Println("[*] 开始信息扫描...")
 
 	// 本地信息收集模块
-	if common.Scantype == "localinfo" {
-		ch := make(chan struct{}, common.Threads)
+	if Common.Scantype == "localinfo" {
+		ch := make(chan struct{}, Common.Threads)
 		wg := sync.WaitGroup{}
 		AddScan("localinfo", info, &ch, &wg)
 		wg.Wait()
-		common.LogWG.Wait()
-		close(common.Results)
-		fmt.Printf("[✓] 扫描完成 %v/%v\n", common.End, common.Num)
+		Common.LogWG.Wait()
+		close(Common.Results)
+		fmt.Printf("[✓] 扫描完成 %v/%v\n", Common.End, Common.Num)
 		return
 	}
 
 	// 解析目标主机IP
-	Hosts, err := common.ParseIP(info.Host, common.HostFile, common.NoHosts)
+	Hosts, err := Common.ParseIP(info.Host, Common.HostFile, Common.NoHosts)
 	if err != nil {
 		fmt.Printf("[!] 解析主机错误: %v\n", err)
 		return
@@ -34,29 +34,29 @@ func Scan(info Config.HostInfo) {
 
 	// 初始化配置
 	lib.Inithttp()
-	ch := make(chan struct{}, common.Threads)
+	ch := make(chan struct{}, Common.Threads)
 	wg := sync.WaitGroup{}
 	var AlivePorts []string
 
-	if len(Hosts) > 0 || len(common.HostPort) > 0 {
+	if len(Hosts) > 0 || len(Common.HostPort) > 0 {
 		// ICMP存活性检测
-		if (common.NoPing == false && len(Hosts) > 1) || common.Scantype == "icmp" {
-			Hosts = CheckLive(Hosts, common.Ping)
+		if (Common.NoPing == false && len(Hosts) > 1) || Common.Scantype == "icmp" {
+			Hosts = CheckLive(Hosts, Common.Ping)
 			fmt.Printf("[+] ICMP存活主机数量: %d\n", len(Hosts))
-			if common.Scantype == "icmp" {
-				common.LogWG.Wait()
+			if Common.Scantype == "icmp" {
+				Common.LogWG.Wait()
 				return
 			}
 		}
 
 		// 端口扫描策略
-		AlivePorts = executeScanStrategy(Hosts, common.Scantype)
+		AlivePorts = executeScanStrategy(Hosts, Common.Scantype)
 
 		// 处理自定义端口
-		if len(common.HostPort) > 0 {
-			AlivePorts = append(AlivePorts, common.HostPort...)
-			AlivePorts = common.RemoveDuplicate(AlivePorts)
-			common.HostPort = nil
+		if len(Common.HostPort) > 0 {
+			AlivePorts = append(AlivePorts, Common.HostPort...)
+			AlivePorts = Common.RemoveDuplicate(AlivePorts)
+			Common.HostPort = nil
 			fmt.Printf("[+] 总计存活端口: %d\n", len(AlivePorts))
 		}
 
@@ -70,37 +70,37 @@ func Scan(info Config.HostInfo) {
 			}
 			info.Host, info.Ports = hostParts[0], hostParts[1]
 
-			executeScanTasks(info, common.Scantype, &ch, &wg)
+			executeScanTasks(info, Common.Scantype, &ch, &wg)
 		}
 	}
 
 	// URL扫描
-	for _, url := range common.Urls {
+	for _, url := range Common.Urls {
 		info.Url = url
 		AddScan("web", info, &ch, &wg)
 	}
 
 	// 等待所有任务完成
 	wg.Wait()
-	common.LogWG.Wait()
-	close(common.Results)
-	fmt.Printf("[✓] 扫描已完成: %v/%v\n", common.End, common.Num)
+	Common.LogWG.Wait()
+	close(Common.Results)
+	fmt.Printf("[✓] 扫描已完成: %v/%v\n", Common.End, Common.Num)
 }
 
 // executeScanStrategy 执行端口扫描策略
 func executeScanStrategy(Hosts []string, scanType string) []string {
 	switch scanType {
 	case "webonly", "webpoc":
-		return NoPortScan(Hosts, common.Ports)
+		return NoPortScan(Hosts, Common.Ports)
 	case "hostname":
-		common.Ports = "139"
-		return NoPortScan(Hosts, common.Ports)
+		Common.Ports = "139"
+		return NoPortScan(Hosts, Common.Ports)
 	default:
 		if len(Hosts) > 0 {
-			ports := PortScan(Hosts, common.Ports, common.Timeout)
+			ports := PortScan(Hosts, Common.Ports, Common.Timeout)
 			fmt.Printf("[+] 存活端口数量: %d\n", len(ports))
 			if scanType == "portscan" {
-				common.LogWG.Wait()
+				Common.LogWG.Wait()
 				return nil
 			}
 			return ports
@@ -116,7 +116,7 @@ func executeScanTasks(info Config.HostInfo, scanType string, ch *chan struct{}, 
 		switch info.Ports {
 		case "135":
 			AddScan("findnet", info, ch, wg)
-			if common.IsWmi {
+			if Common.IsWmi {
 				AddScan("wmiexec", info, ch, wg)
 			}
 		case "445":
@@ -160,7 +160,7 @@ func AddScan(scantype string, info Config.HostInfo, ch *chan struct{}, wg *sync.
 
 		// 增加总任务数
 		Mutex.Lock()
-		common.Num += 1
+		Common.Num += 1
 		Mutex.Unlock()
 
 		// 执行扫描
@@ -168,7 +168,7 @@ func AddScan(scantype string, info Config.HostInfo, ch *chan struct{}, wg *sync.
 
 		// 增加已完成任务数
 		Mutex.Lock()
-		common.End += 1
+		Common.End += 1
 		Mutex.Unlock()
 	}()
 }

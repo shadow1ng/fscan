@@ -3,8 +3,8 @@ package Plugins
 import (
 	"errors"
 	"fmt"
+	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/Config"
-	"github.com/shadow1ng/fscan/common"
 	"github.com/tomatome/grdp/core"
 	"github.com/tomatome/grdp/glog"
 	"github.com/tomatome/grdp/protocol/nla"
@@ -28,25 +28,25 @@ type Brutelist struct {
 }
 
 func RdpScan(info *Config.HostInfo) (tmperr error) {
-	if common.IsBrute {
+	if Common.IsBrute {
 		return
 	}
 
 	var wg sync.WaitGroup
 	var signal bool
 	var num = 0
-	var all = len(common.Userdict["rdp"]) * len(common.Passwords)
+	var all = len(Common.Userdict["rdp"]) * len(Common.Passwords)
 	var mutex sync.Mutex
 	brlist := make(chan Brutelist)
 	port, _ := strconv.Atoi(info.Ports)
 
-	for i := 0; i < common.BruteThread; i++ {
+	for i := 0; i < Common.BruteThread; i++ {
 		wg.Add(1)
-		go worker(info.Host, common.Domain, port, &wg, brlist, &signal, &num, all, &mutex, common.Timeout)
+		go worker(info.Host, Common.Domain, port, &wg, brlist, &signal, &num, all, &mutex, Common.Timeout)
 	}
 
-	for _, user := range common.Userdict["rdp"] {
-		for _, pass := range common.Passwords {
+	for _, user := range Common.Userdict["rdp"] {
+		for _, pass := range Common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
 			brlist <- Brutelist{user, pass}
 		}
@@ -78,12 +78,12 @@ func worker(host, domain string, port int, wg *sync.WaitGroup, brlist chan Brute
 			} else {
 				result = fmt.Sprintf("[+] RDP %v:%v:%v %v", host, port, user, pass)
 			}
-			common.LogSuccess(result)
+			Common.LogSuccess(result)
 			*signal = true
 			return
 		} else {
 			errlog := fmt.Sprintf("[-] (%v/%v) rdp %v:%v %v %v %v", *num, all, host, port, user, pass, err)
-			common.LogError(errlog)
+			Common.LogError(errlog)
 		}
 	}
 }
@@ -126,7 +126,7 @@ func NewClient(host string, logLevel glog.LEVEL) *Client {
 }
 
 func (g *Client) Login(domain, user, pwd string, timeout int64) error {
-	conn, err := common.WrapperTcpWithTimeout("tcp", g.Host, time.Duration(timeout)*time.Second)
+	conn, err := Common.WrapperTcpWithTimeout("tcp", g.Host, time.Duration(timeout)*time.Second)
 	if err != nil {
 		return fmt.Errorf("[dial err] %v", err)
 	}

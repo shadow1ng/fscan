@@ -3,7 +3,7 @@ package Plugins
 import (
 	"bytes"
 	"fmt"
-	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/Common"
 	"golang.org/x/net/icmp"
 	"net"
 	"os/exec"
@@ -25,7 +25,7 @@ func CheckLive(hostslist []string, Ping bool) []string {
 		for ip := range chanHosts {
 			if _, ok := ExistHosts[ip]; !ok && IsContain(hostslist, ip) {
 				ExistHosts[ip] = struct{}{}
-				if common.Silent == false {
+				if Common.Silent == false {
 					if Ping == false {
 						fmt.Printf("(icmp) Target %-15s is alive\n", ip)
 					} else {
@@ -47,7 +47,7 @@ func CheckLive(hostslist []string, Ping bool) []string {
 		if err == nil {
 			RunIcmp1(hostslist, conn, chanHosts)
 		} else {
-			common.LogError(err)
+			Common.LogError(err)
 			//尝试无监听icmp探测
 			fmt.Println("trying RunIcmp2")
 			conn, err := net.DialTimeout("ip4:icmp", "127.0.0.1", 3*time.Second)
@@ -59,7 +59,7 @@ func CheckLive(hostslist []string, Ping bool) []string {
 			if err == nil {
 				RunIcmp2(hostslist, chanHosts)
 			} else {
-				common.LogError(err)
+				Common.LogError(err)
 				//使用ping探测
 				fmt.Println("The current user permissions unable to send icmp packets")
 				fmt.Println("start ping")
@@ -72,17 +72,17 @@ func CheckLive(hostslist []string, Ping bool) []string {
 	close(chanHosts)
 
 	if len(hostslist) > 1000 {
-		arrTop, arrLen := ArrayCountValueTop(AliveHosts, common.LiveTop, true)
+		arrTop, arrLen := ArrayCountValueTop(AliveHosts, Common.LiveTop, true)
 		for i := 0; i < len(arrTop); i++ {
 			output := fmt.Sprintf("[*] LiveTop %-16s 段存活数量为: %d", arrTop[i]+".0.0/16", arrLen[i])
-			common.LogSuccess(output)
+			Common.LogSuccess(output)
 		}
 	}
 	if len(hostslist) > 256 {
-		arrTop, arrLen := ArrayCountValueTop(AliveHosts, common.LiveTop, false)
+		arrTop, arrLen := ArrayCountValueTop(AliveHosts, Common.LiveTop, false)
 		for i := 0; i < len(arrTop); i++ {
 			output := fmt.Sprintf("[*] LiveTop %-16s 段存活数量为: %d", arrTop[i]+".0/24", arrLen[i])
-			common.LogSuccess(output)
+			Common.LogSuccess(output)
 		}
 	}
 

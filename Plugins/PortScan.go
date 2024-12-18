@@ -2,7 +2,7 @@ package Plugins
 
 import (
 	"fmt"
-	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/Common"
 	"sort"
 	"strconv"
 	"sync"
@@ -16,12 +16,12 @@ type Addr struct {
 
 func PortScan(hostslist []string, ports string, timeout int64) []string {
 	var AliveAddress []string
-	probePorts := common.ParsePort(ports)
+	probePorts := Common.ParsePort(ports)
 	if len(probePorts) == 0 {
 		fmt.Printf("[-] parse port %s error, please check your port format\n", ports)
 		return AliveAddress
 	}
-	noPorts := common.ParsePort(common.NoPorts)
+	noPorts := Common.ParsePort(Common.NoPorts)
 	if len(noPorts) > 0 {
 		temp := map[int]struct{}{}
 		for _, port := range probePorts {
@@ -39,7 +39,7 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 		probePorts = newDatas
 		sort.Ints(probePorts)
 	}
-	workers := common.Threads
+	workers := Common.Threads
 	Addrs := make(chan Addr, 100)
 	results := make(chan string, 100)
 	var wg sync.WaitGroup
@@ -77,20 +77,20 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 
 func PortConnect(addr Addr, respondingHosts chan<- string, adjustedTimeout int64, wg *sync.WaitGroup) {
 	host, port := addr.ip, addr.port
-	conn, err := common.WrapperTcpWithTimeout("tcp4", fmt.Sprintf("%s:%v", host, port), time.Duration(adjustedTimeout)*time.Second)
+	conn, err := Common.WrapperTcpWithTimeout("tcp4", fmt.Sprintf("%s:%v", host, port), time.Duration(adjustedTimeout)*time.Second)
 	if err == nil {
 		defer conn.Close()
 		address := host + ":" + strconv.Itoa(port)
 		result := fmt.Sprintf("%s open", address)
-		common.LogSuccess(result)
+		Common.LogSuccess(result)
 		wg.Add(1)
 		respondingHosts <- address
 	}
 }
 
 func NoPortScan(hostslist []string, ports string) (AliveAddress []string) {
-	probePorts := common.ParsePort(ports)
-	noPorts := common.ParsePort(common.NoPorts)
+	probePorts := Common.ParsePort(ports)
+	noPorts := Common.ParsePort(Common.NoPorts)
 	if len(noPorts) > 0 {
 		temp := map[int]struct{}{}
 		for _, port := range probePorts {

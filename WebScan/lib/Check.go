@@ -4,8 +4,8 @@ import (
 	"crypto/md5"
 	"fmt"
 	"github.com/google/cel-go/cel"
+	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/WebScan/info"
-	"github.com/shadow1ng/fscan/common"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -34,7 +34,7 @@ func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int) {
 				isVul, _, name := executePoc(task.Req, task.Poc)
 				if isVul {
 					result := fmt.Sprintf("[+] PocScan %s %s %s", task.Req.URL, task.Poc.Name, name)
-					common.LogSuccess(result)
+					Common.LogSuccess(result)
 				}
 				wg.Done()
 			}
@@ -82,7 +82,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 	for _, item := range p.Set {
 		k, expression := item.Key, item.Value
 		if expression == "newReverse()" {
-			if !common.DnsLog {
+			if !Common.DnsLog {
 				return false, nil, ""
 			}
 			variableMap[k] = newReverse()
@@ -240,7 +240,7 @@ func optimizeCookies(rawCookie string) (output string) {
 }
 
 func newReverse() *Reverse {
-	if !common.DnsLog {
+	if !Common.DnsLog {
 		return &Reverse{}
 	}
 	letters := "1234567890abcdefghijklmnopqrstuvwxyz"
@@ -280,7 +280,7 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 	look:
 		for j, item := range setsMap {
 			//shiro默认只跑10key
-			if p.Name == "poc-yaml-shiro-key" && !common.PocFull && j >= 10 {
+			if p.Name == "poc-yaml-shiro-key" && !Common.PocFull && j >= 10 {
 				if item[1] == "cbc" {
 					continue
 				} else {
@@ -356,15 +356,15 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 			if success {
 				if rule.Continue {
 					if p.Name == "poc-yaml-backup-file" || p.Name == "poc-yaml-sql-file" {
-						common.LogSuccess(fmt.Sprintf("[+] PocScan %s://%s%s %s", req.Url.Scheme, req.Url.Host, req.Url.Path, p.Name))
+						Common.LogSuccess(fmt.Sprintf("[+] PocScan %s://%s%s %s", req.Url.Scheme, req.Url.Host, req.Url.Path, p.Name))
 					} else {
-						common.LogSuccess(fmt.Sprintf("[+] PocScan %s://%s%s %s %v", req.Url.Scheme, req.Url.Host, req.Url.Path, p.Name, tmpMap))
+						Common.LogSuccess(fmt.Sprintf("[+] PocScan %s://%s%s %s %v", req.Url.Scheme, req.Url.Host, req.Url.Path, p.Name, tmpMap))
 					}
 					continue
 				}
 				strMap = append(strMap, tmpMap...)
 				if i == len(p.Rules)-1 {
-					common.LogSuccess(fmt.Sprintf("[+] PocScan %s://%s%s %s %v", req.Url.Scheme, req.Url.Host, req.Url.Path, p.Name, strMap))
+					Common.LogSuccess(fmt.Sprintf("[+] PocScan %s://%s%s %s %v", req.Url.Scheme, req.Url.Host, req.Url.Path, p.Name, strMap))
 					//防止后续继续打印poc成功信息
 					return false, nil
 				}

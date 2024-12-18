@@ -2,8 +2,8 @@ package Plugins
 
 import (
 	"fmt"
+	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/Config"
-	"github.com/shadow1ng/fscan/common"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
 	"net"
@@ -13,15 +13,15 @@ import (
 
 // SshScan 执行SSH服务的认证扫描
 func SshScan(info *Config.HostInfo) (tmperr error) {
-	if common.IsBrute {
+	if Common.IsBrute {
 		return
 	}
 
 	startTime := time.Now().Unix()
 
 	// 遍历用户名和密码字典进行认证尝试
-	for _, user := range common.Userdict["ssh"] {
-		for _, pass := range common.Passwords {
+	for _, user := range Common.Userdict["ssh"] {
+		for _, pass := range Common.Passwords {
 			// 替换密码中的用户名占位符
 			pass = strings.Replace(pass, "{user}", user, -1)
 
@@ -33,22 +33,22 @@ func SshScan(info *Config.HostInfo) (tmperr error) {
 			// 记录失败信息
 			errlog := fmt.Sprintf("[x] SSH认证失败 %v:%v User:%v Pass:%v Err:%v",
 				info.Host, info.Ports, user, pass, err)
-			common.LogError(errlog)
+			Common.LogError(errlog)
 			tmperr = err
 
 			// 检查是否需要中断扫描
-			if common.CheckErrs(err) {
+			if Common.CheckErrs(err) {
 				return err
 			}
 
 			// 检查是否超时
-			timeoutLimit := int64(len(common.Userdict["ssh"])*len(common.Passwords)) * common.Timeout
+			timeoutLimit := int64(len(Common.Userdict["ssh"])*len(Common.Passwords)) * Common.Timeout
 			if time.Now().Unix()-startTime > timeoutLimit {
 				return err
 			}
 
 			// 如果指定了SSH密钥，则不进行密码尝试
-			if common.SshKey != "" {
+			if Common.SshKey != "" {
 				return err
 			}
 		}
@@ -60,9 +60,9 @@ func SshScan(info *Config.HostInfo) (tmperr error) {
 func SshConn(info *Config.HostInfo, user string, pass string) (flag bool, err error) {
 	// 准备认证方法
 	var auth []ssh.AuthMethod
-	if common.SshKey != "" {
+	if Common.SshKey != "" {
 		// 使用SSH密钥认证
-		pemBytes, err := ioutil.ReadFile(common.SshKey)
+		pemBytes, err := ioutil.ReadFile(Common.SshKey)
 		if err != nil {
 			return false, fmt.Errorf("读取密钥失败: %v", err)
 		}
@@ -81,7 +81,7 @@ func SshConn(info *Config.HostInfo, user string, pass string) (flag bool, err er
 	config := &ssh.ClientConfig{
 		User:    user,
 		Auth:    auth,
-		Timeout: time.Duration(common.Timeout) * time.Second,
+		Timeout: time.Duration(Common.Timeout) * time.Second,
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			return nil
 		},
@@ -97,23 +97,23 @@ func SshConn(info *Config.HostInfo, user string, pass string) (flag bool, err er
 			flag = true
 
 			// 处理认证成功的情况
-			if common.Command != "" {
+			if Common.Command != "" {
 				// 执行指定命令
-				output, _ := session.CombinedOutput(common.Command)
-				if common.SshKey != "" {
-					common.LogSuccess(fmt.Sprintf("[✓] SSH密钥认证成功 %v:%v\n命令输出:\n%v",
+				output, _ := session.CombinedOutput(Common.Command)
+				if Common.SshKey != "" {
+					Common.LogSuccess(fmt.Sprintf("[✓] SSH密钥认证成功 %v:%v\n命令输出:\n%v",
 						info.Host, info.Ports, string(output)))
 				} else {
-					common.LogSuccess(fmt.Sprintf("[✓] SSH认证成功 %v:%v User:%v Pass:%v\n命令输出:\n%v",
+					Common.LogSuccess(fmt.Sprintf("[✓] SSH认证成功 %v:%v User:%v Pass:%v\n命令输出:\n%v",
 						info.Host, info.Ports, user, pass, string(output)))
 				}
 			} else {
 				// 仅记录认证成功
-				if common.SshKey != "" {
-					common.LogSuccess(fmt.Sprintf("[✓] SSH密钥认证成功 %v:%v",
+				if Common.SshKey != "" {
+					Common.LogSuccess(fmt.Sprintf("[✓] SSH密钥认证成功 %v:%v",
 						info.Host, info.Ports))
 				} else {
-					common.LogSuccess(fmt.Sprintf("[✓] SSH认证成功 %v:%v User:%v Pass:%v",
+					Common.LogSuccess(fmt.Sprintf("[✓] SSH认证成功 %v:%v User:%v Pass:%v",
 						info.Host, info.Ports, user, pass))
 				}
 			}

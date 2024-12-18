@@ -3,9 +3,9 @@ package WebScan
 import (
 	"embed"
 	"fmt"
+	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/WebScan/lib"
-	"github.com/shadow1ng/fscan/common"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -20,7 +20,7 @@ var AllPocs []*lib.Poc
 
 func WebScan(info *Config.HostInfo) {
 	once.Do(initpoc)
-	var pocinfo = common.Pocinfo
+	var pocinfo = Common.Pocinfo
 	buf := strings.Split(info.Url, "/")
 	pocinfo.Target = strings.Join(buf[:3], "/")
 
@@ -34,25 +34,25 @@ func WebScan(info *Config.HostInfo) {
 	}
 }
 
-func Execute(PocInfo common.PocInfo) {
+func Execute(PocInfo Common.PocInfo) {
 	req, err := http.NewRequest("GET", PocInfo.Target, nil)
 	if err != nil {
 		errlog := fmt.Sprintf("[-] webpocinit %v %v", PocInfo.Target, err)
-		common.LogError(errlog)
+		Common.LogError(errlog)
 		return
 	}
-	req.Header.Set("User-agent", common.UserAgent)
-	req.Header.Set("Accept", common.Accept)
+	req.Header.Set("User-agent", Common.UserAgent)
+	req.Header.Set("Accept", Common.Accept)
 	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9")
-	if common.Cookie != "" {
-		req.Header.Set("Cookie", common.Cookie)
+	if Common.Cookie != "" {
+		req.Header.Set("Cookie", Common.Cookie)
 	}
 	pocs := filterPoc(PocInfo.PocName)
-	lib.CheckMultiPoc(req, pocs, common.PocNum)
+	lib.CheckMultiPoc(req, pocs, Common.PocNum)
 }
 
 func initpoc() {
-	if common.PocPath == "" {
+	if Common.PocPath == "" {
 		entries, err := Pocs.ReadDir("pocs")
 		if err != nil {
 			fmt.Printf("[-] init poc error: %v", err)
@@ -67,8 +67,8 @@ func initpoc() {
 			}
 		}
 	} else {
-		fmt.Println("[+] load poc from " + common.PocPath)
-		err := filepath.Walk(common.PocPath,
+		fmt.Println("[+] load poc from " + Common.PocPath)
+		err := filepath.Walk(Common.PocPath,
 			func(path string, info os.FileInfo, err error) error {
 				if err != nil || info == nil {
 					return err
