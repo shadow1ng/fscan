@@ -145,19 +145,14 @@ func CheckErrs(err error) bool {
 
 	// 已知错误列表
 	errs := []string{
-		"远程主机关闭连接",
-		"连接数过多",
-		"连接超时",
-		"EOF",
-		"连接尝试失败",
-		"建立连接失败",
-		"无法连接",
-		"无法读取数据",
-		"不允许连接",
-		"无pg_hba.conf配置项",
-		"无法建立连接",
-		"无效的数据包大小",
-		"连接异常",
+		"closed by the remote host", "too many connections",
+		"i/o timeout", "EOF", "A connection attempt failed",
+		"established connection failed", "connection attempt failed",
+		"Unable to read", "is not allowed to connect to this",
+		"no pg_hba.conf entry",
+		"No connection could be made",
+		"invalid packet size",
+		"bad connection",
 	}
 
 	// 检查错误是否匹配
