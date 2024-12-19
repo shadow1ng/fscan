@@ -87,14 +87,12 @@ func MS17010(info *Common.HostInfo) error {
 	if Common.IsBrute {
 		return nil
 	}
-	fmt.Println("[+] MS17010扫描模块开始...")
 
 	// 执行MS17-010漏洞扫描
 	err := MS17010Scan(info)
 	if err != nil {
 		Common.LogError(fmt.Sprintf("[-] MS17010 %v %v", info.Host, err))
 	}
-	fmt.Println("[+] MS17010扫描模块结束...")
 	return err
 }
 
