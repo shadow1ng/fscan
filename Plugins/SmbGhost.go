@@ -101,10 +101,8 @@ func SmbGhost(info *Common.HostInfo) error {
 		return nil
 	}
 
-	fmt.Println("[+] SmbGhost扫描模块开始...")
 	// 执行实际的SMB Ghost漏洞扫描
 	err := SmbGhostScan(info)
-	fmt.Println("[+] SmbGhost扫描模块结束...")
 	return err
 }
 
