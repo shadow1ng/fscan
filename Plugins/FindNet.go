@@ -29,35 +29,35 @@ func FindnetScan(info *Config.HostInfo) error {
 	target := fmt.Sprintf("%s:%v", info.Host, 135)
 	conn, err := Common.WrapperTcpWithTimeout("tcp", target, time.Duration(Common.Timeout)*time.Second)
 	if err != nil {
-		return fmt.Errorf("连接RPC端口失败: %v", err)
+		return fmt.Errorf("[-] 连接RPC端口失败: %v", err)
 	}
 	defer conn.Close()
 
 	// 设置连接超时
 	if err = conn.SetDeadline(time.Now().Add(time.Duration(Common.Timeout) * time.Second)); err != nil {
-		return fmt.Errorf("设置超时失败: %v", err)
+		return fmt.Errorf("[-] 设置超时失败: %v", err)
 	}
 
 	// 发送第一个RPC请求
 	if _, err = conn.Write(bufferV1); err != nil {
-		return fmt.Errorf("发送RPC请求1失败: %v", err)
+		return fmt.Errorf("[-] 发送RPC请求1失败: %v", err)
 	}
 
 	// 读取响应
 	reply := make([]byte, 4096)
 	if _, err = conn.Read(reply); err != nil {
-		return fmt.Errorf("读取RPC响应1失败: %v", err)
+		return fmt.Errorf("[-] 读取RPC响应1失败: %v", err)
 	}
 
 	// 发送第二个RPC请求
 	if _, err = conn.Write(bufferV2); err != nil {
-		return fmt.Errorf("发送RPC请求2失败: %v", err)
+		return fmt.Errorf("[-] 发送RPC请求2失败: %v", err)
 	}
 
 	// 读取并检查响应
 	n, err := conn.Read(reply)
 	if err != nil || n < 42 {
-		return fmt.Errorf("读取RPC响应2失败: %v", err)
+		return fmt.Errorf("[-] 读取RPC响应2失败: %v", err)
 	}
 
 	// 解析响应数据
@@ -72,7 +72,7 @@ func FindnetScan(info *Config.HostInfo) error {
 	}
 
 	if !found {
-		return fmt.Errorf("未找到有效的响应标记")
+		return fmt.Errorf("[-] 未找到有效的响应标记")
 	}
 
 	// 解析主机信息
@@ -151,7 +151,7 @@ func read(text []byte, host string) error {
 		// 解码主机信息
 		hostInfo, err := hex.DecodeString(h)
 		if err != nil {
-			return fmt.Errorf("解码主机信息失败: %v", err)
+			return fmt.Errorf("[-] 解码主机信息失败: %v", err)
 		}
 		result += fmt.Sprintf("\n   [->] %s", string(hostInfo))
 	}
