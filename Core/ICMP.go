@@ -259,8 +259,15 @@ func RunPing(hostslist []string, chanHosts chan string) {
 
 // ExecCommandPing 执行系统Ping命令检测主机存活
 func ExecCommandPing(ip string) bool {
+	// 过滤黑名单字符
+	forbiddenChars := []string{";", "&", "|", "`", "$", "\\", "'", "%", "\"", "\n"}
+	for _, char := range forbiddenChars {
+		if strings.Contains(ip, char) {
+			return false
+		}
+	}
+	
 	var command *exec.Cmd
-
 	// 根据操作系统选择不同的ping命令
 	switch runtime.GOOS {
 	case "windows":
