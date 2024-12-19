@@ -12,14 +12,12 @@ func MongodbScan(info *Common.HostInfo) error {
 	if Common.IsBrute {
 		return nil
 	}
-	fmt.Println("[+] Mongodb扫描模块开始...")
 
 	_, err := MongodbUnauth(info)
 	if err != nil {
 		errlog := fmt.Sprintf("[-] MongoDB %v:%v %v", info.Host, info.Ports, err)
 		Common.LogError(errlog)
 	}
-	fmt.Println("[+] Mongodb扫描模块结束...")
 	return err
 }
 
