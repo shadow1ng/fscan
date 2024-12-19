@@ -1,4 +1,4 @@
-package Plugins
+package Core
 
 import (
 	"bytes"
