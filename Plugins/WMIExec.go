@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
-	"github.com/shadow1ng/fscan/Config"
 	"os"
 	"strings"
 	"time"
@@ -33,7 +32,7 @@ func init() {
 }
 
 // WmiExec 执行WMI远程命令
-func WmiExec(info *Config.HostInfo) (tmperr error) {
+func WmiExec(info *Common.HostInfo) (tmperr error) {
 	// 如果是暴力破解模式则跳过
 	if Common.IsBrute {
 		return nil
@@ -98,7 +97,7 @@ func WmiExec(info *Config.HostInfo) (tmperr error) {
 }
 
 // Wmiexec 包装WMI执行函数
-func Wmiexec(info *Config.HostInfo, user string, pass string, hash string) (flag bool, err error) {
+func Wmiexec(info *Common.HostInfo, user string, pass string, hash string) (flag bool, err error) {
 	target := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	wmiexec.Timeout = int(Common.Timeout)
 	return WMIExec(target, user, pass, hash, Common.Domain, Common.Command, ClientHost, "", nil)

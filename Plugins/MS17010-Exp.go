@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
-	"github.com/shadow1ng/fscan/Config"
 	"io"
 	"io/ioutil"
 	"net"
@@ -15,7 +14,7 @@ import (
 )
 
 // MS17010EXP 执行MS17-010漏洞利用
-func MS17010EXP(info *Config.HostInfo) {
+func MS17010EXP(info *Common.HostInfo) {
 	address := info.Host + ":445"
 	var sc string
 

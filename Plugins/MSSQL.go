@@ -5,13 +5,12 @@ import (
 	"fmt"
 	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/shadow1ng/fscan/Common"
-	"github.com/shadow1ng/fscan/Config"
 	"strings"
 	"time"
 )
 
 // MssqlScan 执行MSSQL服务扫描
-func MssqlScan(info *Config.HostInfo) (tmperr error) {
+func MssqlScan(info *Common.HostInfo) (tmperr error) {
 	if Common.IsBrute {
 		return
 	}
@@ -50,7 +49,7 @@ func MssqlScan(info *Config.HostInfo) (tmperr error) {
 }
 
 // MssqlConn 尝试MSSQL连接
-func MssqlConn(info *Config.HostInfo, user string, pass string) (bool, error) {
+func MssqlConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 	host, port, username, password := info.Host, info.Ports, user, pass
 	timeout := time.Duration(Common.Timeout) * time.Second
 

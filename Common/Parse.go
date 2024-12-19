@@ -5,14 +5,13 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"github.com/shadow1ng/fscan/Config"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
 )
 
-func Parse(Info *Config.HostInfo) {
+func Parse(Info *HostInfo) {
 	ParseUser()
 	ParsePass(Info)
 	ParseInput(Info)
@@ -63,7 +62,7 @@ func ParseUser() error {
 }
 
 // ParsePass 解析密码、哈希值、URL和端口配置
-func ParsePass(Info *Config.HostInfo) error {
+func ParsePass(Info *HostInfo) error {
 	// 处理直接指定的密码列表
 	var pwdList []string
 	if Password != "" {
@@ -204,7 +203,7 @@ func Readfile(filename string) ([]string, error) {
 }
 
 // ParseInput 解析和验证输入参数配置
-func ParseInput(Info *Config.HostInfo) error {
+func ParseInput(Info *HostInfo) error {
 	// 检查必要的目标参数
 	if Info.Host == "" && HostFile == "" && URL == "" && UrlFile == "" {
 		fmt.Println("[!] 未指定扫描目标")
@@ -321,7 +320,7 @@ func ParseInput(Info *Config.HostInfo) error {
 }
 
 // ParseScantype 解析扫描类型并设置对应的端口
-func ParseScantype(Info *Config.HostInfo) error {
+func ParseScantype(Info *HostInfo) error {
 	// 先处理特殊扫描类型
 	specialTypes := map[string]string{
 		"hostname": "135,137,139,445",
@@ -344,7 +343,7 @@ func ParseScantype(Info *Config.HostInfo) error {
 	}
 
 	// 检查是否是注册的插件类型
-	plugin, validType := Config.PluginManager[Scantype]
+	plugin, validType := PluginManager[Scantype]
 	if !validType {
 		showmode()
 		return fmt.Errorf("无效的扫描类型: %s", Scantype)
@@ -368,7 +367,7 @@ func showmode() {
 
 	// 显示常规服务扫描类型
 	fmt.Println("\n[+] 常规服务扫描:")
-	for name, plugin := range Config.PluginManager {
+	for name, plugin := range PluginManager {
 		if plugin.Port > 0 && plugin.Port < 1000000 {
 			fmt.Printf("   - %-10s (端口: %d)\n", name, plugin.Port)
 		}
@@ -376,7 +375,7 @@ func showmode() {
 
 	// 显示特殊漏洞扫描类型
 	fmt.Println("\n[+] 特殊漏洞扫描:")
-	for name, plugin := range Config.PluginManager {
+	for name, plugin := range PluginManager {
 		if plugin.Port >= 1000000 || plugin.Port == 0 {
 			fmt.Printf("   - %-10s\n", name)
 		}

@@ -4,14 +4,13 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
-	"github.com/shadow1ng/fscan/Config"
 	_ "github.com/sijms/go-ora/v2"
 	"strings"
 	"time"
 )
 
 // OracleScan 执行Oracle服务扫描
-func OracleScan(info *Config.HostInfo) (tmperr error) {
+func OracleScan(info *Common.HostInfo) (tmperr error) {
 	if Common.IsBrute {
 		return
 	}
@@ -50,7 +49,7 @@ func OracleScan(info *Config.HostInfo) (tmperr error) {
 }
 
 // OracleConn 尝试Oracle连接
-func OracleConn(info *Config.HostInfo, user string, pass string) (bool, error) {
+func OracleConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 	host, port, username, password := info.Host, info.Ports, user, pass
 	timeout := time.Duration(Common.Timeout) * time.Second
 

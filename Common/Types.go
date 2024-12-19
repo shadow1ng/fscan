@@ -1,5 +1,5 @@
 // Config/types.go
-package Config
+package Common
 
 type HostInfo struct {
 	Host    string

@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
-	"github.com/shadow1ng/fscan/Config"
 	"strconv"
 	"strings"
 	"time"
@@ -19,13 +18,13 @@ var (
 )
 
 // Findnet 探测Windows网络主机信息的入口函数
-func Findnet(info *Config.HostInfo) error {
+func Findnet(info *Common.HostInfo) error {
 	fmt.Println("[+] FindNet扫描模块开始...")
 	return FindnetScan(info)
 }
 
 // FindnetScan 通过RPC协议扫描网络主机信息
-func FindnetScan(info *Config.HostInfo) error {
+func FindnetScan(info *Common.HostInfo) error {
 	// 连接目标RPC端口
 	target := fmt.Sprintf("%s:%v", info.Host, 135)
 	conn, err := Common.WrapperTcpWithTimeout("tcp", target, time.Duration(Common.Timeout)*time.Second)

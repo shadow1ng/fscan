@@ -4,7 +4,6 @@ import (
 	"embed"
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
-	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/WebScan/lib"
 	"net/http"
 	"os"
@@ -19,7 +18,7 @@ var once sync.Once
 var AllPocs []*lib.Poc
 
 // WebScan 执行Web漏洞扫描
-func WebScan(info *Config.HostInfo) {
+func WebScan(info *Common.HostInfo) {
 	// 确保POC只初始化一次
 	once.Do(initpoc)
 

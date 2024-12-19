@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"github.com/jlaffaye/ftp"
 	"github.com/shadow1ng/fscan/Common"
-	"github.com/shadow1ng/fscan/Config"
 	"strings"
 	"time"
 )
 
 // FtpScan 执行FTP服务扫描
-func FtpScan(info *Config.HostInfo) (tmperr error) {
+func FtpScan(info *Common.HostInfo) (tmperr error) {
 	// 如果已开启暴力破解则直接返回
 	if Common.IsBrute {
 		return
@@ -62,7 +61,7 @@ func FtpScan(info *Config.HostInfo) (tmperr error) {
 }
 
 // FtpConn 建立FTP连接并尝试登录
-func FtpConn(info *Config.HostInfo, user string, pass string) (flag bool, err error) {
+func FtpConn(info *Common.HostInfo, user string, pass string) (flag bool, err error) {
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
 
 	// 建立FTP连接

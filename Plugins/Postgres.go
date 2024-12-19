@@ -5,13 +5,12 @@ import (
 	"fmt"
 	_ "github.com/lib/pq"
 	"github.com/shadow1ng/fscan/Common"
-	"github.com/shadow1ng/fscan/Config"
 	"strings"
 	"time"
 )
 
 // PostgresScan 执行PostgreSQL服务扫描
-func PostgresScan(info *Config.HostInfo) (tmperr error) {
+func PostgresScan(info *Common.HostInfo) (tmperr error) {
 	if Common.IsBrute {
 		return
 	}
@@ -50,7 +49,7 @@ func PostgresScan(info *Config.HostInfo) (tmperr error) {
 }
 
 // PostgresConn 尝试PostgreSQL连接
-func PostgresConn(info *Config.HostInfo, user string, pass string) (bool, error) {
+func PostgresConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 	host, port, username, password := info.Host, info.Ports, user, pass
 	timeout := time.Duration(Common.Timeout) * time.Second
 

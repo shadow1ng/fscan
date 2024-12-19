@@ -3,7 +3,6 @@ package Plugins
 import (
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
-	"github.com/shadow1ng/fscan/Config"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -89,7 +88,7 @@ var (
 	}
 )
 
-func LocalInfoScan(info *Config.HostInfo) (err error) {
+func LocalInfoScan(info *Common.HostInfo) (err error) {
 	fmt.Println("[+] LocalInfo扫描模块开始...")
 	home, err := os.UserHomeDir()
 	if err != nil {

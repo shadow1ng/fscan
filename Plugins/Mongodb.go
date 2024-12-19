@@ -3,13 +3,12 @@ package Plugins
 import (
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
-	"github.com/shadow1ng/fscan/Config"
 	"strings"
 	"time"
 )
 
 // MongodbScan 执行MongoDB未授权扫描
-func MongodbScan(info *Config.HostInfo) error {
+func MongodbScan(info *Common.HostInfo) error {
 	if Common.IsBrute {
 		return nil
 	}
@@ -25,7 +24,7 @@ func MongodbScan(info *Config.HostInfo) error {
 }
 
 // MongodbUnauth 检测MongoDB未授权访问
-func MongodbUnauth(info *Config.HostInfo) (bool, error) {
+func MongodbUnauth(info *Common.HostInfo) (bool, error) {
 	// MongoDB查询数据包
 	msgPacket := createOpMsgPacket()
 	queryPacket := createOpQueryPacket()

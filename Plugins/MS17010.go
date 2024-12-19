@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
-	"github.com/shadow1ng/fscan/Config"
 	"log"
 	"strings"
 	"time"
@@ -83,7 +82,7 @@ func init() {
 }
 
 // MS17010 扫描入口函数
-func MS17010(info *Config.HostInfo) error {
+func MS17010(info *Common.HostInfo) error {
 	// 暴力破解模式下跳过扫描
 	if Common.IsBrute {
 		return nil
@@ -100,7 +99,7 @@ func MS17010(info *Config.HostInfo) error {
 }
 
 // MS17010Scan 执行MS17-010漏洞扫描
-func MS17010Scan(info *Config.HostInfo) error {
+func MS17010Scan(info *Common.HostInfo) error {
 	ip := info.Host
 
 	// 连接目标445端口

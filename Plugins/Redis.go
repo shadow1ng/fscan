@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
-	"github.com/shadow1ng/fscan/Config"
 	"io"
 	"net"
 	"os"
@@ -18,7 +17,7 @@ var (
 )
 
 // RedisScan 执行Redis服务扫描
-func RedisScan(info *Config.HostInfo) (tmperr error) {
+func RedisScan(info *Common.HostInfo) (tmperr error) {
 	fmt.Println("[+] Redis扫描模块开始...")
 	starttime := time.Now().Unix()
 
@@ -60,7 +59,7 @@ func RedisScan(info *Config.HostInfo) (tmperr error) {
 }
 
 // RedisConn 尝试Redis连接
-func RedisConn(info *Config.HostInfo, pass string) (bool, error) {
+func RedisConn(info *Common.HostInfo, pass string) (bool, error) {
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 
 	// 建立TCP连接
@@ -108,7 +107,7 @@ func RedisConn(info *Config.HostInfo, pass string) (bool, error) {
 }
 
 // RedisUnauth 尝试Redis未授权访问检测
-func RedisUnauth(info *Config.HostInfo) (flag bool, err error) {
+func RedisUnauth(info *Common.HostInfo) (flag bool, err error) {
 	flag = false
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 

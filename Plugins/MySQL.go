@@ -5,13 +5,12 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/shadow1ng/fscan/Common"
-	"github.com/shadow1ng/fscan/Config"
 	"strings"
 	"time"
 )
 
 // MysqlScan 执行MySQL服务扫描
-func MysqlScan(info *Config.HostInfo) (tmperr error) {
+func MysqlScan(info *Common.HostInfo) (tmperr error) {
 	if Common.IsBrute {
 		return
 	}
@@ -50,7 +49,7 @@ func MysqlScan(info *Config.HostInfo) (tmperr error) {
 }
 
 // MysqlConn 尝试MySQL连接
-func MysqlConn(info *Config.HostInfo, user string, pass string) (bool, error) {
+func MysqlConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 	host, port, username, password := info.Host, info.Ports, user, pass
 	timeout := time.Duration(Common.Timeout) * time.Second
 

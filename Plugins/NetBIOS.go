@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
-	"github.com/shadow1ng/fscan/Config"
 	"gopkg.in/yaml.v3"
 	"net"
 	"strconv"
@@ -15,7 +14,7 @@ import (
 
 var errNetBIOS = errors.New("netbios error")
 
-func NetBIOS(info *Config.HostInfo) error {
+func NetBIOS(info *Common.HostInfo) error {
 	fmt.Println("[+] NetBIOS扫描模块开始...")
 	netbios, _ := NetBIOS1(info)
 	output := netbios.String()
@@ -28,7 +27,7 @@ func NetBIOS(info *Config.HostInfo) error {
 	return errNetBIOS
 }
 
-func NetBIOS1(info *Config.HostInfo) (netbios NetBiosInfo, err error) {
+func NetBIOS1(info *Common.HostInfo) (netbios NetBiosInfo, err error) {
 	netbios, err = GetNbnsname(info)
 	var payload0 []byte
 	if netbios.ServerService != "" || netbios.WorkstationService != "" {
@@ -87,7 +86,7 @@ func NetBIOS1(info *Config.HostInfo) (netbios NetBiosInfo, err error) {
 	return
 }
 
-func GetNbnsname(info *Config.HostInfo) (netbios NetBiosInfo, err error) {
+func GetNbnsname(info *Common.HostInfo) (netbios NetBiosInfo, err error) {
 	senddata1 := []byte{102, 102, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 32, 67, 75, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 0, 0, 33, 0, 1}
 	//senddata1 := []byte("ff\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00 CKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\x00\x00!\x00\x01")
 	realhost := fmt.Sprintf("%s:137", info.Host)

@@ -2,7 +2,6 @@ package Common
 
 import (
 	"flag"
-	"github.com/shadow1ng/fscan/Config"
 )
 
 func Banner() {
@@ -17,7 +16,7 @@ func Banner() {
 	print(banner)
 }
 
-func Flag(Info *Config.HostInfo) {
+func Flag(Info *HostInfo) {
 	Banner()
 
 	// 目标配置

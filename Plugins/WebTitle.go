@@ -4,7 +4,6 @@ import (
 	"compress/gzip"
 	"crypto/tls"
 	"fmt"
-	"github.com/shadow1ng/fscan/Config"
 	"io"
 	"net/http"
 	"net/url"
@@ -20,7 +19,7 @@ import (
 )
 
 // WebTitle 获取Web标题并执行扫描
-func WebTitle(info *Config.HostInfo) error {
+func WebTitle(info *Common.HostInfo) error {
 	// 如果是webpoc扫描模式，直接执行WebScan
 	if Common.Scantype == "webpoc" {
 		WebScan.WebScan(info)
@@ -52,7 +51,7 @@ func WebTitle(info *Config.HostInfo) error {
 }
 
 // GOWebTitle 获取网站标题并处理URL
-func GOWebTitle(info *Config.HostInfo) (err error, CheckData []WebScan.CheckDatas) {
+func GOWebTitle(info *Common.HostInfo) (err error, CheckData []WebScan.CheckDatas) {
 	// 如果URL未指定，根据端口生成URL
 	if info.Url == "" {
 		switch info.Ports {
@@ -120,7 +119,7 @@ func GOWebTitle(info *Config.HostInfo) (err error, CheckData []WebScan.CheckData
 //   - error: 错误信息
 //   - string: 重定向URL或协议
 //   - []WebScan.CheckDatas: 更新后的检查数据
-func geturl(info *Config.HostInfo, flag int, CheckData []WebScan.CheckDatas) (error, string, []WebScan.CheckDatas) {
+func geturl(info *Common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (error, string, []WebScan.CheckDatas) {
 	// 处理目标URL
 	Url := info.Url
 	if flag == 2 {

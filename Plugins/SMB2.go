@@ -3,7 +3,6 @@ package Plugins
 import (
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
-	"github.com/shadow1ng/fscan/Config"
 	"net"
 	"os"
 	"strings"
@@ -13,7 +12,7 @@ import (
 )
 
 // SmbScan2 执行SMB2服务的认证扫描，支持密码和哈希两种认证方式
-func SmbScan2(info *Config.HostInfo) (tmperr error) {
+func SmbScan2(info *Common.HostInfo) (tmperr error) {
 
 	// 如果未启用暴力破解则直接返回
 	if Common.IsBrute {
@@ -34,7 +33,7 @@ func SmbScan2(info *Config.HostInfo) (tmperr error) {
 }
 
 // smbHashScan 使用哈希进行认证扫描
-func smbHashScan(info *Config.HostInfo, hasprint bool, startTime int64) error {
+func smbHashScan(info *Common.HostInfo, hasprint bool, startTime int64) error {
 	for _, user := range Common.Userdict["smb"] {
 		for _, hash := range Common.HashBytes {
 			success, err, printed := Smb2Con(info, user, "", hash, hasprint)
@@ -63,7 +62,7 @@ func smbHashScan(info *Config.HostInfo, hasprint bool, startTime int64) error {
 }
 
 // smbPasswordScan 使用密码进行认证扫描
-func smbPasswordScan(info *Config.HostInfo, hasprint bool, startTime int64) error {
+func smbPasswordScan(info *Common.HostInfo, hasprint bool, startTime int64) error {
 	for _, user := range Common.Userdict["smb"] {
 		for _, pass := range Common.Passwords {
 			pass = strings.ReplaceAll(pass, "{user}", user)
@@ -93,7 +92,7 @@ func smbPasswordScan(info *Config.HostInfo, hasprint bool, startTime int64) erro
 }
 
 // logSuccessfulAuth 记录成功的认证
-func logSuccessfulAuth(info *Config.HostInfo, user, pass string, hash []byte) {
+func logSuccessfulAuth(info *Common.HostInfo, user, pass string, hash []byte) {
 	var result string
 	if Common.Domain != "" {
 		result = fmt.Sprintf("[✓] SMB2认证成功 %v:%v Domain:%v\\%v ",
@@ -112,7 +111,7 @@ func logSuccessfulAuth(info *Config.HostInfo, user, pass string, hash []byte) {
 }
 
 // logFailedAuth 记录失败的认证
-func logFailedAuth(info *Config.HostInfo, user, pass string, hash []byte, err error) {
+func logFailedAuth(info *Common.HostInfo, user, pass string, hash []byte, err error) {
 	var errlog string
 	if len(hash) > 0 {
 		errlog = fmt.Sprintf("[x] SMB2认证失败 %v:%v User:%v Hash:%v Err:%v",
@@ -139,7 +138,7 @@ func shouldStopScan(err error, startTime int64, totalAttempts int) bool {
 }
 
 // Smb2Con 尝试SMB2连接并进行认证，检查共享访问权限
-func Smb2Con(info *Config.HostInfo, user string, pass string, hash []byte, hasprint bool) (flag bool, err error, flag2 bool) {
+func Smb2Con(info *Common.HostInfo, user string, pass string, hash []byte, hasprint bool) (flag bool, err error, flag2 bool) {
 	// 建立TCP连接
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:445", info.Host),
 		time.Duration(Common.Timeout)*time.Second)
@@ -202,7 +201,7 @@ func Smb2Con(info *Config.HostInfo, user string, pass string, hash []byte, haspr
 }
 
 // logShareInfo 记录SMB共享信息
-func logShareInfo(info *Config.HostInfo, user string, pass string, hash []byte, shares []string) {
+func logShareInfo(info *Common.HostInfo, user string, pass string, hash []byte, shares []string) {
 	var result string
 
 	// 构建基础信息

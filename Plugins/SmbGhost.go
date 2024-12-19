@@ -3,7 +3,6 @@ package Plugins
 import (
 	"bytes"
 	"fmt"
-	"github.com/shadow1ng/fscan/Config"
 	"time"
 
 	"github.com/shadow1ng/fscan/Common"
@@ -96,7 +95,7 @@ const (
 )
 
 // SmbGhost 检测SMB Ghost漏洞(CVE-2020-0796)的入口函数
-func SmbGhost(info *Config.HostInfo) error {
+func SmbGhost(info *Common.HostInfo) error {
 	// 如果开启了暴力破解模式，跳过该检测
 	if Common.IsBrute {
 		return nil
@@ -110,7 +109,7 @@ func SmbGhost(info *Config.HostInfo) error {
 }
 
 // SmbGhostScan 执行具体的SMB Ghost漏洞检测逻辑
-func SmbGhostScan(info *Config.HostInfo) error {
+func SmbGhostScan(info *Common.HostInfo) error {
 	// 设置扫描参数
 	ip := info.Host
 	port := 445 // SMB服务默认端口

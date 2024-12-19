@@ -3,13 +3,12 @@ package Plugins
 import (
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
-	"github.com/shadow1ng/fscan/Config"
 	"strings"
 	"time"
 )
 
 // MemcachedScan 检测Memcached未授权访问
-func MemcachedScan(info *Config.HostInfo) error {
+func MemcachedScan(info *Common.HostInfo) error {
 	fmt.Println("[+] Memcached扫描模块开始...")
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	timeout := time.Duration(Common.Timeout) * time.Second

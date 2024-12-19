@@ -3,7 +3,6 @@ package Plugins
 import (
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
-	"github.com/shadow1ng/fscan/Config"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
 	"net"
@@ -12,7 +11,7 @@ import (
 )
 
 // SshScan 执行SSH服务的认证扫描
-func SshScan(info *Config.HostInfo) (tmperr error) {
+func SshScan(info *Common.HostInfo) (tmperr error) {
 	if Common.IsBrute {
 		return
 	}
@@ -59,7 +58,7 @@ func SshScan(info *Config.HostInfo) (tmperr error) {
 }
 
 // SshConn 尝试建立SSH连接并进行认证
-func SshConn(info *Config.HostInfo, user string, pass string) (flag bool, err error) {
+func SshConn(info *Common.HostInfo, user string, pass string) (flag bool, err error) {
 	// 准备认证方法
 	var auth []ssh.AuthMethod
 	if Common.SshKey != "" {

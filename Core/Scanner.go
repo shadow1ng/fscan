@@ -3,14 +3,13 @@ package Core
 import (
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
-	"github.com/shadow1ng/fscan/Config"
 	"github.com/shadow1ng/fscan/WebScan/lib"
 	"strconv"
 	"strings"
 	"sync"
 )
 
-func Scan(info Config.HostInfo) {
+func Scan(info Common.HostInfo) {
 	fmt.Println("[*] 开始信息扫描...")
 
 	// 本地信息收集模块
@@ -110,7 +109,7 @@ func executeScanStrategy(Hosts []string, scanType string) []string {
 }
 
 // executeScanTasks 执行扫描任务
-func executeScanTasks(info Config.HostInfo, scanType string, ch *chan struct{}, wg *sync.WaitGroup) {
+func executeScanTasks(info Common.HostInfo, scanType string, ch *chan struct{}, wg *sync.WaitGroup) {
 	if scanType == "all" || scanType == "main" {
 		// 根据端口选择扫描插件
 		switch info.Ports {
@@ -126,7 +125,7 @@ func executeScanTasks(info Config.HostInfo, scanType string, ch *chan struct{}, 
 			AddScan("fcgi", info, ch, wg)
 		default:
 			// 查找对应端口的插件
-			for name, plugin := range Config.PluginManager {
+			for name, plugin := range Common.PluginManager {
 				if strconv.Itoa(plugin.Port) == info.Ports {
 					AddScan(name, info, ch, wg)
 					return
@@ -145,7 +144,7 @@ func executeScanTasks(info Config.HostInfo, scanType string, ch *chan struct{}, 
 var Mutex = &sync.Mutex{}
 
 // AddScan 添加扫描任务到并发队列
-func AddScan(scantype string, info Config.HostInfo, ch *chan struct{}, wg *sync.WaitGroup) {
+func AddScan(scantype string, info Common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup) {
 	// 获取信号量，控制并发数
 	*ch <- struct{}{}
 	// 添加等待组计数
@@ -174,7 +173,7 @@ func AddScan(scantype string, info Config.HostInfo, ch *chan struct{}, wg *sync.
 }
 
 // ScanFunc 执行扫描插件
-func ScanFunc(name *string, info *Config.HostInfo) {
+func ScanFunc(name *string, info *Common.HostInfo) {
 	defer func() {
 		if err := recover(); err != nil {
 			fmt.Printf("[!] 扫描错误 %v:%v - %v\n", info.Host, info.Ports, err)
@@ -182,7 +181,7 @@ func ScanFunc(name *string, info *Config.HostInfo) {
 	}()
 
 	// 检查插件是否存在
-	plugin, exists := Config.PluginManager[*name]
+	plugin, exists := Common.PluginManager[*name]
 	if !exists {
 		fmt.Printf("[*] 扫描类型 %v 无对应插件，已跳过\n", *name)
 		return

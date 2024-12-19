@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
-	"github.com/shadow1ng/fscan/Config"
 	"github.com/tomatome/grdp/core"
 	"github.com/tomatome/grdp/glog"
 	"github.com/tomatome/grdp/protocol/nla"
@@ -30,7 +29,7 @@ type Brutelist struct {
 }
 
 // RdpScan 执行RDP服务扫描
-func RdpScan(info *Config.HostInfo) (tmperr error) {
+func RdpScan(info *Common.HostInfo) (tmperr error) {
 	if Common.IsBrute {
 		return
 	}
