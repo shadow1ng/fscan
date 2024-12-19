@@ -19,7 +19,6 @@ var (
 
 // Findnet 探测Windows网络主机信息的入口函数
 func Findnet(info *Common.HostInfo) error {
-	fmt.Println("[+] FindNet扫描模块开始...")
 	return FindnetScan(info)
 }
 
@@ -77,7 +76,6 @@ func FindnetScan(info *Common.HostInfo) error {
 	}
 
 	// 解析主机信息
-	fmt.Println("[+] FindNet扫描模块结束...")
 	return read(text, info.Host)
 }
 
