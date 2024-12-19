@@ -83,7 +83,7 @@ func Scan(info Common.HostInfo) {
 	wg.Wait()
 	Common.LogWG.Wait()
 	close(Common.Results)
-	fmt.Printf("[✓] 扫描已完成: %v/%v\n", Common.End, Common.Num)
+	fmt.Printf("[+] 扫描已完成: %v/%v\n", Common.End, Common.Num)
 }
 
 // executeScanStrategy 执行端口扫描策略
