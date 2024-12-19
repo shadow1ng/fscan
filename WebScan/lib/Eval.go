@@ -782,8 +782,11 @@ func getRespBody(oResp *http.Response) ([]byte, error) {
 		defer reader.Close()
 
 		decompressed, err := io.ReadAll(reader)
-		if err != nil && err != io.EOF {
+		if err != nil && err != io.EOF && len(decompressed) == 0{
 			return nil, err
+		}
+		if len(decompressed) == 0 && len(body) != 0{
+			return body, nil
 		}
 		return decompressed, nil
 	}
