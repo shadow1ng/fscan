@@ -24,7 +24,6 @@ func FcgiScan(info *Common.HostInfo) error {
 	if Common.IsBrute {
 		return nil
 	}
-	fmt.Println("[+] Fcgi扫描模块开始...")
 
 	// 设置目标URL路径
 	url := "/etc/issue"
@@ -112,7 +111,6 @@ func FcgiScan(info *Common.HostInfo) error {
 		Common.LogSuccess(result)
 	}
 
-	fmt.Println("[+] Fcgi扫描模块结束...")
 	return nil
 }
 
