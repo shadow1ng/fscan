@@ -15,7 +15,6 @@ import (
 var errNetBIOS = errors.New("netbios error")
 
 func NetBIOS(info *Common.HostInfo) error {
-	fmt.Println("[+] NetBIOS扫描模块开始...")
 	netbios, _ := NetBIOS1(info)
 	output := netbios.String()
 	if len(output) > 0 {
@@ -23,7 +22,6 @@ func NetBIOS(info *Common.HostInfo) error {
 		Common.LogSuccess(result)
 		return nil
 	}
-	fmt.Println("[+] NetBIOS扫描模块结束...")
 	return errNetBIOS
 }
 
