@@ -37,7 +37,7 @@ jobs:
         with:
           distribution: goreleaser
           version: latest
-          args: "release --clean --debug -f .github/conf/.goreleaser.yml"
+          args: "release --clean -f .github/conf/.goreleaser.yml"
           workdir: .
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
