@@ -14,7 +14,6 @@ func MssqlScan(info *Common.HostInfo) (tmperr error) {
 	if Common.IsBrute {
 		return
 	}
-	fmt.Println("[+] Mssql扫描模块开始...")
 
 	starttime := time.Now().Unix()
 
@@ -44,7 +43,6 @@ func MssqlScan(info *Common.HostInfo) (tmperr error) {
 			}
 		}
 	}
-	fmt.Println("[+] Mssql扫描模块结束...")
 	return tmperr
 }
 
