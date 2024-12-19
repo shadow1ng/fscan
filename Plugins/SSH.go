@@ -15,7 +15,6 @@ func SshScan(info *Common.HostInfo) (tmperr error) {
 	if Common.IsBrute {
 		return
 	}
-	fmt.Println("[+] SSH扫描模块开始...")
 
 	// 增加全局扫描超时
 	scanCtx, scanCancel := context.WithTimeout(context.Background(), time.Duration(Common.Timeout*2)*time.Second)
@@ -89,7 +88,6 @@ func SshScan(info *Common.HostInfo) (tmperr error) {
 		}
 	}
 
-	fmt.Println("[+] SSH扫描模块结束...")
 	return tmperr
 }
 
