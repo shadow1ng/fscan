@@ -15,7 +15,6 @@ func init() {
 
 	Common.RegisterPlugin("ssh", Common.ScanPlugin{
 		Name:     "SSH",
-		Port:     22,
 		ScanFunc: Plugins.SshScan,
 	})
 
@@ -67,6 +66,12 @@ func init() {
 		ScanFunc: Plugins.PostgresScan,
 	})
 
+	Common.RegisterPlugin("vnc", Common.ScanPlugin{
+		Name:     "VNC",
+		Port:     5900,
+		ScanFunc: Plugins.VncScan,
+	})
+
 	Common.RegisterPlugin("redis", Common.ScanPlugin{
 		Name:     "Redis",
 		Port:     6379,
@@ -106,7 +111,6 @@ func init() {
 
 	Common.RegisterPlugin("web", Common.ScanPlugin{
 		Name:     "WebTitle",
-		Port:     0,
 		ScanFunc: Plugins.WebTitle,
 	})
 
@@ -124,7 +128,6 @@ func init() {
 
 	Common.RegisterPlugin("localinfo", Common.ScanPlugin{
 		Name:     "LocalInfo",
-		Port:     0,
 		ScanFunc: Plugins.LocalInfoScan,
 	})
 }
