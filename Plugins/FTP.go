@@ -11,7 +11,7 @@ import (
 // FtpScan 执行FTP服务扫描
 func FtpScan(info *Common.HostInfo) (tmperr error) {
 	// 如果已开启暴力破解则直接返回
-	if Common.IsBrute {
+	if Common.DisableBrute {
 		return
 	}
 

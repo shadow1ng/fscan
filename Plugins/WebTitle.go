@@ -21,7 +21,7 @@ import (
 // WebTitle 获取Web标题并执行扫描
 func WebTitle(info *Common.HostInfo) error {
 	// 如果是webpoc扫描模式，直接执行WebScan
-	if Common.Scantype == "webpoc" {
+	if Common.ScanMode == "webpoc" {
 		WebScan.WebScan(info)
 		return nil
 	}
@@ -38,7 +38,7 @@ func WebTitle(info *Common.HostInfo) error {
 	}
 
 	// 根据配置决定是否执行漏洞扫描
-	if !Common.NoPoc && err == nil {
+	if !Common.DisablePoc && err == nil {
 		WebScan.WebScan(info)
 	} else {
 		errlog := fmt.Sprintf("[-] webtitle %v %v", info.Url, err)

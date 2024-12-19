@@ -12,7 +12,7 @@ import (
 // SmbScan 执行SMB服务的认证扫描
 func SmbScan(info *Common.HostInfo) (tmperr error) {
 	// 如果未启用暴力破解则直接返回
-	if Common.IsBrute {
+	if Common.DisableBrute {
 		return nil
 	}
 

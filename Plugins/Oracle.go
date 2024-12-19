@@ -11,7 +11,7 @@ import (
 
 // OracleScan 执行Oracle服务扫描
 func OracleScan(info *Common.HostInfo) (tmperr error) {
-	if Common.IsBrute {
+	if Common.DisableBrute {
 		return
 	}
 

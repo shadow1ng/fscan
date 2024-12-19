@@ -11,7 +11,7 @@ import (
 
 // PostgresScan 执行PostgreSQL服务扫描
 func PostgresScan(info *Common.HostInfo) (tmperr error) {
-	if Common.IsBrute {
+	if Common.DisableBrute {
 		return
 	}
 

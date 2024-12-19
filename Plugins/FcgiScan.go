@@ -21,14 +21,14 @@ import (
 // FcgiScan 执行FastCGI服务器漏洞扫描
 func FcgiScan(info *Common.HostInfo) error {
 	// 如果设置了暴力破解模式则跳过
-	if Common.IsBrute {
+	if Common.DisableBrute {
 		return nil
 	}
 
 	// 设置目标URL路径
 	url := "/etc/issue"
-	if Common.Path != "" {
-		url = Common.Path
+	if Common.RemotePath != "" {
+		url = Common.RemotePath
 	}
 	addr := fmt.Sprintf("%v:%v", info.Host, info.Ports)
 

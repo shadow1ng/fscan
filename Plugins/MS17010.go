@@ -84,7 +84,7 @@ func init() {
 // MS17010 扫描入口函数
 func MS17010(info *Common.HostInfo) error {
 	// 暴力破解模式下跳过扫描
-	if Common.IsBrute {
+	if Common.DisableBrute {
 		return nil
 	}
 
@@ -200,7 +200,7 @@ func MS17010Scan(info *Common.HostInfo) error {
 
 		// 如果指定了shellcode,执行漏洞利用
 		defer func() {
-			if Common.SC != "" {
+			if Common.Shellcode != "" {
 				MS17010EXP(info)
 			}
 		}()

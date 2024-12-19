@@ -29,7 +29,7 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 	probePorts = excludeNoPorts(probePorts)
 
 	// 创建通道
-	workers := Common.Threads
+	workers := Common.ThreadNum
 	addrs := make(chan Addr, 100)
 	results := make(chan string, 100)
 	var wg sync.WaitGroup
@@ -110,7 +110,7 @@ func NoPortScan(hostslist []string, ports string) []string {
 
 // excludeNoPorts 排除指定的端口
 func excludeNoPorts(ports []int) []int {
-	noPorts := Common.ParsePort(Common.NoPorts)
+	noPorts := Common.ParsePort(Common.ExcludePorts)
 	if len(noPorts) == 0 {
 		return ports
 	}

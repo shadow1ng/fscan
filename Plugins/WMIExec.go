@@ -34,7 +34,7 @@ func init() {
 // WmiExec 执行WMI远程命令
 func WmiExec(info *Common.HostInfo) (tmperr error) {
 	// 如果是暴力破解模式则跳过
-	if Common.IsBrute {
+	if Common.DisableBrute {
 		return nil
 	}
 
@@ -49,7 +49,7 @@ func WmiExec(info *Common.HostInfo) (tmperr error) {
 			pass = strings.Replace(pass, "{user}", user, -1)
 
 			// 尝试WMI连接
-			flag, err := Wmiexec(info, user, pass, Common.Hash)
+			flag, err := Wmiexec(info, user, pass, Common.HashValue)
 
 			// 记录错误日志
 			errlog := fmt.Sprintf("[-] WmiExec %v:%v %v %v %v", info.Host, 445, user, pass, err)
@@ -66,8 +66,8 @@ func WmiExec(info *Common.HostInfo) (tmperr error) {
 				}
 
 				// 添加认证信息到结果
-				if Common.Hash != "" {
-					result += "hash: " + Common.Hash
+				if Common.HashValue != "" {
+					result += "hash: " + Common.HashValue
 				} else {
 					result += pass
 				}
@@ -85,8 +85,8 @@ func WmiExec(info *Common.HostInfo) (tmperr error) {
 				}
 			}
 
-			// 如果使用NTLM Hash，则跳过密码循环
-			if len(Common.Hash) == 32 {
+			// 如果使用NTLM HashValue，则跳过密码循环
+			if len(Common.HashValue) == 32 {
 				break PASS
 			}
 		}

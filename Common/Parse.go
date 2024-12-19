@@ -21,7 +21,7 @@ func Parse(Info *HostInfo) {
 // ParseUser 解析用户名配置,支持直接指定用户名列表或从文件读取
 func ParseUser() error {
 	// 如果未指定用户名和用户名文件,直接返回
-	if Username == "" && Userfile == "" {
+	if Username == "" && UsersFile == "" {
 		return nil
 	}
 
@@ -34,8 +34,8 @@ func ParseUser() error {
 	}
 
 	// 从文件加载用户名列表
-	if Userfile != "" {
-		users, err := Readfile(Userfile)
+	if UsersFile != "" {
+		users, err := Readfile(UsersFile)
 		if err != nil {
 			return fmt.Errorf("读取用户名文件失败: %v", err)
 		}
@@ -77,8 +77,8 @@ func ParsePass(Info *HostInfo) error {
 	}
 
 	// 从文件加载密码列表
-	if Passfile != "" {
-		passes, err := Readfile(Passfile)
+	if PasswordsFile != "" {
+		passes, err := Readfile(PasswordsFile)
 		if err != nil {
 			return fmt.Errorf("读取密码文件失败: %v", err)
 		}
@@ -92,8 +92,8 @@ func ParsePass(Info *HostInfo) error {
 	}
 
 	// 处理哈希文件
-	if Hashfile != "" {
-		hashes, err := Readfile(Hashfile)
+	if HashFile != "" {
+		hashes, err := Readfile(HashFile)
 		if err != nil {
 			return fmt.Errorf("读取哈希文件失败: %v", err)
 		}
@@ -104,7 +104,7 @@ func ParsePass(Info *HostInfo) error {
 				continue
 			}
 			if len(line) == 32 {
-				Hashs = append(Hashs, line)
+				HashValues = append(HashValues, line)
 				validCount++
 			} else {
 				fmt.Printf("[!] 无效的哈希值(长度!=32): %s\n", line)
@@ -114,23 +114,23 @@ func ParsePass(Info *HostInfo) error {
 	}
 
 	// 处理直接指定的URL列表
-	if URL != "" {
-		urls := strings.Split(URL, ",")
+	if TargetURL != "" {
+		urls := strings.Split(TargetURL, ",")
 		tmpUrls := make(map[string]struct{})
 		for _, url := range urls {
 			if url != "" {
 				if _, ok := tmpUrls[url]; !ok {
 					tmpUrls[url] = struct{}{}
-					Urls = append(Urls, url)
+					URLs = append(URLs, url)
 				}
 			}
 		}
-		fmt.Printf("[*] 已加载直接指定的URL: %d 个\n", len(Urls))
+		fmt.Printf("[*] 已加载直接指定的URL: %d 个\n", len(URLs))
 	}
 
 	// 从文件加载URL列表
-	if UrlFile != "" {
-		urls, err := Readfile(UrlFile)
+	if URLsFile != "" {
+		urls, err := Readfile(URLsFile)
 		if err != nil {
 			return fmt.Errorf("读取URL文件失败: %v", err)
 		}
@@ -140,7 +140,7 @@ func ParsePass(Info *HostInfo) error {
 			if url != "" {
 				if _, ok := tmpUrls[url]; !ok {
 					tmpUrls[url] = struct{}{}
-					Urls = append(Urls, url)
+					URLs = append(URLs, url)
 				}
 			}
 		}
@@ -148,8 +148,8 @@ func ParsePass(Info *HostInfo) error {
 	}
 
 	// 从文件加载端口列表
-	if PortFile != "" {
-		ports, err := Readfile(PortFile)
+	if PortsFile != "" {
+		ports, err := Readfile(PortsFile)
 		if err != nil {
 			return fmt.Errorf("读取端口文件失败: %v", err)
 		}
@@ -205,53 +205,53 @@ func Readfile(filename string) ([]string, error) {
 // ParseInput 解析和验证输入参数配置
 func ParseInput(Info *HostInfo) error {
 	// 检查必要的目标参数
-	if Info.Host == "" && HostFile == "" && URL == "" && UrlFile == "" {
+	if Info.Host == "" && HostsFile == "" && TargetURL == "" && URLsFile == "" {
 		fmt.Println("[!] 未指定扫描目标")
 		flag.Usage()
 		return fmt.Errorf("必须指定扫描目标")
 	}
 
 	// 配置基本参数
-	if BruteThread <= 0 {
-		BruteThread = 1
-		fmt.Printf("[*] 已将暴力破解线程数设置为: %d\n", BruteThread)
+	if BruteThreads <= 0 {
+		BruteThreads = 1
+		fmt.Printf("[*] 已将暴力破解线程数设置为: %d\n", BruteThreads)
 	}
 
-	if TmpSave {
+	if DisableSave {
 		IsSave = false
 		fmt.Println("[*] 已启用临时保存模式")
 	}
 
 	// 处理端口配置
-	if Ports == DefaultPorts {
-		Ports += "," + Webport
+	if Ports == MainPorts {
+		Ports += "," + WebPorts
 	}
 
-	if PortAdd != "" {
+	if AddPorts != "" {
 		if strings.HasSuffix(Ports, ",") {
-			Ports += PortAdd
+			Ports += AddPorts
 		} else {
-			Ports += "," + PortAdd
+			Ports += "," + AddPorts
 		}
-		fmt.Printf("[*] 已添加额外端口: %s\n", PortAdd)
+		fmt.Printf("[*] 已添加额外端口: %s\n", AddPorts)
 	}
 
 	// 处理用户名配置
-	if UserAdd != "" {
-		users := strings.Split(UserAdd, ",")
+	if AddUsers != "" {
+		users := strings.Split(AddUsers, ",")
 		for dict := range Userdict {
 			Userdict[dict] = append(Userdict[dict], users...)
 			Userdict[dict] = RemoveDuplicate(Userdict[dict])
 		}
-		fmt.Printf("[*] 已添加额外用户名: %s\n", UserAdd)
+		fmt.Printf("[*] 已添加额外用户名: %s\n", AddUsers)
 	}
 
 	// 处理密码配置
-	if PassAdd != "" {
-		passes := strings.Split(PassAdd, ",")
+	if AddPasswords != "" {
+		passes := strings.Split(AddPasswords, ",")
 		Passwords = append(Passwords, passes...)
 		Passwords = RemoveDuplicate(Passwords)
-		fmt.Printf("[*] 已添加额外密码: %s\n", PassAdd)
+		fmt.Printf("[*] 已添加额外密码: %s\n", AddPasswords)
 	}
 
 	// 处理Socks5代理配置
@@ -268,45 +268,45 @@ func ParseInput(Info *HostInfo) error {
 		if err != nil {
 			return fmt.Errorf("Socks5代理格式错误: %v", err)
 		}
-		NoPing = true
+		DisablePing = true
 		fmt.Printf("[*] 使用Socks5代理: %s\n", Socks5Proxy)
 	}
 
 	// 处理HTTP代理配置
-	if Proxy != "" {
-		switch Proxy {
+	if HttpProxy != "" {
+		switch HttpProxy {
 		case "1":
-			Proxy = "http://127.0.0.1:8080"
+			HttpProxy = "http://127.0.0.1:8080"
 		case "2":
-			Proxy = "socks5://127.0.0.1:1080"
+			HttpProxy = "socks5://127.0.0.1:1080"
 		default:
-			if !strings.Contains(Proxy, "://") {
-				Proxy = "http://127.0.0.1:" + Proxy
+			if !strings.Contains(HttpProxy, "://") {
+				HttpProxy = "http://127.0.0.1:" + HttpProxy
 			}
 		}
 
-		if !strings.HasPrefix(Proxy, "socks") && !strings.HasPrefix(Proxy, "http") {
+		if !strings.HasPrefix(HttpProxy, "socks") && !strings.HasPrefix(HttpProxy, "http") {
 			return fmt.Errorf("不支持的代理类型")
 		}
 
-		_, err := url.Parse(Proxy)
+		_, err := url.Parse(HttpProxy)
 		if err != nil {
 			return fmt.Errorf("代理格式错误: %v", err)
 		}
-		fmt.Printf("[*] 使用代理: %s\n", Proxy)
+		fmt.Printf("[*] 使用代理: %s\n", HttpProxy)
 	}
 
 	// 处理Hash配置
-	if Hash != "" {
-		if len(Hash) != 32 {
+	if HashValue != "" {
+		if len(HashValue) != 32 {
 			return fmt.Errorf("Hash长度必须为32位")
 		}
-		Hashs = append(Hashs, Hash)
+		HashValues = append(HashValues, HashValue)
 	}
 
 	// 处理Hash列表
-	Hashs = RemoveDuplicate(Hashs)
-	for _, hash := range Hashs {
+	HashValues = RemoveDuplicate(HashValues)
+	for _, hash := range HashValues {
 		hashByte, err := hex.DecodeString(hash)
 		if err != nil {
 			fmt.Printf("[!] Hash解码失败: %s\n", hash)
@@ -314,7 +314,7 @@ func ParseInput(Info *HostInfo) error {
 		}
 		HashBytes = append(HashBytes, hashByte)
 	}
-	Hashs = []string{}
+	HashValues = []string{}
 
 	return nil
 }
@@ -323,34 +323,36 @@ func ParseInput(Info *HostInfo) error {
 func ParseScantype(Info *HostInfo) error {
 	// 先处理特殊扫描类型
 	specialTypes := map[string]string{
-		"hostname": "135,137,139,445",
-		"webonly":  Webport,
-		"webpoc":   Webport,
-		"web":      Webport,
-		"portscan": DefaultPorts + "," + Webport,
-		"main":     DefaultPorts,
-		"all":      DefaultPorts + "," + Webport,
-		"icmp":     "", // ICMP不需要端口
+		"service": ServicePorts,
+		"db":      DbPorts,
+		"web":     WebPorts,
+		"all":     AllPorts,
+		"main":    MainPorts,
+		"port":    MainPorts + "," + WebPorts,
+		"icmp":    "", // ICMP不需要端口
 	}
 
 	// 如果是特殊扫描类型
-	if customPorts, isSpecial := specialTypes[Scantype]; isSpecial {
-		if Scantype != "all" && Ports == DefaultPorts+","+Webport {
+	if customPorts, isSpecial := specialTypes[ScanMode]; isSpecial {
+		// 专门处理 all 类型
+		if ScanMode == "all" {
+			Ports = AllPorts // 直接设置为 1-65535
+		} else if Ports == MainPorts+","+WebPorts {
 			Ports = customPorts
 		}
-		fmt.Printf("[*] 扫描类型: %s, 目标端口: %s\n", Scantype, Ports)
+		fmt.Printf("[*] 扫描类型: %s, 目标端口: %s\n", ScanMode, Ports)
 		return nil
 	}
 
 	// 检查是否是注册的插件类型
-	plugin, validType := PluginManager[Scantype]
+	plugin, validType := PluginManager[ScanMode]
 	if !validType {
 		showmode()
-		return fmt.Errorf("无效的扫描类型: %s", Scantype)
+		return fmt.Errorf("无效的扫描类型: %s", ScanMode)
 	}
 
 	// 如果是插件扫描且使用默认端口配置
-	if Ports == DefaultPorts+","+Webport {
+	if Ports == MainPorts+","+WebPorts {
 		if plugin.Port > 0 {
 			Ports = strconv.Itoa(plugin.Port)
 		}

@@ -15,7 +15,7 @@ import (
 func SmbScan2(info *Common.HostInfo) (tmperr error) {
 
 	// 如果未启用暴力破解则直接返回
-	if Common.IsBrute {
+	if Common.DisableBrute {
 		return nil
 	}
 
@@ -51,7 +51,7 @@ func smbHashScan(info *Common.HostInfo, hasprint bool, startTime int64) error {
 				return err
 			}
 
-			if len(Common.Hash) > 0 {
+			if len(Common.HashValue) > 0 {
 				break
 			}
 		}
@@ -80,7 +80,7 @@ func smbPasswordScan(info *Common.HostInfo, hasprint bool, startTime int64) erro
 				return err
 			}
 
-			if len(Common.Hash) > 0 {
+			if len(Common.HashValue) > 0 {
 				break
 			}
 		}
@@ -101,7 +101,7 @@ func logSuccessfulAuth(info *Common.HostInfo, user, pass string, hash []byte) {
 	}
 
 	if len(hash) > 0 {
-		result += fmt.Sprintf("Hash:%v", Common.Hash)
+		result += fmt.Sprintf("HashValue:%v", Common.HashValue)
 	} else {
 		result += fmt.Sprintf("Pass:%v", pass)
 	}
@@ -112,8 +112,8 @@ func logSuccessfulAuth(info *Common.HostInfo, user, pass string, hash []byte) {
 func logFailedAuth(info *Common.HostInfo, user, pass string, hash []byte, err error) {
 	var errlog string
 	if len(hash) > 0 {
-		errlog = fmt.Sprintf("[x] SMB2认证失败 %v:%v User:%v Hash:%v Err:%v",
-			info.Host, info.Ports, user, Common.Hash, err)
+		errlog = fmt.Sprintf("[x] SMB2认证失败 %v:%v User:%v HashValue:%v Err:%v",
+			info.Host, info.Ports, user, Common.HashValue, err)
 	} else {
 		errlog = fmt.Sprintf("[x] SMB2认证失败 %v:%v User:%v Pass:%v Err:%v",
 			info.Host, info.Ports, user, pass, err)
@@ -213,7 +213,7 @@ func logShareInfo(info *Common.HostInfo, user string, pass string, hash []byte, 
 
 	// 添加认证信息
 	if len(hash) > 0 {
-		result += fmt.Sprintf("Hash:%v ", Common.Hash)
+		result += fmt.Sprintf("HashValue:%v ", Common.HashValue)
 	} else {
 		result += fmt.Sprintf("Pass:%v ", pass)
 	}

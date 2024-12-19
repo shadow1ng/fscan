@@ -13,8 +13,8 @@ func Scan(info Common.HostInfo) {
 	fmt.Println("[*] 开始信息扫描...")
 
 	// 本地信息收集模块
-	if Common.Scantype == "localinfo" {
-		ch := make(chan struct{}, Common.Threads)
+	if Common.ScanMode == "localinfo" {
+		ch := make(chan struct{}, Common.ThreadNum)
 		wg := sync.WaitGroup{}
 		AddScan("localinfo", info, &ch, &wg)
 		wg.Wait()
@@ -25,7 +25,7 @@ func Scan(info Common.HostInfo) {
 	}
 
 	// 解析目标主机IP
-	Hosts, err := Common.ParseIP(info.Host, Common.HostFile, Common.NoHosts)
+	Hosts, err := Common.ParseIP(info.Host, Common.HostsFile, Common.ExcludeHosts)
 	if err != nil {
 		fmt.Printf("[!] 解析主机错误: %v\n", err)
 		return
@@ -33,23 +33,23 @@ func Scan(info Common.HostInfo) {
 
 	// 初始化配置
 	lib.Inithttp()
-	ch := make(chan struct{}, Common.Threads)
+	ch := make(chan struct{}, Common.ThreadNum)
 	wg := sync.WaitGroup{}
 	var AlivePorts []string
 
 	if len(Hosts) > 0 || len(Common.HostPort) > 0 {
 		// ICMP存活性检测
-		if (Common.NoPing == false && len(Hosts) > 1) || Common.Scantype == "icmp" {
-			Hosts = CheckLive(Hosts, Common.Ping)
+		if (Common.DisablePing == false && len(Hosts) > 1) || Common.ScanMode == "icmp" {
+			Hosts = CheckLive(Hosts, Common.UsePing)
 			fmt.Printf("[+] ICMP存活主机数量: %d\n", len(Hosts))
-			if Common.Scantype == "icmp" {
+			if Common.ScanMode == "icmp" {
 				Common.LogWG.Wait()
 				return
 			}
 		}
 
 		// 端口扫描策略
-		AlivePorts = executeScanStrategy(Hosts, Common.Scantype)
+		AlivePorts = executeScanStrategy(Hosts, Common.ScanMode)
 
 		// 处理自定义端口
 		if len(Common.HostPort) > 0 {
@@ -69,12 +69,12 @@ func Scan(info Common.HostInfo) {
 			}
 			info.Host, info.Ports = hostParts[0], hostParts[1]
 
-			executeScanTasks(info, Common.Scantype, &ch, &wg)
+			executeScanTasks(info, Common.ScanMode, &ch, &wg)
 		}
 	}
 
 	// URL扫描
-	for _, url := range Common.Urls {
+	for _, url := range Common.URLs {
 		info.Url = url
 		AddScan("web", info, &ch, &wg)
 	}
@@ -115,7 +115,7 @@ func executeScanTasks(info Common.HostInfo, scanType string, ch *chan struct{}, 
 		switch info.Ports {
 		case "135":
 			AddScan("findnet", info, ch, wg)
-			if Common.IsWmi {
+			if Common.EnableWmi {
 				AddScan("wmiexec", info, ch, wg)
 			}
 		case "445":

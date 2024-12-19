@@ -57,7 +57,7 @@ func Evaluate(env *cel.Env, expression string, params map[string]interface{}) (r
 	return result, nil
 }
 
-// UrlTypeToString 将 URL 结构体转换为字符串
+// UrlTypeToString 将 TargetURL 结构体转换为字符串
 func UrlTypeToString(u *UrlType) string {
 	var builder strings.Builder
 
@@ -604,7 +604,7 @@ func reverseCheck(r *Reverse, timeout int64) bool {
 	// 提取子域名
 	sub := strings.Split(r.Domain, ".")[0]
 
-	// 构造 API 请求 URL
+	// 构造 API 请求 TargetURL
 	apiURL := fmt.Sprintf("http://api.ceye.io/v1/records?token=%s&type=dns&filter=%s",
 		ceyeApi, sub)
 
@@ -700,7 +700,7 @@ func DoRequest(req *http.Request, redirect bool) (*Response, error) {
 	return resp, err
 }
 
-// ParseUrl 解析 URL 并转换为自定义 URL 类型
+// ParseUrl 解析 TargetURL 并转换为自定义 TargetURL 类型
 func ParseUrl(u *url.URL) *UrlType {
 	return &UrlType{
 		Scheme:   u.Scheme,
@@ -782,10 +782,10 @@ func getRespBody(oResp *http.Response) ([]byte, error) {
 		defer reader.Close()
 
 		decompressed, err := io.ReadAll(reader)
-		if err != nil && err != io.EOF && len(decompressed) == 0{
+		if err != nil && err != io.EOF && len(decompressed) == 0 {
 			return nil, err
 		}
-		if len(decompressed) == 0 && len(body) != 0{
+		if len(decompressed) == 0 && len(body) != 0 {
 			return body, nil
 		}
 		return decompressed, nil

@@ -23,20 +23,12 @@ func ParsePort(ports string) []int {
 			continue
 		}
 
-		// 处理预定义端口组
-		if PortGroup[port] != "" {
-			groupPorts := ParsePort(PortGroup[port])
-			scanPorts = append(scanPorts, groupPorts...)
-			fmt.Printf("[*] 解析端口组 %s -> %v\n", port, groupPorts)
-			continue
-		}
-
 		// 处理端口范围
 		upper := port
 		if strings.Contains(port, "-") {
 			ranges := strings.Split(port, "-")
 			if len(ranges) < 2 {
-				fmt.Printf("[!] 无效的端口范围格式: %s\n", port)
+				fmt.Printf("[-] 无效的端口范围格式: %s\n", port)
 				continue
 			}
 
@@ -57,7 +49,7 @@ func ParsePort(ports string) []int {
 		end, _ := strconv.Atoi(upper)
 		for i := start; i <= end; i++ {
 			if i > 65535 || i < 1 {
-				fmt.Printf("[!] 忽略无效端口: %d\n", i)
+				fmt.Printf("[-] 忽略无效端口: %d\n", i)
 				continue
 			}
 			scanPorts = append(scanPorts, i)

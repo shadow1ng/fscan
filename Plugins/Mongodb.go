@@ -9,7 +9,7 @@ import (
 
 // MongodbScan 执行MongoDB未授权扫描
 func MongodbScan(info *Common.HostInfo) error {
-	if Common.IsBrute {
+	if Common.DisableBrute {
 		return nil
 	}
 

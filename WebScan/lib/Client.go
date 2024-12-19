@@ -37,7 +37,7 @@ func Inithttp() {
 	}
 
 	// 初始化HTTP客户端
-	err := InitHttpClient(Common.PocNum, Common.Proxy, time.Duration(Common.WebTimeout)*time.Second)
+	err := InitHttpClient(Common.PocNum, Common.HttpProxy, time.Duration(Common.WebTimeout)*time.Second)
 	if err != nil {
 		panic(err)
 	}

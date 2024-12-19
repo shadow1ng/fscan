@@ -11,7 +11,7 @@ import (
 
 // MysqlScan 执行MySQL服务扫描
 func MysqlScan(info *Common.HostInfo) (tmperr error) {
-	if Common.IsBrute {
+	if Common.DisableBrute {
 		return
 	}
 

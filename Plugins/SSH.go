@@ -12,7 +12,7 @@ import (
 )
 
 func SshScan(info *Common.HostInfo) (tmperr error) {
-	if Common.IsBrute {
+	if Common.DisableBrute {
 		return
 	}
 
@@ -82,7 +82,7 @@ func SshScan(info *Common.HostInfo) (tmperr error) {
 			}
 
 			// 如果指定了SSH密钥，则不进行密码尝试
-			if Common.SshKey != "" {
+			if Common.SshKeyPath != "" {
 				return err
 			}
 		}
@@ -94,8 +94,8 @@ func SshScan(info *Common.HostInfo) (tmperr error) {
 func SshConn(ctx context.Context, info *Common.HostInfo, user string, pass string) (flag bool, err error) {
 	// 准备认证方法
 	var auth []ssh.AuthMethod
-	if Common.SshKey != "" {
-		pemBytes, err := ioutil.ReadFile(Common.SshKey)
+	if Common.SshKeyPath != "" {
+		pemBytes, err := ioutil.ReadFile(Common.SshKeyPath)
 		if err != nil {
 			return false, fmt.Errorf("[-] 读取密钥失败: %v", err)
 		}
@@ -203,7 +203,7 @@ func SshConn(ctx context.Context, info *Common.HostInfo, user string, pass strin
 			if result.err != nil {
 				return true, result.err
 			}
-			if Common.SshKey != "" {
+			if Common.SshKeyPath != "" {
 				Common.LogSuccess(fmt.Sprintf("[+] SSH密钥认证成功 %v:%v\n命令输出:\n%v",
 					info.Host, info.Ports, string(result.output)))
 			} else {
@@ -212,7 +212,7 @@ func SshConn(ctx context.Context, info *Common.HostInfo, user string, pass strin
 			}
 		}
 	} else {
-		if Common.SshKey != "" {
+		if Common.SshKeyPath != "" {
 			Common.LogSuccess(fmt.Sprintf("[+] SSH密钥认证成功 %v:%v",
 				info.Host, info.Ports))
 		} else {

@@ -97,7 +97,7 @@ const (
 // SmbGhost 检测SMB Ghost漏洞(CVE-2020-0796)的入口函数
 func SmbGhost(info *Common.HostInfo) error {
 	// 如果开启了暴力破解模式，跳过该检测
-	if Common.IsBrute {
+	if Common.DisableBrute {
 		return nil
 	}
 

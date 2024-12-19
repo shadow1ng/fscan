@@ -11,7 +11,7 @@ import (
 
 // MssqlScan 执行MSSQL服务扫描
 func MssqlScan(info *Common.HostInfo) (tmperr error) {
-	if Common.IsBrute {
+	if Common.DisableBrute {
 		return
 	}
 

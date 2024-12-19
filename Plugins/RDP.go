@@ -30,7 +30,7 @@ type Brutelist struct {
 
 // RdpScan 执行RDP服务扫描
 func RdpScan(info *Common.HostInfo) (tmperr error) {
-	if Common.IsBrute {
+	if Common.DisableBrute {
 		return
 	}
 
@@ -47,7 +47,7 @@ func RdpScan(info *Common.HostInfo) (tmperr error) {
 	port, _ := strconv.Atoi(info.Ports)
 
 	// 启动工作协程
-	for i := 0; i < Common.BruteThread; i++ {
+	for i := 0; i < Common.BruteThreads; i++ {
 		wg.Add(1)
 		go worker(info.Host, Common.Domain, port, &wg, brlist, &signal, &num, all, &mutex, Common.Timeout)
 	}

@@ -11,7 +11,7 @@ import (
 // VncScan 执行VNC服务扫描及密码尝试
 func VncScan(info *Common.HostInfo) (tmperr error) {
 	// 如果已开启暴力破解则直接返回
-	if Common.IsBrute {
+	if Common.DisableBrute {
 		return
 	}
 

@@ -27,7 +27,7 @@ func RedisScan(info *Common.HostInfo) (tmperr error) {
 		return err
 	}
 
-	if Common.IsBrute {
+	if Common.DisableBrute {
 		return
 	}
 
@@ -167,7 +167,7 @@ func RedisUnauth(info *Common.HostInfo) (flag bool, err error) {
 // Expoilt 尝试Redis漏洞利用
 func Expoilt(realhost string, conn net.Conn) error {
 	// 如果配置为不进行测试则直接返回
-	if Common.Noredistest {
+	if Common.DisableRedis {
 		return nil
 	}
 
