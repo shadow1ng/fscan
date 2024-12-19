@@ -37,7 +37,6 @@ func WmiExec(info *Common.HostInfo) (tmperr error) {
 	if Common.IsBrute {
 		return nil
 	}
-	fmt.Println("[+] WmiExec扫描模块开始...")
 
 	starttime := time.Now().Unix()
 
@@ -92,7 +91,6 @@ func WmiExec(info *Common.HostInfo) (tmperr error) {
 			}
 		}
 	}
-	fmt.Println("[+] WmiExec扫描模块结束...")
 	return tmperr
 }
 
