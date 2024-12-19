@@ -769,7 +769,7 @@ func ParseResponse(oResp *http.Response) (*Response, error) {
 func getRespBody(oResp *http.Response) ([]byte, error) {
 	// 读取原始响应体
 	body, err := io.ReadAll(oResp.Body)
-	if err != nil && err != io.EOF {
+	if err != nil && err != io.EOF && len(body) == 0 {
 		return nil, err
 	}
 
