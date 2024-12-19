@@ -95,35 +95,70 @@ const (
 		"\x00\x00\x00\x00"
 )
 
+// SmbGhost 检测SMB Ghost漏洞(CVE-2020-0796)的入口函数
 func SmbGhost(info *Config.HostInfo) error {
+	// 如果开启了暴力破解模式，跳过该检测
 	if Common.IsBrute {
 		return nil
 	}
+
+	fmt.Println("[+] SmbGhost扫描模块开始...")
+	// 执行实际的SMB Ghost漏洞扫描
 	err := SmbGhostScan(info)
+	fmt.Println("[+] SmbGhost扫描模块结束...")
 	return err
 }
 
+// SmbGhostScan 执行具体的SMB Ghost漏洞检测逻辑
 func SmbGhostScan(info *Config.HostInfo) error {
-	ip, port, timeout := info.Host, 445, time.Duration(Common.Timeout)*time.Second
-	addr := fmt.Sprintf("%s:%v", info.Host, port)
+	// 设置扫描参数
+	ip := info.Host
+	port := 445 // SMB服务默认端口
+	timeout := time.Duration(Common.Timeout) * time.Second
+
+	// 构造目标地址
+	addr := fmt.Sprintf("%s:%v", ip, port)
+
+	// 建立TCP连接
 	conn, err := Common.WrapperTcpWithTimeout("tcp", addr, timeout)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
-	_, err = conn.Write([]byte(pkt))
-	if err != nil {
+	defer conn.Close() // 确保连接最终被关闭
+
+	// 发送SMB协议探测数据包
+	if _, err = conn.Write([]byte(pkt)); err != nil {
 		return err
 	}
+
+	// 准备接收响应
 	buff := make([]byte, 1024)
-	err = conn.SetReadDeadline(time.Now().Add(timeout))
+
+	// 设置读取超时
+	if err = conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+		return err
+	}
+
+	// 读取响应数据
 	n, err := conn.Read(buff)
 	if err != nil || n == 0 {
 		return err
 	}
-	if bytes.Contains(buff[:n], []byte("Public")) == true && len(buff[:n]) >= 76 && bytes.Equal(buff[72:74], []byte{0x11, 0x03}) && bytes.Equal(buff[74:76], []byte{0x02, 0x00}) {
+
+	// 分析响应数据，检测是否存在漏洞
+	// 检查条件：
+	// 1. 响应包含"Public"字符串
+	// 2. 响应长度大于等于76字节
+	// 3. 特征字节匹配 (0x11,0x03) 和 (0x02,0x00)
+	if bytes.Contains(buff[:n], []byte("Public")) &&
+		len(buff[:n]) >= 76 &&
+		bytes.Equal(buff[72:74], []byte{0x11, 0x03}) &&
+		bytes.Equal(buff[74:76], []byte{0x02, 0x00}) {
+
+		// 发现漏洞，记录结果
 		result := fmt.Sprintf("[+] %v CVE-2020-0796 SmbGhost Vulnerable", ip)
 		Common.LogSuccess(result)
 	}
+
 	return err
 }
