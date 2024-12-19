@@ -34,6 +34,7 @@ func RdpScan(info *Config.HostInfo) (tmperr error) {
 	if Common.IsBrute {
 		return
 	}
+	fmt.Println("[+] Rdp扫描模块开始...")
 
 	var (
 		wg     sync.WaitGroup
@@ -70,6 +71,7 @@ func RdpScan(info *Config.HostInfo) (tmperr error) {
 	for !signal {
 	}
 
+	fmt.Println("[+] Rdp扫描模块结束...")
 	return tmperr
 }
 

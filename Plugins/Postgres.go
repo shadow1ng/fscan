@@ -15,6 +15,7 @@ func PostgresScan(info *Config.HostInfo) (tmperr error) {
 	if Common.IsBrute {
 		return
 	}
+	fmt.Println("[+] Postgre扫描模块开始...")
 
 	starttime := time.Now().Unix()
 
@@ -44,6 +45,7 @@ func PostgresScan(info *Config.HostInfo) (tmperr error) {
 			}
 		}
 	}
+	fmt.Println("[+] Postgre扫描模块结束...")
 	return tmperr
 }
 

@@ -15,6 +15,7 @@ func FtpScan(info *Config.HostInfo) (tmperr error) {
 	if Common.IsBrute {
 		return
 	}
+	fmt.Println("[+] FTP扫描模块开始...")
 
 	starttime := time.Now().Unix()
 
@@ -56,6 +57,7 @@ func FtpScan(info *Config.HostInfo) (tmperr error) {
 			}
 		}
 	}
+	fmt.Println("[+] FTP扫描模块结束...") // 添加结束打印
 	return tmperr
 }
 

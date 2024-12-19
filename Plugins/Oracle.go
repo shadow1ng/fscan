@@ -15,6 +15,7 @@ func OracleScan(info *Config.HostInfo) (tmperr error) {
 	if Common.IsBrute {
 		return
 	}
+	fmt.Println("[+] Oracle扫描模块开始...")
 
 	starttime := time.Now().Unix()
 
@@ -44,6 +45,7 @@ func OracleScan(info *Config.HostInfo) (tmperr error) {
 			}
 		}
 	}
+	fmt.Println("[+] Oracle扫描模块结束...")
 	return tmperr
 }
 

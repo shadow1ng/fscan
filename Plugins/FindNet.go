@@ -20,6 +20,7 @@ var (
 
 // Findnet 探测Windows网络主机信息的入口函数
 func Findnet(info *Config.HostInfo) error {
+	fmt.Println("[+] FindNet扫描模块开始...")
 	return FindnetScan(info)
 }
 
@@ -72,10 +73,12 @@ func FindnetScan(info *Config.HostInfo) error {
 	}
 
 	if !found {
+		fmt.Println("[+] FindNet扫描模块结束...")
 		return fmt.Errorf("[-] 未找到有效的响应标记")
 	}
 
 	// 解析主机信息
+	fmt.Println("[+] FindNet扫描模块结束...")
 	return read(text, info.Host)
 }
 

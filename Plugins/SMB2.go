@@ -14,10 +14,12 @@ import (
 
 // SmbScan2 执行SMB2服务的认证扫描，支持密码和哈希两种认证方式
 func SmbScan2(info *Config.HostInfo) (tmperr error) {
+
 	// 如果未启用暴力破解则直接返回
 	if Common.IsBrute {
 		return nil
 	}
+	fmt.Println("[+] Smb2扫描模块开始...")
 
 	hasprint := false
 	startTime := time.Now().Unix()
@@ -56,6 +58,7 @@ func smbHashScan(info *Config.HostInfo, hasprint bool, startTime int64) error {
 			}
 		}
 	}
+	fmt.Println("[+] Smb2扫描模块结束...")
 	return nil
 }
 
@@ -85,6 +88,7 @@ func smbPasswordScan(info *Config.HostInfo, hasprint bool, startTime int64) erro
 			}
 		}
 	}
+	fmt.Println("[+] Smb2扫描模块结束...")
 	return nil
 }
 

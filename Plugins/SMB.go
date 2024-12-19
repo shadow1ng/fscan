@@ -16,6 +16,7 @@ func SmbScan(info *Config.HostInfo) (tmperr error) {
 	if Common.IsBrute {
 		return nil
 	}
+	fmt.Println("[+] Smb扫描模块开始...")
 
 	startTime := time.Now().Unix()
 
@@ -61,6 +62,7 @@ func SmbScan(info *Config.HostInfo) (tmperr error) {
 			}
 		}
 	}
+	fmt.Println("[+] Smb扫描模块结束...")
 	return tmperr
 }
 

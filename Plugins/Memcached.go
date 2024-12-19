@@ -10,6 +10,7 @@ import (
 
 // MemcachedScan 检测Memcached未授权访问
 func MemcachedScan(info *Config.HostInfo) error {
+	fmt.Println("[+] Memcached扫描模块开始...")
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	timeout := time.Duration(Common.Timeout) * time.Second
 
@@ -45,5 +46,6 @@ func MemcachedScan(info *Config.HostInfo) error {
 		Common.LogSuccess(result)
 	}
 
+	fmt.Println("[+] Memcached扫描模块结束...")
 	return nil
 }

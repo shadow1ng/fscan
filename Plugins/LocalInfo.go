@@ -90,6 +90,7 @@ var (
 )
 
 func LocalInfoScan(info *Config.HostInfo) (err error) {
+	fmt.Println("[+] LocalInfo扫描模块开始...")
 	home, err := os.UserHomeDir()
 	if err != nil {
 		errlog := fmt.Sprintf("[-] Get UserHomeDir error: %v", err)
@@ -103,6 +104,7 @@ func LocalInfoScan(info *Config.HostInfo) (err error) {
 	// 规则搜索
 	searchSensitiveFiles()
 
+	fmt.Println("[+] LocalInfo扫描模块结束...")
 	return nil
 }
 

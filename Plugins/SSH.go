@@ -16,6 +16,7 @@ func SshScan(info *Config.HostInfo) (tmperr error) {
 	if Common.IsBrute {
 		return
 	}
+	fmt.Println("[+] SSH扫描模块开始...")
 
 	startTime := time.Now().Unix()
 
@@ -53,6 +54,7 @@ func SshScan(info *Config.HostInfo) (tmperr error) {
 			}
 		}
 	}
+	fmt.Println("[+] SSH扫描模块结束...")
 	return tmperr
 }
 
