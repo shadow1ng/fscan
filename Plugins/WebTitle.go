@@ -25,7 +25,6 @@ func WebTitle(info *Common.HostInfo) error {
 		WebScan.WebScan(info)
 		return nil
 	}
-	fmt.Println("[+] WebTitle扫描模块开始...")
 
 	// 获取网站标题信息
 	err, CheckData := GOWebTitle(info)
@@ -46,7 +45,6 @@ func WebTitle(info *Common.HostInfo) error {
 		Common.LogError(errlog)
 	}
 
-	fmt.Println("[+] WebTitle扫描模块结束...")
 	return err
 }
 
