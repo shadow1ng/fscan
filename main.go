@@ -2,16 +2,16 @@ package main
 
 import (
 	"fmt"
-	"github.com/shadow1ng/fscan/Plugins"
-	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/Common"
+	"github.com/shadow1ng/fscan/Core"
 	"time"
 )
 
 func main() {
 	start := time.Now()
-	var Info common.HostInfo
-	common.Flag(&Info)
-	common.Parse(&Info)
-	Plugins.Scan(Info)
+	var Info Common.HostInfo
+	Common.Flag(&Info)
+	Common.Parse(&Info)
+	Core.Scan(Info)
 	fmt.Printf("[*] 扫描结束,耗时: %s\n", time.Since(start))
 }
