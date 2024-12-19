@@ -53,7 +53,7 @@ func AesEncrypt(orig string, key string) (string, error) {
 	// 创建加密块,要求密钥长度必须为16/24/32字节
 	block, err := aes.NewCipher(keyBytes)
 	if err != nil {
-		return "", fmt.Errorf("创建加密块失败: %v", err)
+		return "", fmt.Errorf("[-] 创建加密块失败: %v", err)
 	}
 
 	// 获取块大小并填充数据
@@ -76,7 +76,7 @@ func AesDecrypt(crypted string, key string) (string, error) {
 	// base64解码
 	cryptedBytes, err := base64.StdEncoding.DecodeString(crypted)
 	if err != nil {
-		return "", fmt.Errorf("base64解码失败: %v", err)
+		return "", fmt.Errorf("[-] base64解码失败: %v", err)
 	}
 
 	keyBytes := []byte(key)
@@ -84,7 +84,7 @@ func AesDecrypt(crypted string, key string) (string, error) {
 	// 创建解密块
 	block, err := aes.NewCipher(keyBytes)
 	if err != nil {
-		return "", fmt.Errorf("创建解密块失败: %v", err)
+		return "", fmt.Errorf("[-] 创建解密块失败: %v", err)
 	}
 
 	// 创建CBC解密模式
@@ -98,7 +98,7 @@ func AesDecrypt(crypted string, key string) (string, error) {
 	// 去除填充
 	origData, err = PKCS7UnPadding(origData)
 	if err != nil {
-		return "", fmt.Errorf("去除PKCS7填充失败: %v", err)
+		return "", fmt.Errorf("[-] 去除PKCS7填充失败: %v", err)
 	}
 
 	return string(origData), nil
@@ -115,12 +115,12 @@ func PKCS7Padding(data []byte, blockSize int) []byte {
 func PKCS7UnPadding(data []byte) ([]byte, error) {
 	length := len(data)
 	if length == 0 {
-		return nil, errors.New("数据长度为0")
+		return nil, errors.New("[-] 数据长度为0")
 	}
 
 	padding := int(data[length-1])
 	if padding > length {
-		return nil, errors.New("填充长度无效")
+		return nil, errors.New("[-] 填充长度无效")
 	}
 
 	return data[:length-padding], nil
