@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/WebScan/lib"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -114,12 +115,29 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 	if plugins := Common.GetPluginsForMode(mode); plugins != nil {
 		// 使用预设模式的插件组
 		for _, target := range targets {
-			for _, plugin := range plugins {
-				AddScan(plugin, target, ch, wg)
+			targetPort := target.Ports // 目标端口
+			for _, pluginName := range plugins {
+				// 获取插件信息
+				plugin, exists := Common.PluginManager[pluginName]
+				if !exists {
+					continue
+				}
+
+				// 检查插件是否有默认端口配置
+				if plugin.Port != 0 {
+					// 只有当目标端口匹配插件默认端口时才执行
+					if targetPort == strconv.Itoa(plugin.Port) {
+						AddScan(pluginName, target, ch, wg)
+					}
+				} else {
+					// 对于没有默认端口的插件（如web扫描），始终执行
+					AddScan(pluginName, target, ch, wg)
+				}
 			}
 		}
 	} else {
 		// 使用单个插件
+		// 对于单个插件模式，不进行端口匹配检查，直接执行
 		for _, target := range targets {
 			AddScan(mode, target, ch, wg)
 		}
