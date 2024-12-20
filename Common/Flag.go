@@ -35,7 +35,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&SshKeyPath, "sshkey", "", "SSH密钥文件(id_rsa)")
 
 	// 扫描配置
-	flag.StringVar(&ScanMode, "m", "all", "扫描类型，例如: -m ssh")
+	flag.StringVar(&ScanMode, "m", "All", "扫描类型，例如: -m ssh")
 	flag.IntVar(&ThreadNum, "t", 600, "线程数量")
 	flag.Int64Var(&Timeout, "time", 3, "超时时间(秒)")
 	flag.IntVar(&LiveTop, "top", 10, "显示存活主机数量")

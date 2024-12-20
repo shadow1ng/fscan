@@ -20,12 +20,6 @@ import (
 
 // WebTitle 获取Web标题并执行扫描
 func WebTitle(info *Common.HostInfo) error {
-	// 如果是webpoc扫描模式，直接执行WebScan
-	if Common.ScanMode == "webpoc" {
-		WebScan.WebScan(info)
-		return nil
-	}
-
 	// 获取网站标题信息
 	err, CheckData := GOWebTitle(info)
 	info.Infostr = WebScan.InfoCheck(info.Url, &CheckData)
@@ -41,7 +35,7 @@ func WebTitle(info *Common.HostInfo) error {
 	if !Common.DisablePoc && err == nil {
 		WebScan.WebScan(info)
 	} else {
-		errlog := fmt.Sprintf("[-] webtitle %v %v", info.Url, err)
+		errlog := fmt.Sprintf("[-] 网站标题 %v %v", info.Url, err)
 		Common.LogError(errlog)
 	}
 

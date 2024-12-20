@@ -4,147 +4,141 @@ import (
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/WebScan/lib"
-	"strconv"
 	"strings"
 	"sync"
 )
 
+// Scan 执行扫描主流程
 func Scan(info Common.HostInfo) {
 	fmt.Println("[*] 开始信息扫描...")
 
-	// 本地信息收集模块
-	if Common.ScanMode == "localinfo" {
-		ch := make(chan struct{}, Common.ThreadNum)
-		wg := sync.WaitGroup{}
-		AddScan("localinfo", info, &ch, &wg)
-		wg.Wait()
-		Common.LogWG.Wait()
-		close(Common.Results)
-		fmt.Printf("[✓] 扫描完成 %v/%v\n", Common.End, Common.Num)
-		return
-	}
+	Common.ParseScanMode(Common.ScanMode)
 
-	// 解析目标主机IP
-	Hosts, err := Common.ParseIP(info.Host, Common.HostsFile, Common.ExcludeHosts)
-	if err != nil {
-		fmt.Printf("[!] 解析主机错误: %v\n", err)
-		return
-	}
-
-	// 初始化配置
-	lib.Inithttp()
 	ch := make(chan struct{}, Common.ThreadNum)
 	wg := sync.WaitGroup{}
-	var AlivePorts []string
 
-	if len(Hosts) > 0 || len(Common.HostPort) > 0 {
+	// 本地信息收集模式
+	if Common.IsLocalScan() {
+		executeScans([]Common.HostInfo{info}, &ch, &wg)
+		finishScan(&wg)
+		return
+	}
+
+	// 初始化并解析目标
+	hosts, err := Common.ParseIP(info.Host, Common.HostsFile, Common.ExcludeHosts)
+	if err != nil {
+		fmt.Printf("[-] 解析主机错误: %v\n", err)
+		return
+	}
+	lib.Inithttp()
+
+	// 执行目标扫描
+	executeScan(hosts, info, &ch, &wg)
+	finishScan(&wg)
+}
+
+// executeScan 执行主扫描流程
+func executeScan(hosts []string, info Common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup) {
+	var targetInfos []Common.HostInfo
+
+	// 处理主机和端口扫描
+	if len(hosts) > 0 || len(Common.HostPort) > 0 {
 		// ICMP存活性检测
-		if (Common.DisablePing == false && len(Hosts) > 1) || Common.ScanMode == "icmp" {
-			Hosts = CheckLive(Hosts, Common.UsePing)
-			fmt.Printf("[+] ICMP存活主机数量: %d\n", len(Hosts))
-			if Common.ScanMode == "icmp" {
-				Common.LogWG.Wait()
+		if (Common.DisablePing == false && len(hosts) > 1) || Common.IsICMPScan() {
+			hosts = CheckLive(hosts, Common.UsePing)
+			fmt.Printf("[+] ICMP存活主机数量: %d\n", len(hosts))
+			if Common.IsICMPScan() {
 				return
 			}
 		}
 
-		// 端口扫描策略
-		AlivePorts = executeScanStrategy(Hosts, Common.ScanMode)
+		// 获取存活端口
+		var alivePorts []string
+		if Common.IsWebScan() {
+			alivePorts = NoPortScan(hosts, Common.Ports)
+		} else if len(hosts) > 0 {
+			alivePorts = PortScan(hosts, Common.Ports, Common.Timeout)
+			fmt.Printf("[+] 存活端口数量: %d\n", len(alivePorts))
+			if Common.IsPortScan() {
+				return
+			}
+		}
 
 		// 处理自定义端口
 		if len(Common.HostPort) > 0 {
-			AlivePorts = append(AlivePorts, Common.HostPort...)
-			AlivePorts = Common.RemoveDuplicate(AlivePorts)
+			alivePorts = append(alivePorts, Common.HostPort...)
+			alivePorts = Common.RemoveDuplicate(alivePorts)
 			Common.HostPort = nil
-			fmt.Printf("[+] 总计存活端口: %d\n", len(AlivePorts))
+			fmt.Printf("[+] 总计存活端口: %d\n", len(alivePorts))
 		}
 
-		// 执行扫描任务
-		fmt.Println("[*] 开始漏洞扫描...")
-		for _, targetIP := range AlivePorts {
-			hostParts := strings.Split(targetIP, ":")
-			if len(hostParts) != 2 {
-				fmt.Printf("[!] 无效的目标地址格式: %s\n", targetIP)
-				continue
-			}
-			info.Host, info.Ports = hostParts[0], hostParts[1]
-
-			executeScanTasks(info, Common.ScanMode, &ch, &wg)
-		}
+		targetInfos = prepareTargetInfos(alivePorts, info)
 	}
 
-	// URL扫描
+	// 准备URL扫描目标
 	for _, url := range Common.URLs {
-		info.Url = url
-		AddScan("web", info, &ch, &wg)
+		urlInfo := info
+		urlInfo.Url = url
+		targetInfos = append(targetInfos, urlInfo)
 	}
 
-	// 等待所有任务完成
+	// 执行扫描任务
+	if len(targetInfos) > 0 {
+		fmt.Println("[*] 开始漏洞扫描...")
+		executeScans(targetInfos, ch, wg)
+	}
+}
+
+// prepareTargetInfos 准备扫描目标信息
+func prepareTargetInfos(alivePorts []string, baseInfo Common.HostInfo) []Common.HostInfo {
+	var infos []Common.HostInfo
+	for _, targetIP := range alivePorts {
+		hostParts := strings.Split(targetIP, ":")
+		if len(hostParts) != 2 {
+			fmt.Printf("[-] 无效的目标地址格式: %s\n", targetIP)
+			continue
+		}
+		info := baseInfo
+		info.Host = hostParts[0]
+		info.Ports = hostParts[1]
+		infos = append(infos, info)
+	}
+	return infos
+}
+
+// executeScans 统一执行扫描任务
+func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup) {
+	mode := Common.GetScanMode()
+
+	// 判断是否是预设模式（大写开头）
+	if plugins := Common.GetPluginsForMode(mode); plugins != nil {
+		// 使用预设模式的插件组
+		for _, target := range targets {
+			for _, plugin := range plugins {
+				AddScan(plugin, target, ch, wg)
+			}
+		}
+	} else {
+		// 使用单个插件
+		for _, target := range targets {
+			AddScan(mode, target, ch, wg)
+		}
+	}
+}
+
+// finishScan 完成扫描任务
+func finishScan(wg *sync.WaitGroup) {
 	wg.Wait()
 	Common.LogWG.Wait()
 	close(Common.Results)
 	fmt.Printf("[+] 扫描已完成: %v/%v\n", Common.End, Common.Num)
 }
 
-// executeScanStrategy 执行端口扫描策略
-func executeScanStrategy(Hosts []string, scanType string) []string {
-	switch scanType {
-	case "webonly", "webpoc":
-		return NoPortScan(Hosts, Common.Ports)
-	case "hostname":
-		Common.Ports = "139"
-		return NoPortScan(Hosts, Common.Ports)
-	default:
-		if len(Hosts) > 0 {
-			ports := PortScan(Hosts, Common.Ports, Common.Timeout)
-			fmt.Printf("[+] 存活端口数量: %d\n", len(ports))
-			if scanType == "portscan" {
-				Common.LogWG.Wait()
-				return nil
-			}
-			return ports
-		}
-	}
-	return nil
-}
-
-// executeScanTasks 执行扫描任务
-func executeScanTasks(info Common.HostInfo, scanType string, ch *chan struct{}, wg *sync.WaitGroup) {
-	if scanType == "all" || scanType == "main" {
-		// 根据端口选择扫描插件
-		switch info.Ports {
-		case "135":
-			AddScan("findnet", info, ch, wg)
-			if Common.EnableWmi {
-				AddScan("wmiexec", info, ch, wg)
-			}
-		case "445":
-			AddScan("ms17010", info, ch, wg)
-		case "9000":
-			AddScan("web", info, ch, wg)
-			AddScan("fcgi", info, ch, wg)
-		default:
-			// 查找对应端口的插件
-			for name, plugin := range Common.PluginManager {
-				if strconv.Itoa(plugin.Port) == info.Ports {
-					AddScan(name, info, ch, wg)
-					return
-				}
-			}
-			// 默认执行Web扫描
-			AddScan("web", info, ch, wg)
-		}
-	} else {
-		// 直接使用指定的扫描类型
-		AddScan(scanType, info, ch, wg)
-	}
-}
-
 // Mutex用于保护共享资源的并发访问
 var Mutex = &sync.Mutex{}
 
 // AddScan 添加扫描任务到并发队列
-func AddScan(scantype string, info Common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup) {
+func AddScan(plugin string, info Common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup) {
 	// 获取信号量，控制并发数
 	*ch <- struct{}{}
 	// 添加等待组计数
@@ -163,7 +157,7 @@ func AddScan(scantype string, info Common.HostInfo, ch *chan struct{}, wg *sync.
 		Mutex.Unlock()
 
 		// 执行扫描
-		ScanFunc(&scantype, &info)
+		ScanFunc(&plugin, &info)
 
 		// 增加已完成任务数
 		Mutex.Lock()
