@@ -115,7 +115,7 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 	if plugins := Common.GetPluginsForMode(mode); plugins != nil {
 		// 使用预设模式的插件组
 		for _, target := range targets {
-			targetPort := target.Ports // 目标端口
+			targetPort, _ := strconv.Atoi(target.Ports) // 转换目标端口为整数
 			for _, pluginName := range plugins {
 				// 获取插件信息
 				plugin, exists := Common.PluginManager[pluginName]
@@ -124,20 +124,19 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 				}
 
 				// 检查插件是否有默认端口配置
-				if plugin.Port != 0 {
-					// 只有当目标端口匹配插件默认端口时才执行
-					if targetPort == strconv.Itoa(plugin.Port) {
+				if len(plugin.Ports) > 0 {
+					// 只有当目标端口在插件支持的端口列表中才执行
+					if plugin.HasPort(targetPort) {
 						AddScan(pluginName, target, ch, wg)
 					}
 				} else {
-					// 对于没有默认端口的插件（如web扫描），始终执行
+					// 对于没有指定端口的插件，始终执行
 					AddScan(pluginName, target, ch, wg)
 				}
 			}
 		}
 	} else {
-		// 使用单个插件
-		// 对于单个插件模式，不进行端口匹配检查，直接执行
+		// 使用单个插件模式，直接执行不做端口检查
 		for _, target := range targets {
 			AddScan(mode, target, ch, wg)
 		}

@@ -317,33 +317,33 @@ func ParseInput(Info *HostInfo) error {
 	return nil
 }
 
-// showmode 显示所有支持的扫描类型
-func showmode() {
-	fmt.Println("[!] 指定的扫描类型不存在")
-	fmt.Println("[*] 支持的扫描类型:")
-
-	// 显示常规服务扫描类型
-	fmt.Println("\n[+] 常规服务扫描:")
-	for name, plugin := range PluginManager {
-		if plugin.Port > 0 && plugin.Port < 1000000 {
-			fmt.Printf("   - %-10s (端口: %d)\n", name, plugin.Port)
-		}
-	}
-
-	// 显示特殊漏洞扫描类型
-	fmt.Println("\n[+] 特殊漏洞扫描:")
-	for name, plugin := range PluginManager {
-		if plugin.Port >= 1000000 || plugin.Port == 0 {
-			fmt.Printf("   - %-10s\n", name)
-		}
-	}
-
-	// 显示其他扫描类型
-	fmt.Println("\n[+] 其他扫描类型:")
-	specialTypes := []string{"all", "portscan", "icmp", "main", "webonly", "webpoc"}
-	for _, name := range specialTypes {
-		fmt.Printf("   - %s\n", name)
-	}
-
-	os.Exit(0)
-}
+//// showmode 显示所有支持的扫描类型
+//func showmode() {
+//	fmt.Println("[!] 指定的扫描类型不存在")
+//	fmt.Println("[*] 支持的扫描类型:")
+//
+//	// 显示常规服务扫描类型
+//	fmt.Println("\n[+] 常规服务扫描:")
+//	for name, plugin := range PluginManager {
+//		if plugin.Port > 0 && plugin.Port < 1000000 {
+//			fmt.Printf("   - %-10s (端口: %d)\n", name, plugin.Port)
+//		}
+//	}
+//
+//	// 显示特殊漏洞扫描类型
+//	fmt.Println("\n[+] 特殊漏洞扫描:")
+//	for name, plugin := range PluginManager {
+//		if plugin.Port >= 1000000 || plugin.Port == 0 {
+//			fmt.Printf("   - %-10s\n", name)
+//		}
+//	}
+//
+//	// 显示其他扫描类型
+//	fmt.Println("\n[+] 其他扫描类型:")
+//	specialTypes := []string{"all", "portscan", "icmp", "main", "webonly", "webpoc"}
+//	for _, name := range specialTypes {
+//		fmt.Printf("   - %s\n", name)
+//	}
+//
+//	os.Exit(0)
+//}
