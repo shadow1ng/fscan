@@ -114,6 +114,12 @@ func init() {
 		ScanFunc: Plugins.WebTitle,
 	})
 
+	Common.RegisterPlugin("webonly", Common.ScanPlugin{
+		Name:     "WebOnly",
+		Port:     0,
+		ScanFunc: Plugins.WebTitle,
+	})
+
 	Common.RegisterPlugin("smb2", Common.ScanPlugin{
 		Name:     "SMBScan2",
 		Port:     445,
