@@ -19,6 +19,12 @@ func init() {
 		ScanFunc: Plugins.SshScan,
 	})
 
+	Common.RegisterPlugin("telnet", Common.ScanPlugin{
+		Name:     "TELNET",
+		Ports:    []int{23},
+		ScanFunc: Plugins.TelnetScan,
+	})
+
 	Common.RegisterPlugin("findnet", Common.ScanPlugin{
 		Name:     "FindNet",
 		Ports:    []int{135},
