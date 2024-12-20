@@ -16,7 +16,7 @@ func SshScan(info *Common.HostInfo) (tmperr error) {
 		return
 	}
 
-	threads := 10 // 设置线程数
+	threads := Common.BruteThreads // 使用 BruteThreads 来控制线程数
 	taskChan := make(chan struct {
 		user string
 		pass string
