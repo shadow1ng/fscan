@@ -146,7 +146,7 @@ func CheckErrs(err error) bool {
 	// 已知错误列表
 	errs := []string{
 		"closed by the remote host", "too many connections",
-		"i/o timeout", "EOF", "A connection attempt failed",
+		"EOF", "A connection attempt failed",
 		"established connection failed", "connection attempt failed",
 		"Unable to read", "is not allowed to connect to this",
 		"no pg_hba.conf entry",
