@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 )
 
@@ -15,7 +14,6 @@ func Parse(Info *HostInfo) {
 	ParseUser()
 	ParsePass(Info)
 	ParseInput(Info)
-	ParseScantype(Info)
 }
 
 // ParseUser 解析用户名配置,支持直接指定用户名列表或从文件读取
@@ -315,49 +313,6 @@ func ParseInput(Info *HostInfo) error {
 		HashBytes = append(HashBytes, hashByte)
 	}
 	HashValues = []string{}
-
-	return nil
-}
-
-// ParseScantype 解析扫描类型并设置对应的端口
-func ParseScantype(Info *HostInfo) error {
-	// 先处理特殊扫描类型
-	specialTypes := map[string]string{
-		"service": ServicePorts,
-		"db":      DbPorts,
-		"web":     WebPorts,
-		"all":     AllPorts,
-		"main":    MainPorts,
-		"port":    MainPorts + "," + WebPorts,
-		"icmp":    "", // ICMP不需要端口
-	}
-
-	// 如果是特殊扫描类型
-	if customPorts, isSpecial := specialTypes[ScanMode]; isSpecial {
-		// 专门处理 all 类型
-		if ScanMode == "all" {
-			Ports = AllPorts // 直接设置为 1-65535
-		} else if Ports == MainPorts+","+WebPorts {
-			Ports = customPorts
-		}
-		fmt.Printf("[*] 扫描类型: %s, 目标端口: %s\n", ScanMode, Ports)
-		return nil
-	}
-
-	// 检查是否是注册的插件类型
-	plugin, validType := PluginManager[ScanMode]
-	if !validType {
-		showmode()
-		return fmt.Errorf("无效的扫描类型: %s", ScanMode)
-	}
-
-	// 如果是插件扫描且使用默认端口配置
-	if Ports == MainPorts+","+WebPorts {
-		if plugin.Port > 0 {
-			Ports = strconv.Itoa(plugin.Port)
-		}
-		fmt.Printf("[*] 扫描类型: %s, 目标端口: %s\n", plugin.Name, Ports)
-	}
 
 	return nil
 }

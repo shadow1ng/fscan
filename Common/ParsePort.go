@@ -9,6 +9,20 @@ import (
 
 // ParsePort 解析端口配置字符串为端口号列表
 func ParsePort(ports string) []int {
+	// 预定义的端口组
+	portGroups := map[string]string{
+		"service": ServicePorts,
+		"db":      DbPorts,
+		"web":     WebPorts,
+		"all":     AllPorts,
+		"main":    MainPorts,
+	}
+
+	// 检查是否匹配预定义组
+	if definedPorts, exists := portGroups[ports]; exists {
+		ports = definedPorts
+	}
+
 	if ports == "" {
 		return nil
 	}
