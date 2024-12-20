@@ -18,7 +18,6 @@ var (
 
 // RedisScan 执行Redis服务扫描
 func RedisScan(info *Common.HostInfo) (tmperr error) {
-	fmt.Println("[+] Redis扫描模块开始...")
 	starttime := time.Now().Unix()
 
 	// 尝试无密码连接
