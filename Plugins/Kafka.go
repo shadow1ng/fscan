@@ -53,40 +53,26 @@ func KafkaConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 	host, port := info.Host, info.Ports
 	timeout := time.Duration(Common.Timeout) * time.Second
 
-	// 配置Kafka客户端
 	config := sarama.NewConfig()
 	config.Net.DialTimeout = timeout
-
-	// 禁用TLS
 	config.Net.TLS.Enable = false
-	config.Version = sarama.V2_0_0_0 // 设置一个通用版本
+	config.Version = sarama.V2_0_0_0
 
-	// 如果提供了认证信息
+	// 设置 SASL 配置
 	if user != "" || pass != "" {
 		config.Net.SASL.Enable = true
 		config.Net.SASL.Mechanism = sarama.SASLTypePlaintext
 		config.Net.SASL.User = user
 		config.Net.SASL.Password = pass
+		config.Net.SASL.Handshake = true
 	}
 
-	// 构造broker列表
 	brokers := []string{fmt.Sprintf("%s:%s", host, port)}
 
-	// 尝试创建客户端
-	client, err := sarama.NewClient(brokers, config)
-	if err != nil {
-		return false, err
-	}
-	defer client.Close()
-
-	// 尝试获取topics列表来验证连接
-	topics, err := client.Topics()
-	if err != nil {
-		return false, err
-	}
-
-	// 如果成功连接并获取topics
-	if len(topics) >= 0 {
+	// 尝试作为消费者连接测试
+	consumer, err := sarama.NewConsumer(brokers, config)
+	if err == nil {
+		defer consumer.Close()
 		result := fmt.Sprintf("[+] Kafka服务 %v:%v ", host, port)
 		if user != "" {
 			result += fmt.Sprintf("爆破成功 用户名: %v 密码: %v", user, pass)
@@ -97,5 +83,26 @@ func KafkaConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 		return true, nil
 	}
 
-	return false, fmt.Errorf("认证失败")
+	// 如果消费者连接失败，尝试作为客户端连接
+	client, err := sarama.NewClient(brokers, config)
+	if err == nil {
+		defer client.Close()
+		result := fmt.Sprintf("[+] Kafka服务 %v:%v ", host, port)
+		if user != "" {
+			result += fmt.Sprintf("爆破成功 用户名: %v 密码: %v", user, pass)
+		} else {
+			result += "无需认证即可访问"
+		}
+		Common.LogSuccess(result)
+		return true, nil
+	}
+
+	// 检查错误类型
+	if strings.Contains(err.Error(), "SASL") ||
+		strings.Contains(err.Error(), "authentication") ||
+		strings.Contains(err.Error(), "credentials") {
+		return false, fmt.Errorf("认证失败")
+	}
+
+	return false, err
 }
