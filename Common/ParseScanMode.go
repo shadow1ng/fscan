@@ -93,6 +93,5 @@ func GetPluginsForMode(mode string) []string {
 // 辅助函数
 func IsPortScan() bool    { return ScanMode == ModePort }
 func IsICMPScan() bool    { return ScanMode == ModeICMP }
-func IsLocalScan() bool   { return ScanMode == ModeLocal }
 func IsWebScan() bool     { return ScanMode == ModeWeb }
 func GetScanMode() string { return ScanMode }
