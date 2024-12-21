@@ -79,6 +79,12 @@ func init() {
 		ScanFunc: Plugins.KafkaScan,
 	})
 
+	Common.RegisterPlugin("activemq", Common.ScanPlugin{
+		Name:     "ActiveMQ",
+		Ports:    []int{61616, 61613},
+		ScanFunc: Plugins.ActiveMQScan,
+	})
+
 	Common.RegisterPlugin("rdp", Common.ScanPlugin{
 		Name:     "RDP",
 		Ports:    []int{3389},
