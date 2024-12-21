@@ -110,14 +110,16 @@ func prepareTargetInfos(alivePorts []string, baseInfo Common.HostInfo) []Common.
 func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup) {
 	mode := Common.GetScanMode()
 	var pluginsToRun []string
+	isSinglePlugin := false
 
 	// 获取要执行的插件列表
 	if plugins := Common.GetPluginsForMode(mode); plugins != nil {
 		// 预设模式下使用配置的插件组
 		pluginsToRun = plugins
 	} else {
-		// 单插件模式下只包含指定的插件
+		// 单插件模式
 		pluginsToRun = []string{mode}
+		isSinglePlugin = true
 	}
 
 	// 统一处理所有目标和插件
@@ -133,14 +135,19 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 
 			// 本地扫描模式的特殊处理
 			if Common.LocalScan {
-				// 只执行没有端口配置的插件
 				if len(plugin.Ports) == 0 {
 					AddScan(pluginName, target, ch, wg)
 				}
 				continue
 			}
 
-			// 非本地扫描模式的常规处理
+			// 单插件模式直接执行，不检查端口
+			if isSinglePlugin {
+				AddScan(pluginName, target, ch, wg)
+				continue
+			}
+
+			// 预设模式下的常规处理
 			if len(plugin.Ports) > 0 {
 				if plugin.HasPort(targetPort) {
 					AddScan(pluginName, target, ch, wg)
