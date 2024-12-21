@@ -71,14 +71,14 @@ func FcgiScan(info *Common.HostInfo) error {
 		}
 	}()
 	if err != nil {
-		fmt.Printf("[!] FastCGI连接失败 %v:%v - %v\n", info.Host, info.Ports, err)
+		fmt.Printf("[-] FastCGI连接失败 %v:%v - %v\n", info.Host, info.Ports, err)
 		return err
 	}
 
 	// 发送FastCGI请求
 	stdout, stderr, err := fcgi.Request(env, reqParams)
 	if err != nil {
-		fmt.Printf("[!] FastCGI请求失败 %v:%v - %v\n", info.Host, info.Ports, err)
+		fmt.Printf("[-] FastCGI请求失败 %v:%v - %v\n", info.Host, info.Ports, err)
 		return err
 	}
 

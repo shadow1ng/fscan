@@ -32,7 +32,7 @@ type Brutelist struct {
 func RdpScan(info *Common.HostInfo) (tmperr error) {
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Printf("[!] 扫描错误 %v:%v - %v\n", info.Host, info.Ports, err)
+			fmt.Printf("[-] 扫描错误 %v:%v - %v\n", info.Host, info.Ports, err)
 		}
 	}()
 	if Common.DisableBrute {

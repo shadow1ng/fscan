@@ -78,7 +78,7 @@ func WriteFile(result string, filename string) {
 	// 打开文件
 	fl, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
-		fmt.Printf("[!] 打开文件失败 %s: %v\n", filename, err)
+		fmt.Printf("[-] 打开文件失败 %s: %v\n", filename, err)
 		return
 	}
 	defer fl.Close()
@@ -109,7 +109,7 @@ func WriteFile(result string, filename string) {
 		// 序列化JSON
 		jsonData, err := json.Marshal(jsonText)
 		if err != nil {
-			fmt.Printf("[!] JSON序列化失败: %v\n", err)
+			fmt.Printf("[-] JSON序列化失败: %v\n", err)
 			jsonText = JsonText{
 				Type: "msg",
 				Text: result,
@@ -123,7 +123,7 @@ func WriteFile(result string, filename string) {
 	}
 
 	if err != nil {
-		fmt.Printf("[!] 写入文件失败 %s: %v\n", filename, err)
+		fmt.Printf("[-] 写入文件失败 %s: %v\n", filename, err)
 	}
 }
 

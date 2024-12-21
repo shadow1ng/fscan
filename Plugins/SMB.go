@@ -105,6 +105,6 @@ func doWithTimeOut(info *Common.HostInfo, user string, pass string) (flag bool, 
 	case <-signal:
 		return flag, err
 	case <-time.After(time.Duration(Common.Timeout) * time.Second):
-		return false, errors.New("[!] SMB连接超时")
+		return false, errors.New("[-] SMB连接超时")
 	}
 }

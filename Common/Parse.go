@@ -105,7 +105,7 @@ func ParsePass(Info *HostInfo) error {
 				HashValues = append(HashValues, line)
 				validCount++
 			} else {
-				fmt.Printf("[!] 无效的哈希值(长度!=32): %s\n", line)
+				fmt.Printf("[-] 无效的哈希值(长度!=32): %s\n", line)
 			}
 		}
 		fmt.Printf("[*] 已加载有效哈希值: %d 个\n", validCount)
@@ -171,7 +171,7 @@ func Readfile(filename string) ([]string, error) {
 	// 打开文件
 	file, err := os.Open(filename)
 	if err != nil {
-		fmt.Printf("[!] 打开文件 %s 失败: %v\n", filename, err)
+		fmt.Printf("[-] 打开文件 %s 失败: %v\n", filename, err)
 		return nil, err
 	}
 	defer file.Close()
@@ -192,7 +192,7 @@ func Readfile(filename string) ([]string, error) {
 
 	// 检查扫描过程中是否有错误
 	if err := scanner.Err(); err != nil {
-		fmt.Printf("[!] 读取文件 %s 时出错: %v\n", filename, err)
+		fmt.Printf("[- 读取文件 %s 时出错: %v\n", filename, err)
 		return nil, err
 	}
 
@@ -204,7 +204,7 @@ func Readfile(filename string) ([]string, error) {
 func ParseInput(Info *HostInfo) error {
 	// 检查必要的目标参数
 	if Info.Host == "" && HostsFile == "" && TargetURL == "" && URLsFile == "" {
-		fmt.Println("[!] 未指定扫描目标")
+		fmt.Println("[-] 未指定扫描目标")
 		flag.Usage()
 		return fmt.Errorf("必须指定扫描目标")
 	}
@@ -307,7 +307,7 @@ func ParseInput(Info *HostInfo) error {
 	for _, hash := range HashValues {
 		hashByte, err := hex.DecodeString(hash)
 		if err != nil {
-			fmt.Printf("[!] Hash解码失败: %s\n", hash)
+			fmt.Printf("[-] Hash解码失败: %s\n", hash)
 			continue
 		}
 		HashBytes = append(HashBytes, hashByte)

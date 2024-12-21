@@ -187,7 +187,7 @@ func AddScan(plugin string, info Common.HostInfo, ch *chan struct{}, wg *sync.Wa
 func ScanFunc(name *string, info *Common.HostInfo) {
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Printf("[!] 扫描错误 %v:%v - %v\n", info.Host, info.Ports, err)
+			fmt.Printf("[-] 扫描错误 %v:%v - %v\n", info.Host, info.Ports, err)
 		}
 	}()
 
@@ -200,7 +200,7 @@ func ScanFunc(name *string, info *Common.HostInfo) {
 
 	// 直接调用扫描函数
 	if err := plugin.ScanFunc(info); err != nil {
-		fmt.Printf("[!] 扫描错误 %v:%v - %v\n", info.Host, info.Ports, err)
+		fmt.Printf("[-] 扫描错误 %v:%v - %v\n", info.Host, info.Ports, err)
 	}
 }
 

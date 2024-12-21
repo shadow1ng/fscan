@@ -42,7 +42,7 @@ func ParseIP(host string, filename string, nohosts ...string) (hosts []string, e
 		if filename != "" {
 			fileHosts, err := Readipfile(filename)
 			if err != nil {
-				fmt.Printf("[!] 读取主机文件失败: %v\n", err)
+				fmt.Printf("[-] 读取主机文件失败: %v\n", err)
 			} else {
 				hosts = append(hosts, fileHosts...)
 				fmt.Printf("[*] 已从文件加载额外主机: %d 个\n", len(fileHosts))
@@ -135,7 +135,7 @@ func parseIP(ip string) []string {
 	default:
 		testIP := net.ParseIP(ip)
 		if testIP == nil {
-			fmt.Printf("[!] 无效的IP地址格式: %s\n", ip)
+			fmt.Printf("[-] 无效的IP地址格式: %s\n", ip)
 			return nil
 		}
 		return []string{ip}
@@ -147,7 +147,7 @@ func parseIP2(host string) []string {
 	// 解析CIDR
 	_, ipNet, err := net.ParseCIDR(host)
 	if err != nil {
-		fmt.Printf("[!] CIDR格式解析失败: %s, %v\n", host, err)
+		fmt.Printf("[-] CIDR格式解析失败: %s, %v\n", host, err)
 		return nil
 	}
 
@@ -169,7 +169,7 @@ func parseIP1(ip string) []string {
 	if len(ipRange[1]) < 4 {
 		endNum, err := strconv.Atoi(ipRange[1])
 		if testIP == nil || endNum > 255 || err != nil {
-			fmt.Printf("[!] IP范围格式错误: %s\n", ip)
+			fmt.Printf("[-] IP范围格式错误: %s\n", ip)
 			return nil
 		}
 
@@ -180,7 +180,7 @@ func parseIP1(ip string) []string {
 		prefixIP := strings.Join(splitIP[0:3], ".")
 
 		if startNum > endNum || err1 != nil || err2 != nil {
-			fmt.Printf("[!] IP范围无效: %d-%d\n", startNum, endNum)
+			fmt.Printf("[-] IP范围无效: %d-%d\n", startNum, endNum)
 			return nil
 		}
 
@@ -196,7 +196,7 @@ func parseIP1(ip string) []string {
 		splitIP2 := strings.Split(ipRange[1], ".")
 
 		if len(splitIP1) != 4 || len(splitIP2) != 4 {
-			fmt.Printf("[!] IP格式错误: %s\n", ip)
+			fmt.Printf("[-] IP格式错误: %s\n", ip)
 			return nil
 		}
 
@@ -206,7 +206,7 @@ func parseIP1(ip string) []string {
 			ip1, err1 := strconv.Atoi(splitIP1[i])
 			ip2, err2 := strconv.Atoi(splitIP2[i])
 			if ip1 > ip2 || err1 != nil || err2 != nil {
-				fmt.Printf("[!] IP范围无效: %s-%s\n", ipRange[0], ipRange[1])
+				fmt.Printf("[-] IP范围无效: %s-%s\n", ipRange[0], ipRange[1])
 				return nil
 			}
 			start[i], end[i] = ip1, ip2
@@ -261,7 +261,7 @@ func Readipfile(filename string) ([]string, error) {
 	// 打开文件
 	file, err := os.Open(filename)
 	if err != nil {
-		fmt.Printf("[!] 打开文件失败 %s: %v\n", filename, err)
+		fmt.Printf("[-] 打开文件失败 %s: %v\n", filename, err)
 		return nil, err
 	}
 	defer file.Close()
@@ -283,7 +283,7 @@ func Readipfile(filename string) ([]string, error) {
 			port := strings.Split(text[1], " ")[0]
 			num, err := strconv.Atoi(port)
 			if err != nil || num < 1 || num > 65535 {
-				fmt.Printf("[!] 忽略无效端口: %s\n", line)
+				fmt.Printf("[-] 忽略无效端口: %s\n", line)
 				continue
 			}
 
@@ -303,7 +303,7 @@ func Readipfile(filename string) ([]string, error) {
 
 	// 检查扫描过程中是否有错误
 	if err := scanner.Err(); err != nil {
-		fmt.Printf("[!] 读取文件时出错: %v\n", err)
+		fmt.Printf("[-] 读取文件时出错: %v\n", err)
 		return content, err
 	}
 
@@ -335,7 +335,7 @@ func parseIP8(ip string) []string {
 	testIP := net.ParseIP(realIP)
 
 	if testIP == nil {
-		fmt.Printf("[!] 无效的IP地址格式: %s\n", realIP)
+		fmt.Printf("[-] 无效的IP地址格式: %s\n", realIP)
 		return nil
 	}
 
