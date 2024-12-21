@@ -85,6 +85,12 @@ func init() {
 		ScanFunc: Plugins.ActiveMQScan,
 	})
 
+	Common.RegisterPlugin("ldap", Common.ScanPlugin{
+		Name:     "LDAP",
+		Ports:    []int{389, 636}, // LDAP标准端口和LDAPS端口
+		ScanFunc: Plugins.LDAPScan,
+	})
+
 	Common.RegisterPlugin("rdp", Common.ScanPlugin{
 		Name:     "RDP",
 		Ports:    []int{3389},

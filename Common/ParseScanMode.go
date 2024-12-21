@@ -21,7 +21,7 @@ var pluginGroups = map[string][]string{
 		"web", "fcgi", // web类
 		"mysql", "mssql", "redis", "mongodb", "postgres", // 数据库类
 		"oracle", "memcached", "elasticsearch", "rabbitmq", "kafka", "activemq", // 数据库类
-		"ftp", "ssh", "telnet", "smb", "rdp", "vnc", "netbios", // 服务类
+		"ftp", "ssh", "telnet", "smb", "rdp", "vnc", "netbios", "ldap", // 服务类
 		"ms17010", "smbghost", "smb2", // 漏洞类
 		"findnet", "wmiexec", // 其他
 	},
@@ -36,7 +36,7 @@ var pluginGroups = map[string][]string{
 		"web", "fcgi",
 	},
 	ModeService: {
-		"ftp", "ssh", "telnet", "smb", "rdp", "vnc", "netbios",
+		"ftp", "ssh", "telnet", "smb", "rdp", "vnc", "netbios", "ldap",
 	},
 	ModeVul: {
 		"ms17010", "smbghost", "smb2",
