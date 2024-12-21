@@ -91,6 +91,12 @@ func init() {
 		ScanFunc: Plugins.LDAPScan,
 	})
 
+	Common.RegisterPlugin("smtp", Common.ScanPlugin{
+		Name:     "SMTP",
+		Ports:    []int{25, 465, 587},
+		ScanFunc: Plugins.SmtpScan,
+	})
+
 	Common.RegisterPlugin("rdp", Common.ScanPlugin{
 		Name:     "RDP",
 		Ports:    []int{3389},
