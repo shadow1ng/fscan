@@ -11,6 +11,7 @@ require (
 	github.com/hirochachacha/go-smb2 v1.1.0
 	github.com/jlaffaye/ftp v0.2.0
 	github.com/lib/pq v1.10.9
+	github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
 	github.com/satori/go.uuid v1.2.0
 	github.com/sijms/go-ora/v2 v2.5.29
 	github.com/stacktitan/smb v0.0.0-20190531122847-da9a425dceb8
@@ -38,7 +39,6 @@ require (
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40 // indirect
 	github.com/mattn/go-colorable v0.0.9 // indirect
 	github.com/mattn/go-isatty v0.0.3 // indirect
-	github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
 	go.uber.org/atomic v1.5.0 // indirect
 	go.uber.org/multierr v1.3.0 // indirect
@@ -51,6 +51,6 @@ require (
 	honnef.co/go/tools v0.0.1-2019.2.3 // indirect
 )
 
-replace github.com/tomatome/grdp v0.0.0-20211231062539-be8adab7eaf3 => github.com/shadow1ng/grdp v1.0.3
+replace github.com/tomatome/grdp v0.0.0-20211231062539-be8adab7eaf3 => github.com/shadow1ng/grdp v1.0.5
 
 replace github.com/C-Sto/goWMIExec v0.0.1-deva.0.20210704154847-b8ebd6464a06 => github.com/shadow1ng/goWMIExec v0.0.2
