@@ -73,6 +73,12 @@ func init() {
 		ScanFunc: Plugins.RabbitMQScan,
 	})
 
+	Common.RegisterPlugin("kafka", Common.ScanPlugin{
+		Name:     "Kafka",
+		Ports:    []int{9092, 9093}, // Kafka默认端口和SSL端口
+		ScanFunc: Plugins.KafkaScan,
+	})
+
 	Common.RegisterPlugin("rdp", Common.ScanPlugin{
 		Name:     "RDP",
 		Ports:    []int{3389},
