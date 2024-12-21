@@ -67,6 +67,12 @@ func init() {
 		ScanFunc: Plugins.ElasticScan,
 	})
 
+	Common.RegisterPlugin("rabbitmq", Common.ScanPlugin{
+		Name:     "RabbitMQ",
+		Ports:    []int{5672, 5671, 15672, 15671}, // AMQP和管理端口
+		ScanFunc: Plugins.RabbitMQScan,
+	})
+
 	Common.RegisterPlugin("rdp", Common.ScanPlugin{
 		Name:     "RDP",
 		Ports:    []int{3389},

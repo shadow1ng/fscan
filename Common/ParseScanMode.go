@@ -20,7 +20,7 @@ var pluginGroups = map[string][]string{
 	ModeAll: {
 		"web", "fcgi", // web类
 		"mysql", "mssql", "redis", "mongodb", "postgres", // 数据库类
-		"oracle", "memcached", "elasticsearch", // 数据库类
+		"oracle", "memcached", "elasticsearch", "rabbitmq", // 数据库类
 		"ftp", "ssh", "telnet", "smb", "rdp", "vnc", "netbios", // 服务类
 		"ms17010", "smbghost", "smb2", // 漏洞类
 		"findnet", "wmiexec", // 其他
@@ -30,7 +30,7 @@ var pluginGroups = map[string][]string{
 	},
 	ModeDatabase: {
 		"mysql", "mssql", "redis", "mongodb",
-		"postgres", "oracle", "memcached", "elasticsearch",
+		"postgres", "oracle", "memcached", "elasticsearch", "rabbitmq",
 	},
 	ModeWeb: {
 		"web", "fcgi",
