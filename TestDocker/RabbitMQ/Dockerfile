@@ -1,0 +1,10 @@
+FROM rabbitmq:3-management
+
+# 环境变量设置默认的用户名和密码
+ENV RABBITMQ_DEFAULT_USER=admin
+ENV RABBITMQ_DEFAULT_PASS=123456
+
+# 开放标准端口
+# 5672: AMQP 协议端口
+# 15672: HTTP API 端口和管理UI
+EXPOSE 5672 15672
