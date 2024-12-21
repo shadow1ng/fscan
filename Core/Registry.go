@@ -61,6 +61,12 @@ func init() {
 		ScanFunc: Plugins.MysqlScan,
 	})
 
+	Common.RegisterPlugin("elasticsearch", Common.ScanPlugin{
+		Name:     "Elasticsearch",
+		Ports:    []int{9200, 9300}, // Elasticsearch 默认HTTP和Transport端口
+		ScanFunc: Plugins.ElasticScan,
+	})
+
 	Common.RegisterPlugin("rdp", Common.ScanPlugin{
 		Name:     "RDP",
 		Ports:    []int{3389},
