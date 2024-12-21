@@ -20,7 +20,8 @@ func FtpScan(info *Common.HostInfo) (tmperr error) {
 	// 尝试匿名登录
 	flag, err := FtpConn(info, "anonymous", "")
 	if flag && err == nil {
-		return err
+		// 匿名登录成功，不需要继续尝试其他密码
+		return nil
 	}
 	errlog := fmt.Sprintf("[-] ftp %v:%v %v %v", info.Host, info.Ports, "anonymous", err)
 	Common.LogError(errlog)

@@ -31,9 +31,7 @@ type Brutelist struct {
 // RdpScan 执行RDP服务扫描
 func RdpScan(info *Common.HostInfo) (tmperr error) {
 	defer func() {
-		if err := recover(); err != nil {
-			fmt.Printf("[-] 扫描错误 %v:%v - %v\n", info.Host, info.Ports, err)
-		}
+		recover()
 	}()
 	if Common.DisableBrute {
 		return
@@ -120,8 +118,7 @@ func incrNum(num *int, mutex *sync.Mutex) {
 // RdpConn 尝试RDP连接
 func RdpConn(ip, domain, user, password string, port int, timeout int64) (bool, error) {
 	defer func() {
-		if err := recover(); err != nil {
-		}
+		recover()
 	}()
 	target := fmt.Sprintf("%s:%d", ip, port)
 
