@@ -48,6 +48,9 @@ var (
 	UsePing     bool // 原Ping
 	Command     string
 
+	// 本地扫描配置
+	LocalScan bool
+
 	// 文件配置
 	HostsFile     string // 原HostFile
 	UsersFile     string // 原Userfile
