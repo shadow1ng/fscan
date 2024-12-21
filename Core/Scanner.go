@@ -19,7 +19,7 @@ func Scan(info Common.HostInfo) {
 	wg := sync.WaitGroup{}
 
 	// 本地信息收集模式
-	if Common.IsLocalScan() {
+	if Common.LocalScan {
 		executeScans([]Common.HostInfo{info}, &ch, &wg)
 		finishScan(&wg)
 		return
@@ -107,38 +107,47 @@ func prepareTargetInfos(alivePorts []string, baseInfo Common.HostInfo) []Common.
 	return infos
 }
 
-// executeScans 统一执行扫描任务
 func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup) {
 	mode := Common.GetScanMode()
+	var pluginsToRun []string
 
-	// 判断是否是预设模式（大写开头）
+	// 获取要执行的插件列表
 	if plugins := Common.GetPluginsForMode(mode); plugins != nil {
-		// 使用预设模式的插件组
-		for _, target := range targets {
-			targetPort, _ := strconv.Atoi(target.Ports) // 转换目标端口为整数
-			for _, pluginName := range plugins {
-				// 获取插件信息
-				plugin, exists := Common.PluginManager[pluginName]
-				if !exists {
-					continue
-				}
+		// 预设模式下使用配置的插件组
+		pluginsToRun = plugins
+	} else {
+		// 单插件模式下只包含指定的插件
+		pluginsToRun = []string{mode}
+	}
 
-				// 检查插件是否有默认端口配置
-				if len(plugin.Ports) > 0 {
-					// 只有当目标端口在插件支持的端口列表中才执行
-					if plugin.HasPort(targetPort) {
-						AddScan(pluginName, target, ch, wg)
-					}
-				} else {
-					// 对于没有指定端口的插件，始终执行
+	// 统一处理所有目标和插件
+	for _, target := range targets {
+		targetPort, _ := strconv.Atoi(target.Ports)
+
+		for _, pluginName := range pluginsToRun {
+			// 获取插件信息
+			plugin, exists := Common.PluginManager[pluginName]
+			if !exists {
+				continue
+			}
+
+			// 本地扫描模式的特殊处理
+			if Common.LocalScan {
+				// 只执行没有端口配置的插件
+				if len(plugin.Ports) == 0 {
 					AddScan(pluginName, target, ch, wg)
 				}
+				continue
 			}
-		}
-	} else {
-		// 使用单个插件模式，直接执行不做端口检查
-		for _, target := range targets {
-			AddScan(mode, target, ch, wg)
+
+			// 非本地扫描模式的常规处理
+			if len(plugin.Ports) > 0 {
+				if plugin.HasPort(targetPort) {
+					AddScan(pluginName, target, ch, wg)
+				}
+			} else {
+				AddScan(pluginName, target, ch, wg)
+			}
 		}
 	}
 }

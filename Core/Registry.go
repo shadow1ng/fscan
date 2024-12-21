@@ -20,7 +20,7 @@ func init() {
 	})
 
 	Common.RegisterPlugin("telnet", Common.ScanPlugin{
-		Name:     "TELNET",
+		Name:     "Telnet",
 		Ports:    []int{23},
 		ScanFunc: Plugins.TelnetScan,
 	})
@@ -116,13 +116,16 @@ func init() {
 		ScanFunc: Plugins.SmbGhost,
 	})
 
+	// web 相关插件添加 WebPorts 配置
 	Common.RegisterPlugin("web", Common.ScanPlugin{
 		Name:     "WebTitle",
+		Ports:    Common.ParsePortsFromString(Common.WebPorts), // 将 WebPorts 字符串解析为端口数组
 		ScanFunc: Plugins.WebTitle,
 	})
 
 	Common.RegisterPlugin("webpoc", Common.ScanPlugin{
 		Name:     "WebPoc",
+		Ports:    Common.ParsePortsFromString(Common.WebPorts), // 将 WebPorts 字符串解析为端口数组
 		ScanFunc: Plugins.WebPoc,
 	})
 

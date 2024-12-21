@@ -43,6 +43,9 @@ func Flag(Info *HostInfo) {
 	flag.BoolVar(&UsePing, "ping", false, "使用ping替代ICMP")
 	flag.StringVar(&Command, "c", "", "执行命令(支持ssh|wmiexec)")
 
+	// 本地扫描配置
+	flag.BoolVar(&LocalScan, "local", false, "启用本地扫描")
+
 	// 文件配置
 	flag.StringVar(&HostsFile, "hf", "", "主机列表文件")
 	flag.StringVar(&UsersFile, "userf", "", "用户名字典")

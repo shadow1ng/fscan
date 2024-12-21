@@ -209,6 +209,11 @@ func ParseInput(Info *HostInfo) error {
 		return fmt.Errorf("必须指定扫描目标")
 	}
 
+	// 如果是本地扫描模式，输出提示
+	if LocalScan {
+		fmt.Println("[*] 已启用本地扫描模式")
+	}
+
 	// 配置基本参数
 	if BruteThreads <= 0 {
 		BruteThreads = 1
