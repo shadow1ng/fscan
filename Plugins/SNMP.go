@@ -10,7 +10,6 @@ import (
 )
 
 // SNMPScan 执行SNMP服务扫描
-// SNMPScan 执行SNMP服务扫描
 func SNMPScan(info *Common.HostInfo) (tmperr error) {
 	if Common.DisableBrute {
 		return

@@ -14,6 +14,7 @@ func ParsePort(ports string) []int {
 		"service": ServicePorts,
 		"db":      DbPorts,
 		"web":     WebPorts,
+		"udp":     UDPPorts,
 		"all":     AllPorts,
 		"main":    MainPorts,
 	}

@@ -65,6 +65,7 @@ func Flag(Info *HostInfo) {
 		"  - Port: 端口扫描模式\n"+
 		"  - ICMP: ICMP存活探测\n"+
 		"  - Local: 本地信息收集\n\n"+
+		"  - UDP: UDP扫描模式\n\n"+
 		"单个插件模式(小写):\n"+
 		"  Web类: web, fcgi\n"+
 		"  数据库类: mysql, mssql, redis, mongodb, postgres, oracle, memcached\n"+

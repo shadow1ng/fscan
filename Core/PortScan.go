@@ -316,44 +316,50 @@ func calculateTCPChecksum(tcpHeader []byte, srcIP, dstIP net.IP) uint16 {
 }
 
 func UDPScan(ip string, port int, timeout int64) (bool, error) {
-	// 创建UDP套接字
 	sendConn, err := net.ListenPacket("udp4", "0.0.0.0:0")
 	if err != nil {
 		return false, fmt.Errorf("创建UDP套接字失败: %v", err)
 	}
 	defer sendConn.Close()
 
-	// 设置目标地址
 	dstAddr := &net.UDPAddr{
 		IP:   net.ParseIP(ip),
 		Port: port,
 	}
 
-	// 发送空包
-	_, err = sendConn.WriteTo([]byte{0x00}, dstAddr)
+	// 根据端口发送对应的探测包
+	var probe []byte
+	switch port {
+	case 161: // SNMP
+		// SNMP GetRequest
+		probe = []byte{
+			0x30, 0x26, 0x02, 0x01, 0x01, 0x04, 0x06, 0x70,
+			0x75, 0x62, 0x6c, 0x69, 0x63, 0xa0, 0x19, 0x02,
+			0x04, 0x6b, 0x8b, 0x44, 0x5b, 0x02, 0x01, 0x00,
+			0x02, 0x01, 0x00, 0x30, 0x0b, 0x30, 0x09, 0x06,
+			0x05, 0x2b, 0x06, 0x01, 0x02, 0x01, 0x05, 0x00,
+		}
+	default:
+		probe = []byte{0x00}
+	}
+
+	_, err = sendConn.WriteTo(probe, dstAddr)
 	if err != nil {
 		return false, fmt.Errorf("发送UDP包失败: %v", err)
 	}
 
-	// 设置读取超时
 	sendConn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Second))
 
-	// 尝试读取响应
-	buffer := make([]byte, 65507) // UDP最大包大小
+	buffer := make([]byte, 65507)
 	n, _, err := sendConn.ReadFrom(buffer)
 
-	// 如果收到ICMP不可达，说明端口关闭
-	if err != nil {
-		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-			// 超时可能意味着端口开放但没有响应
-			return true, nil
-		}
-		// 其他错误说明端口可能关闭
-		return false, nil
+	// 收到响应则认为端口开放
+	if err == nil && n > 0 {
+		return true, nil
 	}
 
-	// 收到响应说明端口开放
-	return n > 0, nil
+	// ICMP Unreachable 或其他错误都认为端口关闭
+	return false, nil
 }
 
 // 获取系统对应的接口名

@@ -13,6 +13,7 @@ const (
 	ModePort     = "Port"     // 端口扫描
 	ModeICMP     = "ICMP"     // ICMP探测
 	ModeLocal    = "Local"    // 本地信息收集
+	ModeUDP      = "UDP"      //UDP扫描
 )
 
 // 插件分类映射表 - 所有插件名使用小写
@@ -36,13 +37,16 @@ var pluginGroups = map[string][]string{
 		"web", "fcgi",
 	},
 	ModeService: {
-		"ftp", "ssh", "telnet", "smb", "rdp", "vnc", "netbios", "ldap", "smtp", "imap", "pop3", "snmp",
+		"ftp", "ssh", "telnet", "smb", "rdp", "vnc", "netbios", "ldap", "smtp", "imap", "pop3",
 	},
 	ModeVul: {
 		"ms17010", "smbghost", "smb2",
 	},
 	ModeLocal: {
 		"localinfo",
+	},
+	ModeUDP: {
+		"snmp",
 	},
 }
 
