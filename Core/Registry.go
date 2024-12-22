@@ -121,6 +121,12 @@ func init() {
 		ScanFunc: Plugins.ZabbixScan,
 	})
 
+	Common.RegisterPlugin("modbus", Common.ScanPlugin{
+		Name:     "Modbus",
+		Ports:    []int{502, 5020}, // Modbus 默认端口
+		ScanFunc: Plugins.ModbusScan,
+	})
+
 	Common.RegisterPlugin("rdp", Common.ScanPlugin{
 		Name:     "RDP",
 		Ports:    []int{3389},
