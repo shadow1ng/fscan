@@ -115,6 +115,12 @@ func init() {
 		ScanFunc: Plugins.SNMPScan,
 	})
 
+	Common.RegisterPlugin("zabbix", Common.ScanPlugin{
+		Name:     "Zabbix",
+		Ports:    []int{80, 443, 8080, 8443, 10051}, // Zabbix常用端口
+		ScanFunc: Plugins.ZabbixScan,
+	})
+
 	Common.RegisterPlugin("rdp", Common.ScanPlugin{
 		Name:     "RDP",
 		Ports:    []int{3389},
