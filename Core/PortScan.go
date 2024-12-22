@@ -3,11 +3,13 @@ package Core
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/Ullaakut/nmap"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"github.com/shadow1ng/fscan/Common"
 	"golang.org/x/net/ipv4"
+	"log"
 	"net"
 	"runtime"
 	"sort"
@@ -316,49 +318,39 @@ func calculateTCPChecksum(tcpHeader []byte, srcIP, dstIP net.IP) uint16 {
 }
 
 func UDPScan(ip string, port int, timeout int64) (bool, error) {
-	sendConn, err := net.ListenPacket("udp4", "0.0.0.0:0")
+	// 构造端口字符串
+	portStr := fmt.Sprintf("%d", port)
+
+	// 配置nmap扫描
+	scanner, err := nmap.NewScanner(
+		nmap.WithTargets(ip),
+		nmap.WithPorts(portStr),
+		nmap.WithUDPScan(),
+		nmap.WithTimingTemplate(nmap.TimingAggressive),
+	)
 	if err != nil {
-		return false, fmt.Errorf("创建UDP套接字失败: %v", err)
-	}
-	defer sendConn.Close()
-
-	dstAddr := &net.UDPAddr{
-		IP:   net.ParseIP(ip),
-		Port: port,
+		return false, fmt.Errorf("创建扫描器失败: %v", err)
 	}
 
-	// 根据端口发送对应的探测包
-	var probe []byte
-	switch port {
-	case 161: // SNMP
-		// SNMP GetRequest
-		probe = []byte{
-			0x30, 0x26, 0x02, 0x01, 0x01, 0x04, 0x06, 0x70,
-			0x75, 0x62, 0x6c, 0x69, 0x63, 0xa0, 0x19, 0x02,
-			0x04, 0x6b, 0x8b, 0x44, 0x5b, 0x02, 0x01, 0x00,
-			0x02, 0x01, 0x00, 0x30, 0x0b, 0x30, 0x09, 0x06,
-			0x05, 0x2b, 0x06, 0x01, 0x02, 0x01, 0x05, 0x00,
+	// 执行扫描
+	result, warnings, err := scanner.Run()
+	if err != nil {
+		return false, fmt.Errorf("扫描执行失败: %v", err)
+	}
+	if warnings != nil {
+		log.Printf("扫描警告: %v", warnings)
+	}
+
+	// 检查结果
+	for _, host := range result.Hosts {
+		for _, p := range host.Ports {
+			if int(p.ID) == port &&
+				(p.State.State == "open" || p.State.State == "open|filtered") {
+				return true, nil
+			}
 		}
-	default:
-		probe = []byte{0x00}
 	}
 
-	_, err = sendConn.WriteTo(probe, dstAddr)
-	if err != nil {
-		return false, fmt.Errorf("发送UDP包失败: %v", err)
-	}
-
-	sendConn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Second))
-
-	buffer := make([]byte, 65507)
-	n, _, err := sendConn.ReadFrom(buffer)
-
-	// 收到响应则认为端口开放
-	if err == nil && n > 0 {
-		return true, nil
-	}
-
-	// ICMP Unreachable 或其他错误都认为端口关闭
 	return false, nil
 }
 
