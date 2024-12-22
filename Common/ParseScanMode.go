@@ -21,8 +21,8 @@ var pluginGroups = map[string][]string{
 	ModeAll: {
 		"web", "fcgi", // web类
 		"mysql", "mssql", "redis", "mongodb", "postgres", // 数据库类
-		"oracle", "memcached", "elasticsearch", "rabbitmq", "kafka", "activemq", // 数据库类
-		"ftp", "ssh", "telnet", "smb", "rdp", "vnc", "netbios", "ldap", "smtp", "imap", "pop3", "snmp", "zabbix", "modbus", "rsync", "cassandra", // 服务类
+		"oracle", "memcached", "elasticsearch", "rabbitmq", "kafka", "activemq", "cassandra", "neo4j", // 数据库类
+		"ftp", "ssh", "telnet", "smb", "rdp", "vnc", "netbios", "ldap", "smtp", "imap", "pop3", "snmp", "zabbix", "modbus", "rsync", // 服务类
 		"ms17010", "smbghost", "smb2", // 漏洞类
 		"findnet", // 其他
 	},
@@ -31,13 +31,13 @@ var pluginGroups = map[string][]string{
 	},
 	ModeDatabase: {
 		"mysql", "mssql", "redis", "mongodb",
-		"postgres", "oracle", "memcached", "elasticsearch", "rabbitmq", "kafka", "activemq",
+		"postgres", "oracle", "memcached", "elasticsearch", "rabbitmq", "kafka", "activemq", "cassandra", "neo4j",
 	},
 	ModeWeb: {
 		"web", "fcgi",
 	},
 	ModeService: {
-		"ftp", "ssh", "telnet", "smb", "rdp", "vnc", "netbios", "ldap", "smtp", "imap", "pop3", "zabbix", "modbus", "rsync", "cassandra",
+		"ftp", "ssh", "telnet", "smb", "rdp", "vnc", "netbios", "ldap", "smtp", "imap", "pop3", "zabbix", "modbus", "rsync",
 	},
 	ModeVul: {
 		"ms17010", "smbghost", "smb2",

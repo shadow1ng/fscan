@@ -139,6 +139,12 @@ func init() {
 		ScanFunc: Plugins.CassandraScan,
 	})
 
+	Common.RegisterPlugin("neo4j", Common.ScanPlugin{
+		Name:     "Neo4j",
+		Ports:    []int{7687},
+		ScanFunc: Plugins.Neo4jScan,
+	})
+
 	Common.RegisterPlugin("rdp", Common.ScanPlugin{
 		Name:     "RDP",
 		Ports:    []int{3389},

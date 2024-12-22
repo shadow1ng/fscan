@@ -7,16 +7,21 @@ toolchain go1.23.3
 require (
 	github.com/C-Sto/goWMIExec v0.0.1-deva.0.20210704154847-b8ebd6464a06
 	github.com/IBM/sarama v1.43.3
+	github.com/Ullaakut/nmap v2.0.2+incompatible
 	github.com/denisenkom/go-mssqldb v0.12.3
 	github.com/fatih/color v1.7.0
 	github.com/go-ldap/ldap/v3 v3.4.9
+	github.com/go-resty/resty/v2 v2.16.2
 	github.com/go-sql-driver/mysql v1.8.1
+	github.com/gocql/gocql v1.7.0
 	github.com/google/cel-go v0.13.0
 	github.com/google/gopacket v1.1.19
+	github.com/gosnmp/gosnmp v1.38.0
 	github.com/hirochachacha/go-smb2 v1.1.0
 	github.com/jlaffaye/ftp v0.2.0
 	github.com/lib/pq v1.10.9
 	github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
+	github.com/neo4j/neo4j-go-driver/v4 v4.4.7
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/sijms/go-ora/v2 v2.5.29
@@ -35,7 +40,6 @@ require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/BurntSushi/toml v0.3.1 // indirect
-	github.com/Ullaakut/nmap v2.0.2+incompatible // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr v1.4.10 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/eapache/go-resiliency v1.7.0 // indirect
@@ -43,13 +47,10 @@ require (
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/geoffgarside/ber v1.1.0 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.7 // indirect
-	github.com/go-resty/resty/v2 v2.16.2 // indirect
-	github.com/gocql/gocql v1.7.0 // indirect
 	github.com/golang-sql/civil v0.0.0-20190719163853-cb61b32ac6fe // indirect
 	github.com/golang-sql/sqlexp v0.1.0 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gosnmp/gosnmp v1.38.0 // indirect
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
