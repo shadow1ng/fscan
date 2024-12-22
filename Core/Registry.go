@@ -127,6 +127,12 @@ func init() {
 		ScanFunc: Plugins.ModbusScan,
 	})
 
+	Common.RegisterPlugin("rsync", Common.ScanPlugin{
+		Name:     "Rsync",
+		Ports:    []int{873},
+		ScanFunc: Plugins.RsyncScan,
+	})
+
 	Common.RegisterPlugin("rdp", Common.ScanPlugin{
 		Name:     "RDP",
 		Ports:    []int{3389},
