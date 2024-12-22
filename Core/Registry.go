@@ -121,6 +121,12 @@ func init() {
 		ScanFunc: Plugins.ZabbixScan,
 	})
 
+	Common.RegisterPlugin("tomcat", Common.ScanPlugin{
+		Name:     "Tomcat",
+		Ports:    []int{8080, 8009, 8005}, // Tomcat常用端口
+		ScanFunc: Plugins.TomcatScan,
+	})
+
 	Common.RegisterPlugin("rdp", Common.ScanPlugin{
 		Name:     "RDP",
 		Ports:    []int{3389},
