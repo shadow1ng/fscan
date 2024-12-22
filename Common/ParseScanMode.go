@@ -23,7 +23,7 @@ var pluginGroups = map[string][]string{
 		"oracle", "memcached", "elasticsearch", "rabbitmq", "kafka", "activemq", // 数据库类
 		"ftp", "ssh", "telnet", "smb", "rdp", "vnc", "netbios", "ldap", "smtp", // 服务类
 		"ms17010", "smbghost", "smb2", // 漏洞类
-		"findnet", "wmiexec", // 其他
+		"findnet", // 其他
 	},
 	ModeBasic: {
 		"web", "ftp", "ssh", "smb", "findnet",
