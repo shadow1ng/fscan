@@ -96,11 +96,17 @@ func init() {
 		Ports:    []int{25, 465, 587},
 		ScanFunc: Plugins.SmtpScan,
 	})
-	
+
 	Common.RegisterPlugin("imap", Common.ScanPlugin{
 		Name:     "IMAP",
 		Ports:    []int{143, 993}, // 143是标准端口，993是SSL端口
 		ScanFunc: Plugins.IMAPScan,
+	})
+
+	Common.RegisterPlugin("pop3", Common.ScanPlugin{
+		Name:     "POP3",
+		Ports:    []int{110, 995}, // POP3和POP3S端口
+		ScanFunc: Plugins.POP3Scan,
 	})
 
 	Common.RegisterPlugin("rdp", Common.ScanPlugin{
