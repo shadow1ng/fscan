@@ -2,6 +2,12 @@
 
 大家好，我是ZacharyZcR，很荣幸能参与Fcan的重构工作，本文档将会带您详细了解Fcan2.0的新特性。
 
+目前已经完成的新增功能：
+
+新增Telnet、VNC、Elasticsearch、RabbitMQ、Kafka、ActiveMQ、LDAP、SMTP、IMAP、POP3、SNMP、Zabbix、Modbus、Rsync、Cassandra、Neo4j扫描。
+
+新增SYN和UDP端口扫描。
+
 ## 0x01 代码结构重构
 
 代码架构经过全面重构，现已优化为四个主要模块：Common、Core、Plugins和WebScan。
