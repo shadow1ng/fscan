@@ -70,7 +70,7 @@ func executeScan(hosts []string, info Common.HostInfo, ch *chan struct{}, wg *sy
 			alivePorts = append(alivePorts, Common.HostPort...)
 			alivePorts = Common.RemoveDuplicate(alivePorts)
 			Common.HostPort = nil
-			fmt.Printf("[+] 总计存活端口: %d\n", len(alivePorts))
+			fmt.Printf("[+] 存活端口数量: %d\n", len(alivePorts))
 		}
 
 		targetInfos = prepareTargetInfos(alivePorts, info)
@@ -116,10 +116,12 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 	if plugins := Common.GetPluginsForMode(mode); plugins != nil {
 		// 预设模式下使用配置的插件组
 		pluginsToRun = plugins
+		fmt.Printf("[*] 正在加载插件组: %s\n", mode)
 	} else {
 		// 单插件模式
 		pluginsToRun = []string{mode}
 		isSinglePlugin = true
+		fmt.Printf("[*] 正在加载单插件: %s\n", mode)
 	}
 
 	// 统一处理所有目标和插件
@@ -130,12 +132,14 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 			// 获取插件信息
 			plugin, exists := Common.PluginManager[pluginName]
 			if !exists {
+				fmt.Printf("[-] 插件 %s 不存在\n", pluginName)
 				continue
 			}
 
 			// 本地扫描模式的特殊处理
 			if Common.LocalScan {
 				if len(plugin.Ports) == 0 {
+					fmt.Printf("[+] 载入插件: %s\n", pluginName)
 					AddScan(pluginName, target, ch, wg)
 				}
 				continue
@@ -143,6 +147,7 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 
 			// 单插件模式直接执行，不检查端口
 			if isSinglePlugin {
+				fmt.Printf("[+] 载入插件: %s\n", pluginName)
 				AddScan(pluginName, target, ch, wg)
 				continue
 			}
@@ -150,9 +155,11 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 			// 预设模式下的常规处理
 			if len(plugin.Ports) > 0 {
 				if plugin.HasPort(targetPort) {
+					fmt.Printf("[+] 载入插件: %s (端口: %d)\n", pluginName, targetPort)
 					AddScan(pluginName, target, ch, wg)
 				}
 			} else {
+				fmt.Printf("[+] 载入插件: %s\n", pluginName)
 				AddScan(pluginName, target, ch, wg)
 			}
 		}

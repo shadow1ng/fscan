@@ -1,8 +1,15 @@
 package Core
 
 import (
+	"encoding/binary"
 	"fmt"
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	"github.com/google/gopacket/pcap"
 	"github.com/shadow1ng/fscan/Common"
+	"golang.org/x/net/ipv4"
+	"net"
+	"runtime"
 	"sort"
 	"sync"
 	"time"
@@ -14,9 +21,9 @@ type Addr struct {
 	port int    // 端口号
 }
 
-// PortScan 执行端口扫描
 func PortScan(hostslist []string, ports string, timeout int64) []string {
 	var AliveAddress []string
+	var mu sync.Mutex // 添加互斥锁保护 AliveAddress
 
 	// 解析端口列表
 	probePorts := Common.ParsePort(ports)
@@ -33,19 +40,30 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 	addrs := make(chan Addr, 100)
 	results := make(chan string, 100)
 	var wg sync.WaitGroup
-
-	// 接收扫描结果
-	go collectResults(&AliveAddress, results, &wg)
+	var workerWg sync.WaitGroup
 
 	// 启动扫描协程
 	for i := 0; i < workers; i++ {
+		workerWg.Add(1)
 		go func() {
+			defer workerWg.Done()
 			for addr := range addrs {
 				PortConnect(addr, results, timeout, &wg)
-				wg.Done()
 			}
 		}()
 	}
+
+	// 接收扫描结果
+	var resultWg sync.WaitGroup
+	resultWg.Add(1)
+	go func() {
+		defer resultWg.Done()
+		for result := range results {
+			mu.Lock()
+			AliveAddress = append(AliveAddress, result)
+			mu.Unlock()
+		}
+	}()
 
 	// 添加扫描目标
 	for _, port := range probePorts {
@@ -55,38 +73,43 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 		}
 	}
 
-	wg.Wait()
+	// 按顺序关闭并等待
 	close(addrs)
-	close(results)
+	workerWg.Wait() // 等待所有扫描worker完成
+	wg.Wait()       // 等待所有扫描任务完成
+	close(results)  // 关闭结果通道
+	resultWg.Wait() // 等待结果处理完成
+
 	return AliveAddress
 }
 
-// collectResults 收集扫描结果
-func collectResults(aliveAddrs *[]string, results <-chan string, wg *sync.WaitGroup) {
-	for found := range results {
-		*aliveAddrs = append(*aliveAddrs, found)
-		wg.Done()
-	}
-}
-
-// PortConnect 尝试连接指定端口
 func PortConnect(addr Addr, respondingHosts chan<- string, timeout int64, wg *sync.WaitGroup) {
-	// 建立TCP连接
-	conn, err := Common.WrapperTcpWithTimeout("tcp4",
-		fmt.Sprintf("%s:%v", addr.ip, addr.port),
-		time.Duration(timeout)*time.Second)
+	defer wg.Done() // 保留 defer wg.Done()
 
-	if err != nil {
+	var isOpen bool
+	var err error
+
+	if Common.UseSynScan {
+		isOpen, err = SynScan(addr.ip, addr.port, timeout)
+	} else {
+		conn, err := Common.WrapperTcpWithTimeout("tcp4",
+			fmt.Sprintf("%s:%v", addr.ip, addr.port),
+			time.Duration(timeout)*time.Second)
+		if err == nil {
+			defer conn.Close()
+			isOpen = true
+		}
+	}
+
+	if err != nil || !isOpen {
 		return
 	}
-	defer conn.Close()
 
 	// 记录开放端口
 	address := fmt.Sprintf("%s:%d", addr.ip, addr.port)
 	result := fmt.Sprintf("[+] 端口开放 %s", address)
 	Common.LogSuccess(result)
 
-	wg.Add(1)
 	respondingHosts <- address
 }
 
@@ -133,4 +156,166 @@ func excludeNoPorts(ports []int) []int {
 	sort.Ints(newPorts)
 
 	return newPorts
+}
+
+func SynScan(ip string, port int, timeout int64) (bool, error) {
+	ifName := getInterfaceName()
+
+	sendConn, err := net.ListenPacket("ip4:tcp", "0.0.0.0")
+	if err != nil {
+		return false, fmt.Errorf("创建发送套接字失败: %v", err)
+	}
+	defer sendConn.Close()
+
+	rawConn, err := ipv4.NewRawConn(sendConn)
+	if err != nil {
+		return false, fmt.Errorf("获取原始连接失败: %v", err)
+	}
+
+	dstIP := net.ParseIP(ip)
+	if dstIP == nil {
+		return false, fmt.Errorf("无效的IP地址: %s", ip)
+	}
+
+	// 打开正确的网络接口
+	handle, err := pcap.OpenLive(ifName, 65536, true, pcap.BlockForever)
+	if err != nil {
+		// 如果失败，尝试查找可用接口
+		ifaces, err := pcap.FindAllDevs()
+		if err != nil {
+			return false, fmt.Errorf("无法找到网络接口: %v", err)
+		}
+
+		// 遍历查找可用接口
+		var found bool
+		for _, iface := range ifaces {
+			handle, err = pcap.OpenLive(iface.Name, 65536, true, pcap.BlockForever)
+			if err == nil {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return false, fmt.Errorf("无法打开任何网络接口")
+		}
+	}
+	defer handle.Close()
+
+	srcPort := 12345 + port
+	filter := fmt.Sprintf("tcp and src port %d and dst port %d", port, srcPort)
+	if err := handle.SetBPFFilter(filter); err != nil {
+		return false, fmt.Errorf("设置过滤器失败: %v", err)
+	}
+
+	tcpHeader := &ipv4.Header{
+		Version:  4,
+		Len:      20,
+		TotalLen: 40,
+		TTL:      64,
+		Protocol: 6,
+		Dst:      dstIP,
+	}
+
+	synPacket := make([]byte, 20)
+	binary.BigEndian.PutUint16(synPacket[0:2], uint16(srcPort))
+	binary.BigEndian.PutUint16(synPacket[2:4], uint16(port))
+	binary.BigEndian.PutUint32(synPacket[4:8], uint32(1))
+	binary.BigEndian.PutUint32(synPacket[8:12], uint32(0))
+	synPacket[12] = 0x50
+	synPacket[13] = 0x02
+	binary.BigEndian.PutUint16(synPacket[14:16], uint16(8192))
+	binary.BigEndian.PutUint16(synPacket[16:18], uint16(0))
+	binary.BigEndian.PutUint16(synPacket[18:20], uint16(0))
+
+	checksum := calculateTCPChecksum(synPacket, tcpHeader.Src, tcpHeader.Dst)
+	binary.BigEndian.PutUint16(synPacket[16:18], checksum)
+
+	if err := rawConn.WriteTo(tcpHeader, synPacket, nil); err != nil {
+		return false, fmt.Errorf("发送SYN包失败: %v", err)
+	}
+
+	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+	packetSource.DecodeOptions.Lazy = true
+	packetSource.NoCopy = true
+
+	timeoutChan := time.After(time.Duration(timeout) * time.Second)
+
+	for {
+		select {
+		case packet := <-packetSource.Packets():
+			tcpLayer := packet.Layer(layers.LayerTypeTCP)
+			if tcpLayer == nil {
+				continue
+			}
+
+			tcp, ok := tcpLayer.(*layers.TCP)
+			if !ok {
+				continue
+			}
+
+			if tcp.SYN && tcp.ACK {
+				return true, nil
+			}
+
+			if tcp.RST {
+				return false, nil
+			}
+
+		case <-timeoutChan:
+			return false, nil
+		}
+	}
+}
+
+// calculateTCPChecksum 计算TCP校验和
+func calculateTCPChecksum(tcpHeader []byte, srcIP, dstIP net.IP) uint16 {
+	// 创建伪首部
+	pseudoHeader := make([]byte, 12)
+	copy(pseudoHeader[0:4], srcIP.To4())
+	copy(pseudoHeader[4:8], dstIP.To4())
+	pseudoHeader[8] = 0
+	pseudoHeader[9] = 6 // TCP协议号
+	pseudoHeader[10] = byte(len(tcpHeader) >> 8)
+	pseudoHeader[11] = byte(len(tcpHeader))
+
+	// 计算校验和
+	var sum uint32
+
+	// 计算伪首部的校验和
+	for i := 0; i < len(pseudoHeader)-1; i += 2 {
+		sum += uint32(pseudoHeader[i])<<8 | uint32(pseudoHeader[i+1])
+	}
+
+	// 计算TCP头的校验和
+	for i := 0; i < len(tcpHeader)-1; i += 2 {
+		sum += uint32(tcpHeader[i])<<8 | uint32(tcpHeader[i+1])
+	}
+
+	// 如果长度为奇数，处理最后一个字节
+	if len(tcpHeader)%2 == 1 {
+		sum += uint32(tcpHeader[len(tcpHeader)-1]) << 8
+	}
+
+	// 将高16位加到低16位
+	for sum > 0xffff {
+		sum = (sum >> 16) + (sum & 0xffff)
+	}
+
+	// 取反
+	return ^uint16(sum)
+}
+
+// 获取系统对应的接口名
+func getInterfaceName() string {
+	switch runtime.GOOS {
+	case "windows":
+		return "\\Device\\NPF_Loopback"
+	case "linux":
+		return "lo"
+	case "darwin":
+		return "lo0"
+	default:
+		return "lo"
+	}
 }

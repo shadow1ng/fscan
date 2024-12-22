@@ -48,7 +48,8 @@ var (
 	// 扫描配置
 	ScanMode    string // 原Scantype
 	ThreadNum   int    // 原Threads
-	Timeout     int64  = 3
+	UseSynScan  bool
+	Timeout     int64 = 3
 	LiveTop     int
 	DisablePing bool // 原NoPing
 	UsePing     bool // 原Ping
