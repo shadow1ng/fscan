@@ -84,14 +84,19 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 }
 
 func PortConnect(addr Addr, respondingHosts chan<- string, timeout int64, wg *sync.WaitGroup) {
-	defer wg.Done() // 保留 defer wg.Done()
+	defer wg.Done()
 
 	var isOpen bool
 	var err error
 
-	if Common.UseSynScan {
+	if Common.UseUdpScan {
+		// UDP扫描
+		isOpen, err = UDPScan(addr.ip, addr.port, timeout)
+	} else if Common.UseSynScan {
+		// SYN扫描
 		isOpen, err = SynScan(addr.ip, addr.port, timeout)
 	} else {
+		// 标准TCP扫描
 		conn, err := Common.WrapperTcpWithTimeout("tcp4",
 			fmt.Sprintf("%s:%v", addr.ip, addr.port),
 			time.Duration(timeout)*time.Second)
@@ -107,7 +112,11 @@ func PortConnect(addr Addr, respondingHosts chan<- string, timeout int64, wg *sy
 
 	// 记录开放端口
 	address := fmt.Sprintf("%s:%d", addr.ip, addr.port)
-	result := fmt.Sprintf("[+] 端口开放 %s", address)
+	protocol := "TCP"
+	if Common.UseUdpScan {
+		protocol = "UDP"
+	}
+	result := fmt.Sprintf("[+] %s端口开放 %s", protocol, address)
 	Common.LogSuccess(result)
 
 	respondingHosts <- address
@@ -304,6 +313,47 @@ func calculateTCPChecksum(tcpHeader []byte, srcIP, dstIP net.IP) uint16 {
 
 	// 取反
 	return ^uint16(sum)
+}
+
+func UDPScan(ip string, port int, timeout int64) (bool, error) {
+	// 创建UDP套接字
+	sendConn, err := net.ListenPacket("udp4", "0.0.0.0:0")
+	if err != nil {
+		return false, fmt.Errorf("创建UDP套接字失败: %v", err)
+	}
+	defer sendConn.Close()
+
+	// 设置目标地址
+	dstAddr := &net.UDPAddr{
+		IP:   net.ParseIP(ip),
+		Port: port,
+	}
+
+	// 发送空包
+	_, err = sendConn.WriteTo([]byte{0x00}, dstAddr)
+	if err != nil {
+		return false, fmt.Errorf("发送UDP包失败: %v", err)
+	}
+
+	// 设置读取超时
+	sendConn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Second))
+
+	// 尝试读取响应
+	buffer := make([]byte, 65507) // UDP最大包大小
+	n, _, err := sendConn.ReadFrom(buffer)
+
+	// 如果收到ICMP不可达，说明端口关闭
+	if err != nil {
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			// 超时可能意味着端口开放但没有响应
+			return true, nil
+		}
+		// 其他错误说明端口可能关闭
+		return false, nil
+	}
+
+	// 收到响应说明端口开放
+	return n > 0, nil
 }
 
 // 获取系统对应的接口名

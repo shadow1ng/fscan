@@ -109,6 +109,12 @@ func init() {
 		ScanFunc: Plugins.POP3Scan,
 	})
 
+	Common.RegisterPlugin("snmp", Common.ScanPlugin{
+		Name:     "SNMP",
+		Ports:    []int{161, 162}, // SNMP默认端口
+		ScanFunc: Plugins.SNMPScan,
+	})
+
 	Common.RegisterPlugin("rdp", Common.ScanPlugin{
 		Name:     "RDP",
 		Ports:    []int{3389},
