@@ -133,6 +133,12 @@ func init() {
 		ScanFunc: Plugins.RsyncScan,
 	})
 
+	Common.RegisterPlugin("cassandra", Common.ScanPlugin{
+		Name:     "Cassandra",
+		Ports:    []int{9042},
+		ScanFunc: Plugins.CassandraScan,
+	})
+
 	Common.RegisterPlugin("rdp", Common.ScanPlugin{
 		Name:     "RDP",
 		Ports:    []int{3389},
