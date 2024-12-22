@@ -19,7 +19,7 @@ const (
 // 插件分类映射表 - 所有插件名使用小写
 var pluginGroups = map[string][]string{
 	ModeAll: {
-		"web", "fcgi", "tomcat", // web类
+		"web", "fcgi", // web类
 		"mysql", "mssql", "redis", "mongodb", "postgres", // 数据库类
 		"oracle", "memcached", "elasticsearch", "rabbitmq", "kafka", "activemq", // 数据库类
 		"ftp", "ssh", "telnet", "smb", "rdp", "vnc", "netbios", "ldap", "smtp", "imap", "pop3", "snmp", "zabbix", // 服务类
