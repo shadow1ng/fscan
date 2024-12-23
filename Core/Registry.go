@@ -57,7 +57,7 @@ func init() {
 
 	Common.RegisterPlugin("mysql", Common.ScanPlugin{
 		Name:     "MySQL",
-		Ports:    []int{3306, 3307}, // MySQL 可能的端口
+		Ports:    []int{3306, 3307, 13306, 33306}, // MySQL 可能的端口
 		ScanFunc: Plugins.MysqlScan,
 	})
 
@@ -147,7 +147,7 @@ func init() {
 
 	Common.RegisterPlugin("rdp", Common.ScanPlugin{
 		Name:     "RDP",
-		Ports:    []int{3389},
+		Ports:    []int{3389, 13389, 33389},
 		ScanFunc: Plugins.RdpScan,
 	})
 
@@ -165,7 +165,7 @@ func init() {
 
 	Common.RegisterPlugin("redis", Common.ScanPlugin{
 		Name:     "Redis",
-		Ports:    []int{6379, 6380}, // Redis 可能的端口
+		Ports:    []int{6379, 6380, 16379}, // Redis 可能的端口
 		ScanFunc: Plugins.RedisScan,
 	})
 
