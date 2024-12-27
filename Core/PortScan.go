@@ -91,10 +91,7 @@ func PortConnect(addr Addr, respondingHosts chan<- string, timeout int64, wg *sy
 	var isOpen bool
 	var err error
 
-	if Common.UseUdpScan {
-		// UDP扫描
-		isOpen, err = UDPScan(addr.ip, addr.port, timeout)
-	} else if Common.UseSynScan {
+	if Common.UseSynScan {
 		// SYN扫描
 		isOpen, err = SynScan(addr.ip, addr.port, timeout)
 	} else {
@@ -115,9 +112,6 @@ func PortConnect(addr Addr, respondingHosts chan<- string, timeout int64, wg *sy
 	// 记录开放端口
 	address := fmt.Sprintf("%s:%d", addr.ip, addr.port)
 	protocol := "TCP"
-	if Common.UseUdpScan {
-		protocol = "UDP"
-	}
 	result := fmt.Sprintf("[+] %s端口开放 %s", protocol, address)
 	Common.LogSuccess(result)
 

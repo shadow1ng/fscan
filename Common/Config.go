@@ -55,7 +55,6 @@ var (
 	ScanMode    string // 原Scantype
 	ThreadNum   int    // 原Threads
 	UseSynScan  bool
-	UseUdpScan  bool
 	Timeout     int64 = 3
 	LiveTop     int
 	DisablePing bool // 原NoPing

@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"syscall"
+	"unsafe"
 
 	"github.com/go-ldap/ldap/v3"
 )
@@ -656,7 +658,32 @@ func NewDomainInfo() (*DomainInfo, error) {
 	}, nil
 }
 
+// 检查是否在域环境中
+func IsInDomain() bool {
+	// 获取计算机域成员身份信息
+	var joinStatus uint32
+	var buffer uint32
+
+	ret, _, _ := syscall.NewLazyDLL("netapi32.dll").NewProc("NetGetJoinInformation").Call(
+		0,
+		uintptr(unsafe.Pointer(&joinStatus)),
+		uintptr(unsafe.Pointer(&buffer)),
+	)
+
+	if ret == 0 {
+		// 清理资源
+		syscall.NewLazyDLL("netapi32.dll").NewProc("NetApiBufferFree").Call(uintptr(buffer))
+		// 检查是否为域成员
+		return joinStatus == 3 // 3 = NetSetupDomainName 表示是域成员
+	}
+	return false
+}
+
 func DCInfoScan(info *Common.HostInfo) (err error) {
+	if !IsInDomain() {
+		return fmt.Errorf("当前系统不在域环境中")
+	}
+
 	// 创建DomainInfo实例，使用当前用户凭据
 	di, err := NewDomainInfo()
 	if err != nil {
