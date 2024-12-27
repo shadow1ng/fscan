@@ -1,3 +1,5 @@
+//go:build windows
+
 package Plugins
 
 import (
@@ -385,8 +387,8 @@ func (d *DomainInfo) GetAdminGroups() (map[string][]string, error) {
 // 获取委派信息
 func (d *DomainInfo) GetDelegation() (map[string][]string, error) {
 	delegationQueries := map[string]string{
-		"非约束委派":         "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=524288))",
-		"约束委派":           "(msDS-AllowedToDelegateTo=*)",
+		"非约束委派":     "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=524288))",
+		"约束委派":      "(msDS-AllowedToDelegateTo=*)",
 		"基于资源的约束委派": "(msDS-AllowedToActOnBehalfOfOtherIdentity=*)",
 	}
 
