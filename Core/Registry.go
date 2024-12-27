@@ -230,4 +230,16 @@ func init() {
 		Ports:    []int{}, // 本地信息收集不需要端口
 		ScanFunc: Plugins.LocalInfoScan,
 	})
+
+	Common.RegisterPlugin("dcinfo", Common.ScanPlugin{
+		Name:     "DCInfo",
+		Ports:    []int{}, // 本地信息收集不需要端口
+		ScanFunc: Plugins.DCInfoScan,
+	})
+
+	Common.RegisterPlugin("minidump", Common.ScanPlugin{
+		Name:     "MiniDump",
+		Ports:    []int{}, // 本地信息收集不需要端口
+		ScanFunc: Plugins.MiniDump,
+	})
 }
