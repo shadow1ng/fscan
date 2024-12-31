@@ -75,7 +75,7 @@ func probeWithICMP(hostslist []string, chanHosts chan string) {
 		return
 	}
 
-	Common.LogError(err)
+	Common.LogError(fmt.Sprintf("ICMP监听失败: %v", err))
 	fmt.Println("[-] 正在尝试无监听ICMP探测...")
 
 	// 尝试无监听ICMP探测
@@ -86,7 +86,7 @@ func probeWithICMP(hostslist []string, chanHosts chan string) {
 		return
 	}
 
-	Common.LogError(err)
+	Common.LogError(fmt.Sprintf("ICMP连接失败: %v", err))
 	fmt.Println("[-] 当前用户权限不足,无法发送ICMP包")
 	fmt.Println("[*] 切换为PING方式探测...")
 
@@ -266,7 +266,7 @@ func ExecCommandPing(ip string) bool {
 			return false
 		}
 	}
-	
+
 	var command *exec.Cmd
 	// 根据操作系统选择不同的ping命令
 	switch runtime.GOOS {

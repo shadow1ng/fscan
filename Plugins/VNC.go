@@ -67,7 +67,7 @@ func VncScan(info *Common.HostInfo) (tmperr error) {
 						err = result.err
 						if result.success && err == nil {
 							// 连接成功
-							successLog := fmt.Sprintf("[+] %s://%v:%v 密码: %v",
+							successLog := fmt.Sprintf("%s://%v:%v 密码: %v",
 								modename, info.Host, info.Ports, pass)
 							Common.LogSuccess(successLog)
 							resultChan <- nil
@@ -79,7 +79,7 @@ func VncScan(info *Common.HostInfo) (tmperr error) {
 
 					// 处理错误情况
 					if err != nil {
-						errlog := fmt.Sprintf("[-] %s://%v:%v 尝试密码: %v 错误: %v",
+						errlog := fmt.Sprintf("%s://%v:%v 尝试密码: %v 错误: %v",
 							modename, info.Host, info.Ports, pass, err)
 						Common.LogError(errlog)
 

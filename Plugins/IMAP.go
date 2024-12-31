@@ -84,7 +84,7 @@ func IMAPScan(info *Common.HostInfo) (tmperr error) {
 
 					// 处理错误情况
 					if err != nil {
-						errlog := fmt.Sprintf("[-] IMAP服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
+						errlog := fmt.Sprintf("IMAP服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
 							info.Host, info.Ports, task.user, task.pass, err)
 						Common.LogError(errlog)
 
@@ -175,7 +175,7 @@ func tryIMAPAuth(conn net.Conn, host string, port string, user string, pass stri
 		}
 
 		if strings.Contains(response, "a001 OK") {
-			result := fmt.Sprintf("[+] IMAP服务 %v:%v 爆破成功 用户名: %v 密码: %v",
+			result := fmt.Sprintf("IMAP服务 %v:%v 爆破成功 用户名: %v 密码: %v",
 				host, port, user, pass)
 			Common.LogSuccess(result)
 			return true, nil

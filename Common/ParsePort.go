@@ -42,7 +42,7 @@ func ParsePort(ports string) []int {
 		if strings.Contains(port, "-") {
 			ranges := strings.Split(port, "-")
 			if len(ranges) < 2 {
-				fmt.Printf("[-] 无效的端口范围格式: %s\n", port)
+				LogError(fmt.Sprintf("端口范围格式错误: %s", port))
 				continue
 			}
 
@@ -63,7 +63,7 @@ func ParsePort(ports string) []int {
 		end, _ := strconv.Atoi(upper)
 		for i := start; i <= end; i++ {
 			if i > 65535 || i < 1 {
-				fmt.Printf("[-] 忽略无效端口: %d\n", i)
+				LogError(fmt.Sprintf("忽略无效端口: %d", i))
 				continue
 			}
 			scanPorts = append(scanPorts, i)
@@ -74,17 +74,15 @@ func ParsePort(ports string) []int {
 	scanPorts = removeDuplicate(scanPorts)
 	sort.Ints(scanPorts)
 
-	fmt.Printf("[*] 共解析 %d 个有效端口\n", len(scanPorts))
+	LogInfo(fmt.Sprintf("有效端口数量: %d", len(scanPorts)))
 	return scanPorts
 }
 
 // removeDuplicate 对整数切片进行去重
 func removeDuplicate(old []int) []int {
-	// 使用map存储不重复的元素
 	temp := make(map[int]struct{})
 	var result []int
 
-	// 遍历并去重
 	for _, item := range old {
 		if _, exists := temp[item]; !exists {
 			temp[item] = struct{}{}

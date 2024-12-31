@@ -15,67 +15,86 @@ func SmbScan(info *Common.HostInfo) (tmperr error) {
 	}
 
 	threads := Common.BruteThreads
-	totalTasks := len(Common.Userdict["smb"]) * len(Common.Passwords)
-
-	taskChan := make(chan struct {
-		user string
-		pass string
-	}, totalTasks)
-
-	// 生成任务
-	for _, user := range Common.Userdict["smb"] {
-		for _, pass := range Common.Passwords {
-			pass = strings.Replace(pass, "{user}", user, -1)
-			taskChan <- struct {
-				user string
-				pass string
-			}{user, pass}
-		}
-	}
-	close(taskChan)
-
 	var wg sync.WaitGroup
 	successChan := make(chan struct{}, 1)
 
-	// 启动工作线程
-	for i := 0; i < threads; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for task := range taskChan {
-				select {
-				case <-successChan:
-					return
-				default:
-				}
+	// 按用户分组处理
+	for _, user := range Common.Userdict["smb"] {
+		taskChan := make(chan string, len(Common.Passwords))
 
-				success, err := doWithTimeOut(info, task.user, task.pass)
-				if success {
-					if Common.Domain != "" {
-						Common.LogSuccess(fmt.Sprintf("[+] SMB认证成功 %v:%v Domain:%v\\%v Pass:%v",
-							info.Host, info.Ports, Common.Domain, task.user, task.pass))
-					} else {
-						Common.LogSuccess(fmt.Sprintf("[+] SMB认证成功 %v:%v User:%v Pass:%v",
-							info.Host, info.Ports, task.user, task.pass))
+		for _, pass := range Common.Passwords {
+			pass = strings.Replace(pass, "{user}", user, -1)
+			taskChan <- pass
+		}
+		close(taskChan)
+
+		for i := 0; i < threads; i++ {
+			wg.Add(1)
+			go func(username string) {
+				defer wg.Done()
+				for pass := range taskChan {
+					select {
+					case <-successChan:
+						return
+					default:
 					}
-					successChan <- struct{}{}
-					return
+
+					success, err := doWithTimeOut(info, username, pass)
+					if success {
+						if Common.Domain != "" {
+							Common.LogSuccess(fmt.Sprintf("SMB认证成功 %s:%s %s\\%s:%s",
+								info.Host, info.Ports, Common.Domain, username, pass))
+						} else {
+							Common.LogSuccess(fmt.Sprintf("SMB认证成功 %s:%s %s:%s",
+								info.Host, info.Ports, username, pass))
+						}
+						successChan <- struct{}{}
+
+						// 成功后等待确保日志打印完成
+						time.Sleep(500 * time.Millisecond)
+						return
+					}
+
+					if err != nil {
+						Common.LogError(fmt.Sprintf("SMB认证失败 %s:%s %s:%s %v",
+							info.Host, info.Ports, username, pass, err))
+
+						// 等待失败日志打印完成
+						time.Sleep(100 * time.Millisecond)
+
+						if strings.Contains(err.Error(), "账号锁定") {
+							for range taskChan {
+								// 清空通道
+							}
+							time.Sleep(200 * time.Millisecond) // 确保锁定日志打印完成
+							return
+						}
+					}
 				}
-				if err != nil {
-					Common.LogError(fmt.Sprintf("[-] SMB认证失败 %v:%v User:%v Pass:%v Err:%v",
-						info.Host, info.Ports, task.user, task.pass, err))
-				}
-			}
-		}()
+			}(user)
+		}
+
+		wg.Wait()
+
+		select {
+		case <-successChan:
+			// 等待日志打印完成
+			time.Sleep(500 * time.Millisecond)
+			Common.LogWG.Wait()
+			return nil
+		default:
+		}
 	}
 
-	wg.Wait()
+	// 主函数结束前多等待一会
+	time.Sleep(500 * time.Millisecond)
+	Common.LogWG.Wait()
+	// 最后再等待一下，确保所有日志都打印完成
+	time.Sleep(500 * time.Millisecond)
 	return nil
 }
 
 func SmblConn(info *Common.HostInfo, user string, pass string, signal chan struct{}) (flag bool, err error) {
-	flag = false
-
 	options := smb.Options{
 		Host:        info.Host,
 		Port:        445,
@@ -89,10 +108,9 @@ func SmblConn(info *Common.HostInfo, user string, pass string, signal chan struc
 	if err == nil {
 		defer session.Close()
 		if session.IsAuthenticated {
-			flag = true
-			return flag, nil
+			return true, nil
 		}
-		return flag, fmt.Errorf("认证失败")
+		return false, fmt.Errorf("认证失败")
 	}
 
 	// 清理错误信息中的换行符和多余空格
@@ -100,24 +118,24 @@ func SmblConn(info *Common.HostInfo, user string, pass string, signal chan struc
 	if strings.Contains(errMsg, "NT Status Error") {
 		switch {
 		case strings.Contains(errMsg, "STATUS_LOGON_FAILURE"):
-			err = fmt.Errorf("用户名或密码错误")
+			err = fmt.Errorf("密码错误")
 		case strings.Contains(errMsg, "STATUS_ACCOUNT_LOCKED_OUT"):
-			err = fmt.Errorf("账号已锁定")
+			err = fmt.Errorf("账号锁定")
 		case strings.Contains(errMsg, "STATUS_ACCESS_DENIED"):
-			err = fmt.Errorf("访问被拒绝")
+			err = fmt.Errorf("拒绝访问")
 		case strings.Contains(errMsg, "STATUS_ACCOUNT_DISABLED"):
-			err = fmt.Errorf("账号已禁用")
+			err = fmt.Errorf("账号禁用")
 		case strings.Contains(errMsg, "STATUS_PASSWORD_EXPIRED"):
-			err = fmt.Errorf("密码已过期")
+			err = fmt.Errorf("密码过期")
 		case strings.Contains(errMsg, "STATUS_USER_SESSION_DELETED"):
-			return flag, fmt.Errorf("会话已断开")
+			return false, fmt.Errorf("会话断开")
 		default:
-			err = fmt.Errorf("认证失败") // 简化错误信息
+			err = fmt.Errorf("认证失败")
 		}
 	}
 
 	signal <- struct{}{}
-	return flag, err
+	return false, err
 }
 
 func doWithTimeOut(info *Common.HostInfo, user string, pass string) (flag bool, err error) {
@@ -142,7 +160,6 @@ func doWithTimeOut(info *Common.HostInfo, user string, pass string) (flag bool, 
 	case r := <-result:
 		return r.success, r.err
 	case <-time.After(time.Duration(Common.Timeout) * time.Second):
-		// 尝试从result通道读取，避免协程泄露
 		select {
 		case r := <-result:
 			return r.success, r.err

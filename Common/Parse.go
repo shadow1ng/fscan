@@ -19,7 +19,7 @@ func Parse(Info *HostInfo) error {
 	return nil
 }
 
-// ParseUser 解析用户名配置,支持直接指定用户名列表或从文件读取
+// ParseUser 解析用户名配置
 func ParseUser() error {
 	// 如果未指定用户名和用户名文件,直接返回
 	if Username == "" && UsersFile == "" {
@@ -31,7 +31,7 @@ func ParseUser() error {
 	// 处理直接指定的用户名列表
 	if Username != "" {
 		usernames = strings.Split(Username, ",")
-		fmt.Printf("[*] 已加载直接指定的用户名: %d 个\n", len(usernames))
+		LogInfo(fmt.Sprintf("加载用户名: %d 个", len(usernames)))
 	}
 
 	// 从文件加载用户名列表
@@ -47,12 +47,12 @@ func ParseUser() error {
 				usernames = append(usernames, user)
 			}
 		}
-		fmt.Printf("[*] 已从文件加载用户名: %d 个\n", len(users))
+		LogInfo(fmt.Sprintf("从文件加载用户名: %d 个", len(users)))
 	}
 
 	// 去重处理
 	usernames = RemoveDuplicate(usernames)
-	fmt.Printf("[*] 去重后用户名总数: %d 个\n", len(usernames))
+	LogInfo(fmt.Sprintf("用户名总数: %d 个", len(usernames)))
 
 	// 更新用户字典
 	for name := range Userdict {
@@ -74,7 +74,7 @@ func ParsePass(Info *HostInfo) error {
 			}
 		}
 		Passwords = pwdList
-		fmt.Printf("[*] 已加载直接指定的密码: %d 个\n", len(pwdList))
+		LogInfo(fmt.Sprintf("加载密码: %d 个", len(pwdList)))
 	}
 
 	// 从文件加载密码列表
@@ -89,7 +89,7 @@ func ParsePass(Info *HostInfo) error {
 			}
 		}
 		Passwords = pwdList
-		fmt.Printf("[*] 已从文件加载密码: %d 个\n", len(passes))
+		LogInfo(fmt.Sprintf("从文件加载密码: %d 个", len(passes)))
 	}
 
 	// 处理哈希文件
@@ -108,10 +108,10 @@ func ParsePass(Info *HostInfo) error {
 				HashValues = append(HashValues, line)
 				validCount++
 			} else {
-				fmt.Printf("[-] 无效的哈希值(长度!=32): %s\n", line)
+				LogError(fmt.Sprintf("无效的哈希值: %s (长度!=32)", line))
 			}
 		}
-		fmt.Printf("[*] 已加载有效哈希值: %d 个\n", validCount)
+		LogInfo(fmt.Sprintf("加载有效哈希值: %d 个", validCount))
 	}
 
 	// 处理直接指定的URL列表
@@ -126,7 +126,7 @@ func ParsePass(Info *HostInfo) error {
 				}
 			}
 		}
-		fmt.Printf("[*] 已加载直接指定的URL: %d 个\n", len(URLs))
+		LogInfo(fmt.Sprintf("加载URL: %d 个", len(URLs)))
 	}
 
 	// 从文件加载URL列表
@@ -145,7 +145,7 @@ func ParsePass(Info *HostInfo) error {
 				}
 			}
 		}
-		fmt.Printf("[*] 已从文件加载URL: %d 个\n", len(urls))
+		LogInfo(fmt.Sprintf("从文件加载URL: %d 个", len(urls)))
 	}
 
 	// 从文件加载端口列表
@@ -163,7 +163,7 @@ func ParsePass(Info *HostInfo) error {
 			}
 		}
 		Ports = newport.String()
-		fmt.Printf("[*] 已从文件加载端口配置\n")
+		LogInfo("从文件加载端口配置")
 	}
 
 	return nil
@@ -174,7 +174,7 @@ func Readfile(filename string) ([]string, error) {
 	// 打开文件
 	file, err := os.Open(filename)
 	if err != nil {
-		fmt.Printf("[-] 打开文件 %s 失败: %v\n", filename, err)
+		LogError(fmt.Sprintf("打开文件失败 %s: %v", filename, err))
 		return nil, err
 	}
 	defer file.Close()
@@ -195,11 +195,11 @@ func Readfile(filename string) ([]string, error) {
 
 	// 检查扫描过程中是否有错误
 	if err := scanner.Err(); err != nil {
-		fmt.Printf("[- 读取文件 %s 时出错: %v\n", filename, err)
+		LogError(fmt.Sprintf("读取文件错误 %s: %v", filename, err))
 		return nil, err
 	}
 
-	fmt.Printf("[*] 成功读取文件 %s: %d 行\n", filename, lineCount)
+	LogInfo(fmt.Sprintf("读取文件成功 %s: %d 行", filename, lineCount))
 	return content, nil
 }
 
@@ -207,25 +207,25 @@ func Readfile(filename string) ([]string, error) {
 func ParseInput(Info *HostInfo) error {
 	// 检查必要的目标参数
 	if Info.Host == "" && HostsFile == "" && TargetURL == "" && URLsFile == "" {
-		fmt.Println("[-] 未指定扫描目标")
+		LogError("未指定扫描目标")
 		flag.Usage()
 		return fmt.Errorf("必须指定扫描目标")
 	}
 
 	// 如果是本地扫描模式，输出提示
 	if LocalScan {
-		fmt.Println("[*] 已启用本地扫描模式")
+		LogInfo("已启用本地扫描模式")
 	}
 
 	// 配置基本参数
 	if BruteThreads <= 0 {
 		BruteThreads = 1
-		fmt.Printf("[*] 已将暴力破解线程数设置为: %d\n", BruteThreads)
+		LogInfo(fmt.Sprintf("暴力破解线程数: %d", BruteThreads))
 	}
 
 	if DisableSave {
 		IsSave = false
-		fmt.Println("[*] 已启用临时保存模式")
+		LogInfo("已启用临时保存模式")
 	}
 
 	// 处理端口配置
@@ -239,7 +239,7 @@ func ParseInput(Info *HostInfo) error {
 		} else {
 			Ports += "," + AddPorts
 		}
-		fmt.Printf("[*] 已添加额外端口: %s\n", AddPorts)
+		LogInfo(fmt.Sprintf("额外端口: %s", AddPorts))
 	}
 
 	// 处理用户名配置
@@ -249,7 +249,7 @@ func ParseInput(Info *HostInfo) error {
 			Userdict[dict] = append(Userdict[dict], users...)
 			Userdict[dict] = RemoveDuplicate(Userdict[dict])
 		}
-		fmt.Printf("[*] 已添加额外用户名: %s\n", AddUsers)
+		LogInfo(fmt.Sprintf("额外用户名: %s", AddUsers))
 	}
 
 	// 处理密码配置
@@ -257,7 +257,7 @@ func ParseInput(Info *HostInfo) error {
 		passes := strings.Split(AddPasswords, ",")
 		Passwords = append(Passwords, passes...)
 		Passwords = RemoveDuplicate(Passwords)
-		fmt.Printf("[*] 已添加额外密码: %s\n", AddPasswords)
+		LogInfo(fmt.Sprintf("额外密码: %s", AddPasswords))
 	}
 
 	// 处理Socks5代理配置
@@ -275,7 +275,7 @@ func ParseInput(Info *HostInfo) error {
 			return fmt.Errorf("Socks5代理格式错误: %v", err)
 		}
 		DisablePing = true
-		fmt.Printf("[*] 使用Socks5代理: %s\n", Socks5Proxy)
+		LogInfo(fmt.Sprintf("Socks5代理: %s", Socks5Proxy))
 	}
 
 	// 处理HTTP代理配置
@@ -299,7 +299,7 @@ func ParseInput(Info *HostInfo) error {
 		if err != nil {
 			return fmt.Errorf("代理格式错误: %v", err)
 		}
-		fmt.Printf("[*] 使用代理: %s\n", HttpProxy)
+		LogInfo(fmt.Sprintf("HTTP代理: %s", HttpProxy))
 	}
 
 	// 处理Hash配置
@@ -315,7 +315,7 @@ func ParseInput(Info *HostInfo) error {
 	for _, hash := range HashValues {
 		hashByte, err := hex.DecodeString(hash)
 		if err != nil {
-			fmt.Printf("[-] Hash解码失败: %s\n", hash)
+			LogError(fmt.Sprintf("Hash解码失败: %s", hash))
 			continue
 		}
 		HashBytes = append(HashBytes, hashByte)

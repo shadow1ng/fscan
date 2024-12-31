@@ -15,7 +15,7 @@ func MongodbScan(info *Common.HostInfo) error {
 
 	_, err := MongodbUnauth(info)
 	if err != nil {
-		errlog := fmt.Sprintf("[-] MongoDB %v:%v %v", info.Host, info.Ports, err)
+		errlog := fmt.Sprintf("MongoDB %v:%v %v", info.Host, info.Ports, err)
 		Common.LogError(errlog)
 	}
 	return err
@@ -41,7 +41,7 @@ func MongodbUnauth(info *Common.HostInfo) (bool, error) {
 
 	// 检查响应结果
 	if strings.Contains(reply, "totalLinesWritten") {
-		result := fmt.Sprintf("[+] MongoDB %v 未授权访问", realhost)
+		result := fmt.Sprintf("MongoDB %v 未授权访问", realhost)
 		Common.LogSuccess(result)
 		return true, nil
 	}

@@ -91,7 +91,7 @@ func MysqlScan(info *Common.HostInfo) (tmperr error) {
 							// 连接成功
 							select {
 							case successChan <- struct{}{}: // 标记成功
-								successLog := fmt.Sprintf("[+] MySQL %v:%v %v %v",
+								successLog := fmt.Sprintf("MySQL %v:%v %v %v",
 									info.Host, info.Ports, task.user, task.pass)
 								Common.LogSuccess(successLog)
 							default:
@@ -105,7 +105,7 @@ func MysqlScan(info *Common.HostInfo) (tmperr error) {
 
 					// 处理错误情况
 					if err != nil {
-						errlog := fmt.Sprintf("[-] MySQL %v:%v %v %v %v",
+						errlog := fmt.Sprintf("MySQL %v:%v %v %v %v",
 							info.Host, info.Ports, task.user, task.pass, err)
 						Common.LogError(errlog)
 

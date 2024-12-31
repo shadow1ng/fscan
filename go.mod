@@ -8,7 +8,7 @@ require (
 	github.com/IBM/sarama v1.43.3
 	github.com/Ullaakut/nmap v2.0.2+incompatible
 	github.com/denisenkom/go-mssqldb v0.12.3
-	github.com/fatih/color v1.7.0
+	github.com/fatih/color v1.18.0
 	github.com/go-ldap/ldap/v3 v3.4.9
 	github.com/go-ole/go-ole v1.3.0
 	github.com/go-resty/resty/v2 v2.16.2
@@ -66,8 +66,8 @@ require (
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40 // indirect
-	github.com/mattn/go-colorable v0.0.9 // indirect
-	github.com/mattn/go-isatty v0.0.3 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pierrec/lz4/v4 v4.1.21 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/rogpeppe/go-internal v1.13.1 // indirect

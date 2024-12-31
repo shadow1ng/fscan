@@ -71,7 +71,7 @@ func SshScan(info *Common.HostInfo) (tmperr error) {
 					}
 
 					if err != nil {
-						errlog := fmt.Sprintf("[-] SSH认证失败 %v:%v User:%v Pass:%v Err:%v",
+						errlog := fmt.Sprintf("SSH认证失败 %v:%v User:%v Pass:%v Err:%v",
 							info.Host, info.Ports, task.user, task.pass, err)
 						Common.LogError(errlog)
 
@@ -120,12 +120,12 @@ func SshConn(info *Common.HostInfo, user string, pass string) (flag bool, err er
 	if Common.SshKeyPath != "" {
 		pemBytes, err := ioutil.ReadFile(Common.SshKeyPath)
 		if err != nil {
-			return false, fmt.Errorf("[-] 读取密钥失败: %v", err)
+			return false, fmt.Errorf("读取密钥失败: %v", err)
 		}
 
 		signer, err := ssh.ParsePrivateKey(pemBytes)
 		if err != nil {
-			return false, fmt.Errorf("[-] 解析密钥失败: %v", err)
+			return false, fmt.Errorf("解析密钥失败: %v", err)
 		}
 		auth = []ssh.AuthMethod{ssh.PublicKeys(signer)}
 	} else {
@@ -161,18 +161,18 @@ func SshConn(info *Common.HostInfo, user string, pass string) (flag bool, err er
 			return true, err
 		}
 		if Common.SshKeyPath != "" {
-			Common.LogSuccess(fmt.Sprintf("[+] SSH密钥认证成功 %v:%v\n命令输出:\n%v",
+			Common.LogSuccess(fmt.Sprintf("SSH密钥认证成功 %v:%v\n命令输出:\n%v",
 				info.Host, info.Ports, string(output)))
 		} else {
-			Common.LogSuccess(fmt.Sprintf("[+] SSH认证成功 %v:%v User:%v Pass:%v\n命令输出:\n%v",
+			Common.LogSuccess(fmt.Sprintf("SSH认证成功 %v:%v User:%v Pass:%v\n命令输出:\n%v",
 				info.Host, info.Ports, user, pass, string(output)))
 		}
 	} else {
 		if Common.SshKeyPath != "" {
-			Common.LogSuccess(fmt.Sprintf("[+] SSH密钥认证成功 %v:%v",
+			Common.LogSuccess(fmt.Sprintf("SSH密钥认证成功 %v:%v",
 				info.Host, info.Ports))
 		} else {
-			Common.LogSuccess(fmt.Sprintf("[+] SSH认证成功 %v:%v User:%v Pass:%v",
+			Common.LogSuccess(fmt.Sprintf("SSH认证成功 %v:%v User:%v Pass:%v",
 				info.Host, info.Ports, user, pass))
 		}
 	}

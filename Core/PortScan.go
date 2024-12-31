@@ -3,13 +3,11 @@ package Core
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/Ullaakut/nmap"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"github.com/shadow1ng/fscan/Common"
 	"golang.org/x/net/ipv4"
-	"log"
 	"net"
 	"runtime"
 	"sort"
@@ -25,12 +23,12 @@ type Addr struct {
 
 func PortScan(hostslist []string, ports string, timeout int64) []string {
 	var AliveAddress []string
-	var mu sync.Mutex // 添加互斥锁保护 AliveAddress
+	var mu sync.Mutex
 
 	// 解析端口列表
 	probePorts := Common.ParsePort(ports)
 	if len(probePorts) == 0 {
-		fmt.Printf("[-] 端口格式错误: %s, 请检查端口格式\n", ports)
+		Common.LogError(fmt.Sprintf("端口格式错误: %s", ports))
 		return AliveAddress
 	}
 
@@ -75,12 +73,11 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 		}
 	}
 
-	// 按顺序关闭并等待
 	close(addrs)
-	workerWg.Wait() // 等待所有扫描worker完成
-	wg.Wait()       // 等待所有扫描任务完成
-	close(results)  // 关闭结果通道
-	resultWg.Wait() // 等待结果处理完成
+	workerWg.Wait()
+	wg.Wait()
+	close(results)
+	resultWg.Wait()
 
 	return AliveAddress
 }
@@ -111,10 +108,7 @@ func PortConnect(addr Addr, respondingHosts chan<- string, timeout int64, wg *sy
 
 	// 记录开放端口
 	address := fmt.Sprintf("%s:%d", addr.ip, addr.port)
-	protocol := "TCP"
-	result := fmt.Sprintf("[+] %s端口开放 %s", protocol, address)
-	Common.LogSuccess(result)
-
+	Common.LogSuccess(fmt.Sprintf("端口开放 %s", address))
 	respondingHosts <- address
 }
 
@@ -168,30 +162,27 @@ func SynScan(ip string, port int, timeout int64) (bool, error) {
 
 	sendConn, err := net.ListenPacket("ip4:tcp", "0.0.0.0")
 	if err != nil {
-		return false, fmt.Errorf("创建发送套接字失败: %v", err)
+		return false, fmt.Errorf("发送套接字错误: %v", err)
 	}
 	defer sendConn.Close()
 
 	rawConn, err := ipv4.NewRawConn(sendConn)
 	if err != nil {
-		return false, fmt.Errorf("获取原始连接失败: %v", err)
+		return false, fmt.Errorf("原始连接错误: %v", err)
 	}
 
 	dstIP := net.ParseIP(ip)
 	if dstIP == nil {
-		return false, fmt.Errorf("无效的IP地址: %s", ip)
+		return false, fmt.Errorf("IP地址无效: %s", ip)
 	}
 
-	// 打开正确的网络接口
 	handle, err := pcap.OpenLive(ifName, 65536, true, pcap.BlockForever)
 	if err != nil {
-		// 如果失败，尝试查找可用接口
 		ifaces, err := pcap.FindAllDevs()
 		if err != nil {
-			return false, fmt.Errorf("无法找到网络接口: %v", err)
+			return false, fmt.Errorf("网络接口错误: %v", err)
 		}
 
-		// 遍历查找可用接口
 		var found bool
 		for _, iface := range ifaces {
 			handle, err = pcap.OpenLive(iface.Name, 65536, true, pcap.BlockForever)
@@ -202,7 +193,7 @@ func SynScan(ip string, port int, timeout int64) (bool, error) {
 		}
 
 		if !found {
-			return false, fmt.Errorf("无法打开任何网络接口")
+			return false, fmt.Errorf("未找到可用网络接口")
 		}
 	}
 	defer handle.Close()
@@ -210,9 +201,10 @@ func SynScan(ip string, port int, timeout int64) (bool, error) {
 	srcPort := 12345 + port
 	filter := fmt.Sprintf("tcp and src port %d and dst port %d", port, srcPort)
 	if err := handle.SetBPFFilter(filter); err != nil {
-		return false, fmt.Errorf("设置过滤器失败: %v", err)
+		return false, fmt.Errorf("过滤器错误: %v", err)
 	}
 
+	// TCP头部设置保持不变
 	tcpHeader := &ipv4.Header{
 		Version:  4,
 		Len:      20,
@@ -222,6 +214,7 @@ func SynScan(ip string, port int, timeout int64) (bool, error) {
 		Dst:      dstIP,
 	}
 
+	// SYN包构造保持不变
 	synPacket := make([]byte, 20)
 	binary.BigEndian.PutUint16(synPacket[0:2], uint16(srcPort))
 	binary.BigEndian.PutUint16(synPacket[2:4], uint16(port))
@@ -237,7 +230,7 @@ func SynScan(ip string, port int, timeout int64) (bool, error) {
 	binary.BigEndian.PutUint16(synPacket[16:18], checksum)
 
 	if err := rawConn.WriteTo(tcpHeader, synPacket, nil); err != nil {
-		return false, fmt.Errorf("发送SYN包失败: %v", err)
+		return false, fmt.Errorf("SYN包发送错误: %v", err)
 	}
 
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
@@ -309,43 +302,6 @@ func calculateTCPChecksum(tcpHeader []byte, srcIP, dstIP net.IP) uint16 {
 
 	// 取反
 	return ^uint16(sum)
-}
-
-func UDPScan(ip string, port int, timeout int64) (bool, error) {
-	// 构造端口字符串
-	portStr := fmt.Sprintf("%d", port)
-
-	// 配置nmap扫描
-	scanner, err := nmap.NewScanner(
-		nmap.WithTargets(ip),
-		nmap.WithPorts(portStr),
-		nmap.WithUDPScan(),
-		nmap.WithTimingTemplate(nmap.TimingAggressive),
-	)
-	if err != nil {
-		return false, fmt.Errorf("创建扫描器失败: %v", err)
-	}
-
-	// 执行扫描
-	result, warnings, err := scanner.Run()
-	if err != nil {
-		return false, fmt.Errorf("扫描执行失败: %v", err)
-	}
-	if warnings != nil {
-		log.Printf("扫描警告: %v", warnings)
-	}
-
-	// 检查结果
-	for _, host := range result.Hosts {
-		for _, p := range host.Ports {
-			if int(p.ID) == port &&
-				(p.State.State == "open" || p.State.State == "open|filtered") {
-				return true, nil
-			}
-		}
-	}
-
-	return false, nil
 }
 
 // 获取系统对应的接口名

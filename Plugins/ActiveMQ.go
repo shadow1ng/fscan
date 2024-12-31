@@ -100,7 +100,7 @@ func ActiveMQScan(info *Common.HostInfo) (tmperr error) {
 					}
 
 					if err != nil {
-						errlog := fmt.Sprintf("[-] ActiveMQ服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
+						errlog := fmt.Sprintf("ActiveMQ服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
 							info.Host, info.Ports, task.user, task.pass, err)
 						Common.LogError(errlog)
 

@@ -82,7 +82,7 @@ func MssqlScan(info *Common.HostInfo) (tmperr error) {
 					}
 
 					if err != nil {
-						errlog := fmt.Sprintf("[-] MSSQL %v:%v %v %v %v",
+						errlog := fmt.Sprintf("MSSQL %v:%v %v %v %v",
 							info.Host, info.Ports, task.user, task.pass, err)
 						Common.LogError(errlog)
 

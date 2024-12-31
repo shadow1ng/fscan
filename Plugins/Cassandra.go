@@ -98,7 +98,7 @@ func CassandraScan(info *Common.HostInfo) (tmperr error) {
 
 					// 处理错误情况
 					if err != nil {
-						errlog := fmt.Sprintf("[-] Cassandra服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
+						errlog := fmt.Sprintf("Cassandra服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
 							info.Host, info.Ports, task.user, task.pass, err)
 						Common.LogError(errlog)
 
@@ -172,7 +172,7 @@ func CassandraConn(info *Common.HostInfo, user string, pass string) (bool, error
 		}
 	}
 
-	result := fmt.Sprintf("[+] Cassandra服务 %v:%v ", host, port)
+	result := fmt.Sprintf("Cassandra服务 %v:%v ", host, port)
 	if user != "" {
 		result += fmt.Sprintf("爆破成功 用户名: %v 密码: %v", user, pass)
 	} else {

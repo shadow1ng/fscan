@@ -27,190 +27,155 @@ func SmbScan2(info *Common.HostInfo) (tmperr error) {
 	return smbPasswordScan(info)
 }
 
-// smbHashScan 使用哈希进行认证扫描
-func smbHashScan(info *Common.HostInfo) error {
-	maxRetries := Common.MaxRetries
-	threads := Common.BruteThreads
-	hasprint := false
-
-	// 创建任务通道
-	taskChan := make(chan struct {
-		user string
-		hash []byte
-	}, len(Common.Userdict["smb"])*len(Common.HashBytes))
-
-	resultChan := make(chan error, threads)
-
-	// 生成所有用户名和哈希组合任务
-	for _, user := range Common.Userdict["smb"] {
-		for _, hash := range Common.HashBytes {
-			taskChan <- struct {
-				user string
-				hash []byte
-			}{user, hash}
-		}
+// smbPasswordScan 使用密码进行认证扫描
+func smbPasswordScan(info *Common.HostInfo) error {
+	if Common.DisableBrute {
+		return nil
 	}
-	close(taskChan)
 
-	// 启动工作线程
+	threads := Common.BruteThreads
+
 	var wg sync.WaitGroup
+	successChan := make(chan struct{}, 1)
+	hasprint := false
 	var hasPrintMutex sync.Mutex
 
-	for i := 0; i < threads; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			startTime := time.Now().Unix()
+	// 改成按用户分组处理
+	for _, user := range Common.Userdict["smb"] {
+		// 为每个用户创建密码任务通道
+		taskChan := make(chan string, len(Common.Passwords))
 
-			for task := range taskChan {
-				// 重试循环
-				for retryCount := 0; retryCount < maxRetries; retryCount++ {
-					// 检查是否超时
-					if time.Now().Unix()-startTime > int64(Common.Timeout) {
-						resultChan <- fmt.Errorf("扫描超时")
+		// 生成该用户的所有密码任务
+		for _, pass := range Common.Passwords {
+			pass = strings.ReplaceAll(pass, "{user}", user)
+			taskChan <- pass
+		}
+		close(taskChan)
+
+		// 启动工作线程
+		for i := 0; i < threads; i++ {
+			wg.Add(1)
+			go func(username string) {
+				defer wg.Done()
+
+				for pass := range taskChan {
+					select {
+					case <-successChan:
 						return
+					default:
+						time.Sleep(100 * time.Millisecond)
 					}
 
-					// 执行SMB2认证
-					done := make(chan struct {
-						success bool
-						err     error
-						printed bool
-					})
-
-					go func(user string, hash []byte) {
+					// 重试循环
+					for retryCount := 0; retryCount < Common.MaxRetries; retryCount++ {
 						hasPrintMutex.Lock()
 						currentHasPrint := hasprint
 						hasPrintMutex.Unlock()
 
-						success, err, printed := Smb2Con(info, user, "", hash, currentHasPrint)
+						success, err, printed := Smb2Con(info, username, pass, []byte{}, currentHasPrint)
 
 						if printed {
 							hasPrintMutex.Lock()
 							hasprint = true
 							hasPrintMutex.Unlock()
+							time.Sleep(100 * time.Millisecond)
 						}
 
-						done <- struct {
-							success bool
-							err     error
-							printed bool
-						}{success, err, printed}
-					}(task.user, task.hash)
-
-					// 等待结果或超时
-					select {
-					case result := <-done:
-						if result.success {
-							logSuccessfulAuth(info, task.user, "", task.hash)
-							resultChan <- nil
+						if success {
+							logSuccessfulAuth(info, username, pass, []byte{})
+							time.Sleep(100 * time.Millisecond)
+							successChan <- struct{}{}
 							return
 						}
 
-						if result.err != nil {
-							logFailedAuth(info, task.user, "", task.hash, result.err)
+						if err != nil {
+							logFailedAuth(info, username, pass, []byte{}, err)
+							time.Sleep(100 * time.Millisecond)
 
-							// 检查是否需要重试
-							if retryErr := Common.CheckErrs(result.err); retryErr != nil {
-								if retryCount == maxRetries-1 {
-									resultChan <- result.err
-									return
+							// 检查是否账户锁定
+							if strings.Contains(err.Error(), "user account has been automatically locked") {
+								// 发现账户锁定，清空任务通道并返回
+								for range taskChan {
+									// 清空通道
 								}
-								continue // 继续重试
+								return
+							}
+
+							// 其他登录失败情况
+							if strings.Contains(err.Error(), "LOGIN_FAILED") ||
+								strings.Contains(err.Error(), "Authentication failed") ||
+								strings.Contains(err.Error(), "attempted logon is invalid") ||
+								strings.Contains(err.Error(), "bad username or authentication") {
+								break
+							}
+
+							if retryCount < Common.MaxRetries-1 {
+								time.Sleep(time.Second * time.Duration(retryCount+2))
+								continue
 							}
 						}
-
-					case <-time.After(time.Duration(Common.Timeout) * time.Second):
-						logFailedAuth(info, task.user, "", task.hash, fmt.Errorf("连接超时"))
+						break
 					}
-
-					break // 如果不需要重试，跳出重试循环
 				}
+			}(user)
+		}
 
-				if len(Common.HashValue) > 0 {
-					break
-				}
-			}
-			resultChan <- nil
-		}()
-	}
+		wg.Wait() // 等待当前用户的所有密码尝试完成
 
-	// 等待所有线程完成
-	go func() {
-		wg.Wait()
-		close(resultChan)
-	}()
-
-	// 检查结果
-	for err := range resultChan {
-		if err != nil {
-			if retryErr := Common.CheckErrs(err); retryErr != nil {
-				return err
-			}
+		// 检查是否已经找到正确密码
+		select {
+		case <-successChan:
+			return nil
+		default:
 		}
 	}
 
+	time.Sleep(200 * time.Millisecond)
 	return nil
 }
 
-// smbPasswordScan 使用密码进行认证扫描
-func smbPasswordScan(info *Common.HostInfo) error {
-	maxRetries := Common.MaxRetries
-	threads := Common.BruteThreads
-	hasprint := false
-
-	// 创建任务通道
-	taskChan := make(chan struct {
-		user string
-		pass string
-	}, len(Common.Userdict["smb"])*len(Common.Passwords))
-
-	resultChan := make(chan error, threads)
-
-	// 生成所有用户名密码组合任务
-	for _, user := range Common.Userdict["smb"] {
-		for _, pass := range Common.Passwords {
-			pass = strings.ReplaceAll(pass, "{user}", user)
-			taskChan <- struct {
-				user string
-				pass string
-			}{user, pass}
-		}
+func smbHashScan(info *Common.HostInfo) error {
+	if Common.DisableBrute {
+		return nil
 	}
-	close(taskChan)
 
-	// 启动工作线程
+	threads := Common.BruteThreads
 	var wg sync.WaitGroup
+	successChan := make(chan struct{}, 1)
+	hasprint := false
 	var hasPrintMutex sync.Mutex
 
-	for i := 0; i < threads; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			startTime := time.Now().Unix()
+	// 按用户分组处理
+	for _, user := range Common.Userdict["smb"] {
+		// 为每个用户创建hash任务通道
+		taskChan := make(chan []byte, len(Common.HashBytes))
 
-			for task := range taskChan {
-				// 重试循环
-				for retryCount := 0; retryCount < maxRetries; retryCount++ {
-					// 检查是否超时
-					if time.Now().Unix()-startTime > int64(Common.Timeout) {
-						resultChan <- fmt.Errorf("扫描超时")
+		// 生成该用户的所有hash任务
+		for _, hash := range Common.HashBytes {
+			taskChan <- hash
+		}
+		close(taskChan)
+
+		// 启动工作线程
+		for i := 0; i < threads; i++ {
+			wg.Add(1)
+			go func(username string) {
+				defer wg.Done()
+
+				for hash := range taskChan {
+					select {
+					case <-successChan:
 						return
+					default:
 					}
 
-					// 执行SMB2认证
-					done := make(chan struct {
-						success bool
-						err     error
-						printed bool
-					})
-
-					go func(user, pass string) {
+					// 重试循环
+					for retryCount := 0; retryCount < Common.MaxRetries; retryCount++ {
 						hasPrintMutex.Lock()
 						currentHasPrint := hasprint
 						hasPrintMutex.Unlock()
 
-						success, err, printed := Smb2Con(info, user, pass, []byte{}, currentHasPrint)
+						success, err, printed := Smb2Con(info, username, "", hash, currentHasPrint)
 
 						if printed {
 							hasPrintMutex.Lock()
@@ -218,62 +183,50 @@ func smbPasswordScan(info *Common.HostInfo) error {
 							hasPrintMutex.Unlock()
 						}
 
-						done <- struct {
-							success bool
-							err     error
-							printed bool
-						}{success, err, printed}
-					}(task.user, task.pass)
-
-					// 等待结果或超时
-					select {
-					case result := <-done:
-						if result.success {
-							logSuccessfulAuth(info, task.user, task.pass, []byte{})
-							resultChan <- nil
+						if success {
+							logSuccessfulAuth(info, username, "", hash)
+							successChan <- struct{}{}
 							return
 						}
 
-						if result.err != nil {
-							logFailedAuth(info, task.user, task.pass, []byte{}, result.err)
+						if err != nil {
+							logFailedAuth(info, username, "", hash, err)
 
-							// 检查是否需要重试
-							if retryErr := Common.CheckErrs(result.err); retryErr != nil {
-								if retryCount == maxRetries-1 {
-									resultChan <- result.err
-									return
+							// 检查是否账户锁定
+							if strings.Contains(err.Error(), "user account has been automatically locked") {
+								// 发现账户锁定，清空任务通道并返回
+								for range taskChan {
+									// 清空通道
 								}
-								continue // 继续重试
+								return
+							}
+
+							// 其他登录失败情况
+							if strings.Contains(err.Error(), "LOGIN_FAILED") ||
+								strings.Contains(err.Error(), "Authentication failed") ||
+								strings.Contains(err.Error(), "attempted logon is invalid") ||
+								strings.Contains(err.Error(), "bad username or authentication") {
+								break
+							}
+
+							if retryCount < Common.MaxRetries-1 {
+								time.Sleep(time.Second * time.Duration(retryCount+1))
+								continue
 							}
 						}
-
-					case <-time.After(time.Duration(Common.Timeout) * time.Second):
-						logFailedAuth(info, task.user, task.pass, []byte{}, fmt.Errorf("连接超时"))
+						break
 					}
-
-					break // 如果不需要重试，跳出重试循环
 				}
+			}(user)
+		}
 
-				if len(Common.HashValue) > 0 {
-					break
-				}
-			}
-			resultChan <- nil
-		}()
-	}
+		wg.Wait() // 等待当前用户的所有hash尝试完成
 
-	// 等待所有线程完成
-	go func() {
-		wg.Wait()
-		close(resultChan)
-	}()
-
-	// 检查结果
-	for err := range resultChan {
-		if err != nil {
-			if retryErr := Common.CheckErrs(err); retryErr != nil {
-				return err
-			}
+		// 检查是否已经找到正确凭据
+		select {
+		case <-successChan:
+			return nil
+		default:
 		}
 	}
 
@@ -284,17 +237,17 @@ func smbPasswordScan(info *Common.HostInfo) error {
 func logSuccessfulAuth(info *Common.HostInfo, user, pass string, hash []byte) {
 	var result string
 	if Common.Domain != "" {
-		result = fmt.Sprintf("[+] SMB2认证成功 %v:%v Domain:%v\\%v ",
+		result = fmt.Sprintf("SMB2认证成功 %s:%s %s\\%s",
 			info.Host, info.Ports, Common.Domain, user)
 	} else {
-		result = fmt.Sprintf("[+] SMB2认证成功 %v:%v User:%v ",
+		result = fmt.Sprintf("SMB2认证成功 %s:%s %s",
 			info.Host, info.Ports, user)
 	}
 
 	if len(hash) > 0 {
-		result += fmt.Sprintf("HashValue:%v", Common.HashValue)
+		result += fmt.Sprintf(" Hash:%s", Common.HashValue)
 	} else {
-		result += fmt.Sprintf("Pass:%v", pass)
+		result += fmt.Sprintf(" Pass:%s", pass)
 	}
 	Common.LogSuccess(result)
 }
@@ -303,10 +256,10 @@ func logSuccessfulAuth(info *Common.HostInfo, user, pass string, hash []byte) {
 func logFailedAuth(info *Common.HostInfo, user, pass string, hash []byte, err error) {
 	var errlog string
 	if len(hash) > 0 {
-		errlog = fmt.Sprintf("[-] SMB2认证失败 %v:%v User:%v HashValue:%v Err:%v",
+		errlog = fmt.Sprintf("SMB2认证失败 %s:%s %s Hash:%s %v",
 			info.Host, info.Ports, user, Common.HashValue, err)
 	} else {
-		errlog = fmt.Sprintf("[-] SMB2认证失败 %v:%v User:%v Pass:%v Err:%v",
+		errlog = fmt.Sprintf("SMB2认证失败 %s:%s %s:%s %v",
 			info.Host, info.Ports, user, pass, err)
 	}
 	errlog = strings.ReplaceAll(errlog, "\n", " ")
@@ -379,24 +332,20 @@ func Smb2Con(info *Common.HostInfo, user string, pass string, hash []byte, haspr
 // logShareInfo 记录SMB共享信息
 func logShareInfo(info *Common.HostInfo, user string, pass string, hash []byte, shares []string) {
 	var result string
-
-	// 构建基础信息
 	if Common.Domain != "" {
-		result = fmt.Sprintf("[*] SMB2共享信息 %v:%v Domain:%v\\%v ",
+		result = fmt.Sprintf("SMB2共享信息 %s:%s %s\\%s",
 			info.Host, info.Ports, Common.Domain, user)
 	} else {
-		result = fmt.Sprintf("[*] SMB2共享信息 %v:%v User:%v ",
+		result = fmt.Sprintf("SMB2共享信息 %s:%s %s",
 			info.Host, info.Ports, user)
 	}
 
-	// 添加认证信息
 	if len(hash) > 0 {
-		result += fmt.Sprintf("HashValue:%v ", Common.HashValue)
+		result += fmt.Sprintf(" Hash:%s", Common.HashValue)
 	} else {
-		result += fmt.Sprintf("Pass:%v ", pass)
+		result += fmt.Sprintf(" Pass:%s", pass)
 	}
 
-	// 添加共享列表
-	result += fmt.Sprintf("可用共享: %v", shares)
-	Common.LogSuccess(result)
+	result += fmt.Sprintf(" 共享:%v", shares)
+	Common.LogInfo(result)
 }

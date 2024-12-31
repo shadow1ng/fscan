@@ -102,7 +102,7 @@ func RsyncScan(info *Common.HostInfo) (tmperr error) {
 
 					// 处理错误情况
 					if err != nil {
-						errlog := fmt.Sprintf("[-] Rsync服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
+						errlog := fmt.Sprintf("Rsync服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
 							info.Host, info.Ports, task.user, task.pass, err)
 						Common.LogError(errlog)
 
@@ -242,7 +242,7 @@ func RsyncConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 		if strings.Contains(authResponse, "@RSYNCD: OK") {
 			// 模块不需要认证
 			if user == "" && pass == "" {
-				result := fmt.Sprintf("[+] Rsync服务 %v:%v 模块:%v 无需认证", host, port, moduleName)
+				result := fmt.Sprintf("Rsync服务 %v:%v 模块:%v 无需认证", host, port, moduleName)
 				Common.LogSuccess(result)
 				return true, nil
 			}
@@ -264,7 +264,7 @@ func RsyncConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 				}
 
 				if !strings.Contains(string(buffer[:n]), "@ERROR") {
-					result := fmt.Sprintf("[+] Rsync服务 %v:%v 模块:%v 认证成功 用户名: %v 密码: %v",
+					result := fmt.Sprintf("Rsync服务 %v:%v 模块:%v 认证成功 用户名: %v 密码: %v",
 						host, port, moduleName, user, pass)
 					Common.LogSuccess(result)
 					return true, nil

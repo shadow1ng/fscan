@@ -77,7 +77,7 @@ func POP3Scan(info *Common.HostInfo) (tmperr error) {
 						err = result.err
 						if result.success && err == nil {
 							// 连接成功
-							successLog := fmt.Sprintf("[+] POP3服务 %v:%v 用户名: %v 密码: %v",
+							successLog := fmt.Sprintf("POP3服务 %v:%v 用户名: %v 密码: %v",
 								info.Host, info.Ports, task.user, task.pass)
 							Common.LogSuccess(successLog)
 							resultChan <- nil
@@ -89,7 +89,7 @@ func POP3Scan(info *Common.HostInfo) (tmperr error) {
 
 					// 处理错误情况
 					if err != nil {
-						errlog := fmt.Sprintf("[-] POP3服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
+						errlog := fmt.Sprintf("POP3服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
 							info.Host, info.Ports, task.user, task.pass, err)
 						Common.LogError(errlog)
 
@@ -198,7 +198,7 @@ func tryPOP3Auth(conn net.Conn, host string, port string, user string, pass stri
 	}
 
 	if strings.Contains(response, "+OK") {
-		result := fmt.Sprintf("[+] POP3服务 %v:%v 爆破成功 用户名: %v 密码: %v", host, port, user, pass)
+		result := fmt.Sprintf("POP3服务 %v:%v 爆破成功 用户名: %v 密码: %v", host, port, user, pass)
 		if isTLS {
 			result += " (TLS)"
 		}

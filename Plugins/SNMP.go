@@ -71,7 +71,7 @@ func SNMPScan(info *Common.HostInfo) (tmperr error) {
 						err = result.err
 						if result.success && err == nil {
 							// 连接成功
-							successLog := fmt.Sprintf("[+] SNMP服务 %v:%v community: %v 连接成功",
+							successLog := fmt.Sprintf("SNMP服务 %v:%v community: %v 连接成功",
 								info.Host, info.Ports, community)
 							Common.LogSuccess(successLog)
 							resultChan <- nil
@@ -83,7 +83,7 @@ func SNMPScan(info *Common.HostInfo) (tmperr error) {
 
 					// 处理错误情况
 					if err != nil {
-						errlog := fmt.Sprintf("[-] SNMP服务 %v:%v 尝试失败 community: %v 错误: %v",
+						errlog := fmt.Sprintf("SNMP服务 %v:%v 尝试失败 community: %v 错误: %v",
 							info.Host, info.Ports, community, err)
 						Common.LogError(errlog)
 
@@ -150,7 +150,7 @@ func SNMPConnect(info *Common.HostInfo, community string, portNum int) (bool, er
 	}
 
 	if len(result.Variables) > 0 {
-		success := fmt.Sprintf("[+] SNMP服务 %v:%v community: %v",
+		success := fmt.Sprintf("SNMP服务 %v:%v community: %v",
 			host, portNum, community) // 使用portNum替换port
 
 		if result.Variables[0].Type != gosnmp.NoSuchObject {

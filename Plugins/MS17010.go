@@ -3,10 +3,9 @@ package Plugins
 import (
 	"encoding/binary"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
-	"log"
+	"os"
 	"strings"
 	"time"
 )
@@ -33,126 +32,133 @@ func init() {
 	// 解密协议请求
 	decrypted, err := AesDecrypt(negotiateProtocolRequest_enc, key)
 	if err != nil {
-		log.Fatalf("解密协议请求失败: %v", err)
+		Common.LogError(fmt.Sprintf("协议请求解密错误: %v", err))
+		os.Exit(1)
 	}
 	negotiateProtocolRequest, err = hex.DecodeString(decrypted)
 	if err != nil {
-		log.Fatalf("解码协议请求失败: %v", err)
+		Common.LogError(fmt.Sprintf("协议请求解码错误: %v", err))
+		os.Exit(1)
 	}
 
 	// 解密会话请求
 	decrypted, err = AesDecrypt(sessionSetupRequest_enc, key)
 	if err != nil {
-		log.Fatalf("解密会话请求失败: %v", err)
+		Common.LogError(fmt.Sprintf("会话请求解密错误: %v", err))
+		os.Exit(1)
 	}
 	sessionSetupRequest, err = hex.DecodeString(decrypted)
 	if err != nil {
-		log.Fatalf("解码会话请求失败: %v", err)
+		Common.LogError(fmt.Sprintf("会话请求解码错误: %v", err))
+		os.Exit(1)
 	}
 
 	// 解密连接请求
 	decrypted, err = AesDecrypt(treeConnectRequest_enc, key)
 	if err != nil {
-		log.Fatalf("解密连接请求失败: %v", err)
+		Common.LogError(fmt.Sprintf("连接请求解密错误: %v", err))
+		os.Exit(1)
 	}
 	treeConnectRequest, err = hex.DecodeString(decrypted)
 	if err != nil {
-		log.Fatalf("解码连接请求失败: %v", err)
+		Common.LogError(fmt.Sprintf("连接请求解码错误: %v", err))
+		os.Exit(1)
 	}
 
 	// 解密管道请求
 	decrypted, err = AesDecrypt(transNamedPipeRequest_enc, key)
 	if err != nil {
-		log.Fatalf("解密管道请求失败: %v", err)
+		Common.LogError(fmt.Sprintf("管道请求解密错误: %v", err))
+		os.Exit(1)
 	}
 	transNamedPipeRequest, err = hex.DecodeString(decrypted)
 	if err != nil {
-		log.Fatalf("解码管道请求失败: %v", err)
+		Common.LogError(fmt.Sprintf("管道请求解码错误: %v", err))
+		os.Exit(1)
 	}
 
 	// 解密会话设置请求
 	decrypted, err = AesDecrypt(trans2SessionSetupRequest_enc, key)
 	if err != nil {
-		log.Fatalf("解密会话设置请求失败: %v", err)
+		Common.LogError(fmt.Sprintf("会话设置解密错误: %v", err))
+		os.Exit(1)
 	}
 	trans2SessionSetupRequest, err = hex.DecodeString(decrypted)
 	if err != nil {
-		log.Fatalf("解码会话设置请求失败: %v", err)
+		Common.LogError(fmt.Sprintf("会话设置解码错误: %v", err))
+		os.Exit(1)
 	}
 }
 
 // MS17010 扫描入口函数
 func MS17010(info *Common.HostInfo) error {
-	// 暴力破解模式下跳过扫描
 	if Common.DisableBrute {
 		return nil
 	}
 
-	// 执行MS17-010漏洞扫描
 	err := MS17010Scan(info)
 	if err != nil {
-		Common.LogError(fmt.Sprintf("[-] MS17010 %v %v", info.Host, err))
+		Common.LogError(fmt.Sprintf("%s:%s - %v", info.Host, info.Ports, err))
 	}
 	return err
 }
 
-// MS17010Scan 执行MS17-010漏洞扫描
 func MS17010Scan(info *Common.HostInfo) error {
 	ip := info.Host
 
-	// 连接目标445端口
+	// 连接目标
 	conn, err := Common.WrapperTcpWithTimeout("tcp", ip+":445", time.Duration(Common.Timeout)*time.Second)
 	if err != nil {
-		return err
+		return fmt.Errorf("连接错误: %v", err)
 	}
 	defer conn.Close()
 
-	// 设置连接超时
 	if err = conn.SetDeadline(time.Now().Add(time.Duration(Common.Timeout) * time.Second)); err != nil {
-		return err
+		return fmt.Errorf("设置超时错误: %v", err)
 	}
 
-	// 发送SMB协议协商请求
+	// SMB协议协商
 	if _, err = conn.Write(negotiateProtocolRequest); err != nil {
-		return err
+		return fmt.Errorf("发送协议请求错误: %v", err)
 	}
 
-	// 读取响应
 	reply := make([]byte, 1024)
 	if n, err := conn.Read(reply); err != nil || n < 36 {
-		return err
+		if err != nil {
+			return fmt.Errorf("读取协议响应错误: %v", err)
+		}
+		return fmt.Errorf("协议响应不完整")
 	}
 
-	// 检查协议响应状态
 	if binary.LittleEndian.Uint32(reply[9:13]) != 0 {
-		return err
+		return fmt.Errorf("协议协商被拒绝")
 	}
 
-	// 发送会话建立请求
+	// 建立会话
 	if _, err = conn.Write(sessionSetupRequest); err != nil {
-		return err
+		return fmt.Errorf("发送会话请求错误: %v", err)
 	}
 
-	// 读取响应
 	n, err := conn.Read(reply)
 	if err != nil || n < 36 {
-		return err
+		if err != nil {
+			return fmt.Errorf("读取会话响应错误: %v", err)
+		}
+		return fmt.Errorf("会话响应不完整")
 	}
 
-	// 检查会话响应状态
 	if binary.LittleEndian.Uint32(reply[9:13]) != 0 {
-		return errors.New("无法确定目标是否存在漏洞")
+		return fmt.Errorf("会话建立失败")
 	}
 
-	// 提取操作系统信息
+	// 提取系统信息
 	var os string
 	sessionSetupResponse := reply[36:n]
 	if wordCount := sessionSetupResponse[0]; wordCount != 0 {
 		byteCount := binary.LittleEndian.Uint16(sessionSetupResponse[7:9])
 		if n != int(byteCount)+45 {
-			fmt.Printf("[-] %s:445 MS17010无效的会话响应\n", ip)
+			Common.LogError(fmt.Sprintf("无效会话响应 %s:445", ip))
 		} else {
-			// 查找Unicode字符串结束标记(两个连续的0字节)
 			for i := 10; i < len(sessionSetupResponse)-1; i++ {
 				if sessionSetupResponse[i] == 0 && sessionSetupResponse[i+1] == 0 {
 					os = string(sessionSetupResponse[10:i])
@@ -163,69 +169,76 @@ func MS17010Scan(info *Common.HostInfo) error {
 		}
 	}
 
-	// 获取用户ID
+	// 树连接请求
 	userID := reply[32:34]
 	treeConnectRequest[32] = userID[0]
 	treeConnectRequest[33] = userID[1]
 
-	// 发送树连接请求
 	if _, err = conn.Write(treeConnectRequest); err != nil {
-		return err
+		return fmt.Errorf("发送树连接请求错误: %v", err)
 	}
 
 	if n, err := conn.Read(reply); err != nil || n < 36 {
-		return err
+		if err != nil {
+			return fmt.Errorf("读取树连接响应错误: %v", err)
+		}
+		return fmt.Errorf("树连接响应不完整")
 	}
 
-	// 获取树ID并设置后续请求
+	// 命名管道请求
 	treeID := reply[28:30]
 	transNamedPipeRequest[28] = treeID[0]
 	transNamedPipeRequest[29] = treeID[1]
 	transNamedPipeRequest[32] = userID[0]
 	transNamedPipeRequest[33] = userID[1]
 
-	// 发送命名管道请求
 	if _, err = conn.Write(transNamedPipeRequest); err != nil {
-		return err
+		return fmt.Errorf("发送管道请求错误: %v", err)
 	}
 
 	if n, err := conn.Read(reply); err != nil || n < 36 {
-		return err
+		if err != nil {
+			return fmt.Errorf("读取管道响应错误: %v", err)
+		}
+		return fmt.Errorf("管道响应不完整")
 	}
 
-	// 检查漏洞状态
+	// 漏洞检测
 	if reply[9] == 0x05 && reply[10] == 0x02 && reply[11] == 0x00 && reply[12] == 0xc0 {
-		// 目标存在MS17-010漏洞
-		Common.LogSuccess(fmt.Sprintf("[+] MS17-010 %s\t(%s)", ip, os))
+		if os != "" {
+			Common.LogSuccess(fmt.Sprintf("发现漏洞 %s [%s] MS17-010", ip, os))
+		} else {
+			Common.LogSuccess(fmt.Sprintf("发现漏洞 %s MS17-010", ip))
+		}
 
-		// 如果指定了shellcode,执行漏洞利用
-		defer func() {
-			if Common.Shellcode != "" {
-				MS17010EXP(info)
-			}
-		}()
-
-		// 检测DOUBLEPULSAR后门
+		// DOUBLEPULSAR后门检测
 		trans2SessionSetupRequest[28] = treeID[0]
 		trans2SessionSetupRequest[29] = treeID[1]
 		trans2SessionSetupRequest[32] = userID[0]
 		trans2SessionSetupRequest[33] = userID[1]
 
 		if _, err = conn.Write(trans2SessionSetupRequest); err != nil {
-			return err
+			return fmt.Errorf("发送后门检测请求错误: %v", err)
 		}
 
 		if n, err := conn.Read(reply); err != nil || n < 36 {
-			return err
+			if err != nil {
+				return fmt.Errorf("读取后门检测响应错误: %v", err)
+			}
+			return fmt.Errorf("后门检测响应不完整")
 		}
 
 		if reply[34] == 0x51 {
-			Common.LogSuccess(fmt.Sprintf("[+] MS17-010 %s 存在DOUBLEPULSAR后门", ip))
+			Common.LogSuccess(fmt.Sprintf("发现后门 %s DOUBLEPULSAR", ip))
 		}
-	} else {
-		// 未检测到漏洞,仅输出系统信息
-		Common.LogSuccess(fmt.Sprintf("[*] OsInfo %s\t(%s)", ip, os))
+
+		// Shellcode利用
+		if Common.Shellcode != "" {
+			defer MS17010EXP(info)
+		}
+	} else if os != "" {
+		Common.LogInfo(fmt.Sprintf("系统信息 %s [%s]", ip, os))
 	}
 
-	return err
+	return nil
 }

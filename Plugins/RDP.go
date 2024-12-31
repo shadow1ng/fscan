@@ -73,9 +73,9 @@ func RdpScan(info *Common.HostInfo) (tmperr error) {
 					// 连接成功
 					var result string
 					if Common.Domain != "" {
-						result = fmt.Sprintf("[+] RDP %v:%v:%v\\%v %v", info.Host, port, Common.Domain, user, pass)
+						result = fmt.Sprintf("RDP %v:%v:%v\\%v %v", info.Host, port, Common.Domain, user, pass)
 					} else {
-						result = fmt.Sprintf("[+] RDP %v:%v:%v %v", info.Host, port, user, pass)
+						result = fmt.Sprintf("RDP %v:%v:%v %v", info.Host, port, user, pass)
 					}
 					Common.LogSuccess(result)
 					select {
@@ -86,7 +86,7 @@ func RdpScan(info *Common.HostInfo) (tmperr error) {
 				}
 
 				// 连接失败
-				errlog := fmt.Sprintf("[-] (%v/%v) RDP %v:%v %v %v %v", num, all, info.Host, port, user, pass, err)
+				errlog := fmt.Sprintf("(%v/%v) RDP %v:%v %v %v %v", num, all, info.Host, port, user, pass, err)
 				Common.LogError(errlog)
 			}
 		}()
@@ -139,9 +139,9 @@ func worker(host, domain string, port int, wg *sync.WaitGroup, brlist chan Brute
 			// 连接成功
 			var result string
 			if domain != "" {
-				result = fmt.Sprintf("[+] RDP %v:%v:%v\\%v %v", host, port, domain, user, pass)
+				result = fmt.Sprintf("RDP %v:%v:%v\\%v %v", host, port, domain, user, pass)
 			} else {
-				result = fmt.Sprintf("[+] RDP %v:%v:%v %v", host, port, user, pass)
+				result = fmt.Sprintf("RDP %v:%v:%v %v", host, port, user, pass)
 			}
 			Common.LogSuccess(result)
 			*signal = true
@@ -149,7 +149,7 @@ func worker(host, domain string, port int, wg *sync.WaitGroup, brlist chan Brute
 		}
 
 		// 连接失败
-		errlog := fmt.Sprintf("[-] (%v/%v) RDP %v:%v %v %v %v", *num, all, host, port, user, pass, err)
+		errlog := fmt.Sprintf("(%v/%v) RDP %v:%v %v %v %v", *num, all, host, port, user, pass, err)
 		Common.LogError(errlog)
 	}
 }

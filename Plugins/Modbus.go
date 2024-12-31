@@ -41,13 +41,13 @@ func ModbusScan(info *Common.HostInfo) error {
 
 	// 验证响应
 	if isValidModbusResponse(response[:n]) {
-		result := fmt.Sprintf("[+] Modbus服务 %v:%v 无认证访问", host, port)
+		result := fmt.Sprintf("Modbus服务 %v:%v 无认证访问", host, port)
 		Common.LogSuccess(result)
 
 		// 尝试读取更多设备信息
 		deviceInfo := parseModbusResponse(response[:n])
 		if deviceInfo != "" {
-			Common.LogSuccess(fmt.Sprintf("[+] 设备信息: %s", deviceInfo))
+			Common.LogSuccess(fmt.Sprintf("设备信息: %s", deviceInfo))
 		}
 		return nil
 	}

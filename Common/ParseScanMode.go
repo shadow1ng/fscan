@@ -48,7 +48,7 @@ var pluginGroups = map[string][]string{
 
 // ParseScanMode 解析扫描模式
 func ParseScanMode(mode string) {
-	fmt.Printf("[*] 解析扫描模式: %s\n", mode)
+	LogInfo(fmt.Sprintf("解析扫描模式: %s", mode))
 
 	// 检查是否是预设模式
 	presetModes := []string{
@@ -60,9 +60,9 @@ func ParseScanMode(mode string) {
 		if mode == presetMode {
 			ScanMode = mode
 			if plugins := GetPluginsForMode(mode); plugins != nil {
-				fmt.Printf("[+] 使用预设模式: %s, 包含插件: %v\n", mode, plugins)
+				LogInfo(fmt.Sprintf("使用预设模式: %s, 包含插件: %v", mode, plugins))
 			} else {
-				fmt.Printf("[+] 使用预设模式: %s\n", mode)
+				LogInfo(fmt.Sprintf("使用预设模式: %s", mode))
 			}
 			return
 		}
@@ -71,14 +71,14 @@ func ParseScanMode(mode string) {
 	// 检查是否是有效的插件名
 	if _, exists := PluginManager[mode]; exists {
 		ScanMode = mode
-		fmt.Printf("[+] 使用单个插件: %s\n", mode)
+		LogInfo(fmt.Sprintf("使用单个插件: %s", mode))
 		return
 	}
 
 	// 默认使用All模式
 	ScanMode = ModeAll
-	fmt.Printf("[*] 未识别的模式，使用默认模式: %s\n", ModeAll)
-	fmt.Printf("[+] 包含插件: %v\n", pluginGroups[ModeAll])
+	LogInfo(fmt.Sprintf("未识别的模式，使用默认模式: %s", ModeAll))
+	LogInfo(fmt.Sprintf("包含插件: %v", pluginGroups[ModeAll]))
 }
 
 // GetPluginsForMode 获取指定模式下的插件列表

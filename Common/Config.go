@@ -104,7 +104,11 @@ var (
 	EnableWmi  bool   // 原IsWmi
 
 	// 输出配置
-	DisableSave bool // 原TmpSave
+	DisableSave bool   // 禁止保存结果
+	Silent      bool   // 静默模式
+	NoColor     bool   // 禁用彩色输出
+	JsonFormat  bool   // JSON格式输出
+	LogLevel    string // 日志输出级别
 )
 
 var (

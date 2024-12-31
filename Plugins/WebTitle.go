@@ -35,7 +35,7 @@ func WebTitle(info *Common.HostInfo) error {
 	if !Common.DisablePoc && err == nil {
 		WebScan.WebScan(info)
 	} else {
-		errlog := fmt.Sprintf("[-] 网站标题 %v %v", info.Url, err)
+		errlog := fmt.Sprintf("网站标题 %v %v", info.Url, err)
 		Common.LogError(errlog)
 	}
 
@@ -185,7 +185,7 @@ func geturl(info *Common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 		}
 
 		// 输出结果
-		result := fmt.Sprintf("[*] 网站标题 %-25v 状态码:%-3v 长度:%-6v 标题:%v",
+		result := fmt.Sprintf("网站标题 %-25v 状态码:%-3v 长度:%-6v 标题:%v",
 			resp.Request.URL, resp.StatusCode, length, title)
 		if reurl != "" {
 			result += fmt.Sprintf(" 重定向地址: %s", reurl)
@@ -297,7 +297,7 @@ func GetProtocol(host string, Timeout int64) (protocol string) {
 		if conn != nil {
 			defer func() {
 				if err := recover(); err != nil {
-					Common.LogError(err)
+					Common.LogError(fmt.Sprintf("连接关闭时发生错误: %v", err))
 				}
 			}()
 			conn.Close()

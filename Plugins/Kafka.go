@@ -99,7 +99,7 @@ func KafkaScan(info *Common.HostInfo) (tmperr error) {
 
 					// 处理错误情况
 					if err != nil {
-						errlog := fmt.Sprintf("[-] Kafka服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
+						errlog := fmt.Sprintf("Kafka服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
 							info.Host, info.Ports, task.user, task.pass, err)
 						Common.LogError(errlog)
 
@@ -164,7 +164,7 @@ func KafkaConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 	consumer, err := sarama.NewConsumer(brokers, config)
 	if err == nil {
 		defer consumer.Close()
-		result := fmt.Sprintf("[+] Kafka服务 %v:%v ", host, port)
+		result := fmt.Sprintf("Kafka服务 %v:%v ", host, port)
 		if user != "" {
 			result += fmt.Sprintf("爆破成功 用户名: %v 密码: %v", user, pass)
 		} else {
@@ -178,7 +178,7 @@ func KafkaConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 	client, err := sarama.NewClient(brokers, config)
 	if err == nil {
 		defer client.Close()
-		result := fmt.Sprintf("[+] Kafka服务 %v:%v ", host, port)
+		result := fmt.Sprintf("Kafka服务 %v:%v ", host, port)
 		if user != "" {
 			result += fmt.Sprintf("爆破成功 用户名: %v 密码: %v", user, pass)
 		} else {

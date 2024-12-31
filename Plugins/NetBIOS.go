@@ -18,7 +18,7 @@ func NetBIOS(info *Common.HostInfo) error {
 	netbios, _ := NetBIOS1(info)
 	output := netbios.String()
 	if len(output) > 0 {
-		result := fmt.Sprintf("[*] NetBios %-15s %s", info.Host, output)
+		result := fmt.Sprintf("NetBios %-15s %s", info.Host, output)
 		Common.LogSuccess(result)
 		return nil
 	}

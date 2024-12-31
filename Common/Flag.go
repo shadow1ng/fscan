@@ -73,7 +73,7 @@ func Flag(Info *HostInfo) {
 		"  漏洞类: ms17010, smbghost, smb2\n"+
 		"  其他: findnet, wmiexec, localinfo")
 	flag.BoolVar(&UseSynScan, "sS", false, "使用SYN扫描替代TCP全连接扫描(需要root/管理员权限)")
-	flag.IntVar(&ThreadNum, "t", 600, "设置扫描线程数")
+	flag.IntVar(&ThreadNum, "t", 60, "设置扫描线程数")
 	flag.Int64Var(&Timeout, "time", 3, "设置连接超时时间(单位:秒)")
 	flag.IntVar(&LiveTop, "top", 10, "仅显示指定数量的存活主机")
 	flag.BoolVar(&DisablePing, "np", false, "禁用主机存活探测")
@@ -126,9 +126,9 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&Outputfile, "o", "result.txt", "指定结果输出文件名")
 	flag.BoolVar(&DisableSave, "no", false, "禁止保存扫描结果")
 	flag.BoolVar(&Silent, "silent", false, "启用静默扫描模式(减少屏幕输出)")
-	flag.BoolVar(&Nocolor, "nocolor", false, "禁用彩色输出显示")
-	flag.BoolVar(&JsonOutput, "json", false, "以JSON格式输出结果")
-	flag.Int64Var(&WaitTime, "debug", 60, "设置错误日志输出时间间隔(单位:秒)")
+	flag.BoolVar(&NoColor, "nocolor", false, "禁用彩色输出显示")
+	flag.BoolVar(&JsonFormat, "json", false, "以JSON格式输出结果")
+	flag.StringVar(&LogLevel, "log", LogLevelAll, "日志输出级别(ALL/SUCCESS/ERROR/INFO/DEBUG)")
 
 	flag.Parse()
 }

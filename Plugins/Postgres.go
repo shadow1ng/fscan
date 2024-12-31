@@ -85,7 +85,7 @@ func PostgresScan(info *Common.HostInfo) (tmperr error) {
 
 					// 处理错误情况
 					if err != nil {
-						errlog := fmt.Sprintf("[-] PostgreSQL %v:%v %v %v %v",
+						errlog := fmt.Sprintf("PostgreSQL %v:%v %v %v %v",
 							info.Host, info.Ports, task.user, task.pass, err)
 						Common.LogError(errlog)
 
@@ -152,7 +152,7 @@ func PostgresConn(info *Common.HostInfo, user string, pass string) (bool, error)
 	}
 
 	// 连接成功
-	result := fmt.Sprintf("[+] PostgreSQL %v:%v:%v %v", host, port, username, password)
+	result := fmt.Sprintf("PostgreSQL %v:%v:%v %v", host, port, username, password)
 	Common.LogSuccess(result)
 	return true, nil
 }

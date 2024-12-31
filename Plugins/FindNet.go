@@ -27,30 +27,30 @@ func FindnetScan(info *Common.HostInfo) error {
 	target := fmt.Sprintf("%s:%v", info.Host, 135)
 	conn, err := Common.WrapperTcpWithTimeout("tcp", target, time.Duration(Common.Timeout)*time.Second)
 	if err != nil {
-		return fmt.Errorf("[-] 连接RPC端口失败: %v", err)
+		return fmt.Errorf("连接RPC端口失败: %v", err)
 	}
 	defer conn.Close()
 
 	if err = conn.SetDeadline(time.Now().Add(time.Duration(Common.Timeout) * time.Second)); err != nil {
-		return fmt.Errorf("[-] 设置超时失败: %v", err)
+		return fmt.Errorf("设置超时失败: %v", err)
 	}
 
 	if _, err = conn.Write(bufferV1); err != nil {
-		return fmt.Errorf("[-] 发送RPC请求1失败: %v", err)
+		return fmt.Errorf("发送RPC请求1失败: %v", err)
 	}
 
 	reply := make([]byte, 4096)
 	if _, err = conn.Read(reply); err != nil {
-		return fmt.Errorf("[-] 读取RPC响应1失败: %v", err)
+		return fmt.Errorf("读取RPC响应1失败: %v", err)
 	}
 
 	if _, err = conn.Write(bufferV2); err != nil {
-		return fmt.Errorf("[-] 发送RPC请求2失败: %v", err)
+		return fmt.Errorf("发送RPC请求2失败: %v", err)
 	}
 
 	n, err := conn.Read(reply)
 	if err != nil || n < 42 {
-		return fmt.Errorf("[-] 读取RPC响应2失败: %v", err)
+		return fmt.Errorf("读取RPC响应2失败: %v", err)
 	}
 
 	text := reply[42:]
@@ -64,7 +64,7 @@ func FindnetScan(info *Common.HostInfo) error {
 	}
 
 	if !found {
-		return fmt.Errorf("[-] 未找到有效的响应标记")
+		return fmt.Errorf("未找到有效的响应标记")
 	}
 
 	return read(text, info.Host)
@@ -195,7 +195,7 @@ func read(text []byte, host string) error {
 
 	// 输出IPv4地址
 	if len(ipv4Addrs) > 0 {
-		result += "\n   [+] IPv4地址:"
+		result += "\n   IPv4地址:"
 		for _, addr := range ipv4Addrs {
 			result += fmt.Sprintf("\n      └─ %s", addr)
 		}
@@ -203,7 +203,7 @@ func read(text []byte, host string) error {
 
 	// 输出IPv6地址
 	if len(ipv6Addrs) > 0 {
-		result += "\n   [+] IPv6地址:"
+		result += "\n   IPv6地址:"
 		for _, addr := range ipv6Addrs {
 			result += fmt.Sprintf("\n      └─ %s", addr)
 		}

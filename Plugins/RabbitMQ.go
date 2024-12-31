@@ -82,7 +82,7 @@ func RabbitMQScan(info *Common.HostInfo) (tmperr error) {
 					case result := <-done:
 						err = result.err
 						if result.success && err == nil {
-							result := fmt.Sprintf("[+] RabbitMQ服务 %v:%v 连接成功 用户名: %v 密码: %v",
+							result := fmt.Sprintf("RabbitMQ服务 %v:%v 连接成功 用户名: %v 密码: %v",
 								info.Host, info.Ports, task.user, task.pass)
 							Common.LogSuccess(result)
 							resultChan <- nil
@@ -94,7 +94,7 @@ func RabbitMQScan(info *Common.HostInfo) (tmperr error) {
 
 					// 处理错误情况
 					if err != nil {
-						errlog := fmt.Sprintf("[-] RabbitMQ服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
+						errlog := fmt.Sprintf("RabbitMQ服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
 							info.Host, info.Ports, task.user, task.pass, err)
 						Common.LogError(errlog)
 
@@ -158,7 +158,7 @@ func RabbitMQConn(info *Common.HostInfo, user string, pass string) (bool, error)
 
 	// 如果成功连接
 	if conn != nil {
-		result := fmt.Sprintf("[+] RabbitMQ服务 %v:%v 爆破成功 用户名: %v 密码: %v", host, port, user, pass)
+		result := fmt.Sprintf("RabbitMQ服务 %v:%v 爆破成功 用户名: %v 密码: %v", host, port, user, pass)
 		Common.LogSuccess(result)
 		return true, nil
 	}

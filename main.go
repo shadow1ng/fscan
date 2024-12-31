@@ -9,6 +9,7 @@ import (
 )
 
 func main() {
+
 	start := time.Now()
 	var Info Common.HostInfo
 	Common.Flag(&Info)

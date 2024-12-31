@@ -44,15 +44,10 @@ func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int) {
 	for i := 0; i < workers; i++ {
 		go func() {
 			for task := range tasks {
-				// 执行POC检测
 				isVulnerable, details, vulName := executePoc(task.Req, task.Poc)
 
 				if isVulnerable {
-					// 格式化输出结果
-					result := fmt.Sprintf("[+] [发现漏洞] 目标: %s\n"+
-						"  漏洞类型: %s\n"+
-						"  漏洞名称: %s\n"+
-						"  详细信息: %s",
+					result := fmt.Sprintf("目标: %s\n  漏洞类型: %s\n  漏洞名称: %s\n  详细信息: %s",
 						task.Req.URL,
 						task.Poc.Name,
 						vulName,
@@ -101,13 +96,13 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 	// 创建执行环境
 	env, err := NewEnv(&config)
 	if err != nil {
-		return false, fmt.Errorf("[-] 创建%s的执行环境失败: %v", p.Name, err), ""
+		return false, fmt.Errorf("执行环境错误 %s: %v", p.Name, err), ""
 	}
 
 	// 解析请求
 	req, err := ParseRequest(oReq)
 	if err != nil {
-		return false, fmt.Errorf("[-] 解析%s的请求失败: %v", p.Name, err), ""
+		return false, fmt.Errorf("请求解析错误 %s: %v", p.Name, err), ""
 	}
 
 	// 初始化变量映射
@@ -126,7 +121,7 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 			continue
 		}
 		if err, _ = evalset(env, variableMap, key, expression); err != nil {
-			Common.LogError(fmt.Sprintf("[-] 执行%s的设置项失败: %v", p.Name, err))
+			Common.LogError(fmt.Sprintf("设置项执行错误 %s: %v", p.Name, err))
 		}
 	}
 
@@ -167,14 +162,14 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 		}
 		req.Url.Path = strings.ReplaceAll(req.Url.Path, " ", "%20")
 
-		// 创建新的请求
+		// 创建新请求
 		newRequest, err := http.NewRequest(
 			rule.Method,
 			fmt.Sprintf("%s://%s%s", req.Url.Scheme, req.Url.Host, string([]rune(req.Url.Path))),
 			strings.NewReader(rule.Body),
 		)
 		if err != nil {
-			return false, fmt.Errorf("创建新请求失败: %v", err)
+			return false, fmt.Errorf("请求创建错误: %v", err)
 		}
 
 		// 设置请求头
@@ -247,8 +242,9 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 func doSearch(re string, body string) map[string]string {
 	// 编译正则表达式
 	r, err := regexp.Compile(re)
+	// 正则表达式编译
 	if err != nil {
-		Common.LogError(fmt.Sprintf("正则表达式编译失败: %v", err))
+		Common.LogError(fmt.Sprintf("正则编译错误: %v", err))
 		return nil
 	}
 
@@ -323,8 +319,9 @@ func newReverse() *Reverse {
 	// 构建URL
 	urlStr := fmt.Sprintf("http://%s.%s", subdomain, ceyeDomain)
 	u, err := url.Parse(urlStr)
+	// 解析反连URL
 	if err != nil {
-		Common.LogError(fmt.Sprintf("解析反连URL失败: %v", err))
+		Common.LogError(fmt.Sprintf("反连URL解析错误: %v", err))
 		return &Reverse{}
 	}
 
@@ -463,13 +460,11 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 			if success {
 				// 处理成功情况
 				if currentRule.Continue {
-					// 特殊POC的输出处理
+					targetURL := fmt.Sprintf("%s://%s%s", req.Url.Scheme, req.Url.Host, req.Url.Path)
 					if p.Name == "poc-yaml-backup-file" || p.Name == "poc-yaml-sql-file" {
-						Common.LogSuccess(fmt.Sprintf("[+] 检测到漏洞 %s://%s%s %s",
-							req.Url.Scheme, req.Url.Host, req.Url.Path, p.Name))
+						Common.LogSuccess(fmt.Sprintf("检测到漏洞 %s %s", targetURL, p.Name))
 					} else {
-						Common.LogSuccess(fmt.Sprintf("[+] 检测到漏洞 %s://%s%s %s 参数:%v",
-							req.Url.Scheme, req.Url.Host, req.Url.Path, p.Name, currentParams))
+						Common.LogSuccess(fmt.Sprintf("检测到漏洞 %s %s 参数:%v", targetURL, p.Name, currentParams))
 					}
 					continue
 				}
@@ -477,8 +472,8 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 				// 记录成功的参数组合
 				strMap = append(strMap, currentParams...)
 				if ruleIndex == len(p.Rules)-1 {
-					Common.LogSuccess(fmt.Sprintf("[+] 检测到漏洞 %s://%s%s %s 参数:%v",
-						req.Url.Scheme, req.Url.Host, req.Url.Path, p.Name, strMap))
+					targetURL := fmt.Sprintf("%s://%s%s", req.Url.Scheme, req.Url.Host, req.Url.Path)
+					Common.LogSuccess(fmt.Sprintf("检测到漏洞 %s %s 参数:%v", targetURL, p.Name, strMap))
 					return false, nil
 				}
 				break paramLoop
@@ -600,9 +595,9 @@ func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Re
 	reqURL := fmt.Sprintf("%s://%s%s", req.Url.Scheme, req.Url.Host, req.Url.Path)
 	newRequest, err := http.NewRequest(rule.Method, reqURL, strings.NewReader(rule.Body))
 	if err != nil {
-		return false, fmt.Errorf("[-] 创建HTTP请求失败: %v", err)
+		return false, fmt.Errorf("HTTP请求错误: %v", err)
 	}
-	defer func() { newRequest = nil }() // 及时释放资源
+	defer func() { newRequest = nil }()
 
 	// 设置请求头
 	newRequest.Header = oReq.Header.Clone()
@@ -613,7 +608,7 @@ func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Re
 	// 发送请求
 	resp, err := DoRequest(newRequest, rule.FollowRedirects)
 	if err != nil {
-		return false, fmt.Errorf("[-] 发送请求失败: %v", err)
+		return false, fmt.Errorf("请求发送错误: %v", err)
 	}
 
 	// 更新响应到变量映射
@@ -638,11 +633,11 @@ func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Re
 	out, err := Evaluate(env, rule.Expression, variableMap)
 	if err != nil {
 		if strings.Contains(err.Error(), "Syntax error") {
-			Common.LogError(fmt.Sprintf("[-] CEL表达式语法错误 [%s]: %v", rule.Expression, err))
+			Common.LogError(fmt.Sprintf("CEL语法错误 [%s]: %v", rule.Expression, err))
 		}
 		return false, err
 	}
-
+	
 	// 检查表达式执行结果
 	if fmt.Sprintf("%v", out) == "false" {
 		return false, nil

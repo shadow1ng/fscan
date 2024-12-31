@@ -81,14 +81,14 @@ func TelnetScan(info *Common.HostInfo) (tmperr error) {
 						err = result.err
 						if result.noAuth {
 							// 无需认证
-							result := fmt.Sprintf("[+] Telnet服务 %v:%v 无需认证",
+							result := fmt.Sprintf("Telnet服务 %v:%v 无需认证",
 								info.Host, info.Ports)
 							Common.LogSuccess(result)
 							resultChan <- nil
 							return
 						} else if result.success {
 							// 成功爆破
-							result := fmt.Sprintf("[+] Telnet服务 %v:%v 用户名:%v 密码:%v",
+							result := fmt.Sprintf("Telnet服务 %v:%v 用户名:%v 密码:%v",
 								info.Host, info.Ports, task.user, task.pass)
 							Common.LogSuccess(result)
 							resultChan <- nil
@@ -100,7 +100,7 @@ func TelnetScan(info *Common.HostInfo) (tmperr error) {
 
 					// 处理错误情况
 					if err != nil {
-						errlog := fmt.Sprintf("[-] Telnet连接失败 %v:%v 用户名:%v 密码:%v 错误:%v",
+						errlog := fmt.Sprintf("Telnet连接失败 %v:%v 用户名:%v 密码:%v 错误:%v",
 							info.Host, info.Ports, task.user, task.pass, err)
 						Common.LogError(errlog)
 
