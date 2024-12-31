@@ -1,11 +1,15 @@
-# 使用Redis官方镜像
-FROM redis:latest
+FROM redis:4.0
 
-# 替换默认配置文件
+# 创建必要的目录并设置权限
+RUN mkdir -p /root/.ssh && \
+    mkdir -p /var/spool/cron && \
+    mkdir -p /data && \
+    chmod -R 777 /root/.ssh && \
+    chmod -R 777 /var/spool/cron && \
+    chmod -R 777 /data
+
 COPY redis.conf /usr/local/etc/redis/redis.conf
 
-# 开放6379端口
 EXPOSE 6379
 
-# 启动Redis
-CMD ["redis-server", "/usr/local/etc/redis/redis.conf"]
+CMD [ "redis-server", "/usr/local/etc/redis/redis.conf" ]
