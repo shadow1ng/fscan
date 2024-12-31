@@ -71,14 +71,14 @@ func FcgiScan(info *Common.HostInfo) error {
 		}
 	}()
 	if err != nil {
-		fmt.Printf("[-] FastCGI连接失败 %v:%v - %v\n", info.Host, info.Ports, err)
+		fmt.Printf("FastCGI连接失败 %v:%v - %v\n", info.Host, info.Ports, err)
 		return err
 	}
 
 	// 发送FastCGI请求
 	stdout, stderr, err := fcgi.Request(env, reqParams)
 	if err != nil {
-		fmt.Printf("[-] FastCGI请求失败 %v:%v - %v\n", info.Host, info.Ports, err)
+		fmt.Printf("FastCGI请求失败 %v:%v - %v\n", info.Host, info.Ports, err)
 		return err
 	}
 
@@ -90,10 +90,10 @@ func FcgiScan(info *Common.HostInfo) error {
 		// 命令执行成功，提取输出结果
 		output = strings.SplitN(output, cutLine, 2)[0]
 		if len(stderr) > 0 {
-			result = fmt.Sprintf("[+] FastCGI漏洞确认 %v:%v\n命令输出:\n%v\n错误信息:\n%v\n建议尝试其他路径，例如: -path /www/wwwroot/index.php",
+			result = fmt.Sprintf("FastCGI漏洞确认 %v:%v\n命令输出:\n%v\n错误信息:\n%v\n建议尝试其他路径，例如: -path /www/wwwroot/index.php",
 				info.Host, info.Ports, output, string(stderr))
 		} else {
-			result = fmt.Sprintf("[+] FastCGI漏洞确认 %v:%v\n命令输出:\n%v",
+			result = fmt.Sprintf("FastCGI漏洞确认 %v:%v\n命令输出:\n%v",
 				info.Host, info.Ports, output)
 		}
 		Common.LogSuccess(result)
@@ -102,10 +102,10 @@ func FcgiScan(info *Common.HostInfo) error {
 		strings.Contains(output, "Status") {
 		// 目标存在FastCGI服务但可能路径错误
 		if len(stderr) > 0 {
-			result = fmt.Sprintf("[*] FastCGI服务确认 %v:%v\n响应:\n%v\n错误信息:\n%v\n建议尝试其他路径，例如: -path /www/wwwroot/index.php",
+			result = fmt.Sprintf("FastCGI服务确认 %v:%v\n响应:\n%v\n错误信息:\n%v\n建议尝试其他路径，例如: -path /www/wwwroot/index.php",
 				info.Host, info.Ports, output, string(stderr))
 		} else {
-			result = fmt.Sprintf("[*] FastCGI服务确认 %v:%v\n响应:\n%v",
+			result = fmt.Sprintf("FastCGI服务确认 %v:%v\n响应:\n%v",
 				info.Host, info.Ports, output)
 		}
 		Common.LogSuccess(result)

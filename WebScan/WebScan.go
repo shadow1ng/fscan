@@ -83,7 +83,7 @@ func initpoc() {
 		}
 	} else {
 		// 从指定目录加载POC
-		Common.LogSuccess(fmt.Sprintf("[*] 从目录加载POC: %s", Common.PocPath))
+		Common.LogSuccess(fmt.Sprintf("从目录加载POC: %s", Common.PocPath))
 		err := filepath.Walk(Common.PocPath, func(path string, info os.FileInfo, err error) error {
 			if err != nil || info == nil {
 				return err
@@ -98,7 +98,7 @@ func initpoc() {
 		})
 
 		if err != nil {
-			Common.LogError(fmt.Sprintf("[-] 加载外部POC失败: %v", err))
+			Common.LogError(fmt.Sprintf("加载外部POC失败: %v", err))
 		}
 	}
 }

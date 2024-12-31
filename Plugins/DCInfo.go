@@ -541,7 +541,7 @@ func (d *DomainInfo) GetSPNs() (map[string][]string, error) {
 		_ = entry.GetAttributeValue("cn")
 		spnList := entry.GetAttributeValues("servicePrincipalName")
 		if len(spnList) > 0 {
-			key := fmt.Sprintf("[*] SPN：%s", dn)
+			key := fmt.Sprintf("SPN：%s", dn)
 			spns[key] = spnList
 		}
 	}
@@ -708,7 +708,7 @@ func DCInfoScan(info *Common.HostInfo) (err error) {
 
 		for _, category := range categories {
 			if computers, ok := specialComputers[category]; ok {
-				fmt.Printf("[*] %s:\n", category)
+				fmt.Printf("%s:\n", category)
 				for _, computer := range computers {
 					fmt.Printf("\t%s\n", computer)
 				}
@@ -724,7 +724,7 @@ func DCInfoScan(info *Common.HostInfo) (err error) {
 	}
 
 	// 打印用户信息
-	fmt.Println("[*] 域用户:")
+	fmt.Println("域用户:")
 	for _, user := range users {
 		fmt.Println("\t" + user)
 	}
@@ -737,7 +737,7 @@ func DCInfoScan(info *Common.HostInfo) (err error) {
 	}
 
 	// 打印域管理员信息
-	fmt.Println("[*] 域管理员:")
+	fmt.Println("域管理员:")
 	for _, admin := range admins {
 		fmt.Println("\t" + admin)
 	}
@@ -750,7 +750,7 @@ func DCInfoScan(info *Common.HostInfo) (err error) {
 	}
 
 	// 打印组织单位信息
-	fmt.Println("[*] 组织单位:")
+	fmt.Println("组织单位:")
 	for _, ou := range ous {
 		fmt.Println("\t" + ou)
 	}
@@ -763,7 +763,7 @@ func DCInfoScan(info *Common.HostInfo) (err error) {
 	}
 
 	// 打印域计算机信息
-	fmt.Println("[*] 域计算机:")
+	fmt.Println("域计算机:")
 	for _, computer := range computers {
 		fmt.Printf("\t%s", computer.Name)
 		if computer.OperatingSystem != "" {
@@ -775,7 +775,7 @@ func DCInfoScan(info *Common.HostInfo) (err error) {
 	// 获取并显示信任域关系
 	trustDomains, err := di.GetTrustDomains()
 	if err == nil {
-		fmt.Println("[*] 信任域关系:")
+		fmt.Println("信任域关系:")
 		for _, domain := range trustDomains {
 			fmt.Printf("\t%s\n", domain)
 		}
@@ -786,7 +786,7 @@ func DCInfoScan(info *Common.HostInfo) (err error) {
 	adminGroups, err := di.GetAdminGroups()
 	if err == nil {
 		for groupName, members := range adminGroups {
-			fmt.Printf("[*] %s成员:\n", groupName)
+			fmt.Printf("%s成员:\n", groupName)
 			for _, member := range members {
 				fmt.Printf("\t%s\n", member)
 			}
@@ -798,7 +798,7 @@ func DCInfoScan(info *Common.HostInfo) (err error) {
 	delegations, err := di.GetDelegation()
 	if err == nil {
 		for delegationType, entries := range delegations {
-			fmt.Printf("[*] %s:\n", delegationType)
+			fmt.Printf("%s:\n", delegationType)
 			for _, entry := range entries {
 				fmt.Printf("\t%s\n", entry)
 			}
@@ -809,7 +809,7 @@ func DCInfoScan(info *Common.HostInfo) (err error) {
 	// 获取并显示AS-REP Roasting漏洞用户
 	asrepUsers, err := di.GetAsrepRoastUsers()
 	if err == nil {
-		fmt.Println("[*] AS-REP弱口令账户:")
+		fmt.Println("AS-REP弱口令账户:")
 		for _, user := range asrepUsers {
 			fmt.Printf("\t%s\n", user)
 		}
@@ -819,7 +819,7 @@ func DCInfoScan(info *Common.HostInfo) (err error) {
 	// 获取并显示域密码策略
 	passwordPolicy, err := di.GetPasswordPolicy()
 	if err == nil {
-		fmt.Println("[*] 域密码策略:")
+		fmt.Println("域密码策略:")
 		for key, value := range passwordPolicy {
 			fmt.Printf("\t%s: %s\n", key, value)
 		}
@@ -843,7 +843,7 @@ func DCInfoScan(info *Common.HostInfo) (err error) {
 			fmt.Println()
 		}
 	} else {
-		fmt.Println("[*] 未发现SPN信息\n")
+		fmt.Println("未发现SPN信息\n")
 	}
 	return nil
 }

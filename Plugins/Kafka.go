@@ -5,18 +5,15 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/shadow1ng/fscan/Common"
 	"strings"
-	"sync"
 	"time"
 )
 
-// KafkaScan 执行 Kafka 服务扫描
 func KafkaScan(info *Common.HostInfo) (tmperr error) {
 	if Common.DisableBrute {
 		return
 	}
 
 	maxRetries := Common.MaxRetries
-	threads := Common.BruteThreads
 
 	// 首先测试无认证访问
 	for retryCount := 0; retryCount < maxRetries; retryCount++ {
@@ -33,105 +30,62 @@ func KafkaScan(info *Common.HostInfo) (tmperr error) {
 		break
 	}
 
-	// 创建任务通道
-	taskChan := make(chan struct {
-		user string
-		pass string
-	}, len(Common.Userdict["kafka"])*len(Common.Passwords))
+	starttime := time.Now().Unix()
 
-	resultChan := make(chan error, threads)
-
-	// 生成所有用户名密码组合任务
+	// 遍历所有用户名密码组合
 	for _, user := range Common.Userdict["kafka"] {
 		for _, pass := range Common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
-			taskChan <- struct {
-				user string
-				pass string
-			}{user, pass}
-		}
-	}
-	close(taskChan)
 
-	// 启动工作线程
-	var wg sync.WaitGroup
-	for i := 0; i < threads; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			starttime := time.Now().Unix()
+			// 检查是否超时
+			if time.Now().Unix()-starttime > int64(Common.Timeout) {
+				return fmt.Errorf("扫描超时")
+			}
 
-			for task := range taskChan {
-				// 重试循环
-				for retryCount := 0; retryCount < maxRetries; retryCount++ {
-					// 检查是否超时
-					if time.Now().Unix()-starttime > int64(Common.Timeout) {
-						resultChan <- fmt.Errorf("扫描超时")
-						return
-					}
+			// 重试循环
+			for retryCount := 0; retryCount < maxRetries; retryCount++ {
+				// 执行Kafka连接
+				done := make(chan struct {
+					success bool
+					err     error
+				})
 
-					// 执行Kafka连接
-					done := make(chan struct {
+				go func(user, pass string) {
+					success, err := KafkaConn(info, user, pass)
+					done <- struct {
 						success bool
 						err     error
-					})
+					}{success, err}
+				}(user, pass)
 
-					go func(user, pass string) {
-						success, err := KafkaConn(info, user, pass)
-						done <- struct {
-							success bool
-							err     error
-						}{success, err}
-					}(task.user, task.pass)
-
-					// 等待结果或超时
-					var err error
-					select {
-					case result := <-done:
-						err = result.err
-						if result.success && err == nil {
-							resultChan <- nil
-							return
-						}
-					case <-time.After(time.Duration(Common.Timeout) * time.Second):
-						err = fmt.Errorf("连接超时")
+				// 等待结果或超时
+				var err error
+				select {
+				case result := <-done:
+					err = result.err
+					if result.success && err == nil {
+						return nil
 					}
-
-					// 处理错误情况
-					if err != nil {
-						errlog := fmt.Sprintf("Kafka服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
-							info.Host, info.Ports, task.user, task.pass, err)
-						Common.LogError(errlog)
-
-						// 检查是否需要重试
-						if retryErr := Common.CheckErrs(err); retryErr != nil {
-							if retryCount == maxRetries-1 {
-								resultChan <- err
-								return
-							}
-							continue // 继续重试
-						}
-					}
-
-					break // 如果不需要重试，跳出重试循环
+				case <-time.After(time.Duration(Common.Timeout) * time.Second):
+					err = fmt.Errorf("连接超时")
 				}
-			}
-			resultChan <- nil
-		}()
-	}
 
-	// 等待所有线程完成
-	go func() {
-		wg.Wait()
-		close(resultChan)
-	}()
+				// 处理错误情况
+				if err != nil {
+					errlog := fmt.Sprintf("Kafka服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
+						info.Host, info.Ports, user, pass, err)
+					Common.LogError(errlog)
 
-	// 检查结果
-	for err := range resultChan {
-		if err != nil {
-			tmperr = err
-			if retryErr := Common.CheckErrs(err); retryErr != nil {
-				return err
+					// 检查是否需要重试
+					if retryErr := Common.CheckErrs(err); retryErr != nil {
+						if retryCount == maxRetries-1 {
+							return err
+						}
+						continue // 继续重试
+					}
+				}
+
+				break // 如果不需要重试，跳出重试循环
 			}
 		}
 	}

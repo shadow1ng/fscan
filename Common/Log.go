@@ -18,19 +18,14 @@ import (
 
 var (
 	// 全局变量
-	status  = &ScanStatus{lastSuccess: time.Now(), lastError: time.Now()}
-	results = make(chan *LogEntry, 1000) // 使用缓冲通道
-	logWG   sync.WaitGroup
+	status = &ScanStatus{lastSuccess: time.Now(), lastError: time.Now()}
 
 	// 扫描计数
 	Num int64 // 总任务数
 	End int64 // 已完成任务数
-)
 
-// 将 results 改名为 Results 使其可导出
-var (
-	Results = results // 使 results 可导出
-	LogWG   = logWG   // 使 logWG 可导出
+	// 文件写入器
+	fileWriter *bufferedFileWriter
 )
 
 // ScanStatus 记录扫描状态
@@ -66,16 +61,18 @@ var logColors = map[string]color.Attribute{
 	LogLevelDebug:   color.FgBlue,
 }
 
-// bufferedFileWriter 文件写入器
-type bufferedFileWriter struct {
-	file    *os.File
-	writer  *bufio.Writer
-	jsonEnc *json.Encoder
+// JsonOutput JSON输出的结构体
+type JsonOutput struct {
+	Level     string    `json:"level"`
+	Timestamp time.Time `json:"timestamp"`
+	Message   string    `json:"message"`
 }
 
-func init() {
+func InitLogger() {
 	log.SetOutput(io.Discard)
-	go processLogs()
+	if !DisableSave {
+		fileWriter = newBufferedFileWriter()
+	}
 }
 
 // formatLogMessage 格式化日志消息
@@ -85,124 +82,108 @@ func formatLogMessage(entry *LogEntry) string {
 }
 
 func printLog(entry *LogEntry) {
-	// 根据配置的日志级别过滤
-	if LogLevel != LogLevelAll && entry.Level != LogLevel {
+	// 先检查日志级别
+	if LogLevel != LogLevelAll &&
+		entry.Level != LogLevel &&
+		!(LogLevel == LogLevelInfo && (entry.Level == LogLevelInfo || entry.Level == LogLevelSuccess)) {
 		return
 	}
+
+	OutputMutex.Lock()
+	defer OutputMutex.Unlock()
 
 	logMsg := formatLogMessage(entry)
-	if NoColor {
-		fmt.Println(logMsg)
-		return
-	}
-
-	if colorAttr, ok := logColors[entry.Level]; ok {
-		color.New(colorAttr).Println(logMsg)
+	// 只在输出到终端时处理进度条
+	if !NoColor {
+		// 清除当前行
+		fmt.Print("\033[2K\r")
+		if colorAttr, ok := logColors[entry.Level]; ok {
+			color.New(colorAttr).Println(logMsg)
+		} else {
+			fmt.Println(logMsg)
+		}
 	} else {
 		fmt.Println(logMsg)
 	}
 }
 
-// 同样修改 LogError 和 LogInfo
 func LogError(errMsg string) {
-	// 获取调用者信息
 	_, file, line, ok := runtime.Caller(1)
 	if !ok {
 		file = "unknown"
 		line = 0
 	}
-	// 只获取文件名
 	file = filepath.Base(file)
 
-	// 格式化错误消息
 	errorMsg := fmt.Sprintf("%s:%d - %s", file, line, errMsg)
 
-	select {
-	case Results <- &LogEntry{
+	if ProgressBar != nil {
+		ProgressBar.Clear()
+	}
+
+	entry := &LogEntry{
 		Level:   LogLevelError,
 		Time:    time.Now(),
 		Content: errorMsg,
-	}:
-		logWG.Add(1)
-	default:
-		printLog(&LogEntry{
-			Level:   LogLevelError,
-			Time:    time.Now(),
-			Content: errorMsg,
-		})
+	}
+
+	printLog(entry)
+	if fileWriter != nil {
+		fileWriter.write(entry)
+	}
+
+	if ProgressBar != nil {
+		ProgressBar.RenderBlank()
 	}
 }
 
 func LogInfo(msg string) {
-	select {
-	case Results <- &LogEntry{
+	if ProgressBar != nil {
+		ProgressBar.Clear()
+	}
+
+	entry := &LogEntry{
 		Level:   LogLevelInfo,
 		Time:    time.Now(),
 		Content: msg,
-	}:
-		logWG.Add(1)
-	default:
-		printLog(&LogEntry{
-			Level:   LogLevelInfo,
-			Time:    time.Now(),
-			Content: msg,
-		})
+	}
+
+	printLog(entry)
+	if fileWriter != nil {
+		fileWriter.write(entry)
+	}
+
+	if ProgressBar != nil {
+		ProgressBar.RenderBlank()
 	}
 }
 
-// LogSuccess 记录成功信息
 func LogSuccess(result string) {
-	// 添加通道关闭检查
-	select {
-	case Results <- &LogEntry{
+	if ProgressBar != nil {
+		ProgressBar.Clear()
+	}
+
+	entry := &LogEntry{
 		Level:   LogLevelSuccess,
 		Time:    time.Now(),
 		Content: result,
-	}:
-		logWG.Add(1)
-		status.mu.Lock()
-		status.lastSuccess = time.Now()
-		status.mu.Unlock()
-	default:
-		// 如果通道已关闭或已满，直接打印
-		printLog(&LogEntry{
-			Level:   LogLevelSuccess,
-			Time:    time.Now(),
-			Content: result,
-		})
 	}
-}
 
-// JsonOutput JSON输出的结构体
-type JsonOutput struct {
-	Level     string    `json:"level"`
-	Timestamp time.Time `json:"timestamp"`
-	Message   string    `json:"message"`
-}
+	printLog(entry)
+	if fileWriter != nil {
+		fileWriter.write(entry)
+	}
 
-// processLogs 处理日志信息
-func processLogs() {
-	writer := newBufferedFileWriter()
-	defer writer.close()
+	status.mu.Lock()
+	status.lastSuccess = time.Now()
+	status.mu.Unlock()
 
-	for entry := range results {
-		if !Silent {
-			printLog(entry)
-		}
-
-		if writer != nil {
-			writer.write(entry)
-		}
-
-		logWG.Done()
+	if ProgressBar != nil {
+		ProgressBar.RenderBlank()
 	}
 }
 
 func newBufferedFileWriter() *bufferedFileWriter {
-	if DisableSave {
-		return nil
-	}
-
 	file, err := os.OpenFile(Outputfile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		fmt.Printf("[ERROR] 打开输出文件失败 %s: %v\n", Outputfile, err)
@@ -217,34 +198,79 @@ func newBufferedFileWriter() *bufferedFileWriter {
 	}
 }
 
+type bufferedFileWriter struct {
+	file    *os.File
+	writer  *bufio.Writer
+	jsonEnc *json.Encoder
+	mu      sync.Mutex // 添加互斥锁保护写入
+}
+
 func (w *bufferedFileWriter) write(entry *LogEntry) {
 	if w == nil {
 		return
 	}
 
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	var err error
 	if JsonFormat {
 		output := JsonOutput{
 			Level:     entry.Level,
 			Timestamp: entry.Time,
 			Message:   entry.Content,
 		}
-		if err := w.jsonEnc.Encode(output); err != nil {
-			fmt.Printf("[ERROR] JSON编码失败: %v\n", err)
-		}
+		err = w.jsonEnc.Encode(output)
 	} else {
 		logMsg := formatLogMessage(entry) + "\n"
-		if _, err := w.writer.WriteString(logMsg); err != nil {
-			fmt.Printf("[ERROR] 写入文件失败: %v\n", err)
-		}
+		_, err = w.writer.WriteString(logMsg)
 	}
 
-	w.writer.Flush()
+	if err != nil {
+		fmt.Printf("[ERROR] 写入日志失败: %v\n", err)
+		// 尝试重新打开文件
+		if err := w.reopen(); err != nil {
+			fmt.Printf("[ERROR] 重新打开文件失败: %v\n", err)
+			return
+		}
+		return
+	}
+
+	// 每隔一定数量的写入才进行一次Flush
+	if err := w.writer.Flush(); err != nil {
+		fmt.Printf("[ERROR] 刷新缓冲区失败: %v\n", err)
+		if err := w.reopen(); err != nil {
+			fmt.Printf("[ERROR] 重新打开文件失败: %v\n", err)
+		}
+	}
+}
+
+func (w *bufferedFileWriter) reopen() error {
+	if w.file != nil {
+		w.file.Close()
+	}
+
+	file, err := os.OpenFile(Outputfile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		return err
+	}
+
+	w.file = file
+	w.writer = bufio.NewWriter(file)
+	w.jsonEnc = json.NewEncoder(w.writer)
+	return nil
 }
 
 func (w *bufferedFileWriter) close() {
 	if w != nil {
 		w.writer.Flush()
 		w.file.Close()
+	}
+}
+
+func CloseLogger() {
+	if fileWriter != nil {
+		fileWriter.close()
 	}
 }
 

@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/hirochachacha/go-smb2"
@@ -27,110 +26,59 @@ func SmbScan2(info *Common.HostInfo) (tmperr error) {
 	return smbPasswordScan(info)
 }
 
-// smbPasswordScan 使用密码进行认证扫描
 func smbPasswordScan(info *Common.HostInfo) error {
 	if Common.DisableBrute {
 		return nil
 	}
 
-	threads := Common.BruteThreads
-
-	var wg sync.WaitGroup
-	successChan := make(chan struct{}, 1)
 	hasprint := false
-	var hasPrintMutex sync.Mutex
 
-	// 改成按用户分组处理
+	// 遍历每个用户
 	for _, user := range Common.Userdict["smb"] {
-		// 为每个用户创建密码任务通道
-		taskChan := make(chan string, len(Common.Passwords))
-
-		// 生成该用户的所有密码任务
+		// 遍历该用户的所有密码
 		for _, pass := range Common.Passwords {
 			pass = strings.ReplaceAll(pass, "{user}", user)
-			taskChan <- pass
-		}
-		close(taskChan)
 
-		// 启动工作线程
-		for i := 0; i < threads; i++ {
-			wg.Add(1)
-			go func(username string) {
-				defer wg.Done()
+			// 重试循环
+			for retryCount := 0; retryCount < Common.MaxRetries; retryCount++ {
+				success, err, printed := Smb2Con(info, user, pass, []byte{}, hasprint)
 
-				for pass := range taskChan {
-					select {
-					case <-successChan:
-						return
-					default:
-						time.Sleep(100 * time.Millisecond)
-					}
+				if printed {
+					hasprint = true
+				}
 
-					// 重试循环
-					for retryCount := 0; retryCount < Common.MaxRetries; retryCount++ {
-						hasPrintMutex.Lock()
-						currentHasPrint := hasprint
-						hasPrintMutex.Unlock()
+				if success {
+					logSuccessfulAuth(info, user, pass, []byte{})
+					return nil
+				}
 
-						success, err, printed := Smb2Con(info, username, pass, []byte{}, currentHasPrint)
+				if err != nil {
+					logFailedAuth(info, user, pass, []byte{}, err)
 
-						if printed {
-							hasPrintMutex.Lock()
-							hasprint = true
-							hasPrintMutex.Unlock()
-							time.Sleep(100 * time.Millisecond)
-						}
-
-						if success {
-							logSuccessfulAuth(info, username, pass, []byte{})
-							time.Sleep(100 * time.Millisecond)
-							successChan <- struct{}{}
-							return
-						}
-
-						if err != nil {
-							logFailedAuth(info, username, pass, []byte{}, err)
-							time.Sleep(100 * time.Millisecond)
-
-							// 检查是否账户锁定
-							if strings.Contains(err.Error(), "user account has been automatically locked") {
-								// 发现账户锁定，清空任务通道并返回
-								for range taskChan {
-									// 清空通道
-								}
-								return
-							}
-
-							// 其他登录失败情况
-							if strings.Contains(err.Error(), "LOGIN_FAILED") ||
-								strings.Contains(err.Error(), "Authentication failed") ||
-								strings.Contains(err.Error(), "attempted logon is invalid") ||
-								strings.Contains(err.Error(), "bad username or authentication") {
-								break
-							}
-
-							if retryCount < Common.MaxRetries-1 {
-								time.Sleep(time.Second * time.Duration(retryCount+2))
-								continue
-							}
-						}
+					// 检查是否账户锁定
+					if strings.Contains(err.Error(), "user account has been automatically locked") {
+						// 账户锁定，跳过该用户的剩余密码
 						break
 					}
+
+					// 其他登录失败情况
+					if strings.Contains(err.Error(), "LOGIN_FAILED") ||
+						strings.Contains(err.Error(), "Authentication failed") ||
+						strings.Contains(err.Error(), "attempted logon is invalid") ||
+						strings.Contains(err.Error(), "bad username or authentication") {
+						break
+					}
+
+					if retryCount < Common.MaxRetries-1 {
+						time.Sleep(time.Second * time.Duration(retryCount+2))
+						continue
+					}
 				}
-			}(user)
-		}
-
-		wg.Wait() // 等待当前用户的所有密码尝试完成
-
-		// 检查是否已经找到正确密码
-		select {
-		case <-successChan:
-			return nil
-		default:
+				break
+			}
 		}
 	}
 
-	time.Sleep(200 * time.Millisecond)
 	return nil
 }
 
@@ -139,94 +87,49 @@ func smbHashScan(info *Common.HostInfo) error {
 		return nil
 	}
 
-	threads := Common.BruteThreads
-	var wg sync.WaitGroup
-	successChan := make(chan struct{}, 1)
 	hasprint := false
-	var hasPrintMutex sync.Mutex
 
-	// 按用户分组处理
+	// 遍历每个用户
 	for _, user := range Common.Userdict["smb"] {
-		// 为每个用户创建hash任务通道
-		taskChan := make(chan []byte, len(Common.HashBytes))
-
-		// 生成该用户的所有hash任务
+		// 遍历该用户的所有hash
 		for _, hash := range Common.HashBytes {
-			taskChan <- hash
-		}
-		close(taskChan)
+			// 重试循环
+			for retryCount := 0; retryCount < Common.MaxRetries; retryCount++ {
+				success, err, printed := Smb2Con(info, user, "", hash, hasprint)
 
-		// 启动工作线程
-		for i := 0; i < threads; i++ {
-			wg.Add(1)
-			go func(username string) {
-				defer wg.Done()
+				if printed {
+					hasprint = true
+				}
 
-				for hash := range taskChan {
-					select {
-					case <-successChan:
-						return
-					default:
-					}
+				if success {
+					logSuccessfulAuth(info, user, "", hash)
+					return nil
+				}
 
-					// 重试循环
-					for retryCount := 0; retryCount < Common.MaxRetries; retryCount++ {
-						hasPrintMutex.Lock()
-						currentHasPrint := hasprint
-						hasPrintMutex.Unlock()
+				if err != nil {
+					logFailedAuth(info, user, "", hash, err)
 
-						success, err, printed := Smb2Con(info, username, "", hash, currentHasPrint)
-
-						if printed {
-							hasPrintMutex.Lock()
-							hasprint = true
-							hasPrintMutex.Unlock()
-						}
-
-						if success {
-							logSuccessfulAuth(info, username, "", hash)
-							successChan <- struct{}{}
-							return
-						}
-
-						if err != nil {
-							logFailedAuth(info, username, "", hash, err)
-
-							// 检查是否账户锁定
-							if strings.Contains(err.Error(), "user account has been automatically locked") {
-								// 发现账户锁定，清空任务通道并返回
-								for range taskChan {
-									// 清空通道
-								}
-								return
-							}
-
-							// 其他登录失败情况
-							if strings.Contains(err.Error(), "LOGIN_FAILED") ||
-								strings.Contains(err.Error(), "Authentication failed") ||
-								strings.Contains(err.Error(), "attempted logon is invalid") ||
-								strings.Contains(err.Error(), "bad username or authentication") {
-								break
-							}
-
-							if retryCount < Common.MaxRetries-1 {
-								time.Sleep(time.Second * time.Duration(retryCount+1))
-								continue
-							}
-						}
+					// 检查是否账户锁定
+					if strings.Contains(err.Error(), "user account has been automatically locked") {
+						// 账户锁定，跳过该用户的剩余hash
 						break
 					}
+
+					// 其他登录失败情况
+					if strings.Contains(err.Error(), "LOGIN_FAILED") ||
+						strings.Contains(err.Error(), "Authentication failed") ||
+						strings.Contains(err.Error(), "attempted logon is invalid") ||
+						strings.Contains(err.Error(), "bad username or authentication") {
+						break
+					}
+
+					if retryCount < Common.MaxRetries-1 {
+						time.Sleep(time.Second * time.Duration(retryCount+1))
+						continue
+					}
 				}
-			}(user)
-		}
-
-		wg.Wait() // 等待当前用户的所有hash尝试完成
-
-		// 检查是否已经找到正确凭据
-		select {
-		case <-successChan:
-			return nil
-		default:
+				break
+			}
 		}
 	}
 

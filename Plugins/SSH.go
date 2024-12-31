@@ -1,13 +1,13 @@
 package Plugins
 
 import (
+	"context"
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
 	"net"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -17,97 +17,67 @@ func SshScan(info *Common.HostInfo) (tmperr error) {
 	}
 
 	maxRetries := Common.MaxRetries
-	threads := Common.BruteThreads
-	taskChan := make(chan struct {
-		user string
-		pass string
-	}, len(Common.Userdict["ssh"])*len(Common.Passwords))
 
-	resultChan := make(chan error, threads)
-
-	// 生成所有任务
+	// 遍历所有用户名密码组合
 	for _, user := range Common.Userdict["ssh"] {
 		for _, pass := range Common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
-			taskChan <- struct {
-				user string
-				pass string
-			}{user, pass}
-		}
-	}
-	close(taskChan)
 
-	var wg sync.WaitGroup
-	for i := 0; i < threads; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for task := range taskChan {
-				// 重试循环
-				for retryCount := 0; retryCount < maxRetries; retryCount++ {
-					done := make(chan struct {
+			// 重试循环
+			for retryCount := 0; retryCount < maxRetries; retryCount++ {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Duration(Common.Timeout)*time.Second)
+				done := make(chan struct {
+					success bool
+					err     error
+				}, 1)
+
+				go func(user, pass string) {
+					success, err := SshConn(info, user, pass)
+					select {
+					case <-ctx.Done():
+					case done <- struct {
 						success bool
 						err     error
-					})
-
-					go func(user, pass string) {
-						success, err := SshConn(info, user, pass)
-						done <- struct {
-							success bool
-							err     error
-						}{success, err}
-					}(task.user, task.pass)
-
-					var err error
-					select {
-					case result := <-done:
-						err = result.err
-						if result.success {
-							resultChan <- nil
-							return
-						}
-					case <-time.After(time.Duration(Common.Timeout) * time.Second):
-						err = fmt.Errorf("连接超时")
+					}{success, err}:
 					}
+				}(user, pass)
 
-					if err != nil {
-						errlog := fmt.Sprintf("SSH认证失败 %v:%v User:%v Pass:%v Err:%v",
-							info.Host, info.Ports, task.user, task.pass, err)
-						Common.LogError(errlog)
-
-						// 检查是否是已知错误，如果是则等待3秒后重试
-						if retryErr := Common.CheckErrs(err); retryErr != nil {
-							if retryCount == maxRetries-1 {
-								resultChan <- err
-								return
-							}
-							continue // 继续重试
-						}
+				var err error
+				select {
+				case result := <-done:
+					err = result.err
+					if result.success {
+						successLog := fmt.Sprintf("SSH认证成功 %v:%v User:%v Pass:%v",
+							info.Host, info.Ports, user, pass)
+						Common.LogSuccess(successLog)
+						time.Sleep(100 * time.Millisecond)
+						cancel()
+						return nil
 					}
-
-					if Common.SshKeyPath != "" {
-						resultChan <- err
-						return
-					}
-
-					break // 如果不需要重试，跳出重试循环
+				case <-ctx.Done():
+					err = fmt.Errorf("连接超时")
 				}
-			}
-			resultChan <- nil
-		}()
-	}
 
-	go func() {
-		wg.Wait()
-		close(resultChan)
-	}()
+				cancel()
 
-	// 检查结果
-	for err := range resultChan {
-		if err != nil {
-			tmperr = err
-			if retryErr := Common.CheckErrs(err); retryErr != nil {
-				return err
+				if err != nil {
+					errlog := fmt.Sprintf("SSH认证失败 %v:%v User:%v Pass:%v Err:%v",
+						info.Host, info.Ports, user, pass, err)
+					Common.LogError(errlog)
+
+					if retryErr := Common.CheckErrs(err); retryErr != nil {
+						if retryCount == maxRetries-1 {
+							return err
+						}
+						continue
+					}
+				}
+
+				if Common.SshKeyPath != "" {
+					return err
+				}
+
+				break
 			}
 		}
 	}
@@ -153,29 +123,13 @@ func SshConn(info *Common.HostInfo, user string, pass string) (flag bool, err er
 	}
 	defer session.Close()
 
-	flag = true
-
+	// 如果需要执行命令
 	if Common.Command != "" {
-		output, err := session.CombinedOutput(Common.Command)
+		_, err := session.CombinedOutput(Common.Command)
 		if err != nil {
 			return true, err
 		}
-		if Common.SshKeyPath != "" {
-			Common.LogSuccess(fmt.Sprintf("SSH密钥认证成功 %v:%v\n命令输出:\n%v",
-				info.Host, info.Ports, string(output)))
-		} else {
-			Common.LogSuccess(fmt.Sprintf("SSH认证成功 %v:%v User:%v Pass:%v\n命令输出:\n%v",
-				info.Host, info.Ports, user, pass, string(output)))
-		}
-	} else {
-		if Common.SshKeyPath != "" {
-			Common.LogSuccess(fmt.Sprintf("SSH密钥认证成功 %v:%v",
-				info.Host, info.Ports))
-		} else {
-			Common.LogSuccess(fmt.Sprintf("SSH认证成功 %v:%v User:%v Pass:%v",
-				info.Host, info.Ports, user, pass))
-		}
 	}
 
-	return flag, nil
+	return true, nil
 }

@@ -153,7 +153,7 @@ func SmbGhostScan(info *Common.HostInfo) error {
 		bytes.Equal(buff[74:76], []byte{0x02, 0x00}) {
 
 		// 发现漏洞，记录结果
-		result := fmt.Sprintf("[+] %v CVE-2020-0796 SmbGhost Vulnerable", ip)
+		result := fmt.Sprintf("%v CVE-2020-0796 SmbGhost Vulnerable", ip)
 		Common.LogSuccess(result)
 	}
 

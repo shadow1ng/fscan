@@ -113,7 +113,6 @@ func Flag(Info *HostInfo) {
 
 	// 暴力破解配置
 	flag.BoolVar(&DisableBrute, "nobr", false, "禁用密码暴力破解")
-	flag.IntVar(&BruteThreads, "br", 1, "设置密码破解线程数")
 	flag.IntVar(&MaxRetries, "retry", 3, "设置最大重试次数")
 
 	// 其他配置
@@ -128,7 +127,7 @@ func Flag(Info *HostInfo) {
 	flag.BoolVar(&Silent, "silent", false, "启用静默扫描模式(减少屏幕输出)")
 	flag.BoolVar(&NoColor, "nocolor", false, "禁用彩色输出显示")
 	flag.BoolVar(&JsonFormat, "json", false, "以JSON格式输出结果")
-	flag.StringVar(&LogLevel, "log", LogLevelAll, "日志输出级别(ALL/SUCCESS/ERROR/INFO/DEBUG)")
+	flag.StringVar(&LogLevel, "log", LogLevelInfo, "日志输出级别(ALL/SUCCESS/ERROR/INFO/DEBUG)")
 
 	flag.Parse()
 }

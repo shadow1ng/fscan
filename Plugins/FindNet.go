@@ -149,12 +149,12 @@ func read(text []byte, host string) error {
 	}
 
 	// 构建基础结果
-	result := fmt.Sprintf("[*] NetInfo 扫描结果")
-	result += fmt.Sprintf("\n[*] 目标主机: %s", host)
+	result := fmt.Sprintf("NetInfo 扫描结果")
+	result += fmt.Sprintf("\n目标主机: %s", host)
 	if name != "" {
-		result += fmt.Sprintf("\n[*] 主机名: %s", name)
+		result += fmt.Sprintf("\n主机名: %s", name)
 	}
-	result += "\n[*] 发现的网络接口:"
+	result += "\n发现的网络接口:"
 
 	// 用于分类存储地址
 	var ipv4Addrs []string

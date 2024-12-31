@@ -81,7 +81,7 @@ func init() {
 
 	Common.RegisterPlugin("activemq", Common.ScanPlugin{
 		Name:     "ActiveMQ",
-		Ports:    []int{61616, 61613},
+		Ports:    []int{61613},
 		ScanFunc: Plugins.ActiveMQScan,
 	})
 
@@ -113,12 +113,6 @@ func init() {
 		Name:     "SNMP",
 		Ports:    []int{161, 162}, // SNMP默认端口
 		ScanFunc: Plugins.SNMPScan,
-	})
-
-	Common.RegisterPlugin("zabbix", Common.ScanPlugin{
-		Name:     "Zabbix",
-		Ports:    []int{80, 443, 8080, 8443, 10051}, // Zabbix常用端口
-		ScanFunc: Plugins.ZabbixScan,
 	})
 
 	Common.RegisterPlugin("modbus", Common.ScanPlugin{

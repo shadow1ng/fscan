@@ -223,10 +223,10 @@ func ParseInput(Info *HostInfo) error {
 		LogInfo(fmt.Sprintf("暴力破解线程数: %d", BruteThreads))
 	}
 
-	if DisableSave {
-		IsSave = false
-		LogInfo("已启用临时保存模式")
-	}
+	//if DisableSave {
+	//	IsSave = false
+	//	LogInfo("已启用临时保存模式")
+	//}
 
 	// 处理端口配置
 	if Ports == MainPorts {

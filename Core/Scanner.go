@@ -2,12 +2,15 @@ package Core
 
 import (
 	"fmt"
+	"github.com/schollz/progressbar/v3"
 	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/WebScan/lib"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // Scan 执行扫描主流程
@@ -108,12 +111,67 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 
 	if plugins := Common.GetPluginsForMode(mode); plugins != nil {
 		pluginsToRun = plugins
-		Common.LogInfo(fmt.Sprintf("加载插件组: %s", mode))
 	} else {
 		pluginsToRun = []string{mode}
 		isSinglePlugin = true
-		Common.LogInfo(fmt.Sprintf("使用单个插件: %s", mode))
 	}
+
+	loadedPlugins := make([]string, 0)
+	// 先遍历一遍计算实际要执行的任务数
+	actualTasks := 0
+	for _, target := range targets {
+		targetPort, _ := strconv.Atoi(target.Ports)
+
+		for _, pluginName := range pluginsToRun {
+			plugin, exists := Common.PluginManager[pluginName]
+			if !exists {
+				continue
+			}
+
+			if Common.LocalScan {
+				if len(plugin.Ports) == 0 {
+					actualTasks++
+				}
+				continue
+			}
+
+			if isSinglePlugin {
+				actualTasks++
+				continue
+			}
+
+			if len(plugin.Ports) > 0 {
+				if plugin.HasPort(targetPort) {
+					actualTasks++
+				}
+			} else {
+				actualTasks++
+			}
+		}
+	}
+
+	// 初始化进度条
+	Common.ProgressBar = progressbar.NewOptions(actualTasks,
+		progressbar.OptionEnableColorCodes(true),
+		progressbar.OptionShowCount(),
+		progressbar.OptionSetWidth(15),
+		progressbar.OptionSetDescription("[cyan]扫描进度:[reset]"),
+		progressbar.OptionSetTheme(progressbar.Theme{
+			Saucer:        "[green]=[reset]",
+			SaucerHead:    "[green]>[reset]",
+			SaucerPadding: " ",
+			BarStart:      "[",
+			BarEnd:        "]",
+		}),
+		progressbar.OptionUseANSICodes(true),
+		progressbar.OptionSetRenderBlankState(true),
+		// 设置更新频率
+		progressbar.OptionThrottle(65*time.Millisecond),
+	)
+
+	// 确保进度条首次渲染
+	Common.ProgressBar.RenderBlank()
+	time.Sleep(100 * time.Millisecond) // 给进度条一个短暂的初始化时间
 
 	for _, target := range targets {
 		targetPort, _ := strconv.Atoi(target.Ports)
@@ -127,66 +185,82 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 
 			if Common.LocalScan {
 				if len(plugin.Ports) == 0 {
+					loadedPlugins = append(loadedPlugins, pluginName)
 					AddScan(pluginName, target, ch, wg)
 				}
 				continue
 			}
 
 			if isSinglePlugin {
+				loadedPlugins = append(loadedPlugins, pluginName)
 				AddScan(pluginName, target, ch, wg)
 				continue
 			}
 
 			if len(plugin.Ports) > 0 {
 				if plugin.HasPort(targetPort) {
+					loadedPlugins = append(loadedPlugins, pluginName)
 					AddScan(pluginName, target, ch, wg)
 				}
 			} else {
+				loadedPlugins = append(loadedPlugins, pluginName)
 				AddScan(pluginName, target, ch, wg)
 			}
 		}
 	}
+
+	// 去重并输出实际加载的插件
+	uniquePlugins := make(map[string]struct{})
+	for _, p := range loadedPlugins {
+		uniquePlugins[p] = struct{}{}
+	}
+
+	finalPlugins := make([]string, 0, len(uniquePlugins))
+	for p := range uniquePlugins {
+		finalPlugins = append(finalPlugins, p)
+	}
+	sort.Strings(finalPlugins)
+
+	Common.LogInfo(fmt.Sprintf("加载的插件: %s", strings.Join(finalPlugins, ", ")))
 }
 
 // finishScan 完成扫描任务
 func finishScan(wg *sync.WaitGroup) {
 	wg.Wait()
-	// 先发送最后的成功消息
+	// 确保进度条完成
+	Common.ProgressBar.Finish()
+	fmt.Println() // 添加一个换行
 	Common.LogSuccess(fmt.Sprintf("扫描已完成: %v/%v", Common.End, Common.Num))
-	// 等待日志处理完成后再关闭通道
-	Common.LogWG.Wait()
-	close(Common.Results)
 }
 
 // Mutex用于保护共享资源的并发访问
 var Mutex = &sync.Mutex{}
 
-// AddScan 添加扫描任务到并发队列
+// AddScan 也需要修改
 func AddScan(plugin string, info Common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup) {
-	// 获取信号量，控制并发数
 	*ch <- struct{}{}
-	// 添加等待组计数
 	wg.Add(1)
 
-	// 启动goroutine执行扫描任务
 	go func() {
 		defer func() {
-			wg.Done() // 完成任务后减少等待组计数
-			<-*ch     // 释放信号量
+			wg.Done()
+			<-*ch
 		}()
 
-		// 增加总任务数
 		Mutex.Lock()
 		atomic.AddInt64(&Common.Num, 1)
 		Mutex.Unlock()
 
-		// 执行扫描
 		ScanFunc(&plugin, &info)
 
-		// 增加已完成任务数
-		Mutex.Lock()
+		Common.OutputMutex.Lock()
 		atomic.AddInt64(&Common.End, 1)
-		Mutex.Unlock()
+		if Common.ProgressBar != nil {
+			// 清除当前行
+			fmt.Print("\033[2K\r")
+			Common.ProgressBar.Add(1)
+		}
+		Common.OutputMutex.Unlock()
 	}()
 }
 

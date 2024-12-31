@@ -6,7 +6,6 @@ import (
 	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/shadow1ng/fscan/Common"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -17,103 +16,61 @@ func MssqlScan(info *Common.HostInfo) (tmperr error) {
 	}
 
 	maxRetries := Common.MaxRetries
-	threads := Common.BruteThreads
+	starttime := time.Now().Unix()
 
-	taskChan := make(chan struct {
-		user string
-		pass string
-	}, len(Common.Userdict["mssql"])*len(Common.Passwords))
-
-	resultChan := make(chan error, threads)
-
-	// 生成所有用户名密码组合任务
+	// 遍历所有用户名密码组合
 	for _, user := range Common.Userdict["mssql"] {
 		for _, pass := range Common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
-			taskChan <- struct {
-				user string
-				pass string
-			}{user, pass}
-		}
-	}
-	close(taskChan)
 
-	var wg sync.WaitGroup
-	for i := 0; i < threads; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			starttime := time.Now().Unix()
+			// 检查是否超时
+			if time.Now().Unix()-starttime > int64(Common.Timeout) {
+				return fmt.Errorf("扫描超时")
+			}
 
-			for task := range taskChan {
-				// 重试循环
-				for retryCount := 0; retryCount < maxRetries; retryCount++ {
-					// 检查是否超时
-					if time.Now().Unix()-starttime > int64(Common.Timeout) {
-						resultChan <- fmt.Errorf("扫描超时")
-						return
-					}
+			// 重试循环
+			for retryCount := 0; retryCount < maxRetries; retryCount++ {
+				// 执行MSSQL连接
+				done := make(chan struct {
+					success bool
+					err     error
+				})
 
-					// 执行MSSQL连接
-					done := make(chan struct {
+				go func(user, pass string) {
+					success, err := MssqlConn(info, user, pass)
+					done <- struct {
 						success bool
 						err     error
-					})
+					}{success, err}
+				}(user, pass)
 
-					go func(user, pass string) {
-						success, err := MssqlConn(info, user, pass)
-						done <- struct {
-							success bool
-							err     error
-						}{success, err}
-					}(task.user, task.pass)
-
-					// 等待结果或超时
-					var err error
-					select {
-					case result := <-done:
-						err = result.err
-						if result.success && err == nil {
-							resultChan <- nil
-							return
-						}
-					case <-time.After(time.Duration(Common.Timeout) * time.Second):
-						err = fmt.Errorf("连接超时")
+				// 等待结果或超时
+				var err error
+				select {
+				case result := <-done:
+					err = result.err
+					if result.success && err == nil {
+						return nil
 					}
-
-					if err != nil {
-						errlog := fmt.Sprintf("MSSQL %v:%v %v %v %v",
-							info.Host, info.Ports, task.user, task.pass, err)
-						Common.LogError(errlog)
-
-						// 检查是否需要重试
-						if retryErr := Common.CheckErrs(err); retryErr != nil {
-							if retryCount == maxRetries-1 {
-								resultChan <- err
-								return
-							}
-							continue // 继续重试
-						}
-					}
-
-					break // 如果不需要重试，跳出重试循环
+				case <-time.After(time.Duration(Common.Timeout) * time.Second):
+					err = fmt.Errorf("连接超时")
 				}
-			}
-			resultChan <- nil
-		}()
-	}
 
-	go func() {
-		wg.Wait()
-		close(resultChan)
-	}()
+				if err != nil {
+					errlog := fmt.Sprintf("MSSQL %v:%v %v %v %v",
+						info.Host, info.Ports, user, pass, err)
+					Common.LogError(errlog)
 
-	// 检查结果
-	for err := range resultChan {
-		if err != nil {
-			tmperr = err
-			if retryErr := Common.CheckErrs(err); retryErr != nil {
-				return err
+					// 检查是否需要重试
+					if retryErr := Common.CheckErrs(err); retryErr != nil {
+						if retryCount == maxRetries-1 {
+							return err
+						}
+						continue // 继续重试
+					}
+				}
+
+				break // 如果不需要重试，跳出重试循环
 			}
 		}
 	}
@@ -150,7 +107,7 @@ func MssqlConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 	}
 
 	// 连接成功
-	result := fmt.Sprintf("[+] MSSQL %v:%v:%v %v", host, port, username, password)
+	result := fmt.Sprintf("MSSQL %v:%v:%v %v", host, port, username, password)
 	Common.LogSuccess(result)
 	return true, nil
 }

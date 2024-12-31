@@ -229,7 +229,7 @@ func (info *NetBiosInfo) String() (output string) {
 	}
 	if text == "" {
 	} else if info.DomainControllers != "" {
-		output = fmt.Sprintf("[+] DC:%-24s", text)
+		output = fmt.Sprintf("DC:%-24s", text)
 	} else {
 		output = fmt.Sprintf("%-30s", text)
 	}

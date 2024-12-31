@@ -5,7 +5,6 @@ import (
 	"github.com/shadow1ng/fscan/Common"
 	"github.com/stacktitan/smb/smb"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -14,83 +13,39 @@ func SmbScan(info *Common.HostInfo) (tmperr error) {
 		return nil
 	}
 
-	threads := Common.BruteThreads
-	var wg sync.WaitGroup
-	successChan := make(chan struct{}, 1)
-
-	// 按用户分组处理
+	// 遍历所有用户
 	for _, user := range Common.Userdict["smb"] {
-		taskChan := make(chan string, len(Common.Passwords))
-
+		// 遍历该用户的所有密码
 		for _, pass := range Common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
-			taskChan <- pass
-		}
-		close(taskChan)
 
-		for i := 0; i < threads; i++ {
-			wg.Add(1)
-			go func(username string) {
-				defer wg.Done()
-				for pass := range taskChan {
-					select {
-					case <-successChan:
-						return
-					default:
-					}
-
-					success, err := doWithTimeOut(info, username, pass)
-					if success {
-						if Common.Domain != "" {
-							Common.LogSuccess(fmt.Sprintf("SMB认证成功 %s:%s %s\\%s:%s",
-								info.Host, info.Ports, Common.Domain, username, pass))
-						} else {
-							Common.LogSuccess(fmt.Sprintf("SMB认证成功 %s:%s %s:%s",
-								info.Host, info.Ports, username, pass))
-						}
-						successChan <- struct{}{}
-
-						// 成功后等待确保日志打印完成
-						time.Sleep(500 * time.Millisecond)
-						return
-					}
-
-					if err != nil {
-						Common.LogError(fmt.Sprintf("SMB认证失败 %s:%s %s:%s %v",
-							info.Host, info.Ports, username, pass, err))
-
-						// 等待失败日志打印完成
-						time.Sleep(100 * time.Millisecond)
-
-						if strings.Contains(err.Error(), "账号锁定") {
-							for range taskChan {
-								// 清空通道
-							}
-							time.Sleep(200 * time.Millisecond) // 确保锁定日志打印完成
-							return
-						}
-					}
+			success, err := doWithTimeOut(info, user, pass)
+			if success {
+				if Common.Domain != "" {
+					Common.LogSuccess(fmt.Sprintf("SMB认证成功 %s:%s %s\\%s:%s",
+						info.Host, info.Ports, Common.Domain, user, pass))
+				} else {
+					Common.LogSuccess(fmt.Sprintf("SMB认证成功 %s:%s %s:%s",
+						info.Host, info.Ports, user, pass))
 				}
-			}(user)
-		}
+				return nil
+			}
 
-		wg.Wait()
+			if err != nil {
+				Common.LogError(fmt.Sprintf("SMB认证失败 %s:%s %s:%s %v",
+					info.Host, info.Ports, user, pass, err))
 
-		select {
-		case <-successChan:
-			// 等待日志打印完成
-			time.Sleep(500 * time.Millisecond)
-			Common.LogWG.Wait()
-			return nil
-		default:
+				// 等待失败日志打印完成
+				time.Sleep(100 * time.Millisecond)
+
+				if strings.Contains(err.Error(), "账号锁定") {
+					// 账号锁定时跳过当前用户的剩余密码
+					break // 跳出密码循环，继续下一个用户
+				}
+			}
 		}
 	}
 
-	// 主函数结束前多等待一会
-	time.Sleep(500 * time.Millisecond)
-	Common.LogWG.Wait()
-	// 最后再等待一下，确保所有日志都打印完成
-	time.Sleep(500 * time.Millisecond)
 	return nil
 }
 

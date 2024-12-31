@@ -89,10 +89,10 @@ var (
 )
 
 func LocalInfoScan(info *Common.HostInfo) (err error) {
-	fmt.Println("[+] LocalInfo扫描模块开始...")
+	fmt.Println("LocalInfo扫描模块开始...")
 	home, err := os.UserHomeDir()
 	if err != nil {
-		errlog := fmt.Sprintf("[-] Get UserHomeDir error: %v", err)
+		errlog := fmt.Sprintf("Get UserHomeDir error: %v", err)
 		Common.LogError(errlog)
 		return err
 	}
@@ -103,7 +103,7 @@ func LocalInfoScan(info *Common.HostInfo) (err error) {
 	// 规则搜索
 	searchSensitiveFiles()
 
-	fmt.Println("[+] LocalInfo扫描模块结束...")
+	fmt.Println("LocalInfo扫描模块结束...")
 	return nil
 }
 
@@ -148,7 +148,7 @@ func scanFixedLocations(home string) {
 
 func checkAndLogFile(path string) {
 	if _, err := os.Stat(path); err == nil {
-		result := fmt.Sprintf("[+] Found sensitive file: %s", path)
+		result := fmt.Sprintf("Found sensitive file: %s", path)
 		Common.LogSuccess(result)
 	}
 }
@@ -202,7 +202,7 @@ func searchSensitiveFiles() {
 			for _, white := range whitelist {
 				fileName := strings.ToLower(info.Name())
 				if strings.Contains(fileName, white) {
-					result := fmt.Sprintf("[+] Found potential sensitive file: %s", path)
+					result := fmt.Sprintf("Found potential sensitive file: %s", path)
 					Common.LogSuccess(result)
 					break
 				}

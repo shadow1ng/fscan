@@ -5,7 +5,6 @@ import (
 	"github.com/shadow1ng/fscan/Common"
 	"net"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -16,7 +15,6 @@ func ActiveMQScan(info *Common.HostInfo) (tmperr error) {
 	}
 
 	maxRetries := Common.MaxRetries
-	threads := Common.BruteThreads
 
 	// 首先测试默认账户
 	for retryCount := 0; retryCount < maxRetries; retryCount++ {
@@ -35,103 +33,60 @@ func ActiveMQScan(info *Common.HostInfo) (tmperr error) {
 		break
 	}
 
-	// 创建任务通道
-	taskChan := make(chan struct {
-		user string
-		pass string
-	}, len(Common.Userdict["activemq"])*len(Common.Passwords))
+	starttime := time.Now().Unix()
 
-	resultChan := make(chan error, threads)
-
-	// 生成所有用户名密码组合任务
+	// 遍历所有用户名密码组合
 	for _, user := range Common.Userdict["activemq"] {
 		for _, pass := range Common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
-			taskChan <- struct {
-				user string
-				pass string
-			}{user, pass}
-		}
-	}
-	close(taskChan)
 
-	// 启动工作线程
-	var wg sync.WaitGroup
-	for i := 0; i < threads; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			starttime := time.Now().Unix()
+			// 检查是否超时
+			if time.Now().Unix()-starttime > int64(Common.Timeout) {
+				return fmt.Errorf("扫描超时")
+			}
 
-			for task := range taskChan {
-				// 重试循环
-				for retryCount := 0; retryCount < maxRetries; retryCount++ {
-					// 检查是否超时
-					if time.Now().Unix()-starttime > int64(Common.Timeout) {
-						resultChan <- fmt.Errorf("扫描超时")
-						return
-					}
+			// 重试循环
+			for retryCount := 0; retryCount < maxRetries; retryCount++ {
+				// 执行连接测试
+				done := make(chan struct {
+					success bool
+					err     error
+				})
 
-					// 执行连接测试
-					done := make(chan struct {
+				go func(user, pass string) {
+					flag, err := ActiveMQConn(info, user, pass)
+					done <- struct {
 						success bool
 						err     error
-					})
+					}{flag, err}
+				}(user, pass)
 
-					go func(user, pass string) {
-						flag, err := ActiveMQConn(info, user, pass)
-						done <- struct {
-							success bool
-							err     error
-						}{flag, err}
-					}(task.user, task.pass)
-
-					// 等待结果或超时
-					var err error
-					select {
-					case result := <-done:
-						err = result.err
-						if result.success {
-							resultChan <- nil
-							return
-						}
-					case <-time.After(time.Duration(Common.Timeout) * time.Second):
-						err = fmt.Errorf("连接超时")
+				// 等待结果或超时
+				var err error
+				select {
+				case result := <-done:
+					err = result.err
+					if result.success {
+						return nil
 					}
-
-					if err != nil {
-						errlog := fmt.Sprintf("ActiveMQ服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
-							info.Host, info.Ports, task.user, task.pass, err)
-						Common.LogError(errlog)
-
-						if retryErr := Common.CheckErrs(err); retryErr != nil {
-							if retryCount == maxRetries-1 {
-								resultChan <- err
-								return
-							}
-							continue
-						}
-					}
-
-					break
+				case <-time.After(time.Duration(Common.Timeout) * time.Second):
+					err = fmt.Errorf("连接超时")
 				}
-			}
-			resultChan <- nil
-		}()
-	}
 
-	// 等待所有线程完成
-	go func() {
-		wg.Wait()
-		close(resultChan)
-	}()
+				if err != nil {
+					errlog := fmt.Sprintf("ActiveMQ服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
+						info.Host, info.Ports, user, pass, err)
+					Common.LogError(errlog)
 
-	// 检查结果
-	for err := range resultChan {
-		if err != nil {
-			tmperr = err
-			if retryErr := Common.CheckErrs(err); retryErr != nil {
-				return err
+					if retryErr := Common.CheckErrs(err); retryErr != nil {
+						if retryCount == maxRetries-1 {
+							return err
+						}
+						continue
+					}
+				}
+
+				break
 			}
 		}
 	}
@@ -171,7 +126,7 @@ func ActiveMQConn(info *Common.HostInfo, user string, pass string) (bool, error)
 	response := string(respBuf[:n])
 
 	if strings.Contains(response, "CONNECTED") {
-		result := fmt.Sprintf("[+] ActiveMQ服务 %v:%v 爆破成功 用户名: %v 密码: %v",
+		result := fmt.Sprintf("ActiveMQ服务 %v:%v 爆破成功 用户名: %v 密码: %v",
 			info.Host, info.Ports, user, pass)
 		Common.LogSuccess(result)
 		return true, nil

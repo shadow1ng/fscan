@@ -489,10 +489,10 @@ func readreply(conn net.Conn) (string, error) {
 
 // testwrite 测试Redis写入权限
 func testwrite(conn net.Conn) (flag bool, flagCron bool, err error) {
-	fmt.Println("[*] 开始测试Redis写入权限...")
+	fmt.Println("开始测试Redis写入权限...")
 
 	// 测试SSH目录写入权限
-	fmt.Println("[*] 正在测试 /root/.ssh/ 目录写入权限...")
+	fmt.Println("正在测试 /root/.ssh/ 目录写入权限...")
 	_, err = conn.Write([]byte("CONFIG SET dir /root/.ssh/\r\n"))
 	if err != nil {
 		fmt.Printf("发送SSH目录测试命令失败: %v\n", err)
@@ -503,7 +503,7 @@ func testwrite(conn net.Conn) (flag bool, flagCron bool, err error) {
 		fmt.Printf("读取SSH目录测试响应失败: %v\n", err)
 		return flag, flagCron, err
 	}
-	fmt.Printf("[*] SSH目录测试响应: %s\n", text)
+	fmt.Printf("SSH目录测试响应: %s\n", text)
 	if strings.Contains(text, "OK") {
 		flag = true
 		fmt.Println("SSH目录写入权限测试成功")
@@ -512,7 +512,7 @@ func testwrite(conn net.Conn) (flag bool, flagCron bool, err error) {
 	}
 
 	// 测试定时任务目录写入权限
-	fmt.Println("[*] 正在测试 /var/spool/cron/ 目录写入权限...")
+	fmt.Println("正在测试 /var/spool/cron/ 目录写入权限...")
 	_, err = conn.Write([]byte("CONFIG SET dir /var/spool/cron/\r\n"))
 	if err != nil {
 		fmt.Printf("发送定时任务目录测试命令失败: %v\n", err)
@@ -523,7 +523,7 @@ func testwrite(conn net.Conn) (flag bool, flagCron bool, err error) {
 		fmt.Printf("读取定时任务目录测试响应失败: %v\n", err)
 		return flag, flagCron, err
 	}
-	fmt.Printf("[*] 定时任务目录测试响应: %s\n", text)
+	fmt.Printf("定时任务目录测试响应: %s\n", text)
 	if strings.Contains(text, "OK") {
 		flagCron = true
 		fmt.Println("定时任务目录写入权限测试成功")
@@ -531,7 +531,7 @@ func testwrite(conn net.Conn) (flag bool, flagCron bool, err error) {
 		fmt.Println("定时任务目录写入权限测试失败")
 	}
 
-	fmt.Printf("[*] 写入权限测试完成 - SSH权限: %v, Cron权限: %v\n", flag, flagCron)
+	fmt.Printf("写入权限测试完成 - SSH权限: %v, Cron权限: %v\n", flag, flagCron)
 	return flag, flagCron, err
 }
 

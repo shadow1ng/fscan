@@ -37,128 +37,38 @@ func RdpScan(info *Common.HostInfo) (tmperr error) {
 		return
 	}
 
-	var (
-		wg    sync.WaitGroup
-		num   = 0
-		all   = len(Common.Userdict["rdp"]) * len(Common.Passwords)
-		mutex sync.Mutex
-	)
-
-	// 创建任务通道和结果通道
-	brlist := make(chan Brutelist)
-	resultChan := make(chan bool)
-
 	port, _ := strconv.Atoi(info.Ports)
+	total := len(Common.Userdict["rdp"]) * len(Common.Passwords)
+	num := 0
 
-	// 启动工作协程
-	for i := 0; i < Common.BruteThreads; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for one := range brlist {
-				select {
-				case <-resultChan: // 检查是否已经找到有效凭据
-					return
-				default:
+	// 遍历用户名密码组合
+	for _, user := range Common.Userdict["rdp"] {
+		for _, pass := range Common.Passwords {
+			num++
+			pass = strings.Replace(pass, "{user}", user, -1)
+
+			// 尝试连接
+			flag, err := RdpConn(info.Host, Common.Domain, user, pass, port, Common.Timeout)
+
+			if flag && err == nil {
+				// 连接成功
+				var result string
+				if Common.Domain != "" {
+					result = fmt.Sprintf("RDP %v:%v:%v\\%v %v", info.Host, port, Common.Domain, user, pass)
+				} else {
+					result = fmt.Sprintf("RDP %v:%v:%v %v", info.Host, port, user, pass)
 				}
-
-				mutex.Lock()
-				num++
-				mutex.Unlock()
-
-				user, pass := one.user, one.pass
-				flag, err := RdpConn(info.Host, Common.Domain, user, pass, port, Common.Timeout)
-
-				if flag && err == nil {
-					// 连接成功
-					var result string
-					if Common.Domain != "" {
-						result = fmt.Sprintf("RDP %v:%v:%v\\%v %v", info.Host, port, Common.Domain, user, pass)
-					} else {
-						result = fmt.Sprintf("RDP %v:%v:%v %v", info.Host, port, user, pass)
-					}
-					Common.LogSuccess(result)
-					select {
-					case resultChan <- true: // 通知其他goroutine找到了有效凭据
-					default:
-					}
-					return
-				}
-
-				// 连接失败
-				errlog := fmt.Sprintf("(%v/%v) RDP %v:%v %v %v %v", num, all, info.Host, port, user, pass, err)
-				Common.LogError(errlog)
+				Common.LogSuccess(result)
+				return nil
 			}
-		}()
-	}
 
-	// 分发扫描任务
-	go func() {
-		for _, user := range Common.Userdict["rdp"] {
-			for _, pass := range Common.Passwords {
-				pass = strings.Replace(pass, "{user}", user, -1)
-				select {
-				case <-resultChan: // 如果已经找到有效凭据，停止分发任务
-					return
-				case brlist <- Brutelist{user, pass}:
-				}
-			}
+			// 连接失败
+			errlog := fmt.Sprintf("(%v/%v) RDP %v:%v %v %v %v", num, total, info.Host, port, user, pass, err)
+			Common.LogError(errlog)
 		}
-		close(brlist)
-	}()
-
-	// 等待任务完成或找到有效凭据
-	go func() {
-		wg.Wait()
-		close(resultChan)
-	}()
-
-	// 等待结果
-	if <-resultChan {
-		return nil
 	}
 
 	return tmperr
-}
-
-// worker RDP扫描工作协程
-func worker(host, domain string, port int, wg *sync.WaitGroup, brlist chan Brutelist,
-	signal *bool, num *int, all int, mutex *sync.Mutex, timeout int64) {
-	defer wg.Done()
-
-	for one := range brlist {
-		if *signal {
-			return
-		}
-		go incrNum(num, mutex)
-
-		user, pass := one.user, one.pass
-		flag, err := RdpConn(host, domain, user, pass, port, timeout)
-
-		if flag && err == nil {
-			// 连接成功
-			var result string
-			if domain != "" {
-				result = fmt.Sprintf("RDP %v:%v:%v\\%v %v", host, port, domain, user, pass)
-			} else {
-				result = fmt.Sprintf("RDP %v:%v:%v %v", host, port, user, pass)
-			}
-			Common.LogSuccess(result)
-			*signal = true
-			return
-		}
-
-		// 连接失败
-		errlog := fmt.Sprintf("(%v/%v) RDP %v:%v %v %v %v", *num, all, host, port, user, pass, err)
-		Common.LogError(errlog)
-	}
-}
-
-// incrNum 线程安全地增加计数器
-func incrNum(num *int, mutex *sync.Mutex) {
-	mutex.Lock()
-	*num++
-	mutex.Unlock()
 }
 
 // RdpConn 尝试RDP连接
