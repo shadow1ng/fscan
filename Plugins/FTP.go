@@ -17,6 +17,8 @@ func FtpScan(info *Common.HostInfo) (tmperr error) {
 
 	maxRetries := Common.MaxRetries
 	threads := Common.BruteThreads
+	successChan := make(chan struct{}, 1)
+	defer close(successChan)
 
 	// 先尝试匿名登录
 	for retryCount := 0; retryCount < maxRetries; retryCount++ {
@@ -27,11 +29,13 @@ func FtpScan(info *Common.HostInfo) (tmperr error) {
 		errlog := fmt.Sprintf("[-] ftp %v:%v %v %v", info.Host, info.Ports, "anonymous", err)
 		Common.LogError(errlog)
 
-		if retryErr := Common.CheckErrs(err); retryErr != nil {
-			if retryCount == maxRetries-1 {
-				return err
+		if err != nil && !strings.Contains(err.Error(), "Login incorrect") {
+			if retryErr := Common.CheckErrs(err); retryErr != nil {
+				if retryCount == maxRetries-1 {
+					return err
+				}
+				continue
 			}
-			continue
 		}
 		break
 	}
@@ -62,17 +66,17 @@ func FtpScan(info *Common.HostInfo) (tmperr error) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			starttime := time.Now().Unix()
-
 			for task := range taskChan {
+				// 检查是否已经成功
+				select {
+				case <-successChan:
+					resultChan <- nil
+					return
+				default:
+				}
+
 				// 重试循环
 				for retryCount := 0; retryCount < maxRetries; retryCount++ {
-					// 检查是否超时
-					if time.Now().Unix()-starttime > int64(Common.Timeout) {
-						resultChan <- fmt.Errorf("扫描超时")
-						return
-					}
-
 					// 执行FTP连接
 					done := make(chan struct {
 						success bool
@@ -93,6 +97,13 @@ func FtpScan(info *Common.HostInfo) (tmperr error) {
 					case result := <-done:
 						err = result.err
 						if result.success && err == nil {
+							select {
+							case successChan <- struct{}{}:
+								successLog := fmt.Sprintf("[+] FTP %v:%v %v %v",
+									info.Host, info.Ports, task.user, task.pass)
+								Common.LogSuccess(successLog)
+							default:
+							}
 							resultChan <- nil
 							return
 						}
@@ -106,16 +117,27 @@ func FtpScan(info *Common.HostInfo) (tmperr error) {
 							info.Host, info.Ports, task.user, task.pass, err)
 						Common.LogError(errlog)
 
+						// 对于登录失败的错误，直接继续下一个
+						if strings.Contains(err.Error(), "Login incorrect") {
+							break
+						}
+
+						// 特别处理连接数过多的情况
+						if strings.Contains(err.Error(), "too many connections") {
+							time.Sleep(5 * time.Second)
+							if retryCount < maxRetries-1 {
+								continue // 继续重试
+							}
+						}
+
 						// 检查是否需要重试
 						if retryErr := Common.CheckErrs(err); retryErr != nil {
 							if retryCount == maxRetries-1 {
-								resultChan <- err
-								return
+								continue // 继续下一个密码，而不是返回
 							}
 							continue // 继续重试
 						}
 					}
-
 					break // 如果不需要重试，跳出重试循环
 				}
 			}
@@ -133,8 +155,11 @@ func FtpScan(info *Common.HostInfo) (tmperr error) {
 	for err := range resultChan {
 		if err != nil {
 			tmperr = err
-			if retryErr := Common.CheckErrs(err); retryErr != nil {
-				return err
+			// 对于超时错误也继续执行
+			if !strings.Contains(err.Error(), "扫描超时") {
+				if retryErr := Common.CheckErrs(err); retryErr != nil {
+					continue // 继续尝试，而不是返回
+				}
 			}
 		}
 	}
@@ -151,6 +176,12 @@ func FtpConn(info *Common.HostInfo, user string, pass string) (flag bool, err er
 	if err != nil {
 		return false, err
 	}
+	// 确保连接被关闭
+	defer func() {
+		if conn != nil {
+			conn.Quit() // 发送QUIT命令关闭连接
+		}
+	}()
 
 	// 尝试登录
 	if err = conn.Login(Username, Password); err != nil {
@@ -171,6 +202,5 @@ func FtpConn(info *Common.HostInfo, user string, pass string) (flag bool, err er
 		}
 	}
 
-	Common.LogSuccess(result)
 	return true, nil
 }
