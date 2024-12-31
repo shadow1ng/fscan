@@ -38,38 +38,84 @@ func RdpScan(info *Common.HostInfo) (tmperr error) {
 	}
 
 	var (
-		wg     sync.WaitGroup
-		signal bool
-		num    = 0
-		all    = len(Common.Userdict["rdp"]) * len(Common.Passwords)
-		mutex  sync.Mutex
+		wg    sync.WaitGroup
+		num   = 0
+		all   = len(Common.Userdict["rdp"]) * len(Common.Passwords)
+		mutex sync.Mutex
 	)
 
-	// 创建任务通道
+	// 创建任务通道和结果通道
 	brlist := make(chan Brutelist)
+	resultChan := make(chan bool)
+
 	port, _ := strconv.Atoi(info.Ports)
 
 	// 启动工作协程
 	for i := 0; i < Common.BruteThreads; i++ {
 		wg.Add(1)
-		go worker(info.Host, Common.Domain, port, &wg, brlist, &signal, &num, all, &mutex, Common.Timeout)
+		go func() {
+			defer wg.Done()
+			for one := range brlist {
+				select {
+				case <-resultChan: // 检查是否已经找到有效凭据
+					return
+				default:
+				}
+
+				mutex.Lock()
+				num++
+				mutex.Unlock()
+
+				user, pass := one.user, one.pass
+				flag, err := RdpConn(info.Host, Common.Domain, user, pass, port, Common.Timeout)
+
+				if flag && err == nil {
+					// 连接成功
+					var result string
+					if Common.Domain != "" {
+						result = fmt.Sprintf("[+] RDP %v:%v:%v\\%v %v", info.Host, port, Common.Domain, user, pass)
+					} else {
+						result = fmt.Sprintf("[+] RDP %v:%v:%v %v", info.Host, port, user, pass)
+					}
+					Common.LogSuccess(result)
+					select {
+					case resultChan <- true: // 通知其他goroutine找到了有效凭据
+					default:
+					}
+					return
+				}
+
+				// 连接失败
+				errlog := fmt.Sprintf("[-] (%v/%v) RDP %v:%v %v %v %v", num, all, info.Host, port, user, pass, err)
+				Common.LogError(errlog)
+			}
+		}()
 	}
 
 	// 分发扫描任务
-	for _, user := range Common.Userdict["rdp"] {
-		for _, pass := range Common.Passwords {
-			pass = strings.Replace(pass, "{user}", user, -1)
-			brlist <- Brutelist{user, pass}
+	go func() {
+		for _, user := range Common.Userdict["rdp"] {
+			for _, pass := range Common.Passwords {
+				pass = strings.Replace(pass, "{user}", user, -1)
+				select {
+				case <-resultChan: // 如果已经找到有效凭据，停止分发任务
+					return
+				case brlist <- Brutelist{user, pass}:
+				}
+			}
 		}
-	}
-	close(brlist)
+		close(brlist)
+	}()
 
-	// 等待所有任务完成
+	// 等待任务完成或找到有效凭据
 	go func() {
 		wg.Wait()
-		signal = true
+		close(resultChan)
 	}()
-	for !signal {
+
+	// 等待结果
+	if <-resultChan {
+		return nil
 	}
 
 	return tmperr
