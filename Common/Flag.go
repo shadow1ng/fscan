@@ -114,6 +114,7 @@ func Flag(Info *HostInfo) {
 	// 暴力破解配置
 	flag.BoolVar(&DisableBrute, "nobr", false, "禁用密码暴力破解")
 	flag.IntVar(&BruteThreads, "br", 1, "设置密码破解线程数")
+	flag.IntVar(&MaxRetries, "retry", 3, "设置最大重试次数")
 
 	// 其他配置
 	flag.StringVar(&RemotePath, "path", "", "指定FCG/SMB远程文件路径")

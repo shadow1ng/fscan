@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -20,7 +21,7 @@ var (
 func RedisScan(info *Common.HostInfo) (tmperr error) {
 	starttime := time.Now().Unix()
 
-	// 尝试无密码连接
+	// 先尝试无密码连接
 	flag, err := RedisUnauth(info)
 	if flag && err == nil {
 		return err
@@ -30,30 +31,102 @@ func RedisScan(info *Common.HostInfo) (tmperr error) {
 		return
 	}
 
-	// 尝试密码暴力破解
+	maxRetries := Common.MaxRetries
+	threads := Common.BruteThreads
+
+	// 创建任务通道
+	taskChan := make(chan string, len(Common.Passwords))
+	resultChan := make(chan error, threads)
+
+	// 生成所有密码任务
 	for _, pass := range Common.Passwords {
 		pass = strings.Replace(pass, "{user}", "redis", -1)
+		taskChan <- pass
+	}
+	close(taskChan)
 
-		flag, err := RedisConn(info, pass)
-		if flag && err == nil {
-			return err
-		}
+	// 启动工作线程
+	var wg sync.WaitGroup
+	for i := 0; i < threads; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 
-		// 记录错误信息
-		errlog := fmt.Sprintf("[-] Redis %v:%v %v %v", info.Host, info.Ports, pass, err)
-		Common.LogError(errlog)
-		tmperr = err
+			for pass := range taskChan {
+				// 重试循环
+				for retryCount := 0; retryCount < maxRetries; retryCount++ {
+					// 检查是否超时
+					if time.Now().Unix()-starttime > int64(Common.Timeout) {
+						resultChan <- fmt.Errorf("扫描超时")
+						return
+					}
 
-		if Common.CheckErrs(err) {
-			return err
-		}
+					// 执行Redis连接
+					done := make(chan struct {
+						success bool
+						err     error
+					})
 
-		// 超时检查
-		if time.Now().Unix()-starttime > (int64(len(Common.Passwords)) * Common.Timeout) {
-			return err
+					go func(pass string) {
+						success, err := RedisConn(info, pass)
+						done <- struct {
+							success bool
+							err     error
+						}{success, err}
+					}(pass)
+
+					// 等待结果或超时
+					var err error
+					select {
+					case result := <-done:
+						err = result.err
+						if result.success && err == nil {
+							resultChan <- nil
+							return
+						}
+					case <-time.After(time.Duration(Common.Timeout) * time.Second):
+						err = fmt.Errorf("连接超时")
+					}
+
+					// 处理错误情况
+					if err != nil {
+						errlog := fmt.Sprintf("[-] Redis %v:%v %v %v",
+							info.Host, info.Ports, pass, err)
+						Common.LogError(errlog)
+
+						// 检查是否需要重试
+						if retryErr := Common.CheckErrs(err); retryErr != nil {
+							if retryCount == maxRetries-1 {
+								resultChan <- err
+								return
+							}
+							continue // 继续重试
+						}
+					}
+
+					break // 如果不需要重试，跳出重试循环
+				}
+			}
+			resultChan <- nil
+		}()
+	}
+
+	// 等待所有线程完成
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// 检查结果
+	for err := range resultChan {
+		if err != nil {
+			tmperr = err
+			if retryErr := Common.CheckErrs(err); retryErr != nil {
+				return err
+			}
 		}
 	}
-	fmt.Println("[+] Redis扫描模块结束...")
+	
 	return tmperr
 }
 

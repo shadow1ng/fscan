@@ -6,6 +6,7 @@ import (
 	"github.com/shadow1ng/fscan/Common"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -15,31 +16,107 @@ func SNMPScan(info *Common.HostInfo) (tmperr error) {
 		return
 	}
 
-	starttime := time.Now().Unix()
-	portNum, _ := strconv.Atoi(info.Ports) // 添加端口转换
+	maxRetries := Common.MaxRetries
+	threads := Common.BruteThreads
 
-	// 首先尝试默认community strings
+	portNum, _ := strconv.Atoi(info.Ports)
 	defaultCommunities := []string{"public", "private", "cisco", "community"}
 
+	// 创建任务通道
+	taskChan := make(chan string, len(defaultCommunities))
+	resultChan := make(chan error, threads)
+
+	// 生成所有community任务
 	for _, community := range defaultCommunities {
-		flag, err := SNMPConnect(info, community, portNum) // 传入转换后的端口
-		if flag && err == nil {
-			return err
-		}
+		taskChan <- community
+	}
+	close(taskChan)
 
-		if Common.CheckErrs(err) {
-			return err
-		}
+	// 启动工作线程
+	var wg sync.WaitGroup
+	for i := 0; i < threads; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			starttime := time.Now().Unix()
 
-		errlog := fmt.Sprintf("[-] SNMP服务 %v:%v 尝试失败 community: %v 错误: %v",
-			info.Host, info.Ports, community, err)
-		Common.LogError(errlog)
-		tmperr = err
+			for community := range taskChan {
+				// 重试循环
+				for retryCount := 0; retryCount < maxRetries; retryCount++ {
+					// 检查是否超时
+					timeout := time.Duration(Common.Timeout) * time.Second
+					if time.Now().Unix()-starttime > int64(timeout.Seconds()) {
+						resultChan <- fmt.Errorf("扫描超时")
+						return
+					}
 
-		// 修正超时计算
-		timeout := time.Duration(Common.Timeout) * time.Second
-		if time.Now().Unix()-starttime > int64(timeout.Seconds())*int64(len(defaultCommunities)) {
-			return err
+					// 执行SNMP连接
+					done := make(chan struct {
+						success bool
+						err     error
+					})
+
+					go func(community string) {
+						success, err := SNMPConnect(info, community, portNum)
+						done <- struct {
+							success bool
+							err     error
+						}{success, err}
+					}(community)
+
+					// 等待结果或超时
+					var err error
+					select {
+					case result := <-done:
+						err = result.err
+						if result.success && err == nil {
+							// 连接成功
+							successLog := fmt.Sprintf("[+] SNMP服务 %v:%v community: %v 连接成功",
+								info.Host, info.Ports, community)
+							Common.LogSuccess(successLog)
+							resultChan <- nil
+							return
+						}
+					case <-time.After(timeout):
+						err = fmt.Errorf("连接超时")
+					}
+
+					// 处理错误情况
+					if err != nil {
+						errlog := fmt.Sprintf("[-] SNMP服务 %v:%v 尝试失败 community: %v 错误: %v",
+							info.Host, info.Ports, community, err)
+						Common.LogError(errlog)
+
+						// 检查是否需要重试
+						if retryErr := Common.CheckErrs(err); retryErr != nil {
+							if retryCount == maxRetries-1 {
+								resultChan <- err
+								return
+							}
+							continue // 继续重试
+						}
+					}
+
+					break // 如果不需要重试，跳出重试循环
+				}
+			}
+			resultChan <- nil
+		}()
+	}
+
+	// 等待所有线程完成
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// 检查结果
+	for err := range resultChan {
+		if err != nil {
+			tmperr = err
+			if retryErr := Common.CheckErrs(err); retryErr != nil {
+				return err
+			}
 		}
 	}
 

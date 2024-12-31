@@ -16,13 +16,13 @@ func SshScan(info *Common.HostInfo) (tmperr error) {
 		return
 	}
 
-	threads := Common.BruteThreads // 使用 BruteThreads 来控制线程数
+	maxRetries := Common.MaxRetries
+	threads := Common.BruteThreads
 	taskChan := make(chan struct {
 		user string
 		pass string
 	}, len(Common.Userdict["ssh"])*len(Common.Passwords))
 
-	// 创建结果通道
 	resultChan := make(chan error, threads)
 
 	// 生成所有任务
@@ -37,62 +37,66 @@ func SshScan(info *Common.HostInfo) (tmperr error) {
 	}
 	close(taskChan)
 
-	// 启动工作线程
 	var wg sync.WaitGroup
 	for i := 0; i < threads; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for task := range taskChan {
-				// 为每个任务创建结果通道
-				done := make(chan struct {
-					success bool
-					err     error
-				})
-
-				// 执行SSH连接
-				go func(user, pass string) {
-					success, err := SshConn(info, user, pass)
-					done <- struct {
+				// 重试循环
+				for retryCount := 0; retryCount < maxRetries; retryCount++ {
+					done := make(chan struct {
 						success bool
 						err     error
-					}{success, err}
-				}(task.user, task.pass)
+					})
 
-				// 等待结果或超时
-				var err error
-				select {
-				case result := <-done:
-					err = result.err
-					if result.success {
-						resultChan <- nil
-						return
+					go func(user, pass string) {
+						success, err := SshConn(info, user, pass)
+						done <- struct {
+							success bool
+							err     error
+						}{success, err}
+					}(task.user, task.pass)
+
+					var err error
+					select {
+					case result := <-done:
+						err = result.err
+						if result.success {
+							resultChan <- nil
+							return
+						}
+					case <-time.After(time.Duration(Common.Timeout) * time.Second):
+						err = fmt.Errorf("连接超时")
 					}
-				case <-time.After(time.Duration(Common.Timeout) * time.Second):
-					err = fmt.Errorf("连接超时")
-				}
 
-				if err != nil {
-					errlog := fmt.Sprintf("[-] SSH认证失败 %v:%v User:%v Pass:%v Err:%v",
-						info.Host, info.Ports, task.user, task.pass, err)
-					Common.LogError(errlog)
+					if err != nil {
+						errlog := fmt.Sprintf("[-] SSH认证失败 %v:%v User:%v Pass:%v Err:%v",
+							info.Host, info.Ports, task.user, task.pass, err)
+						Common.LogError(errlog)
 
-					if Common.CheckErrs(err) {
+						// 检查是否是已知错误，如果是则等待3秒后重试
+						if retryErr := Common.CheckErrs(err); retryErr != nil {
+							if retryCount == maxRetries-1 {
+								resultChan <- err
+								return
+							}
+							continue // 继续重试
+						}
+					}
+
+					if Common.SshKeyPath != "" {
 						resultChan <- err
 						return
 					}
-				}
 
-				if Common.SshKeyPath != "" {
-					resultChan <- err
-					return
+					break // 如果不需要重试，跳出重试循环
 				}
 			}
 			resultChan <- nil
 		}()
 	}
 
-	// 等待所有线程完成
 	go func() {
 		wg.Wait()
 		close(resultChan)
@@ -102,7 +106,7 @@ func SshScan(info *Common.HostInfo) (tmperr error) {
 	for err := range resultChan {
 		if err != nil {
 			tmperr = err
-			if Common.CheckErrs(err) {
+			if retryErr := Common.CheckErrs(err); retryErr != nil {
 				return err
 			}
 		}

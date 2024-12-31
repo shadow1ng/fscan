@@ -5,6 +5,7 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 	"github.com/shadow1ng/fscan/Common"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -14,43 +15,128 @@ func Neo4jScan(info *Common.HostInfo) (tmperr error) {
 		return
 	}
 
-	starttime := time.Now().Unix()
+	maxRetries := Common.MaxRetries
+	threads := Common.BruteThreads
 
-	// 首先测试无认证访问
-	flag, err := Neo4jConn(info, "", "")
-	if flag && err == nil {
-		return err
+	// 首先测试无认证访问和默认凭证
+	initialChecks := []struct {
+		user string
+		pass string
+	}{
+		{"", ""},           // 无认证
+		{"neo4j", "neo4j"}, // 默认凭证
 	}
 
-	// 测试默认凭证
-	flag, err = Neo4jConn(info, "neo4j", "neo4j")
-	if flag && err == nil {
-		return err
+	for _, check := range initialChecks {
+		flag, err := Neo4jConn(info, check.user, check.pass)
+		if flag && err == nil {
+			return err
+		}
 	}
 
-	// 尝试其他用户名密码组合
+	// 创建任务通道
+	taskChan := make(chan struct {
+		user string
+		pass string
+	}, len(Common.Userdict["neo4j"])*len(Common.Passwords))
+
+	resultChan := make(chan error, threads)
+
+	// 生成所有用户名密码组合任务
 	for _, user := range Common.Userdict["neo4j"] {
 		for _, pass := range Common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
+			taskChan <- struct {
+				user string
+				pass string
+			}{user, pass}
+		}
+	}
+	close(taskChan)
 
-			flag, err := Neo4jConn(info, user, pass)
-			if flag && err == nil {
-				return err
+	// 启动工作线程
+	var wg sync.WaitGroup
+	for i := 0; i < threads; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			starttime := time.Now().Unix()
+
+			for task := range taskChan {
+				// 重试循环
+				for retryCount := 0; retryCount < maxRetries; retryCount++ {
+					// 检查是否超时
+					if time.Now().Unix()-starttime > int64(Common.Timeout) {
+						resultChan <- fmt.Errorf("扫描超时")
+						return
+					}
+
+					// 执行Neo4j连接
+					done := make(chan struct {
+						success bool
+						err     error
+					})
+
+					go func(user, pass string) {
+						flag, err := Neo4jConn(info, user, pass)
+						done <- struct {
+							success bool
+							err     error
+						}{flag, err}
+					}(task.user, task.pass)
+
+					// 等待结果或超时
+					var err error
+					select {
+					case result := <-done:
+						err = result.err
+						if result.success && err == nil {
+							resultChan <- nil
+							return
+						}
+					case <-time.After(time.Duration(Common.Timeout) * time.Second):
+						err = fmt.Errorf("连接超时")
+					}
+
+					// 处理错误情况
+					if err != nil {
+						errlog := fmt.Sprintf("[-] Neo4j服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
+							info.Host, info.Ports, task.user, task.pass, err)
+						Common.LogError(errlog)
+
+						// 检查是否需要重试
+						if retryErr := Common.CheckErrs(err); retryErr != nil {
+							if retryCount == maxRetries-1 {
+								resultChan <- err
+								return
+							}
+							continue // 继续重试
+						}
+					}
+
+					break // 如果不需要重试，跳出重试循环
+				}
 			}
+			resultChan <- nil
+		}()
+	}
 
-			errlog := fmt.Sprintf("[-] Neo4j服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v", info.Host, info.Ports, user, pass, err)
-			Common.LogError(errlog)
+	// 等待所有线程完成
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// 检查结果
+	for err := range resultChan {
+		if err != nil {
 			tmperr = err
-
-			if Common.CheckErrs(err) {
-				return err
-			}
-
-			if time.Now().Unix()-starttime > (int64(len(Common.Userdict["neo4j"])*len(Common.Passwords)) * Common.Timeout) {
+			if retryErr := Common.CheckErrs(err); retryErr != nil {
 				return err
 			}
 		}
 	}
+
 	return tmperr
 }
 
@@ -78,7 +164,7 @@ func Neo4jConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 		// 无认证时使用NoAuth
 		driver, err = neo4j.NewDriver(uri, neo4j.NoAuth(), config)
 	}
-	
+
 	if err != nil {
 		return false, err
 	}

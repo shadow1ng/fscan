@@ -7,6 +7,7 @@ import (
 	"github.com/shadow1ng/fscan/Common"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -32,49 +33,132 @@ func WmiExec(info *Common.HostInfo) (tmperr error) {
 		return nil
 	}
 
-	starttime := time.Now().Unix()
+	maxRetries := Common.MaxRetries
+	threads := Common.BruteThreads
 
+	taskChan := make(chan struct {
+		user string
+		pass string
+	}, len(Common.Userdict["smb"])*len(Common.Passwords))
+
+	resultChan := make(chan error, threads)
+
+	// 生成所有用户名密码组合任务
 	for _, user := range Common.Userdict["smb"] {
-	PASS:
 		for _, pass := range Common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
-
-			flag, err := Wmiexec(info, user, pass, Common.HashValue)
-
-			errlog := fmt.Sprintf("[-] WmiExec %v:%v %v %v %v", info.Host, 445, user, pass, err)
-			errlog = strings.Replace(errlog, "\n", "", -1)
-			Common.LogError(errlog)
-
-			if flag {
-				var result string
-				if Common.Domain != "" {
-					result = fmt.Sprintf("[+] WmiExec %v:%v:%v\\%v ", info.Host, info.Ports, Common.Domain, user)
-				} else {
-					result = fmt.Sprintf("[+] WmiExec %v:%v:%v ", info.Host, info.Ports, user)
-				}
-
-				if Common.HashValue != "" {
-					result += "hash: " + Common.HashValue
-				} else {
-					result += pass
-				}
-				Common.LogSuccess(result)
-				return err
-			} else {
-				tmperr = err
-				if Common.CheckErrs(err) {
-					return err
-				}
-				if time.Now().Unix()-starttime > (int64(len(Common.Userdict["smb"])*len(Common.Passwords)) * Common.Timeout) {
-					return err
-				}
-			}
-
+			taskChan <- struct {
+				user string
+				pass string
+			}{user, pass}
+			// 如果是32位hash值,只尝试一次密码
 			if len(Common.HashValue) == 32 {
-				break PASS
+				break
 			}
 		}
 	}
+	close(taskChan)
+
+	// 启动工作线程
+	var wg sync.WaitGroup
+	for i := 0; i < threads; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			starttime := time.Now().Unix()
+
+			for task := range taskChan {
+				// 重试循环
+				for retryCount := 0; retryCount < maxRetries; retryCount++ {
+					// 检查是否超时
+					if time.Now().Unix()-starttime > int64(Common.Timeout) {
+						resultChan <- fmt.Errorf("扫描超时")
+						return
+					}
+
+					// 执行WMI连接
+					done := make(chan struct {
+						success bool
+						err     error
+					})
+
+					go func(user, pass string) {
+						success, err := Wmiexec(info, user, pass, Common.HashValue)
+						done <- struct {
+							success bool
+							err     error
+						}{success, err}
+					}(task.user, task.pass)
+
+					// 等待结果或超时
+					var err error
+					select {
+					case result := <-done:
+						err = result.err
+						if result.success {
+							// 成功连接
+							var successLog string
+							if Common.Domain != "" {
+								successLog = fmt.Sprintf("[+] WmiExec %v:%v:%v\\%v ",
+									info.Host, info.Ports, Common.Domain, task.user)
+							} else {
+								successLog = fmt.Sprintf("[+] WmiExec %v:%v:%v ",
+									info.Host, info.Ports, task.user)
+							}
+
+							if Common.HashValue != "" {
+								successLog += "hash: " + Common.HashValue
+							} else {
+								successLog += task.pass
+							}
+							Common.LogSuccess(successLog)
+							resultChan <- nil
+							return
+						}
+					case <-time.After(time.Duration(Common.Timeout) * time.Second):
+						err = fmt.Errorf("连接超时")
+					}
+
+					// 处理错误情况
+					if err != nil {
+						errlog := fmt.Sprintf("[-] WmiExec %v:%v %v %v %v",
+							info.Host, 445, task.user, task.pass, err)
+						errlog = strings.Replace(errlog, "\n", "", -1)
+						Common.LogError(errlog)
+
+						// 检查是否需要重试
+						if retryErr := Common.CheckErrs(err); retryErr != nil {
+							if retryCount == maxRetries-1 {
+								resultChan <- err
+								return
+							}
+							continue // 继续重试
+						}
+					}
+
+					break // 如果不需要重试，跳出重试循环
+				}
+			}
+			resultChan <- nil
+		}()
+	}
+
+	// 等待所有线程完成
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// 检查结果
+	for err := range resultChan {
+		if err != nil {
+			tmperr = err
+			if retryErr := Common.CheckErrs(err); retryErr != nil {
+				return err
+			}
+		}
+	}
+
 	return tmperr
 }
 

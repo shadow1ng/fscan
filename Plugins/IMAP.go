@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -16,31 +17,107 @@ func IMAPScan(info *Common.HostInfo) (tmperr error) {
 		return
 	}
 
-	starttime := time.Now().Unix()
+	maxRetries := Common.MaxRetries
+	threads := Common.BruteThreads
 
-	// 尝试用户名密码组合
+	taskChan := make(chan struct {
+		user string
+		pass string
+	}, len(Common.Userdict["imap"])*len(Common.Passwords))
+
+	resultChan := make(chan error, threads)
+
+	// 生成所有用户名密码组合任务
 	for _, user := range Common.Userdict["imap"] {
 		for _, pass := range Common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
+			taskChan <- struct {
+				user string
+				pass string
+			}{user, pass}
+		}
+	}
+	close(taskChan)
 
-			flag, err := IMAPConn(info, user, pass)
-			if flag && err == nil {
-				return err
+	var wg sync.WaitGroup
+	for i := 0; i < threads; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			starttime := time.Now().Unix()
+
+			for task := range taskChan {
+				// 重试循环
+				for retryCount := 0; retryCount < maxRetries; retryCount++ {
+					// 检查是否超时
+					if time.Now().Unix()-starttime > int64(Common.Timeout) {
+						resultChan <- fmt.Errorf("扫描超时")
+						return
+					}
+
+					// 执行IMAP连接
+					done := make(chan struct {
+						success bool
+						err     error
+					})
+
+					go func(user, pass string) {
+						success, err := IMAPConn(info, user, pass)
+						done <- struct {
+							success bool
+							err     error
+						}{success, err}
+					}(task.user, task.pass)
+
+					// 等待结果或超时
+					var err error
+					select {
+					case result := <-done:
+						err = result.err
+						if result.success && err == nil {
+							resultChan <- nil
+							return
+						}
+					case <-time.After(time.Duration(Common.Timeout) * time.Second):
+						err = fmt.Errorf("连接超时")
+					}
+
+					// 处理错误情况
+					if err != nil {
+						errlog := fmt.Sprintf("[-] IMAP服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
+							info.Host, info.Ports, task.user, task.pass, err)
+						Common.LogError(errlog)
+
+						if retryErr := Common.CheckErrs(err); retryErr != nil {
+							if retryCount == maxRetries-1 {
+								resultChan <- err
+								return
+							}
+							continue
+						}
+					}
+
+					break
+				}
 			}
+			resultChan <- nil
+		}()
+	}
 
-			errlog := fmt.Sprintf("[-] IMAP服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v", info.Host, info.Ports, user, pass, err)
-			Common.LogError(errlog)
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	for err := range resultChan {
+		if err != nil {
 			tmperr = err
-
-			if Common.CheckErrs(err) {
-				return err
-			}
-
-			if time.Now().Unix()-starttime > (int64(len(Common.Userdict["imap"])*len(Common.Passwords)) * Common.Timeout) {
+			if retryErr := Common.CheckErrs(err); retryErr != nil {
 				return err
 			}
 		}
 	}
+
 	return tmperr
 }
 

@@ -5,46 +5,117 @@ import (
 	"github.com/mitchellh/go-vnc"
 	"github.com/shadow1ng/fscan/Common"
 	"net"
+	"sync"
 	"time"
 )
 
 // VncScan 执行VNC服务扫描及密码尝试
 func VncScan(info *Common.HostInfo) (tmperr error) {
-	// 如果已开启暴力破解则直接返回
 	if Common.DisableBrute {
 		return
 	}
 
+	maxRetries := Common.MaxRetries
+	threads := Common.BruteThreads
 	modename := "vnc"
-	starttime := time.Now().Unix()
 
-	// 遍历密码字典尝试连接
+	// 创建任务通道
+	taskChan := make(chan string, len(Common.Passwords))
+	resultChan := make(chan error, threads)
+
+	// 生成所有密码任务
 	for _, pass := range Common.Passwords {
-		flag, err := VncConn(info, pass)
+		taskChan <- pass
+	}
+	close(taskChan)
 
-		if flag && err == nil {
-			// 连接成功，记录结果
-			result := fmt.Sprintf("[+] %s://%v:%v 密码: %v", modename, info.Host, info.Ports, pass)
-			Common.LogSuccess(result)
-			return err
-		}
+	// 启动工作线程
+	var wg sync.WaitGroup
+	for i := 0; i < threads; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			starttime := time.Now().Unix()
 
-		// 连接失败，记录错误信息
-		errlog := fmt.Sprintf("[-] %s://%v:%v 尝试密码: %v 错误: %v",
-			modename, info.Host, info.Ports, pass, err)
-		Common.LogError(errlog)
-		tmperr = err
+			for pass := range taskChan {
+				// 重试循环
+				for retryCount := 0; retryCount < maxRetries; retryCount++ {
+					// 检查是否超时
+					if time.Now().Unix()-starttime > int64(Common.Timeout) {
+						resultChan <- fmt.Errorf("扫描超时")
+						return
+					}
 
-		// 检查是否需要中断扫描
-		if Common.CheckErrs(err) {
-			return err
-		}
+					// 执行VNC连接
+					done := make(chan struct {
+						success bool
+						err     error
+					})
 
-		// 检查是否超时
-		if time.Now().Unix()-starttime > (int64(len(Common.Passwords)) * Common.Timeout) {
-			return fmt.Errorf("扫描超时")
+					go func(pass string) {
+						success, err := VncConn(info, pass)
+						done <- struct {
+							success bool
+							err     error
+						}{success, err}
+					}(pass)
+
+					// 等待结果或超时
+					var err error
+					select {
+					case result := <-done:
+						err = result.err
+						if result.success && err == nil {
+							// 连接成功
+							successLog := fmt.Sprintf("[+] %s://%v:%v 密码: %v",
+								modename, info.Host, info.Ports, pass)
+							Common.LogSuccess(successLog)
+							resultChan <- nil
+							return
+						}
+					case <-time.After(time.Duration(Common.Timeout) * time.Second):
+						err = fmt.Errorf("连接超时")
+					}
+
+					// 处理错误情况
+					if err != nil {
+						errlog := fmt.Sprintf("[-] %s://%v:%v 尝试密码: %v 错误: %v",
+							modename, info.Host, info.Ports, pass, err)
+						Common.LogError(errlog)
+
+						// 检查是否是需要重试的错误
+						if retryErr := Common.CheckErrs(err); retryErr != nil {
+							if retryCount == maxRetries-1 {
+								resultChan <- err
+								return
+							}
+							continue // 继续重试
+						}
+					}
+
+					break // 如果不需要重试，跳出重试循环
+				}
+			}
+			resultChan <- nil
+		}()
+	}
+
+	// 等待所有线程完成
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// 检查结果
+	for err := range resultChan {
+		if err != nil {
+			tmperr = err
+			if retryErr := Common.CheckErrs(err); retryErr != nil {
+				return err
+			}
 		}
 	}
+
 	return tmperr
 }
 

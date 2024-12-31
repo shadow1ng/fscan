@@ -7,6 +7,7 @@ import (
 	"github.com/shadow1ng/fscan/Common"
 	"net"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -16,37 +17,134 @@ func ZabbixScan(info *Common.HostInfo) (tmperr error) {
 		return
 	}
 
-	starttime := time.Now().Unix()
+	maxRetries := Common.MaxRetries
+	threads := Common.BruteThreads
 
-	// 首先测试默认账户
-	flag, err := ZabbixConn(info, "Admin", "zabbix")
-	if flag && err == nil {
-		return err
+	// 先测试默认账号
+	defaultDone := make(chan struct {
+		success bool
+		err     error
+	})
+
+	go func() {
+		success, err := ZabbixConn(info, "Admin", "zabbix")
+		defaultDone <- struct {
+			success bool
+			err     error
+		}{success, err}
+	}()
+
+	select {
+	case result := <-defaultDone:
+		if result.success && result.err == nil {
+			return result.err
+		}
+	case <-time.After(time.Duration(Common.Timeout) * time.Second):
+		Common.LogError(fmt.Sprintf("[-] Zabbix默认账号连接超时 %v:%v", info.Host, info.Ports))
 	}
 
-	// 尝试用户名密码组合
+	// 创建任务通道
+	taskChan := make(chan struct {
+		user string
+		pass string
+	}, len(Common.Userdict["zabbix"])*len(Common.Passwords))
+	resultChan := make(chan error, threads)
+
+	// 生成所有用户名密码组合任务
 	for _, user := range Common.Userdict["zabbix"] {
 		for _, pass := range Common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
+			taskChan <- struct {
+				user string
+				pass string
+			}{user, pass}
+		}
+	}
+	close(taskChan)
 
-			flag, err := ZabbixConn(info, user, pass)
-			if flag && err == nil {
-				return err
+	// 启动工作线程
+	var wg sync.WaitGroup
+	for i := 0; i < threads; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			starttime := time.Now().Unix()
+
+			for task := range taskChan {
+				// 重试循环
+				for retryCount := 0; retryCount < maxRetries; retryCount++ {
+					// 检查是否超时
+					if time.Now().Unix()-starttime > int64(Common.Timeout) {
+						resultChan <- fmt.Errorf("扫描超时")
+						return
+					}
+
+					// 执行Zabbix连接
+					done := make(chan struct {
+						success bool
+						err     error
+					})
+
+					go func(user, pass string) {
+						success, err := ZabbixConn(info, user, pass)
+						done <- struct {
+							success bool
+							err     error
+						}{success, err}
+					}(task.user, task.pass)
+
+					// 等待结果或超时
+					var err error
+					select {
+					case result := <-done:
+						err = result.err
+						if result.success && err == nil {
+							resultChan <- nil
+							return
+						}
+					case <-time.After(time.Duration(Common.Timeout) * time.Second):
+						err = fmt.Errorf("连接超时")
+					}
+
+					// 处理错误情况
+					if err != nil {
+						errlog := fmt.Sprintf("[-] Zabbix服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
+							info.Host, info.Ports, task.user, task.pass, err)
+						Common.LogError(errlog)
+
+						// 检查是否需要重试
+						if retryErr := Common.CheckErrs(err); retryErr != nil {
+							if retryCount == maxRetries-1 {
+								resultChan <- err
+								return
+							}
+							continue // 继续重试
+						}
+					}
+
+					break // 如果不需要重试，跳出重试循环
+				}
 			}
+			resultChan <- nil
+		}()
+	}
 
-			errlog := fmt.Sprintf("[-] Zabbix服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v", info.Host, info.Ports, user, pass, err)
-			Common.LogError(errlog)
+	// 等待所有线程完成
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// 检查结果
+	for err := range resultChan {
+		if err != nil {
 			tmperr = err
-
-			if Common.CheckErrs(err) {
-				return err
-			}
-
-			if time.Now().Unix()-starttime > (int64(len(Common.Userdict["zabbix"])*len(Common.Passwords)) * Common.Timeout) {
+			if retryErr := Common.CheckErrs(err); retryErr != nil {
 				return err
 			}
 		}
 	}
+
 	return tmperr
 }
 

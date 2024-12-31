@@ -6,60 +6,133 @@ import (
 	"github.com/shadow1ng/fscan/Common"
 	"github.com/stacktitan/smb/smb"
 	"strings"
+	"sync"
 	"time"
 )
 
 // SmbScan 执行SMB服务的认证扫描
 func SmbScan(info *Common.HostInfo) (tmperr error) {
-	// 如果未启用暴力破解则直接返回
 	if Common.DisableBrute {
 		return nil
 	}
 
-	startTime := time.Now().Unix()
+	maxRetries := Common.MaxRetries
+	threads := Common.BruteThreads
 
-	// 遍历用户名和密码字典进行认证尝试
+	// 创建任务通道
+	taskChan := make(chan struct {
+		user string
+		pass string
+	}, len(Common.Userdict["smb"])*len(Common.Passwords))
+
+	resultChan := make(chan error, threads)
+
+	// 生成所有用户名密码组合任务
 	for _, user := range Common.Userdict["smb"] {
 		for _, pass := range Common.Passwords {
-			// 替换密码中的用户名占位符
 			pass = strings.Replace(pass, "{user}", user, -1)
+			taskChan <- struct {
+				user string
+				pass string
+			}{user, pass}
+		}
+	}
+	close(taskChan)
 
-			// 执行带超时的认证
-			success, err := doWithTimeOut(info, user, pass)
+	// 启动工作线程
+	var wg sync.WaitGroup
+	for i := 0; i < threads; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			startTime := time.Now().Unix()
 
-			if success && err == nil {
-				// 认证成功,记录结果
-				var result string
-				if Common.Domain != "" {
-					result = fmt.Sprintf("[✓] SMB认证成功 %v:%v Domain:%v\\%v Pass:%v",
-						info.Host, info.Ports, Common.Domain, user, pass)
-				} else {
-					result = fmt.Sprintf("[✓] SMB认证成功 %v:%v User:%v Pass:%v",
-						info.Host, info.Ports, user, pass)
+			for task := range taskChan {
+				// 重试循环
+				for retryCount := 0; retryCount < maxRetries; retryCount++ {
+					// 检查是否超时
+					if time.Now().Unix()-startTime > int64(Common.Timeout) {
+						resultChan <- fmt.Errorf("扫描超时")
+						return
+					}
+
+					// 执行SMB认证
+					done := make(chan struct {
+						success bool
+						err     error
+					})
+
+					go func(user, pass string) {
+						success, err := doWithTimeOut(info, user, pass)
+						done <- struct {
+							success bool
+							err     error
+						}{success, err}
+					}(task.user, task.pass)
+
+					// 等待结果或超时
+					var err error
+					select {
+					case result := <-done:
+						err = result.err
+						if result.success && err == nil {
+							// 认证成功
+							var successLog string
+							if Common.Domain != "" {
+								successLog = fmt.Sprintf("[✓] SMB认证成功 %v:%v Domain:%v\\%v Pass:%v",
+									info.Host, info.Ports, Common.Domain, task.user, task.pass)
+							} else {
+								successLog = fmt.Sprintf("[✓] SMB认证成功 %v:%v User:%v Pass:%v",
+									info.Host, info.Ports, task.user, task.pass)
+							}
+							Common.LogSuccess(successLog)
+							resultChan <- nil
+							return
+						}
+					case <-time.After(time.Duration(Common.Timeout) * time.Second):
+						err = fmt.Errorf("连接超时")
+					}
+
+					// 处理错误情况
+					if err != nil {
+						errlog := fmt.Sprintf("[x] SMB认证失败 %v:%v User:%v Pass:%v Err:%v",
+							info.Host, info.Ports, task.user, task.pass,
+							strings.ReplaceAll(err.Error(), "\n", ""))
+						Common.LogError(errlog)
+
+						// 检查是否需要重试
+						if retryErr := Common.CheckErrs(err); retryErr != nil {
+							if retryCount == maxRetries-1 {
+								resultChan <- err
+								return
+							}
+							continue // 继续重试
+						}
+					}
+
+					break // 如果不需要重试，跳出重试循环
 				}
-				Common.LogSuccess(result)
+			}
+			resultChan <- nil
+		}()
+	}
+
+	// 等待所有线程完成
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// 检查结果
+	for err := range resultChan {
+		if err != nil {
+			tmperr = err
+			if retryErr := Common.CheckErrs(err); retryErr != nil {
 				return err
-			} else {
-				// 认证失败,记录错误
-				errorMsg := fmt.Sprintf("[x] SMB认证失败 %v:%v User:%v Pass:%v Err:%v",
-					info.Host, info.Ports, user, pass,
-					strings.ReplaceAll(err.Error(), "\n", ""))
-				Common.LogError(errorMsg)
-				tmperr = err
-
-				// 检查是否需要中断扫描
-				if Common.CheckErrs(err) {
-					return err
-				}
-
-				// 检查是否超时
-				timeoutLimit := int64(len(Common.Userdict["smb"])*len(Common.Passwords)) * Common.Timeout
-				if time.Now().Unix()-startTime > timeoutLimit {
-					return err
-				}
 			}
 		}
 	}
+
 	return tmperr
 }
 

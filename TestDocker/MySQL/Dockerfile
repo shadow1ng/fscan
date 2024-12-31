@@ -2,7 +2,7 @@
 FROM mysql:latest
 
 # 设置环境变量
-ENV MYSQL_ROOT_PASSWORD=123456
+ENV MYSQL_ROOT_PASSWORD=Password
 ENV MYSQL_DATABASE=mydb
 
 # 开放3306端口

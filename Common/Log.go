@@ -137,13 +137,13 @@ func LogError(errinfo interface{}) {
 	}
 }
 
-// CheckErrs 检查是否为已知错误
-func CheckErrs(err error) bool {
+// CheckErrs 检查是否为需要重试的错误
+func CheckErrs(err error) error {
 	if err == nil {
-		return false
+		return nil
 	}
 
-	// 已知错误列表
+	// 已知需要重试的错误列表
 	errs := []string{
 		"closed by the remote host", "too many connections",
 		"EOF", "A connection attempt failed",
@@ -159,9 +159,10 @@ func CheckErrs(err error) bool {
 	errLower := strings.ToLower(err.Error())
 	for _, key := range errs {
 		if strings.Contains(errLower, strings.ToLower(key)) {
-			return true
+			time.Sleep(3 * time.Second)
+			return err
 		}
 	}
 
-	return false
+	return nil
 }

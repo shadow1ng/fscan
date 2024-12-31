@@ -6,6 +6,7 @@ import (
 	"github.com/shadow1ng/fscan/Common"
 	"net"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -15,37 +16,121 @@ func RabbitMQScan(info *Common.HostInfo) (tmperr error) {
 		return
 	}
 
-	starttime := time.Now().Unix()
+	maxRetries := Common.MaxRetries
+	threads := Common.BruteThreads
 
-	// 首先测试默认账户 guest/guest
-	flag, err := RabbitMQConn(info, "guest", "guest")
-	if flag && err == nil {
-		return err
-	}
+	// 创建任务通道
+	taskChan := make(chan struct {
+		user string
+		pass string
+	}, len(Common.Userdict["rabbitmq"])*len(Common.Passwords)+1) // +1 是为了加入guest账号
 
-	// 尝试用户名密码组合
+	resultChan := make(chan error, threads)
+
+	// 先加入默认账号guest/guest
+	taskChan <- struct {
+		user string
+		pass string
+	}{"guest", "guest"}
+
+	// 生成其他用户名密码组合任务
 	for _, user := range Common.Userdict["rabbitmq"] {
 		for _, pass := range Common.Passwords {
 			pass = strings.Replace(pass, "{user}", user, -1)
+			taskChan <- struct {
+				user string
+				pass string
+			}{user, pass}
+		}
+	}
+	close(taskChan)
 
-			flag, err := RabbitMQConn(info, user, pass)
-			if flag && err == nil {
-				return err
+	// 启动工作线程
+	var wg sync.WaitGroup
+	for i := 0; i < threads; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			starttime := time.Now().Unix()
+
+			for task := range taskChan {
+				// 重试循环
+				for retryCount := 0; retryCount < maxRetries; retryCount++ {
+					// 检查是否超时
+					if time.Now().Unix()-starttime > int64(Common.Timeout) {
+						resultChan <- fmt.Errorf("扫描超时")
+						return
+					}
+
+					// 执行RabbitMQ连接
+					done := make(chan struct {
+						success bool
+						err     error
+					})
+
+					go func(user, pass string) {
+						success, err := RabbitMQConn(info, user, pass)
+						done <- struct {
+							success bool
+							err     error
+						}{success, err}
+					}(task.user, task.pass)
+
+					// 等待结果或超时
+					var err error
+					select {
+					case result := <-done:
+						err = result.err
+						if result.success && err == nil {
+							result := fmt.Sprintf("[+] RabbitMQ服务 %v:%v 连接成功 用户名: %v 密码: %v",
+								info.Host, info.Ports, task.user, task.pass)
+							Common.LogSuccess(result)
+							resultChan <- nil
+							return
+						}
+					case <-time.After(time.Duration(Common.Timeout) * time.Second):
+						err = fmt.Errorf("连接超时")
+					}
+
+					// 处理错误情况
+					if err != nil {
+						errlog := fmt.Sprintf("[-] RabbitMQ服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
+							info.Host, info.Ports, task.user, task.pass, err)
+						Common.LogError(errlog)
+
+						// 检查是否需要重试
+						if retryErr := Common.CheckErrs(err); retryErr != nil {
+							if retryCount == maxRetries-1 {
+								resultChan <- err
+								return
+							}
+							continue // 继续重试
+						}
+					}
+
+					break // 如果不需要重试，跳出重试循环
+				}
 			}
+			resultChan <- nil
+		}()
+	}
 
-			errlog := fmt.Sprintf("[-] RabbitMQ服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v", info.Host, info.Ports, user, pass, err)
-			Common.LogError(errlog)
+	// 等待所有线程完成
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// 检查结果
+	for err := range resultChan {
+		if err != nil {
 			tmperr = err
-
-			if Common.CheckErrs(err) {
-				return err
-			}
-
-			if time.Now().Unix()-starttime > (int64(len(Common.Userdict["rabbitmq"])*len(Common.Passwords)) * Common.Timeout) {
+			if retryErr := Common.CheckErrs(err); retryErr != nil {
 				return err
 			}
 		}
 	}
+
 	return tmperr
 }
 
