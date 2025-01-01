@@ -81,8 +81,8 @@ func formatLogMessage(entry *LogEntry) string {
 	return fmt.Sprintf("[%s] [%s] %s", timeStr, entry.Level, entry.Content)
 }
 
+// 修改 printLog 函数
 func printLog(entry *LogEntry) {
-	// 先检查日志级别
 	if LogLevel != LogLevelAll &&
 		entry.Level != LogLevel &&
 		!(LogLevel == LogLevelInfo && (entry.Level == LogLevelInfo || entry.Level == LogLevelSuccess)) {
@@ -92,11 +92,15 @@ func printLog(entry *LogEntry) {
 	OutputMutex.Lock()
 	defer OutputMutex.Unlock()
 
+	// 确保清除当前进度条
+	if ProgressBar != nil {
+		ProgressBar.Clear()
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	// 打印日志
 	logMsg := formatLogMessage(entry)
-	// 只在输出到终端时处理进度条
 	if !NoColor {
-		// 清除当前行
-		fmt.Print("\033[2K\r")
 		if colorAttr, ok := logColors[entry.Level]; ok {
 			color.New(colorAttr).Println(logMsg)
 		} else {
@@ -104,6 +108,14 @@ func printLog(entry *LogEntry) {
 		}
 	} else {
 		fmt.Println(logMsg)
+	}
+
+	// 确保日志完全输出
+	time.Sleep(50 * time.Millisecond)
+
+	// 重新渲染进度条
+	if ProgressBar != nil {
+		ProgressBar.RenderBlank()
 	}
 }
 

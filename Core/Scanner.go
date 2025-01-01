@@ -119,92 +119,62 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 	loadedPlugins := make([]string, 0)
 	// 先遍历一遍计算实际要执行的任务数
 	actualTasks := 0
-	for _, target := range targets {
-		targetPort, _ := strconv.Atoi(target.Ports)
 
-		for _, pluginName := range pluginsToRun {
-			plugin, exists := Common.PluginManager[pluginName]
-			if !exists {
-				continue
-			}
-
-			if Common.LocalScan {
-				if len(plugin.Ports) == 0 {
-					actualTasks++
-				}
-				continue
-			}
-
-			if isSinglePlugin {
-				actualTasks++
-				continue
-			}
-
-			if len(plugin.Ports) > 0 {
-				if plugin.HasPort(targetPort) {
-					actualTasks++
-				}
-			} else {
-				actualTasks++
-			}
-		}
+	// 定义任务结构
+	type ScanTask struct {
+		pluginName string
+		target     Common.HostInfo
 	}
+	tasks := make([]ScanTask, 0)
 
-	// 初始化进度条
-	Common.ProgressBar = progressbar.NewOptions(actualTasks,
-		progressbar.OptionEnableColorCodes(true),
-		progressbar.OptionShowCount(),
-		progressbar.OptionSetWidth(15),
-		progressbar.OptionSetDescription("[cyan]扫描进度:[reset]"),
-		progressbar.OptionSetTheme(progressbar.Theme{
-			Saucer:        "[green]=[reset]",
-			SaucerHead:    "[green]>[reset]",
-			SaucerPadding: " ",
-			BarStart:      "[",
-			BarEnd:        "]",
-		}),
-		progressbar.OptionUseANSICodes(true),
-		progressbar.OptionSetRenderBlankState(true),
-		// 设置更新频率
-		progressbar.OptionThrottle(65*time.Millisecond),
-	)
-
-	// 确保进度条首次渲染
-	Common.ProgressBar.RenderBlank()
-	time.Sleep(100 * time.Millisecond) // 给进度条一个短暂的初始化时间
-
+	// 第一次遍历：计算任务数和收集要执行的插件
 	for _, target := range targets {
 		targetPort, _ := strconv.Atoi(target.Ports)
 
 		for _, pluginName := range pluginsToRun {
 			plugin, exists := Common.PluginManager[pluginName]
 			if !exists {
-				Common.LogError(fmt.Sprintf("插件 %s 不存在", pluginName))
 				continue
 			}
 
 			if Common.LocalScan {
 				if len(plugin.Ports) == 0 {
+					actualTasks++
 					loadedPlugins = append(loadedPlugins, pluginName)
-					AddScan(pluginName, target, ch, wg)
+					tasks = append(tasks, ScanTask{
+						pluginName: pluginName,
+						target:     target,
+					})
 				}
 				continue
 			}
 
 			if isSinglePlugin {
+				actualTasks++
 				loadedPlugins = append(loadedPlugins, pluginName)
-				AddScan(pluginName, target, ch, wg)
+				tasks = append(tasks, ScanTask{
+					pluginName: pluginName,
+					target:     target,
+				})
 				continue
 			}
 
 			if len(plugin.Ports) > 0 {
 				if plugin.HasPort(targetPort) {
+					actualTasks++
 					loadedPlugins = append(loadedPlugins, pluginName)
-					AddScan(pluginName, target, ch, wg)
+					tasks = append(tasks, ScanTask{
+						pluginName: pluginName,
+						target:     target,
+					})
 				}
 			} else {
+				actualTasks++
 				loadedPlugins = append(loadedPlugins, pluginName)
-				AddScan(pluginName, target, ch, wg)
+				tasks = append(tasks, ScanTask{
+					pluginName: pluginName,
+					target:     target,
+				})
 			}
 		}
 	}
@@ -222,6 +192,31 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 	sort.Strings(finalPlugins)
 
 	Common.LogInfo(fmt.Sprintf("加载的插件: %s", strings.Join(finalPlugins, ", ")))
+
+	// 在初始化进度条的地方添加判断
+	if !Common.NoProgress {
+		Common.ProgressBar = progressbar.NewOptions(actualTasks,
+			progressbar.OptionEnableColorCodes(true),
+			progressbar.OptionShowCount(),
+			progressbar.OptionSetWidth(15),
+			progressbar.OptionSetDescription("[cyan]扫描进度:[reset]"),
+			progressbar.OptionSetTheme(progressbar.Theme{
+				Saucer:        "[green]=[reset]",
+				SaucerHead:    "[green]>[reset]",
+				SaucerPadding: " ",
+				BarStart:      "[",
+				BarEnd:        "]",
+			}),
+			progressbar.OptionThrottle(65*time.Millisecond),
+			progressbar.OptionUseANSICodes(true),
+			progressbar.OptionSetRenderBlankState(true),
+		)
+	}
+
+	// 开始执行收集到的所有任务
+	for _, task := range tasks {
+		AddScan(task.pluginName, task.target, ch, wg)
+	}
 }
 
 // finishScan 完成扫描任务

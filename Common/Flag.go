@@ -2,18 +2,138 @@ package Common
 
 import (
 	"flag"
+	"fmt"
+	"github.com/fatih/color"
+	"strings"
+	"time"
 )
 
 func Banner() {
-	banner := `
-   ___                              _    
-  / _ \     ___  ___ _ __ __ _  ___| | __ 
- / /_\/____/ __|/ __| '__/ _` + "`" + ` |/ __| |/ /
-/ /_\\_____\__ \ (__| | | (_| | (__|   <    
-\____/     |___/\___|_|  \__,_|\___|_|\_\   
-                     fscan version: ` + version + `
-`
-	print(banner)
+	// 定义暗绿色系
+	colors := []color.Attribute{
+		color.FgGreen,   // 基础绿
+		color.FgHiGreen, // 亮绿
+	}
+
+	lines := []string{
+		"   ___                              _    ",
+		"  / _ \\     ___  ___ _ __ __ _  ___| | __ ",
+		" / /_\\/____/ __|/ __| '__/ _` |/ __| |/ /",
+		"/ /_\\\\_____\\__ \\ (__| | | (_| | (__|   <    ",
+		"\\____/     |___/\\___|_|  \\__,_|\\___|_|\\_\\   ",
+	}
+
+	// 获取最长行的长度
+	maxLength := 0
+	for _, line := range lines {
+		if len(line) > maxLength {
+			maxLength = len(line)
+		}
+	}
+
+	// 清屏并隐藏光标
+	fmt.Print("\033[H\033[2J\033[?25l")
+	defer fmt.Print("\033[?25h")
+
+	// 创建边框
+	topBorder := "┌" + strings.Repeat("─", maxLength+2) + "┐"
+	bottomBorder := "└" + strings.Repeat("─", maxLength+2) + "┘"
+
+	// 呼吸灯效果循环
+	for cycle := 0; cycle < 2; cycle++ { // 2个完整循环
+		// 亮度由暗到亮
+		for i := 0; i <= 10; i++ {
+			fmt.Print("\033[H")
+			dim := float64(i) / 10.0
+
+			printDimmed(topBorder, colors[0], dim)
+			fmt.Println()
+
+			for lineNum, line := range lines {
+				printDimmed("│ ", colors[0], dim)
+				for _, char := range line {
+					printDimmed(string(char), colors[lineNum%2], dim)
+				}
+				padding := maxLength - len(line)
+				printDimmed(strings.Repeat(" ", padding)+" │", colors[0], dim)
+				fmt.Println()
+			}
+
+			printDimmed(bottomBorder, colors[0], dim)
+			fmt.Println()
+
+			vStr := fmt.Sprintf("      Fscan Version: %s", version)
+			printDimmed(vStr, colors[1], dim)
+			fmt.Print("\n\n")
+
+			time.Sleep(50 * time.Millisecond)
+		}
+
+		// 亮度由亮到暗
+		for i := 10; i >= 0; i-- {
+			fmt.Print("\033[H")
+			dim := float64(i) / 10.0
+
+			printDimmed(topBorder, colors[0], dim)
+			fmt.Println()
+
+			for lineNum, line := range lines {
+				printDimmed("│ ", colors[0], dim)
+				for _, char := range line {
+					printDimmed(string(char), colors[lineNum%2], dim)
+				}
+				padding := maxLength - len(line)
+				printDimmed(strings.Repeat(" ", padding)+" │", colors[0], dim)
+				fmt.Println()
+			}
+
+			printDimmed(bottomBorder, colors[0], dim)
+			fmt.Println()
+
+			vStr := fmt.Sprintf("      Fscan Version: %s", version)
+			printDimmed(vStr, colors[1], dim)
+			fmt.Print("\n\n")
+
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+
+	// 最后显示完整亮度的版本
+	fmt.Print("\033[H")
+	printDimmed(topBorder, colors[0], 1.0)
+	fmt.Println()
+
+	for lineNum, line := range lines {
+		printDimmed("│ ", colors[0], 1.0)
+		for _, char := range line {
+			printDimmed(string(char), colors[lineNum%2], 1.0)
+		}
+		padding := maxLength - len(line)
+		printDimmed(strings.Repeat(" ", padding)+" │", colors[0], 1.0)
+		fmt.Println()
+	}
+
+	printDimmed(bottomBorder, colors[0], 1.0)
+	fmt.Println()
+
+	vStr := fmt.Sprintf("      Fscan Version: %s", version)
+	printDimmed(vStr, colors[1], 1.0)
+	fmt.Print("\n\n")
+}
+
+// 辅助函数：打印带透明度的文字
+func printDimmed(text string, col color.Attribute, dim float64) {
+	if dim < 0.2 {
+		fmt.Print(strings.Repeat(" ", len(text)))
+		return
+	}
+
+	intensity := int(255 * dim)
+	fmt.Printf("\033[38;2;%d;%d;%dm%s\033[0m",
+		int(float64(0)*dim),
+		intensity,
+		int(float64(0)*dim),
+		text)
 }
 
 func Flag(Info *HostInfo) {
@@ -128,6 +248,7 @@ func Flag(Info *HostInfo) {
 	flag.BoolVar(&NoColor, "nocolor", false, "禁用彩色输出显示")
 	flag.BoolVar(&JsonFormat, "json", false, "以JSON格式输出结果")
 	flag.StringVar(&LogLevel, "log", LogLevelInfo, "日志输出级别(ALL/SUCCESS/ERROR/INFO/DEBUG)")
+	flag.BoolVar(&NoProgress, "noprogress", false, "禁用进度条显示")
 
 	flag.Parse()
 }

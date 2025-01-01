@@ -119,6 +119,7 @@ var (
 	NoColor     bool   // 禁用彩色输出
 	JsonFormat  bool   // JSON格式输出
 	LogLevel    string // 日志输出级别
+	NoProgress  bool   // 禁用进度条显示
 )
 
 var (
