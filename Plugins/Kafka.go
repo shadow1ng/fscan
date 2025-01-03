@@ -14,9 +14,14 @@ func KafkaScan(info *Common.HostInfo) (tmperr error) {
 	}
 
 	maxRetries := Common.MaxRetries
+	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
 
 	// 首先测试无认证访问
+	Common.LogDebug("尝试无认证访问...")
 	for retryCount := 0; retryCount < maxRetries; retryCount++ {
+		if retryCount > 0 {
+			Common.LogDebug(fmt.Sprintf("第%d次重试无认证访问", retryCount+1))
+		}
 		flag, err := KafkaConn(info, "", "")
 		if flag && err == nil {
 			return nil
@@ -30,32 +35,41 @@ func KafkaScan(info *Common.HostInfo) (tmperr error) {
 		break
 	}
 
-	starttime := time.Now().Unix()
+	totalUsers := len(Common.Userdict["kafka"])
+	totalPass := len(Common.Passwords)
+	Common.LogDebug(fmt.Sprintf("开始尝试用户名密码组合 (总用户数: %d, 总密码数: %d)", totalUsers, totalPass))
+
+	tried := 0
+	total := totalUsers * totalPass
 
 	// 遍历所有用户名密码组合
 	for _, user := range Common.Userdict["kafka"] {
 		for _, pass := range Common.Passwords {
+			tried++
 			pass = strings.Replace(pass, "{user}", user, -1)
-
-			// 检查是否超时
-			if time.Now().Unix()-starttime > int64(Common.Timeout) {
-				return fmt.Errorf("扫描超时")
-			}
+			Common.LogDebug(fmt.Sprintf("[%d/%d] 尝试: %s:%s", tried, total, user, pass))
 
 			// 重试循环
 			for retryCount := 0; retryCount < maxRetries; retryCount++ {
+				if retryCount > 0 {
+					Common.LogDebug(fmt.Sprintf("第%d次重试: %s:%s", retryCount+1, user, pass))
+				}
+
 				// 执行Kafka连接
 				done := make(chan struct {
 					success bool
 					err     error
-				})
+				}, 1)
 
 				go func(user, pass string) {
 					success, err := KafkaConn(info, user, pass)
-					done <- struct {
+					select {
+					case done <- struct {
 						success bool
 						err     error
-					}{success, err}
+					}{success, err}:
+					default:
+					}
 				}(user, pass)
 
 				// 等待结果或超时
@@ -79,17 +93,17 @@ func KafkaScan(info *Common.HostInfo) (tmperr error) {
 					// 检查是否需要重试
 					if retryErr := Common.CheckErrs(err); retryErr != nil {
 						if retryCount == maxRetries-1 {
-							return err
+							continue
 						}
 						continue // 继续重试
 					}
 				}
-
 				break // 如果不需要重试，跳出重试循环
 			}
 		}
 	}
 
+	Common.LogDebug(fmt.Sprintf("扫描完成，共尝试 %d 个组合", tried))
 	return tmperr
 }
 

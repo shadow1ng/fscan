@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-// VncScan 执行VNC服务扫描及密码尝试
 func VncScan(info *Common.HostInfo) (tmperr error) {
 	if Common.DisableBrute {
 		return
@@ -16,29 +15,39 @@ func VncScan(info *Common.HostInfo) (tmperr error) {
 
 	maxRetries := Common.MaxRetries
 	modename := "vnc"
-	starttime := time.Now().Unix()
+
+	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
+	totalPass := len(Common.Passwords)
+	Common.LogDebug(fmt.Sprintf("开始尝试密码组合 (总密码数: %d)", totalPass))
+
+	tried := 0
 
 	// 遍历所有密码
 	for _, pass := range Common.Passwords {
-		// 检查是否超时
-		if time.Now().Unix()-starttime > int64(Common.Timeout) {
-			return fmt.Errorf("扫描超时")
-		}
+		tried++
+		Common.LogDebug(fmt.Sprintf("[%d/%d] 尝试密码: %s", tried, totalPass, pass))
 
 		// 重试循环
 		for retryCount := 0; retryCount < maxRetries; retryCount++ {
+			if retryCount > 0 {
+				Common.LogDebug(fmt.Sprintf("第%d次重试密码: %s", retryCount+1, pass))
+			}
+
 			// 执行VNC连接
 			done := make(chan struct {
 				success bool
 				err     error
-			})
+			}, 1)
 
 			go func(pass string) {
 				success, err := VncConn(info, pass)
-				done <- struct {
+				select {
+				case done <- struct {
 					success bool
 					err     error
-				}{success, err}
+				}{success, err}:
+				default:
+				}
 			}(pass)
 
 			// 等待结果或超时
@@ -66,16 +75,16 @@ func VncScan(info *Common.HostInfo) (tmperr error) {
 				// 检查是否是需要重试的错误
 				if retryErr := Common.CheckErrs(err); retryErr != nil {
 					if retryCount == maxRetries-1 {
-						return err
+						continue
 					}
 					continue // 继续重试
 				}
 			}
-
 			break // 如果不需要重试，跳出重试循环
 		}
 	}
 
+	Common.LogDebug(fmt.Sprintf("扫描完成，共尝试 %d 个密码", tried))
 	return tmperr
 }
 

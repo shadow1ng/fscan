@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-// LDAPScan 执行LDAP服务扫描
 func LDAPScan(info *Common.HostInfo) (tmperr error) {
 	if Common.DisableBrute {
 		return
@@ -16,38 +15,50 @@ func LDAPScan(info *Common.HostInfo) (tmperr error) {
 
 	maxRetries := Common.MaxRetries
 
+	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
+	Common.LogDebug("尝试匿名访问...")
+
 	// 首先尝试匿名访问
 	flag, err := LDAPConn(info, "", "")
 	if flag && err == nil {
 		return err
 	}
 
-	starttime := time.Now().Unix()
+	totalUsers := len(Common.Userdict["ldap"])
+	totalPass := len(Common.Passwords)
+	Common.LogDebug(fmt.Sprintf("开始尝试用户名密码组合 (总用户数: %d, 总密码数: %d)", totalUsers, totalPass))
+
+	tried := 0
+	total := totalUsers * totalPass
 
 	// 遍历所有用户名密码组合
 	for _, user := range Common.Userdict["ldap"] {
 		for _, pass := range Common.Passwords {
+			tried++
 			pass = strings.Replace(pass, "{user}", user, -1)
-
-			// 检查是否超时
-			if time.Now().Unix()-starttime > int64(Common.Timeout) {
-				return fmt.Errorf("扫描超时")
-			}
+			Common.LogDebug(fmt.Sprintf("[%d/%d] 尝试: %s:%s", tried, total, user, pass))
 
 			// 重试循环
 			for retryCount := 0; retryCount < maxRetries; retryCount++ {
+				if retryCount > 0 {
+					Common.LogDebug(fmt.Sprintf("第%d次重试: %s:%s", retryCount+1, user, pass))
+				}
+
 				// 执行LDAP连接
 				done := make(chan struct {
 					success bool
 					err     error
-				})
+				}, 1)
 
 				go func(user, pass string) {
 					success, err := LDAPConn(info, user, pass)
-					done <- struct {
+					select {
+					case done <- struct {
 						success bool
 						err     error
-					}{success, err}
+					}{success, err}:
+					default:
+					}
 				}(user, pass)
 
 				// 等待结果或超时
@@ -71,27 +82,26 @@ func LDAPScan(info *Common.HostInfo) (tmperr error) {
 					// 检查是否需要重试
 					if retryErr := Common.CheckErrs(err); retryErr != nil {
 						if retryCount == maxRetries-1 {
-							return err
+							continue
 						}
 						continue // 继续重试
 					}
 				}
-
-				break // 如果不需要重试，跳出重试循环
+				break
 			}
 		}
 	}
 
+	Common.LogDebug(fmt.Sprintf("扫描完成，共尝试 %d 个组合", tried))
 	return tmperr
 }
 
-// LDAPConn 尝试LDAP连接
 func LDAPConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 	host, port := info.Host, info.Ports
 	timeout := time.Duration(Common.Timeout) * time.Second
-
-	// 构造LDAP连接地址
 	address := fmt.Sprintf("%s:%s", host, port)
+
+	Common.LogDebug(fmt.Sprintf("尝试连接: %s", address))
 
 	// 配置LDAP连接
 	l, err := ldap.Dial("tcp", address)

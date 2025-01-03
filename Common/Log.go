@@ -195,6 +195,27 @@ func LogSuccess(result string) {
 	}
 }
 
+func LogDebug(msg string) {
+	if ProgressBar != nil {
+		ProgressBar.Clear()
+	}
+
+	entry := &LogEntry{
+		Level:   LogLevelDebug,
+		Time:    time.Now(),
+		Content: msg,
+	}
+
+	printLog(entry)
+	if fileWriter != nil {
+		fileWriter.write(entry)
+	}
+
+	if ProgressBar != nil {
+		ProgressBar.RenderBlank()
+	}
+}
+
 func newBufferedFileWriter() *bufferedFileWriter {
 	file, err := os.OpenFile(Outputfile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {

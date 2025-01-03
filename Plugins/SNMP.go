@@ -18,30 +18,40 @@ func SNMPScan(info *Common.HostInfo) (tmperr error) {
 	maxRetries := Common.MaxRetries
 	portNum, _ := strconv.Atoi(info.Ports)
 	defaultCommunities := []string{"public", "private", "cisco", "community"}
-	starttime := time.Now().Unix()
 	timeout := time.Duration(Common.Timeout) * time.Second
+
+	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
+	Common.LogDebug(fmt.Sprintf("尝试默认 community 列表 (总数: %d)", len(defaultCommunities)))
+
+	tried := 0
+	total := len(defaultCommunities)
 
 	// 遍历所有 community
 	for _, community := range defaultCommunities {
-		// 检查是否超时
-		if time.Now().Unix()-starttime > int64(timeout.Seconds()) {
-			return fmt.Errorf("扫描超时")
-		}
+		tried++
+		Common.LogDebug(fmt.Sprintf("[%d/%d] 尝试 community: %s", tried, total, community))
 
 		// 重试循环
 		for retryCount := 0; retryCount < maxRetries; retryCount++ {
+			if retryCount > 0 {
+				Common.LogDebug(fmt.Sprintf("第%d次重试: community: %s", retryCount+1, community))
+			}
+
 			// 执行SNMP连接
 			done := make(chan struct {
 				success bool
 				err     error
-			})
+			}, 1)
 
 			go func(community string) {
 				success, err := SNMPConnect(info, community, portNum)
-				done <- struct {
+				select {
+				case done <- struct {
 					success bool
 					err     error
-				}{success, err}
+				}{success, err}:
+				default:
+				}
 			}(community)
 
 			// 等待结果或超时
@@ -69,7 +79,7 @@ func SNMPScan(info *Common.HostInfo) (tmperr error) {
 				// 检查是否需要重试
 				if retryErr := Common.CheckErrs(err); retryErr != nil {
 					if retryCount == maxRetries-1 {
-						return err
+						continue
 					}
 					continue // 继续重试
 				}
@@ -79,6 +89,7 @@ func SNMPScan(info *Common.HostInfo) (tmperr error) {
 		}
 	}
 
+	Common.LogDebug(fmt.Sprintf("扫描完成，共尝试 %d 个 community", tried))
 	return tmperr
 }
 

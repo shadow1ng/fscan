@@ -9,39 +9,49 @@ import (
 	"time"
 )
 
-// OracleScan 执行Oracle服务扫描
 func OracleScan(info *Common.HostInfo) (tmperr error) {
 	if Common.DisableBrute {
 		return
 	}
 
 	maxRetries := Common.MaxRetries
-	starttime := time.Now().Unix()
+
+	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
+	totalUsers := len(Common.Userdict["oracle"])
+	totalPass := len(Common.Passwords)
+	Common.LogDebug(fmt.Sprintf("开始尝试用户名密码组合 (总用户数: %d, 总密码数: %d)", totalUsers, totalPass))
+
+	tried := 0
+	total := totalUsers * totalPass
 
 	// 遍历所有用户名密码组合
 	for _, user := range Common.Userdict["oracle"] {
 		for _, pass := range Common.Passwords {
+			tried++
 			pass = strings.Replace(pass, "{user}", user, -1)
-
-			// 检查是否超时
-			if time.Now().Unix()-starttime > int64(Common.Timeout) {
-				return fmt.Errorf("扫描超时")
-			}
+			Common.LogDebug(fmt.Sprintf("[%d/%d] 尝试: %s:%s", tried, total, user, pass))
 
 			// 重试循环
 			for retryCount := 0; retryCount < maxRetries; retryCount++ {
+				if retryCount > 0 {
+					Common.LogDebug(fmt.Sprintf("第%d次重试: %s:%s", retryCount+1, user, pass))
+				}
+
 				// 执行Oracle连接
 				done := make(chan struct {
 					success bool
 					err     error
-				})
+				}, 1)
 
 				go func(user, pass string) {
 					success, err := OracleConn(info, user, pass)
-					done <- struct {
+					select {
+					case done <- struct {
 						success bool
 						err     error
-					}{success, err}
+					}{success, err}:
+					default:
+					}
 				}(user, pass)
 
 				// 等待结果或超时
@@ -50,6 +60,9 @@ func OracleScan(info *Common.HostInfo) (tmperr error) {
 				case result := <-done:
 					err = result.err
 					if result.success && err == nil {
+						successLog := fmt.Sprintf("Oracle %v:%v %v %v",
+							info.Host, info.Ports, user, pass)
+						Common.LogSuccess(successLog)
 						return nil
 					}
 				case <-time.After(time.Duration(Common.Timeout) * time.Second):
@@ -65,17 +78,17 @@ func OracleScan(info *Common.HostInfo) (tmperr error) {
 					// 检查是否需要重试
 					if retryErr := Common.CheckErrs(err); retryErr != nil {
 						if retryCount == maxRetries-1 {
-							return err
+							continue
 						}
 						continue // 继续重试
 					}
 				}
-
 				break // 如果不需要重试，跳出重试循环
 			}
 		}
 	}
 
+	Common.LogDebug(fmt.Sprintf("扫描完成，共尝试 %d 个组合", tried))
 	return tmperr
 }
 

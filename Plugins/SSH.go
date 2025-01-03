@@ -18,13 +18,27 @@ func SshScan(info *Common.HostInfo) (tmperr error) {
 
 	maxRetries := Common.MaxRetries
 
+	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
+	totalUsers := len(Common.Userdict["ssh"])
+	totalPass := len(Common.Passwords)
+	Common.LogDebug(fmt.Sprintf("开始尝试用户名密码组合 (总用户数: %d, 总密码数: %d)", totalUsers, totalPass))
+
+	tried := 0
+	total := totalUsers * totalPass
+
 	// 遍历所有用户名密码组合
 	for _, user := range Common.Userdict["ssh"] {
 		for _, pass := range Common.Passwords {
+			tried++
 			pass = strings.Replace(pass, "{user}", user, -1)
+			Common.LogDebug(fmt.Sprintf("[%d/%d] 尝试: %s:%s", tried, total, user, pass))
 
 			// 重试循环
 			for retryCount := 0; retryCount < maxRetries; retryCount++ {
+				if retryCount > 0 {
+					Common.LogDebug(fmt.Sprintf("第%d次重试: %s:%s", retryCount+1, user, pass))
+				}
+
 				ctx, cancel := context.WithTimeout(context.Background(), time.Duration(Common.Timeout)*time.Second)
 				done := make(chan struct {
 					success bool
@@ -74,6 +88,7 @@ func SshScan(info *Common.HostInfo) (tmperr error) {
 				}
 
 				if Common.SshKeyPath != "" {
+					Common.LogDebug("检测到SSH密钥路径，停止密码尝试")
 					return err
 				}
 
@@ -82,6 +97,7 @@ func SshScan(info *Common.HostInfo) (tmperr error) {
 		}
 	}
 
+	Common.LogDebug(fmt.Sprintf("扫描完成，共尝试 %d 个组合", tried))
 	return tmperr
 }
 

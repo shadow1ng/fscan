@@ -15,12 +15,20 @@ func CassandraScan(info *Common.HostInfo) (tmperr error) {
 	}
 
 	maxRetries := Common.MaxRetries
-	starttime := time.Now().Unix()
+
+	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
+	Common.LogDebug("尝试无认证访问...")
 
 	// 首先测试无认证访问
 	for retryCount := 0; retryCount < maxRetries; retryCount++ {
+		if retryCount > 0 {
+			Common.LogDebug(fmt.Sprintf("第%d次重试无认证访问", retryCount+1))
+		}
+
 		flag, err := CassandraConn(info, "", "")
 		if flag && err == nil {
+			Common.LogSuccess(fmt.Sprintf("Cassandra服务 %v:%v 无认证访问成功",
+				info.Host, info.Ports))
 			return err
 		}
 		if err != nil && Common.CheckErrs(err) != nil {
@@ -32,30 +40,41 @@ func CassandraScan(info *Common.HostInfo) (tmperr error) {
 		break
 	}
 
+	totalUsers := len(Common.Userdict["cassandra"])
+	totalPass := len(Common.Passwords)
+	Common.LogDebug(fmt.Sprintf("开始尝试用户名密码组合 (总用户数: %d, 总密码数: %d)", totalUsers, totalPass))
+
+	tried := 0
+	total := totalUsers * totalPass
+
 	// 遍历所有用户名密码组合
 	for _, user := range Common.Userdict["cassandra"] {
 		for _, pass := range Common.Passwords {
+			tried++
 			pass = strings.Replace(pass, "{user}", user, -1)
-
-			// 检查是否超时
-			if time.Now().Unix()-starttime > int64(Common.Timeout) {
-				return fmt.Errorf("扫描超时")
-			}
+			Common.LogDebug(fmt.Sprintf("[%d/%d] 尝试: %s:%s", tried, total, user, pass))
 
 			// 重试循环
 			for retryCount := 0; retryCount < maxRetries; retryCount++ {
+				if retryCount > 0 {
+					Common.LogDebug(fmt.Sprintf("第%d次重试: %s:%s", retryCount+1, user, pass))
+				}
+
 				// 执行连接
 				done := make(chan struct {
 					success bool
 					err     error
-				})
+				}, 1)
 
 				go func(user, pass string) {
 					success, err := CassandraConn(info, user, pass)
-					done <- struct {
+					select {
+					case done <- struct {
 						success bool
 						err     error
-					}{success, err}
+					}{success, err}:
+					default:
+					}
 				}(user, pass)
 
 				// 等待结果或超时
@@ -64,6 +83,9 @@ func CassandraScan(info *Common.HostInfo) (tmperr error) {
 				case result := <-done:
 					err = result.err
 					if result.success && err == nil {
+						successLog := fmt.Sprintf("Cassandra服务 %v:%v 爆破成功 用户名: %v 密码: %v",
+							info.Host, info.Ports, user, pass)
+						Common.LogSuccess(successLog)
 						return nil
 					}
 				case <-time.After(time.Duration(Common.Timeout) * time.Second):
@@ -79,7 +101,7 @@ func CassandraScan(info *Common.HostInfo) (tmperr error) {
 					// 检查是否需要重试
 					if retryErr := Common.CheckErrs(err); retryErr != nil {
 						if retryCount == maxRetries-1 {
-							return err
+							continue
 						}
 						continue // 继续重试
 					}
@@ -90,6 +112,7 @@ func CassandraScan(info *Common.HostInfo) (tmperr error) {
 		}
 	}
 
+	Common.LogDebug(fmt.Sprintf("扫描完成，共尝试 %d 个组合", tried))
 	return tmperr
 }
 

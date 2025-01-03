@@ -11,6 +11,7 @@ import (
 	"net"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -21,15 +22,23 @@ type Addr struct {
 	port int    // 端口号
 }
 
+// ScanResult 扫描结果
+type ScanResult struct {
+	Address string       // IP地址
+	Port    int          // 端口号
+	Service *ServiceInfo // 服务信息
+}
+
 func PortScan(hostslist []string, ports string, timeout int64) []string {
-	var AliveAddress []string
+	var results []ScanResult
+	var aliveAddrs []string // 新增：存储活跃地址
 	var mu sync.Mutex
 
 	// 解析端口列表
 	probePorts := Common.ParsePort(ports)
 	if len(probePorts) == 0 {
 		Common.LogError(fmt.Sprintf("端口格式错误: %s", ports))
-		return AliveAddress
+		return aliveAddrs
 	}
 
 	// 排除指定端口
@@ -38,7 +47,7 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 	// 创建通道
 	workers := Common.ThreadNum
 	addrs := make(chan Addr, 100)
-	results := make(chan string, 100)
+	scanResults := make(chan ScanResult, 100)
 	var wg sync.WaitGroup
 	var workerWg sync.WaitGroup
 
@@ -48,7 +57,7 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 		go func() {
 			defer workerWg.Done()
 			for addr := range addrs {
-				PortConnect(addr, results, timeout, &wg)
+				PortConnect(addr, scanResults, timeout, &wg)
 			}
 		}()
 	}
@@ -58,9 +67,12 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 	resultWg.Add(1)
 	go func() {
 		defer resultWg.Done()
-		for result := range results {
+		for result := range scanResults {
 			mu.Lock()
-			AliveAddress = append(AliveAddress, result)
+			results = append(results, result)
+			// 构造活跃地址字符串
+			aliveAddr := fmt.Sprintf("%s:%d", result.Address, result.Port)
+			aliveAddrs = append(aliveAddrs, aliveAddr)
 			mu.Unlock()
 		}
 	}()
@@ -76,24 +88,23 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 	close(addrs)
 	workerWg.Wait()
 	wg.Wait()
-	close(results)
+	close(scanResults)
 	resultWg.Wait()
 
-	return AliveAddress
+	return aliveAddrs
 }
 
-func PortConnect(addr Addr, respondingHosts chan<- string, timeout int64, wg *sync.WaitGroup) {
+func PortConnect(addr Addr, results chan<- ScanResult, timeout int64, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	var isOpen bool
 	var err error
+	var conn net.Conn
 
 	if Common.UseSynScan {
-		// SYN扫描
 		isOpen, err = SynScan(addr.ip, addr.port, timeout)
 	} else {
-		// 标准TCP扫描
-		conn, err := Common.WrapperTcpWithTimeout("tcp4",
+		conn, err = Common.WrapperTcpWithTimeout("tcp4",
 			fmt.Sprintf("%s:%v", addr.ip, addr.port),
 			time.Duration(timeout)*time.Second)
 		if err == nil {
@@ -106,10 +117,57 @@ func PortConnect(addr Addr, respondingHosts chan<- string, timeout int64, wg *sy
 		return
 	}
 
-	// 记录开放端口
 	address := fmt.Sprintf("%s:%d", addr.ip, addr.port)
 	Common.LogSuccess(fmt.Sprintf("端口开放 %s", address))
-	respondingHosts <- address
+
+	// 创建扫描结果
+	result := ScanResult{
+		Address: addr.ip,
+		Port:    addr.port,
+	}
+
+	// 进行服务识别
+	if conn != nil {
+		scanner := NewPortInfoScanner(addr.ip, addr.port, conn, time.Duration(timeout)*time.Second)
+		if serviceInfo, err := scanner.Identify(); err == nil {
+			result.Service = serviceInfo
+
+			// 打印服务识别信息
+			var logMsg strings.Builder
+			logMsg.WriteString(fmt.Sprintf("服务识别 %s => ", address))
+
+			// 添加服务名称
+			if serviceInfo.Name != "unknown" {
+				logMsg.WriteString(fmt.Sprintf("[%s]", serviceInfo.Name))
+			}
+
+			// 添加版本信息
+			if serviceInfo.Version != "" {
+				logMsg.WriteString(fmt.Sprintf(" 版本:%s", serviceInfo.Version))
+			}
+
+			// 添加其他有用的信息
+			if v, ok := serviceInfo.Extras["vendor_product"]; ok && v != "" {
+				logMsg.WriteString(fmt.Sprintf(" 产品:%s", v))
+			}
+			if v, ok := serviceInfo.Extras["os"]; ok && v != "" {
+				logMsg.WriteString(fmt.Sprintf(" 系统:%s", v))
+			}
+			if v, ok := serviceInfo.Extras["info"]; ok && v != "" {
+				logMsg.WriteString(fmt.Sprintf(" 信息:%s", v))
+			}
+
+			// 如果有Banner且长度合适，也输出
+			if len(serviceInfo.Banner) > 0 && len(serviceInfo.Banner) < 100 {
+				logMsg.WriteString(fmt.Sprintf(" Banner:[%s]", strings.TrimSpace(serviceInfo.Banner)))
+			}
+
+			Common.LogSuccess(logMsg.String())
+		}
+	}
+
+	// 发送结果
+	results <- result
 }
 
 // NoPortScan 生成端口列表(不进行扫描)
