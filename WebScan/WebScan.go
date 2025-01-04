@@ -6,6 +6,7 @@ import (
 	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/WebScan/lib"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -64,6 +65,18 @@ func WebScan(info *Common.HostInfo) {
 // Execute 执行具体的POC检测
 func Execute(PocInfo Common.PocInfo) {
 	Common.LogDebug(fmt.Sprintf("开始执行POC检测，目标: %s", PocInfo.Target))
+
+	// 确保URL格式正确
+	if !strings.HasPrefix(PocInfo.Target, "http://") && !strings.HasPrefix(PocInfo.Target, "https://") {
+		PocInfo.Target = "http://" + PocInfo.Target
+	}
+
+	// 验证URL格式
+	_, err := url.Parse(PocInfo.Target)
+	if err != nil {
+		Common.LogError(fmt.Sprintf("无效的URL格式 %v: %v", PocInfo.Target, err))
+		return
+	}
 
 	// 创建基础HTTP请求
 	req, err := http.NewRequest("GET", PocInfo.Target, nil)

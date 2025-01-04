@@ -886,9 +886,6 @@ var (
 	Command         string
 	SkipFingerprint bool
 
-	// 本地扫描配置
-	LocalScan bool
-
 	// 文件配置
 	HostsFile     string // 原HostFile
 	UsersFile     string // 原Userfile
@@ -897,6 +894,8 @@ var (
 	PortsFile     string // 原PortFile
 
 	// Web配置
+	TargetURL   string   // 原URL
+	URLsFile    string   // 原UrlFile
 	URLs        []string // 原Urls
 	WebTimeout  int64    = 5
 	HttpProxy   string   // 原Proxy

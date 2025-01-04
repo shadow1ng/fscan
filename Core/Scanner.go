@@ -13,28 +13,74 @@ import (
 	"time"
 )
 
+// 定义在文件开头
+var (
+	LocalScan bool // 本地扫描模式标识
+	WebScan   bool // Web扫描模式标识
+)
+
 // Scan 执行扫描主流程
 func Scan(info Common.HostInfo) {
 	Common.LogInfo("开始信息扫描")
+
+	// 初始化HTTP客户端
+	lib.Inithttp()
+
+	// 处理特殊情况
+	if info.Host == "" && len(Common.URLs) == 0 {
+		// Host为空且没有URLs,设置Local模式
+		LocalScan = true
+		Common.ScanMode = Common.ModeLocal
+		Common.LogInfo("未检测到目标,自动切换为本地扫描模式")
+	} else if len(Common.URLs) > 0 {
+		// 存在URLs时设置为Web模式
+		WebScan = true
+		Common.ScanMode = Common.ModeWeb
+		Common.LogInfo("检测到URL列表,自动切换为Web扫描模式")
+	}
+
 	Common.ParseScanMode(Common.ScanMode)
 
 	ch := make(chan struct{}, Common.ThreadNum)
 	wg := sync.WaitGroup{}
 
 	// 本地信息收集模式
-	if Common.LocalScan {
+	if LocalScan {
 		executeScans([]Common.HostInfo{info}, &ch, &wg)
 		finishScan(&wg)
 		return
 	}
 
-	// 初始化并解析目标
-	hosts, err := Common.ParseIP(info.Host, Common.HostsFile, Common.ExcludeHosts)
-	if err != nil {
-		Common.LogError(fmt.Sprintf("解析主机错误: %v", err))
+	// Web模式直接处理URLs
+	if WebScan {
+		var targetInfos []Common.HostInfo
+		for _, url := range Common.URLs {
+			urlInfo := info
+			// 确保URL包含协议前缀
+			if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+				url = "http://" + url
+			}
+			urlInfo.Url = url
+			targetInfos = append(targetInfos, urlInfo)
+		}
+		if len(targetInfos) > 0 {
+			Common.LogInfo("开始Web扫描")
+			executeScans(targetInfos, &ch, &wg)
+			finishScan(&wg)
+		}
 		return
 	}
-	lib.Inithttp()
+
+	// 常规模式:初始化并解析目标
+	var hosts []string
+	var err error
+	if info.Host != "" {
+		hosts, err = Common.ParseIP(info.Host, Common.HostsFile, Common.ExcludeHosts)
+		if err != nil {
+			Common.LogError(fmt.Sprintf("解析主机错误: %v", err))
+			return
+		}
+	}
 
 	// 执行目标扫描
 	executeScan(hosts, info, &ch, &wg)
@@ -115,12 +161,10 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 		pluginsToRun = []string{mode}
 		isSinglePlugin = true
 	}
-	
+
 	loadedPlugins := make([]string, 0)
-	// 先遍历一遍计算实际要执行的任务数
 	actualTasks := 0
 
-	// 定义任务结构
 	type ScanTask struct {
 		pluginName string
 		target     Common.HostInfo
@@ -137,7 +181,19 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 				continue
 			}
 
-			if Common.LocalScan {
+			// Web模式特殊处理
+			if WebScan {
+				actualTasks++
+				loadedPlugins = append(loadedPlugins, pluginName)
+				tasks = append(tasks, ScanTask{
+					pluginName: pluginName,
+					target:     target,
+				})
+				continue
+			}
+
+			// 本地扫描模式
+			if LocalScan {
 				if len(plugin.Ports) == 0 {
 					actualTasks++
 					loadedPlugins = append(loadedPlugins, pluginName)
@@ -149,6 +205,7 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 				continue
 			}
 
+			// 单插件模式
 			if isSinglePlugin {
 				actualTasks++
 				loadedPlugins = append(loadedPlugins, pluginName)
@@ -159,6 +216,7 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 				continue
 			}
 
+			// 常规模式
 			if len(plugin.Ports) > 0 {
 				if plugin.HasPort(targetPort) {
 					actualTasks++
@@ -193,7 +251,7 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 
 	Common.LogInfo(fmt.Sprintf("加载的插件: %s", strings.Join(finalPlugins, ", ")))
 
-	// 在初始化进度条的地方添加判断
+	// 初始化进度条
 	if !Common.NoProgress {
 		Common.ProgressBar = progressbar.NewOptions(actualTasks,
 			progressbar.OptionEnableColorCodes(true),
@@ -213,7 +271,7 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 		)
 	}
 
-	// 开始执行收集到的所有任务
+	// 执行收集的任务
 	for _, task := range tasks {
 		AddScan(task.pluginName, task.target, ch, wg)
 	}

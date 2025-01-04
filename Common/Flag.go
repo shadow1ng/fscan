@@ -200,9 +200,6 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&Command, "c", "", "指定要执行的系统命令(支持ssh和wmiexec)")
 	flag.BoolVar(&SkipFingerprint, "skip", false, "跳过端口指纹识别")
 
-	// 本地扫描配置
-	flag.BoolVar(&LocalScan, "local", false, "启用本地扫描模式")
-
 	// 文件配置
 	flag.StringVar(&HostsFile, "hf", "", "从文件中读取目标主机列表")
 	flag.StringVar(&UsersFile, "userf", "", "从文件中读取用户名字典")
@@ -211,6 +208,8 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&PortsFile, "portf", "", "从文件中读取端口列表")
 
 	// Web配置
+	flag.StringVar(&TargetURL, "u", "", "指定目标URL")
+	flag.StringVar(&URLsFile, "uf", "", "从文件中读取URL列表")
 	flag.StringVar(&Cookie, "cookie", "", "设置HTTP请求Cookie")
 	flag.Int64Var(&WebTimeout, "wt", 5, "设置Web请求超时时间(单位:秒)")
 	flag.StringVar(&HttpProxy, "proxy", "", "设置HTTP代理服务器")
