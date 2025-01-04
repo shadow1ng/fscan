@@ -215,6 +215,9 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&HttpProxy, "proxy", "", "设置HTTP代理服务器")
 	flag.StringVar(&Socks5Proxy, "socks5", "", "设置Socks5代理(用于TCP连接,将影响超时设置)")
 
+	// 本地扫描配置
+	flag.BoolVar(&LocalMode, "local", false, "启用本地信息收集模式")
+
 	// POC配置
 	flag.StringVar(&PocPath, "pocpath", "", "指定自定义POC文件路径")
 	flag.StringVar(&Pocinfo.PocName, "pocname", "", "指定要使用的POC名称,如: -pocname weblogic")

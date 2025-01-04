@@ -35,8 +35,14 @@ func smbPasswordScan(info *Common.HostInfo) error {
 
 	// 遍历每个用户
 	for _, user := range Common.Userdict["smb"] {
+		accountLocked := false // 添加账户锁定标志
+
 		// 遍历该用户的所有密码
 		for _, pass := range Common.Passwords {
+			if accountLocked { // 如果账户被锁定，跳过剩余密码
+				break
+			}
+
 			pass = strings.ReplaceAll(pass, "{user}", user)
 
 			// 重试循环
@@ -56,8 +62,9 @@ func smbPasswordScan(info *Common.HostInfo) error {
 					logFailedAuth(info, user, pass, []byte{}, err)
 
 					// 检查是否账户锁定
-					if strings.Contains(err.Error(), "user account has been automatically locked") {
-						// 账户锁定，跳过该用户的剩余密码
+					if strings.Contains(err.Error(), "account has been automatically locked") ||
+						strings.Contains(err.Error(), "account has been locked") {
+						accountLocked = true // 设置锁定标志
 						break
 					}
 

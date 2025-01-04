@@ -26,64 +26,46 @@ func Scan(info Common.HostInfo) {
 	// 初始化HTTP客户端
 	lib.Inithttp()
 
-	// 处理特殊情况
-	if info.Host == "" && len(Common.URLs) == 0 {
-		// Host为空且没有URLs,设置Local模式
-		LocalScan = true
-		Common.ScanMode = Common.ModeLocal
-		Common.LogInfo("未检测到目标,自动切换为本地扫描模式")
-	} else if len(Common.URLs) > 0 {
-		// 存在URLs时设置为Web模式
-		WebScan = true
-		Common.ScanMode = Common.ModeWeb
-		Common.LogInfo("检测到URL列表,自动切换为Web扫描模式")
-	}
-
-	Common.ParseScanMode(Common.ScanMode)
-
 	ch := make(chan struct{}, Common.ThreadNum)
 	wg := sync.WaitGroup{}
 
-	// 本地信息收集模式
-	if LocalScan {
+	// 根据不同模式执行扫描
+	switch {
+	case Common.LocalMode:
+		// 本地信息收集模式
+		Common.LogInfo("执行本地信息收集")
 		executeScans([]Common.HostInfo{info}, &ch, &wg)
-		finishScan(&wg)
-		return
-	}
 
-	// Web模式直接处理URLs
-	if WebScan {
+	case len(Common.URLs) > 0:
+		// Web模式
 		var targetInfos []Common.HostInfo
 		for _, url := range Common.URLs {
 			urlInfo := info
-			// 确保URL包含协议前缀
 			if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 				url = "http://" + url
 			}
 			urlInfo.Url = url
 			targetInfos = append(targetInfos, urlInfo)
 		}
-		if len(targetInfos) > 0 {
-			Common.LogInfo("开始Web扫描")
-			executeScans(targetInfos, &ch, &wg)
-			finishScan(&wg)
-		}
-		return
-	}
+		Common.LogInfo("开始Web扫描")
+		executeScans(targetInfos, &ch, &wg)
 
-	// 常规模式:初始化并解析目标
-	var hosts []string
-	var err error
-	if info.Host != "" {
-		hosts, err = Common.ParseIP(info.Host, Common.HostsFile, Common.ExcludeHosts)
+	default:
+		// 主机扫描模式
+		if info.Host == "" {
+			Common.LogError("未指定扫描目标")
+			return
+		}
+
+		hosts, err := Common.ParseIP(info.Host, Common.HostsFile, Common.ExcludeHosts)
 		if err != nil {
 			Common.LogError(fmt.Sprintf("解析主机错误: %v", err))
 			return
 		}
+		Common.LogInfo("开始主机扫描")
+		executeScan(hosts, info, &ch, &wg)
 	}
 
-	// 执行目标扫描
-	executeScan(hosts, info, &ch, &wg)
 	finishScan(&wg)
 }
 

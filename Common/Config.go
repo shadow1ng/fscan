@@ -901,6 +901,8 @@ var (
 	HttpProxy   string   // 原Proxy
 	Socks5Proxy string
 
+	LocalMode bool // -local 本地模式
+
 	// POC配置
 	PocPath string
 	Pocinfo PocInfo

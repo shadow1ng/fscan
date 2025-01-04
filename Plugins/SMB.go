@@ -68,6 +68,9 @@ func SmblConn(info *Common.HostInfo, user string, pass string, signal chan struc
 		return false, fmt.Errorf("认证失败")
 	}
 
+	// 添加 debug 输出原始错误信息
+	Common.LogDebug(fmt.Sprintf("SMB original error: %v", err))
+
 	// 清理错误信息中的换行符和多余空格
 	errMsg := strings.TrimSpace(strings.ReplaceAll(err.Error(), "\n", " "))
 	if strings.Contains(errMsg, "NT Status Error") {

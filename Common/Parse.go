@@ -3,6 +3,7 @@ package Common
 import (
 	"bufio"
 	"encoding/hex"
+	"flag"
 	"fmt"
 	"net/url"
 	"os"
@@ -204,12 +205,27 @@ func Readfile(filename string) ([]string, error) {
 
 // ParseInput 解析和验证输入参数配置
 func ParseInput(Info *HostInfo) error {
-	// 所有目标参数为空时表示本地扫描模式
-	if Info.Host == "" && HostsFile == "" && TargetURL == "" && URLsFile == "" {
-		LogInfo("未指定扫描目标，将以本地模式运行")
+	// 检查互斥的扫描模式
+	modes := 0
+	if Info.Host != "" || HostsFile != "" {
+		modes++
+	}
+	if TargetURL != "" || URLsFile != "" {
+		modes++
+	}
+	if LocalMode {
+		modes++
 	}
 
-	// 配置基本参数
+	if modes == 0 {
+		// 无参数时显示帮助
+		flag.Usage()
+		return fmt.Errorf("请指定扫描参数")
+	} else if modes > 1 {
+		return fmt.Errorf("参数 -h、-u、-local 不能同时使用")
+	}
+
+	// 处理爆破线程配置
 	if BruteThreads <= 0 {
 		BruteThreads = 1
 		LogInfo(fmt.Sprintf("暴力破解线程数: %d", BruteThreads))
