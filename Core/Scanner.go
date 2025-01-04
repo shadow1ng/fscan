@@ -115,7 +115,7 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 		pluginsToRun = []string{mode}
 		isSinglePlugin = true
 	}
-
+	
 	loadedPlugins := make([]string, 0)
 	// 先遍历一遍计算实际要执行的任务数
 	actualTasks := 0
@@ -222,16 +222,18 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 // finishScan 完成扫描任务
 func finishScan(wg *sync.WaitGroup) {
 	wg.Wait()
-	// 确保进度条完成
-	Common.ProgressBar.Finish()
-	fmt.Println() // 添加一个换行
+	// 确保进度条完成，只在存在进度条时调用
+	if Common.ProgressBar != nil {
+		Common.ProgressBar.Finish()
+		fmt.Println() // 添加一个换行
+	}
 	Common.LogSuccess(fmt.Sprintf("扫描已完成: %v/%v", Common.End, Common.Num))
 }
 
 // Mutex用于保护共享资源的并发访问
 var Mutex = &sync.Mutex{}
 
-// AddScan 也需要修改
+// AddScan
 func AddScan(plugin string, info Common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup) {
 	*ch <- struct{}{}
 	wg.Add(1)

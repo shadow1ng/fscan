@@ -185,7 +185,6 @@ func Flag(Info *HostInfo) {
 		"  - Port: 端口扫描模式\n"+
 		"  - ICMP: ICMP存活探测\n"+
 		"  - Local: 本地信息收集\n\n"+
-		"  - UDP: UDP扫描模式\n\n"+
 		"单个插件模式(小写):\n"+
 		"  Web类: web, fcgi\n"+
 		"  数据库类: mysql, mssql, redis, mongodb, postgres, oracle, memcached\n"+
@@ -199,9 +198,10 @@ func Flag(Info *HostInfo) {
 	flag.BoolVar(&DisablePing, "np", false, "禁用主机存活探测")
 	flag.BoolVar(&UsePing, "ping", false, "使用系统ping命令替代ICMP探测")
 	flag.StringVar(&Command, "c", "", "指定要执行的系统命令(支持ssh和wmiexec)")
+	flag.BoolVar(&SkipFingerprint, "skip", false, "跳过端口指纹识别")
 
 	// 本地扫描配置
-	flag.BoolVar(&LocalScan, "local", false, "启用本地网段扫描模式")
+	flag.BoolVar(&LocalScan, "local", false, "启用本地扫描模式")
 
 	// 文件配置
 	flag.StringVar(&HostsFile, "hf", "", "从文件中读取目标主机列表")
@@ -211,8 +211,6 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&PortsFile, "portf", "", "从文件中读取端口列表")
 
 	// Web配置
-	flag.StringVar(&TargetURL, "u", "", "指定目标URL")
-	flag.StringVar(&URLsFile, "uf", "", "从文件中读取URL列表")
 	flag.StringVar(&Cookie, "cookie", "", "设置HTTP请求Cookie")
 	flag.Int64Var(&WebTimeout, "wt", 5, "设置Web请求超时时间(单位:秒)")
 	flag.StringVar(&HttpProxy, "proxy", "", "设置HTTP代理服务器")
@@ -221,7 +219,6 @@ func Flag(Info *HostInfo) {
 	// POC配置
 	flag.StringVar(&PocPath, "pocpath", "", "指定自定义POC文件路径")
 	flag.StringVar(&Pocinfo.PocName, "pocname", "", "指定要使用的POC名称,如: -pocname weblogic")
-	flag.BoolVar(&DisablePoc, "nopoc", false, "禁用Web漏洞POC扫描")
 	flag.BoolVar(&PocFull, "full", false, "启用完整POC扫描(如测试shiro全部100个key)")
 	flag.BoolVar(&DnsLog, "dns", false, "启用dnslog进行漏洞验证")
 	flag.IntVar(&PocNum, "num", 20, "设置POC扫描并发数")
@@ -248,7 +245,7 @@ func Flag(Info *HostInfo) {
 	flag.BoolVar(&NoColor, "nocolor", false, "禁用彩色输出显示")
 	flag.BoolVar(&JsonFormat, "json", false, "以JSON格式输出结果")
 	flag.StringVar(&LogLevel, "log", LogLevelInfo, "日志输出级别(ALL/SUCCESS/ERROR/INFO/DEBUG)")
-	flag.BoolVar(&NoProgress, "noprogress", false, "禁用进度条显示")
+	flag.BoolVar(&NoProgress, "nopg", false, "禁用进度条显示")
 
 	flag.Parse()
 }

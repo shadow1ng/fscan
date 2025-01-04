@@ -83,9 +83,17 @@ func formatLogMessage(entry *LogEntry) string {
 
 // 修改 printLog 函数
 func printLog(entry *LogEntry) {
-	if LogLevel != LogLevelAll &&
-		entry.Level != LogLevel &&
-		!(LogLevel == LogLevelInfo && (entry.Level == LogLevelInfo || entry.Level == LogLevelSuccess)) {
+	// 默认情况(LogLevelInfo)下打印 INFO、SUCCESS、ERROR
+	if LogLevel == LogLevelInfo {
+		if entry.Level != LogLevelInfo &&
+			entry.Level != LogLevelSuccess &&
+			entry.Level != LogLevelError {
+			return
+		}
+	} else if LogLevel == LogLevelDebug || LogLevel == LogLevelAll {
+		// Debug或ALL模式打印所有日志
+	} else if entry.Level != LogLevel {
+		// 其他情况只打印指定等级的日志
 		return
 	}
 

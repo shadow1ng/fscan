@@ -637,7 +637,7 @@ func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Re
 		}
 		return false, err
 	}
-	
+
 	// 检查表达式执行结果
 	if fmt.Sprintf("%v", out) == "false" {
 		return false, nil

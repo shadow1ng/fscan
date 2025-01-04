@@ -18,7 +18,7 @@ import (
 	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
-// WebTitle 获取Web标题并执行扫描
+// WebTitle 获取Web标题和指纹信息
 func WebTitle(info *Common.HostInfo) error {
 	// 获取网站标题信息
 	err, CheckData := GOWebTitle(info)
@@ -31,10 +31,8 @@ func WebTitle(info *Common.HostInfo) error {
 		}
 	}
 
-	// 根据配置决定是否执行漏洞扫描
-	if !Common.DisablePoc && err == nil {
-		WebScan.WebScan(info)
-	} else {
+	// 输出错误信息（如果有）
+	if err != nil {
 		errlog := fmt.Sprintf("网站标题 %v %v", info.Url, err)
 		Common.LogError(errlog)
 	}

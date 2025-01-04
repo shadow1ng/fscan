@@ -114,40 +114,6 @@ func ParsePass(Info *HostInfo) error {
 		LogInfo(fmt.Sprintf("加载有效哈希值: %d 个", validCount))
 	}
 
-	// 处理直接指定的URL列表
-	if TargetURL != "" {
-		urls := strings.Split(TargetURL, ",")
-		tmpUrls := make(map[string]struct{})
-		for _, url := range urls {
-			if url != "" {
-				if _, ok := tmpUrls[url]; !ok {
-					tmpUrls[url] = struct{}{}
-					URLs = append(URLs, url)
-				}
-			}
-		}
-		LogInfo(fmt.Sprintf("加载URL: %d 个", len(URLs)))
-	}
-
-	// 从文件加载URL列表
-	if URLsFile != "" {
-		urls, err := Readfile(URLsFile)
-		if err != nil {
-			return fmt.Errorf("读取URL文件失败: %v", err)
-		}
-
-		tmpUrls := make(map[string]struct{})
-		for _, url := range urls {
-			if url != "" {
-				if _, ok := tmpUrls[url]; !ok {
-					tmpUrls[url] = struct{}{}
-					URLs = append(URLs, url)
-				}
-			}
-		}
-		LogInfo(fmt.Sprintf("从文件加载URL: %d 个", len(urls)))
-	}
-
 	// 从文件加载端口列表
 	if PortsFile != "" {
 		ports, err := Readfile(PortsFile)
@@ -206,7 +172,7 @@ func Readfile(filename string) ([]string, error) {
 // ParseInput 解析和验证输入参数配置
 func ParseInput(Info *HostInfo) error {
 	// 检查必要的目标参数
-	if Info.Host == "" && HostsFile == "" && TargetURL == "" && URLsFile == "" {
+	if Info.Host == "" && HostsFile == "" {
 		LogError("未指定扫描目标")
 		flag.Usage()
 		return fmt.Errorf("必须指定扫描目标")

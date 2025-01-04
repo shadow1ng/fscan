@@ -876,14 +876,15 @@ var (
 	AddPasswords string // 原PassAdd
 
 	// 扫描配置
-	ScanMode    string // 原Scantype
-	ThreadNum   int    // 原Threads
-	UseSynScan  bool
-	Timeout     int64 = 3
-	LiveTop     int
-	DisablePing bool // 原NoPing
-	UsePing     bool // 原Ping
-	Command     string
+	ScanMode        string // 原Scantype
+	ThreadNum       int    // 原Threads
+	UseSynScan      bool
+	Timeout         int64 = 3
+	LiveTop         int
+	DisablePing     bool // 原NoPing
+	UsePing         bool // 原Ping
+	Command         string
+	SkipFingerprint bool
 
 	// 本地扫描配置
 	LocalScan bool
@@ -896,17 +897,14 @@ var (
 	PortsFile     string // 原PortFile
 
 	// Web配置
-	TargetURL   string   // 原URL
-	URLsFile    string   // 原UrlFile
 	URLs        []string // 原Urls
 	WebTimeout  int64    = 5
 	HttpProxy   string   // 原Proxy
 	Socks5Proxy string
 
 	// POC配置
-	PocPath    string
-	Pocinfo    PocInfo
-	DisablePoc bool // 原NoPoc
+	PocPath string
+	Pocinfo PocInfo
 
 	// Redis配置
 	RedisFile    string

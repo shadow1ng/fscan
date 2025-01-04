@@ -19,22 +19,43 @@ var AllPocs []*lib.Poc
 
 // WebScan 执行Web漏洞扫描
 func WebScan(info *Common.HostInfo) {
-	// 确保POC只初始化一次
 	once.Do(initpoc)
 
-	// 构建扫描信息
 	var pocinfo = Common.Pocinfo
-	urlParts := strings.Split(info.Url, "/")
-	pocinfo.Target = strings.Join(urlParts[:3], "/")
 
-	// 执行扫描
-	if pocinfo.PocName != "" {
-		// 指定POC扫描
+	// 自动构建URL
+	if info.Url == "" {
+		info.Url = fmt.Sprintf("http://%s:%s", info.Host, info.Ports)
+	}
+
+	urlParts := strings.Split(info.Url, "/")
+
+	// 检查切片长度并构建目标URL
+	if len(urlParts) >= 3 {
+		pocinfo.Target = strings.Join(urlParts[:3], "/")
+	} else {
+		pocinfo.Target = info.Url
+	}
+
+	Common.LogDebug(fmt.Sprintf("扫描目标: %s", pocinfo.Target))
+
+	// 如果是直接调用WebPoc（没有指定pocName），执行所有POC
+	if pocinfo.PocName == "" && len(info.Infostr) == 0 {
+		Common.LogDebug("直接调用WebPoc，执行所有POC")
 		Execute(pocinfo)
 	} else {
-		// 根据指纹信息选择POC扫描
-		for _, infostr := range info.Infostr {
-			pocinfo.PocName = lib.CheckInfoPoc(infostr)
+		// 根据指纹信息选择性执行POC
+		if len(info.Infostr) > 0 {
+			for _, infostr := range info.Infostr {
+				pocinfo.PocName = lib.CheckInfoPoc(infostr)
+				if pocinfo.PocName != "" {
+					Common.LogDebug(fmt.Sprintf("根据指纹 %s 执行对应POC", infostr))
+					Execute(pocinfo)
+				}
+			}
+		} else if pocinfo.PocName != "" {
+			// 指定了特定的POC
+			Common.LogDebug(fmt.Sprintf("执行指定POC: %s", pocinfo.PocName))
 			Execute(pocinfo)
 		}
 	}
@@ -42,6 +63,8 @@ func WebScan(info *Common.HostInfo) {
 
 // Execute 执行具体的POC检测
 func Execute(PocInfo Common.PocInfo) {
+	Common.LogDebug(fmt.Sprintf("开始执行POC检测，目标: %s", PocInfo.Target))
+
 	// 创建基础HTTP请求
 	req, err := http.NewRequest("GET", PocInfo.Target, nil)
 	if err != nil {
@@ -59,12 +82,16 @@ func Execute(PocInfo Common.PocInfo) {
 
 	// 根据名称筛选POC并执行
 	pocs := filterPoc(PocInfo.PocName)
+	Common.LogDebug(fmt.Sprintf("筛选到的POC数量: %d", len(pocs)))
 	lib.CheckMultiPoc(req, pocs, Common.PocNum)
 }
 
 // initpoc 初始化POC加载
 func initpoc() {
+	Common.LogDebug("开始初始化POC")
+
 	if Common.PocPath == "" {
+		Common.LogDebug("从内置目录加载POC")
 		// 从嵌入的POC目录加载
 		entries, err := Pocs.ReadDir("pocs")
 		if err != nil {
@@ -78,9 +105,11 @@ func initpoc() {
 			if strings.HasSuffix(filename, ".yaml") || strings.HasSuffix(filename, ".yml") {
 				if poc, err := lib.LoadPoc(filename, Pocs); err == nil && poc != nil {
 					AllPocs = append(AllPocs, poc)
+				} else if err != nil {
 				}
 			}
 		}
+		Common.LogDebug(fmt.Sprintf("内置POC加载完成，共加载 %d 个", len(AllPocs)))
 	} else {
 		// 从指定目录加载POC
 		Common.LogSuccess(fmt.Sprintf("从目录加载POC: %s", Common.PocPath))
@@ -92,6 +121,7 @@ func initpoc() {
 			if !info.IsDir() && (strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml")) {
 				if poc, err := lib.LoadPocbyPath(path); err == nil && poc != nil {
 					AllPocs = append(AllPocs, poc)
+				} else if err != nil {
 				}
 			}
 			return nil
@@ -100,12 +130,16 @@ func initpoc() {
 		if err != nil {
 			Common.LogError(fmt.Sprintf("加载外部POC失败: %v", err))
 		}
+		Common.LogDebug(fmt.Sprintf("外部POC加载完成，共加载 %d 个", len(AllPocs)))
 	}
 }
 
 // filterPoc 根据POC名称筛选
 func filterPoc(pocname string) []*lib.Poc {
+	Common.LogDebug(fmt.Sprintf("开始筛选POC，筛选条件: %s", pocname))
+
 	if pocname == "" {
+		Common.LogDebug(fmt.Sprintf("未指定POC名称，返回所有POC: %d 个", len(AllPocs)))
 		return AllPocs
 	}
 
@@ -115,5 +149,6 @@ func filterPoc(pocname string) []*lib.Poc {
 			matchedPocs = append(matchedPocs, poc)
 		}
 	}
+	Common.LogDebug(fmt.Sprintf("POC筛选完成，匹配到 %d 个", len(matchedPocs)))
 	return matchedPocs
 }

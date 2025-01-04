@@ -126,27 +126,23 @@ func PortConnect(addr Addr, results chan<- ScanResult, timeout int64, wg *sync.W
 		Port:    addr.port,
 	}
 
-	// 进行服务识别
-	if conn != nil {
+	// 只在未跳过指纹识别时进行服务识别
+	if !Common.SkipFingerprint && conn != nil {
 		scanner := NewPortInfoScanner(addr.ip, addr.port, conn, time.Duration(timeout)*time.Second)
 		if serviceInfo, err := scanner.Identify(); err == nil {
 			result.Service = serviceInfo
 
-			// 打印服务识别信息
 			var logMsg strings.Builder
 			logMsg.WriteString(fmt.Sprintf("服务识别 %s => ", address))
 
-			// 添加服务名称
 			if serviceInfo.Name != "unknown" {
 				logMsg.WriteString(fmt.Sprintf("[%s]", serviceInfo.Name))
 			}
 
-			// 添加版本信息
 			if serviceInfo.Version != "" {
 				logMsg.WriteString(fmt.Sprintf(" 版本:%s", serviceInfo.Version))
 			}
 
-			// 添加其他有用的信息
 			if v, ok := serviceInfo.Extras["vendor_product"]; ok && v != "" {
 				logMsg.WriteString(fmt.Sprintf(" 产品:%s", v))
 			}
@@ -157,7 +153,6 @@ func PortConnect(addr Addr, results chan<- ScanResult, timeout int64, wg *sync.W
 				logMsg.WriteString(fmt.Sprintf(" 信息:%s", v))
 			}
 
-			// 如果有Banner且长度合适，也输出
 			if len(serviceInfo.Banner) > 0 && len(serviceInfo.Banner) < 100 {
 				logMsg.WriteString(fmt.Sprintf(" Banner:[%s]", strings.TrimSpace(serviceInfo.Banner)))
 			}
@@ -166,7 +161,6 @@ func PortConnect(addr Addr, results chan<- ScanResult, timeout int64, wg *sync.W
 		}
 	}
 
-	// 发送结果
 	results <- result
 }
 

@@ -18,7 +18,7 @@ const (
 // 插件分类映射表 - 所有插件名使用小写
 var pluginGroups = map[string][]string{
 	ModeAll: {
-		"web", "fcgi", // web类
+		"webtitle", "webpoc", "fcgi", // web类
 		"mysql", "mssql", "redis", "mongodb", "postgres", // 数据库类
 		"oracle", "memcached", "elasticsearch", "rabbitmq", "kafka", "activemq", "cassandra", "neo4j", // 数据库类
 		"ftp", "ssh", "telnet", "smb", "rdp", "vnc", "netbios", "ldap", "smtp", "imap", "pop3", "snmp", "modbus", "rsync", // 服务类
@@ -26,14 +26,14 @@ var pluginGroups = map[string][]string{
 		"findnet", // 其他
 	},
 	ModeBasic: {
-		"web", "ftp", "ssh", "smb", "findnet",
+		"webtitle", "ftp", "ssh", "smb", "findnet",
 	},
 	ModeDatabase: {
 		"mysql", "mssql", "redis", "mongodb",
 		"postgres", "oracle", "memcached", "elasticsearch", "rabbitmq", "kafka", "activemq", "cassandra", "neo4j",
 	},
 	ModeWeb: {
-		"web", "fcgi",
+		"webtitle", "webpoc", "fcgi",
 	},
 	ModeService: {
 		"ftp", "ssh", "telnet", "smb", "rdp", "vnc", "netbios", "ldap", "smtp", "imap", "pop3", "modbus", "rsync",

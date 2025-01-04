@@ -195,7 +195,7 @@ func init() {
 	})
 
 	// web 相关插件添加 WebPorts 配置
-	Common.RegisterPlugin("web", Common.ScanPlugin{
+	Common.RegisterPlugin("webtitle", Common.ScanPlugin{
 		Name:     "WebTitle",
 		Ports:    Common.ParsePortsFromString(Common.WebPorts), // 将 WebPorts 字符串解析为端口数组
 		ScanFunc: Plugins.WebTitle,
