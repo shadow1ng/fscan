@@ -89,7 +89,7 @@ func parseIP(ip string) []string {
 	reg := regexp.MustCompile(`[a-zA-Z]+`)
 	switch {
 	case ip == "192":
-		return parseIP("192.168.0.0/8")
+		return parseIP("192.168.0.0/16")
 	case ip == "172":
 		return parseIP("172.16.0.0/12")
 	case ip == "10":
