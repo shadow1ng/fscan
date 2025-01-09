@@ -33,11 +33,56 @@ func Scan(info Common.HostInfo) {
 	switch {
 	case Common.LocalMode:
 		// 本地信息收集模式
-		Common.LogInfo("执行本地信息收集")
+		LocalScan = true
+
+		// 定义本地模式允许的插件
+		validLocalPlugins := map[string]bool{
+			"localinfo": true,
+			// 添加其他 ModeLocal 中定义的插件
+		}
+
+		if Common.ScanMode != "" && Common.ScanMode != Common.ModeLocal {
+			// 如果指定了模式但不是 ModeLocal，检查是否是合法的单插件
+			if !validLocalPlugins[Common.ScanMode] {
+				Common.LogError(fmt.Sprintf("无效的本地模式插件: %s, 仅支持 localinfo", Common.ScanMode))
+				return
+			}
+			// ScanMode 保持为单插件名
+		} else {
+			// 没有指定模式或指定了 ModeLocal，使用完整的本地模式
+			Common.ScanMode = Common.ModeLocal
+		}
+
+		if Common.ScanMode == Common.ModeLocal {
+			Common.LogInfo("执行本地信息收集 - 使用全部本地插件")
+		} else {
+			Common.LogInfo(fmt.Sprintf("执行本地信息收集 - 使用插件: %s", Common.ScanMode))
+		}
+
 		executeScans([]Common.HostInfo{info}, &ch, &wg)
 
 	case len(Common.URLs) > 0:
 		// Web模式
+		WebScan = true
+
+		// 定义Web模式允许的插件
+		validWebPlugins := map[string]bool{
+			"webtitle": true,
+			"webpoc":   true,
+		}
+
+		if Common.ScanMode != "" && Common.ScanMode != Common.ModeWeb {
+			// 如果指定了模式但不是 ModeWeb，检查是否是合法的单插件
+			if !validWebPlugins[Common.ScanMode] {
+				Common.LogError(fmt.Sprintf("无效的Web插件: %s, 仅支持 webtitle 和 webpoc", Common.ScanMode))
+				return
+			}
+			// ScanMode 保持为单插件名
+		} else {
+			// 没有指定模式或指定了 ModeWeb，使用完整的Web模式
+			Common.ScanMode = Common.ModeWeb
+		}
+
 		var targetInfos []Common.HostInfo
 		for _, url := range Common.URLs {
 			urlInfo := info
@@ -47,7 +92,12 @@ func Scan(info Common.HostInfo) {
 			urlInfo.Url = url
 			targetInfos = append(targetInfos, urlInfo)
 		}
-		Common.LogInfo("开始Web扫描")
+
+		if Common.ScanMode == Common.ModeWeb {
+			Common.LogInfo("开始Web扫描 - 使用全部Web插件")
+		} else {
+			Common.LogInfo(fmt.Sprintf("开始Web扫描 - 使用插件: %s", Common.ScanMode))
+		}
 		executeScans(targetInfos, &ch, &wg)
 
 	default:

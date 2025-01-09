@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/fatih/color"
 	"strings"
-	"time"
 )
 
 func Banner() {
@@ -31,109 +30,28 @@ func Banner() {
 		}
 	}
 
-	// 清屏并隐藏光标
-	fmt.Print("\033[H\033[2J\033[?25l")
-	defer fmt.Print("\033[?25h")
-
 	// 创建边框
 	topBorder := "┌" + strings.Repeat("─", maxLength+2) + "┐"
 	bottomBorder := "└" + strings.Repeat("─", maxLength+2) + "┘"
 
-	// 呼吸灯效果循环
-	for cycle := 0; cycle < 2; cycle++ { // 2个完整循环
-		// 亮度由暗到亮
-		for i := 0; i <= 10; i++ {
-			fmt.Print("\033[H")
-			dim := float64(i) / 10.0
-
-			printDimmed(topBorder, colors[0], dim)
-			fmt.Println()
-
-			for lineNum, line := range lines {
-				printDimmed("│ ", colors[0], dim)
-				for _, char := range line {
-					printDimmed(string(char), colors[lineNum%2], dim)
-				}
-				padding := maxLength - len(line)
-				printDimmed(strings.Repeat(" ", padding)+" │", colors[0], dim)
-				fmt.Println()
-			}
-
-			printDimmed(bottomBorder, colors[0], dim)
-			fmt.Println()
-
-			vStr := fmt.Sprintf("      Fscan Version: %s", version)
-			printDimmed(vStr, colors[1], dim)
-			fmt.Print("\n\n")
-
-			time.Sleep(50 * time.Millisecond)
-		}
-
-		// 亮度由亮到暗
-		for i := 10; i >= 0; i-- {
-			fmt.Print("\033[H")
-			dim := float64(i) / 10.0
-
-			printDimmed(topBorder, colors[0], dim)
-			fmt.Println()
-
-			for lineNum, line := range lines {
-				printDimmed("│ ", colors[0], dim)
-				for _, char := range line {
-					printDimmed(string(char), colors[lineNum%2], dim)
-				}
-				padding := maxLength - len(line)
-				printDimmed(strings.Repeat(" ", padding)+" │", colors[0], dim)
-				fmt.Println()
-			}
-
-			printDimmed(bottomBorder, colors[0], dim)
-			fmt.Println()
-
-			vStr := fmt.Sprintf("      Fscan Version: %s", version)
-			printDimmed(vStr, colors[1], dim)
-			fmt.Print("\n\n")
-
-			time.Sleep(50 * time.Millisecond)
-		}
-	}
-
-	// 最后显示完整亮度的版本
-	fmt.Print("\033[H")
-	printDimmed(topBorder, colors[0], 1.0)
-	fmt.Println()
+	// 打印banner
+	fmt.Println(topBorder)
 
 	for lineNum, line := range lines {
-		printDimmed("│ ", colors[0], 1.0)
-		for _, char := range line {
-			printDimmed(string(char), colors[lineNum%2], 1.0)
-		}
+		fmt.Print("│ ")
+		// 使用对应的颜色打印每个字符
+		c := color.New(colors[lineNum%2])
+		c.Print(line)
+		// 补齐空格
 		padding := maxLength - len(line)
-		printDimmed(strings.Repeat(" ", padding)+" │", colors[0], 1.0)
-		fmt.Println()
+		fmt.Printf("%s │\n", strings.Repeat(" ", padding))
 	}
 
-	printDimmed(bottomBorder, colors[0], 1.0)
-	fmt.Println()
+	fmt.Println(bottomBorder)
 
-	vStr := fmt.Sprintf("      Fscan Version: %s", version)
-	printDimmed(vStr, colors[1], 1.0)
-	fmt.Print("\n\n")
-}
-
-// 辅助函数：打印带透明度的文字
-func printDimmed(text string, col color.Attribute, dim float64) {
-	if dim < 0.2 {
-		fmt.Print(strings.Repeat(" ", len(text)))
-		return
-	}
-
-	intensity := int(255 * dim)
-	fmt.Printf("\033[38;2;%d;%d;%dm%s\033[0m",
-		int(float64(0)*dim),
-		intensity,
-		int(float64(0)*dim),
-		text)
+	// 打印版本信息
+	c := color.New(colors[1])
+	c.Printf("      Fscan Version: %s\n\n", version)
 }
 
 func Flag(Info *HostInfo) {
