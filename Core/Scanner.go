@@ -1,0 +1,381 @@
+package Core
+
+import (
+	"fmt"
+	"github.com/schollz/progressbar/v3"
+	"github.com/shadow1ng/fscan/Common"
+	"github.com/shadow1ng/fscan/WebScan/lib"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+)
+
+// 定义在文件开头
+var (
+	LocalScan bool // 本地扫描模式标识
+	WebScan   bool // Web扫描模式标识
+)
+
+// Scan 执行扫描主流程
+func Scan(info Common.HostInfo) {
+	Common.LogInfo("开始信息扫描")
+
+	// 初始化HTTP客户端
+	lib.Inithttp()
+
+	ch := make(chan struct{}, Common.ThreadNum)
+	wg := sync.WaitGroup{}
+
+	// 根据不同模式执行扫描
+	switch {
+	case Common.LocalMode:
+		// 本地信息收集模式
+		LocalScan = true
+
+		// 定义本地模式允许的插件
+		validLocalPlugins := map[string]bool{
+			"localinfo": true,
+			// 添加其他 ModeLocal 中定义的插件
+		}
+
+		if Common.ScanMode != "" && Common.ScanMode != Common.ModeLocal {
+			// 如果指定了模式但不是 ModeLocal，检查是否是合法的单插件
+			if !validLocalPlugins[Common.ScanMode] {
+				Common.LogError(fmt.Sprintf("无效的本地模式插件: %s, 仅支持 localinfo", Common.ScanMode))
+				return
+			}
+			// ScanMode 保持为单插件名
+		} else {
+			// 没有指定模式或指定了 ModeLocal，使用完整的本地模式
+			Common.ScanMode = Common.ModeLocal
+		}
+
+		if Common.ScanMode == Common.ModeLocal {
+			Common.LogInfo("执行本地信息收集 - 使用全部本地插件")
+		} else {
+			Common.LogInfo(fmt.Sprintf("执行本地信息收集 - 使用插件: %s", Common.ScanMode))
+		}
+
+		executeScans([]Common.HostInfo{info}, &ch, &wg)
+
+	case len(Common.URLs) > 0:
+		// Web模式
+		WebScan = true
+
+		// 定义Web模式允许的插件
+		validWebPlugins := map[string]bool{
+			"webtitle": true,
+			"webpoc":   true,
+		}
+
+		if Common.ScanMode != "" && Common.ScanMode != Common.ModeWeb {
+			// 如果指定了模式但不是 ModeWeb，检查是否是合法的单插件
+			if !validWebPlugins[Common.ScanMode] {
+				Common.LogError(fmt.Sprintf("无效的Web插件: %s, 仅支持 webtitle 和 webpoc", Common.ScanMode))
+				return
+			}
+			// ScanMode 保持为单插件名
+		} else {
+			// 没有指定模式或指定了 ModeWeb，使用完整的Web模式
+			Common.ScanMode = Common.ModeWeb
+		}
+
+		var targetInfos []Common.HostInfo
+		for _, url := range Common.URLs {
+			urlInfo := info
+			if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+				url = "http://" + url
+			}
+			urlInfo.Url = url
+			targetInfos = append(targetInfos, urlInfo)
+		}
+
+		if Common.ScanMode == Common.ModeWeb {
+			Common.LogInfo("开始Web扫描 - 使用全部Web插件")
+		} else {
+			Common.LogInfo(fmt.Sprintf("开始Web扫描 - 使用插件: %s", Common.ScanMode))
+		}
+		executeScans(targetInfos, &ch, &wg)
+
+	default:
+		// 主机扫描模式
+		if info.Host == "" {
+			Common.LogError("未指定扫描目标")
+			return
+		}
+
+		hosts, err := Common.ParseIP(info.Host, Common.HostsFile, Common.ExcludeHosts)
+		if err != nil {
+			Common.LogError(fmt.Sprintf("解析主机错误: %v", err))
+			return
+		}
+		Common.LogInfo("开始主机扫描")
+		executeScan(hosts, info, &ch, &wg)
+	}
+
+	finishScan(&wg)
+}
+
+// executeScan 执行主扫描流程
+func executeScan(hosts []string, info Common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup) {
+	var targetInfos []Common.HostInfo
+
+	if len(hosts) > 0 || len(Common.HostPort) > 0 {
+		if (Common.DisablePing == false && len(hosts) > 1) || Common.IsICMPScan() {
+			hosts = CheckLive(hosts, Common.UsePing)
+			Common.LogInfo(fmt.Sprintf("存活主机数量: %d", len(hosts)))
+			if Common.IsICMPScan() {
+				return
+			}
+		}
+
+		var alivePorts []string
+		if Common.IsWebScan() {
+			alivePorts = NoPortScan(hosts, Common.Ports)
+		} else if len(hosts) > 0 {
+			alivePorts = PortScan(hosts, Common.Ports, Common.Timeout)
+			Common.LogInfo(fmt.Sprintf("存活端口数量: %d", len(alivePorts)))
+			if Common.IsPortScan() {
+				return
+			}
+		}
+
+		if len(Common.HostPort) > 0 {
+			alivePorts = append(alivePorts, Common.HostPort...)
+			alivePorts = Common.RemoveDuplicate(alivePorts)
+			Common.HostPort = nil
+			Common.LogInfo(fmt.Sprintf("存活端口数量: %d", len(alivePorts)))
+		}
+
+		targetInfos = prepareTargetInfos(alivePorts, info)
+	}
+
+	for _, url := range Common.URLs {
+		urlInfo := info
+		urlInfo.Url = url
+		targetInfos = append(targetInfos, urlInfo)
+	}
+
+	if len(targetInfos) > 0 {
+		Common.LogInfo("开始漏洞扫描")
+		executeScans(targetInfos, ch, wg)
+	}
+}
+
+// prepareTargetInfos 准备扫描目标信息
+func prepareTargetInfos(alivePorts []string, baseInfo Common.HostInfo) []Common.HostInfo {
+	var infos []Common.HostInfo
+	for _, targetIP := range alivePorts {
+		hostParts := strings.Split(targetIP, ":")
+		if len(hostParts) != 2 {
+			Common.LogError(fmt.Sprintf("无效的目标地址格式: %s", targetIP))
+			continue
+		}
+		info := baseInfo
+		info.Host = hostParts[0]
+		info.Ports = hostParts[1]
+		infos = append(infos, info)
+	}
+	return infos
+}
+
+func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup) {
+	mode := Common.GetScanMode()
+	var pluginsToRun []string
+	isSinglePlugin := false
+
+	if plugins := Common.GetPluginsForMode(mode); plugins != nil {
+		pluginsToRun = plugins
+	} else {
+		pluginsToRun = []string{mode}
+		isSinglePlugin = true
+	}
+
+	loadedPlugins := make([]string, 0)
+	actualTasks := 0
+
+	type ScanTask struct {
+		pluginName string
+		target     Common.HostInfo
+	}
+	tasks := make([]ScanTask, 0)
+
+	// 第一次遍历：计算任务数和收集要执行的插件
+	for _, target := range targets {
+		targetPort, _ := strconv.Atoi(target.Ports)
+
+		for _, pluginName := range pluginsToRun {
+			plugin, exists := Common.PluginManager[pluginName]
+			if !exists {
+				continue
+			}
+
+			// Web模式特殊处理
+			if WebScan {
+				actualTasks++
+				loadedPlugins = append(loadedPlugins, pluginName)
+				tasks = append(tasks, ScanTask{
+					pluginName: pluginName,
+					target:     target,
+				})
+				continue
+			}
+
+			// 本地扫描模式
+			if LocalScan {
+				if len(plugin.Ports) == 0 {
+					actualTasks++
+					loadedPlugins = append(loadedPlugins, pluginName)
+					tasks = append(tasks, ScanTask{
+						pluginName: pluginName,
+						target:     target,
+					})
+				}
+				continue
+			}
+
+			// 单插件模式
+			if isSinglePlugin {
+				actualTasks++
+				loadedPlugins = append(loadedPlugins, pluginName)
+				tasks = append(tasks, ScanTask{
+					pluginName: pluginName,
+					target:     target,
+				})
+				continue
+			}
+
+			// 常规模式
+			if len(plugin.Ports) > 0 {
+				if plugin.HasPort(targetPort) {
+					actualTasks++
+					loadedPlugins = append(loadedPlugins, pluginName)
+					tasks = append(tasks, ScanTask{
+						pluginName: pluginName,
+						target:     target,
+					})
+				}
+			} else {
+				actualTasks++
+				loadedPlugins = append(loadedPlugins, pluginName)
+				tasks = append(tasks, ScanTask{
+					pluginName: pluginName,
+					target:     target,
+				})
+			}
+		}
+	}
+
+	// 去重并输出实际加载的插件
+	uniquePlugins := make(map[string]struct{})
+	for _, p := range loadedPlugins {
+		uniquePlugins[p] = struct{}{}
+	}
+
+	finalPlugins := make([]string, 0, len(uniquePlugins))
+	for p := range uniquePlugins {
+		finalPlugins = append(finalPlugins, p)
+	}
+	sort.Strings(finalPlugins)
+
+	Common.LogInfo(fmt.Sprintf("加载的插件: %s", strings.Join(finalPlugins, ", ")))
+
+	// 初始化进度条
+	if !Common.NoProgress {
+		Common.ProgressBar = progressbar.NewOptions(actualTasks,
+			progressbar.OptionEnableColorCodes(true),
+			progressbar.OptionShowCount(),
+			progressbar.OptionSetWidth(15),
+			progressbar.OptionSetDescription("[cyan]扫描进度:[reset]"),
+			progressbar.OptionSetTheme(progressbar.Theme{
+				Saucer:        "[green]=[reset]",
+				SaucerHead:    "[green]>[reset]",
+				SaucerPadding: " ",
+				BarStart:      "[",
+				BarEnd:        "]",
+			}),
+			progressbar.OptionThrottle(65*time.Millisecond),
+			progressbar.OptionUseANSICodes(true),
+			progressbar.OptionSetRenderBlankState(true),
+		)
+	}
+
+	// 执行收集的任务
+	for _, task := range tasks {
+		AddScan(task.pluginName, task.target, ch, wg)
+	}
+}
+
+// finishScan 完成扫描任务
+func finishScan(wg *sync.WaitGroup) {
+	wg.Wait()
+	// 确保进度条完成，只在存在进度条时调用
+	if Common.ProgressBar != nil {
+		Common.ProgressBar.Finish()
+		fmt.Println() // 添加一个换行
+	}
+	Common.LogSuccess(fmt.Sprintf("扫描已完成: %v/%v", Common.End, Common.Num))
+}
+
+// Mutex用于保护共享资源的并发访问
+var Mutex = &sync.Mutex{}
+
+// AddScan
+func AddScan(plugin string, info Common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup) {
+	*ch <- struct{}{}
+	wg.Add(1)
+
+	go func() {
+		defer func() {
+			wg.Done()
+			<-*ch
+		}()
+
+		Mutex.Lock()
+		atomic.AddInt64(&Common.Num, 1)
+		Mutex.Unlock()
+
+		ScanFunc(&plugin, &info)
+
+		Common.OutputMutex.Lock()
+		atomic.AddInt64(&Common.End, 1)
+		if Common.ProgressBar != nil {
+			// 清除当前行
+			fmt.Print("\033[2K\r")
+			Common.ProgressBar.Add(1)
+		}
+		Common.OutputMutex.Unlock()
+	}()
+}
+
+// ScanFunc 执行扫描插件
+func ScanFunc(name *string, info *Common.HostInfo) {
+	defer func() {
+		if err := recover(); err != nil {
+			Common.LogError(fmt.Sprintf("扫描错误 %v:%v - %v", info.Host, info.Ports, err))
+		}
+	}()
+
+	plugin, exists := Common.PluginManager[*name]
+	if !exists {
+		Common.LogInfo(fmt.Sprintf("扫描类型 %v 无对应插件，已跳过", *name))
+		return
+	}
+
+	if err := plugin.ScanFunc(info); err != nil {
+		Common.LogError(fmt.Sprintf("扫描错误 %v:%v - %v", info.Host, info.Ports, err))
+	}
+}
+
+// IsContain 检查切片中是否包含指定元素
+func IsContain(items []string, item string) bool {
+	for _, eachItem := range items {
+		if eachItem == item {
+			return true
+		}
+	}
+	return false
+}

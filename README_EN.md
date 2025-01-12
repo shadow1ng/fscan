@@ -227,34 +227,34 @@ https://github.com/jjf012/gopoc
 
 
 # 10. Dynamics
-[+] 2022/11/19 Add hash collision, wmiexec echo free command execution function  
-[+] 2022/7/14 Add -hf parameter, support host: port and host/xx: port formats, rule.Search regular matching range is changed from body to header+body, and -nobr no longer includes -nopoc. Optimize webtitle output format.  
-[+] 2022/7/6 Add manual gc recycling to try to save useless memory, -Urls support comma separation. Fix a poc module bug- Nobr no longer contains nopoc.  
-[+] 2022/7/2 Strengthen the poc fuzzy module to support running backup files, directories, shiro keys (10 keys by default, 100 keys with the -full parameter), etc.Add ms17017 (use parameter: -sc add), which can be used in ms17010 exp Go defines the shell code, and built-in functions such as adding users.  
+2022/11/19 Add hash collision, wmiexec echo free command execution function  
+2022/7/14 Add -hf parameter, support host: port and host/xx: port formats, rule.Search regular matching range is changed from body to header+body, and -nobr no longer includes -nopoc. Optimize webtitle output format.  
+2022/7/6 Add manual gc recycling to try to save useless memory, -Urls support comma separation. Fix a poc module bug- Nobr no longer contains nopoc.  
+2022/7/2 Strengthen the poc fuzzy module to support running backup files, directories, shiro keys (10 keys by default, 100 keys with the -full parameter), etc.Add ms17017 (use parameter: -sc add), which can be used in ms17010 exp Go defines the shell code, and built-in functions such as adding users.  
 Add poc and fingerprint. Socks5 proxy is supported. Because the body fingerprint is more complete, the icon icon is no longer running by default.    
-[+] 2022/4/20 The poc module adds the specified directory or file -path poc path, the port can specify the file -portf port.txt, the rdp module adds the multi-threaded explosion demo, and -br xx specifies the thread.  
-[+] 2022/2/25 Add - m webonly to skip port scanning and directly access http. Thanks @ AgeloVito  
-[+] 2022/1/11 Add oracle password explosion.    
-[+] 2022/1/7  When scanning IP/8, each C segment gateway and several random IPs will be scanned by default. Recommended parameter: -h ip/8 -m icmp. The LiveTop function is added. When detecting the survival, the number of B and C segment IPs of top10 will be output by default.  
-[+] 2021/12/7 Add rdp scanning and port parameter -pa 3389 (the port will be added based on the original port list)  
-[+] 2021/12/1 Optimize the xray parsing module, support groups, add poc, add https judgment (tls handshake package), optimize the ip parsing module (support all ip/xx), add the blasting shutdown parameter nobr, add the skip certain ip scanning function -hn 192.168.1.1, add the skip certain port scanning function - pn 21445, and add the scan Docker unauthorized vulnerability.  
-[+] 2021/6/18 Improve the poc mechanism. If the fingerprint is identified, the poc will be sent according to the fingerprint information. If the fingerprint is not identified, all poc will be printed once.  
-[+] 2021/5/29 Adding the fcgi protocol to execute the scan of unauthorized commands, optimizing the poc module, optimizing the icmp module, and adding the ssh module to the private key connection.  
-[+] 2021/5/15 Added win03 version (deleted xray_poc module), added silent scanning mode, added web fingerprint, fixed netbios module array overrun, added a CheckErrs dictionary, and added gzip decoding to webtitle.   
-[+] 2021/5/6 Update mod library, poc and fingerprint. Modify thread processing mechanism, netbios detection, domain control identification module, webtitle encoding module, etc.  
-[+] 2021/4/22 Modify webtitle module and add gbk decoding.  
-[+] 2021/4/21 Add netbios detection and domain control identification functions.    
-[+] 2021/3/4 Support -u url and -uf parameters, support batch scan URLs.  
-[+] 2021/2/25 Modify the yaml parsing module to support password explosion, such as tomcat weak password. The new sets parameter in yaml is an array, which is used to store passwords. See tomcat-manager-week.yaml for details.  
-[+] 2021/2/8 Add fingerprint identification function to identify common CMS and frameworks, such as Zhiyuan OA and Tongda OA.  
-[+] 2021/2/5 Modify the icmp packet mode, which is more suitable for large-scale detection.  
+2022/4/20 The poc module adds the specified directory or file -path poc path, the port can specify the file -portf port.txt, the rdp module adds the multi-threaded explosion demo, and -br xx specifies the thread.  
+2022/2/25 Add - m webonly to skip port scanning and directly access http. Thanks @ AgeloVito  
+2022/1/11 Add oracle password explosion.    
+2022/1/7  When scanning IP/8, each C segment gateway and several random IPs will be scanned by default. Recommended parameter: -h ip/8 -m icmp. The LiveTop function is added. When detecting the survival, the number of B and C segment IPs of top10 will be output by default.  
+2021/12/7 Add rdp scanning and port parameter -pa 3389 (the port will be added based on the original port list)  
+2021/12/1 Optimize the xray parsing module, support groups, add poc, add https judgment (tls handshake package), optimize the ip parsing module (support all ip/xx), add the blasting shutdown parameter nobr, add the skip certain ip scanning function -hn 192.168.1.1, add the skip certain port scanning function - pn 21445, and add the scan Docker unauthorized vulnerability.  
+2021/6/18 Improve the poc mechanism. If the fingerprint is identified, the poc will be sent according to the fingerprint information. If the fingerprint is not identified, all poc will be printed once.  
+2021/5/29 Adding the fcgi protocol to execute the scan of unauthorized commands, optimizing the poc module, optimizing the icmp module, and adding the ssh module to the private key connection.  
+2021/5/15 Added win03 version (deleted xray_poc module), added silent scanning mode, added web fingerprint, fixed netbios module array overrun, added a CheckErrs dictionary, and added gzip decoding to webtitle.   
+2021/5/6 Update mod library, poc and fingerprint. Modify thread processing mechanism, netbios detection, domain control identification module, webtitle encoding module, etc.  
+2021/4/22 Modify webtitle module and add gbk decoding.  
+2021/4/21 Add netbios detection and domain control identification functions.    
+2021/3/4 Support -u url and -uf parameters, support batch scan URLs.  
+2021/2/25 Modify the yaml parsing module to support password explosion, such as tomcat weak password. The new sets parameter in yaml is an array, which is used to store passwords. See tomcat-manager-week.yaml for details.  
+2021/2/8 Add fingerprint identification function to identify common CMS and frameworks, such as Zhiyuan OA and Tongda OA.  
+2021/2/5 Modify the icmp packet mode, which is more suitable for large-scale detection.  
 Modify the error prompt. If there is no new progress in - debug within 10 seconds, the current progress will be printed every 10 seconds.  
-[+] 2020/12/12 The yaml parsing engine has been added to support the poc of xray. By default, all the poc are used (the poc of xray has been filtered). You can use - pocname weblogic, and only one or some poc is used. Need go version 1.16 or above, and can only compile the latest version of go for testing.   
-[+] 2020/12/6 Optimize the icmp module and add the -domain parameter (for the smb blasting module, applicable to domain users)   
-[+] 2020/12/03 Optimize the ip segment processing module, icmp, port scanning module. 192.168.1.1-192.168.255.255 is supported.   
-[+] 2020/11/17 The -ping parameter is added to replace icmp packets with ping in the survival detection module.   
-[+] 2020/11/17 WebScan module and shiro simple recognition are added. Skip certificate authentication during https access. Separate the timeout of the service module and the web module, and add the -wt parameter (WebTimeout).    
-[+] 2020/11/16 Optimize the icmp module and add the -it parameter (IcmpThreads). The default value is 11000, which is suitable for scanning section B.    
-[+] 2020/11/15 Support importt ip from file, -hf ip.txt, and process de duplication ips.  
+2020/12/12 The yaml parsing engine has been added to support the poc of xray. By default, all the poc are used (the poc of xray has been filtered). You can use - pocname weblogic, and only one or some poc is used. Need go version 1.16 or above, and can only compile the latest version of go for testing.   
+2020/12/6 Optimize the icmp module and add the -domain parameter (for the smb blasting module, applicable to domain users)   
+2020/12/03 Optimize the ip segment processing module, icmp, port scanning module. 192.168.1.1-192.168.255.255 is supported.   
+2020/11/17 The -ping parameter is added to replace icmp packets with ping in the survival detection module.   
+2020/11/17 WebScan module and shiro simple recognition are added. Skip certificate authentication during https access. Separate the timeout of the service module and the web module, and add the -wt parameter (WebTimeout).    
+2020/11/16 Optimize the icmp module and add the -it parameter (IcmpThreads). The default value is 11000, which is suitable for scanning section B.    
+2020/11/15 Support importt ip from file, -hf ip.txt, and process de duplication ips.  
 
 [url-doczh]: README.md
