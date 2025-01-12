@@ -148,6 +148,29 @@ func ParsePass(Info *HostInfo) error {
 		LogInfo(fmt.Sprintf("从文件加载URL: %d 个", len(urls)))
 	}
 
+	// 从文件加载主机列表
+	if HostsFile != "" {
+		hosts, err := Readfile(HostsFile)
+		if err != nil {
+			return fmt.Errorf("读取主机文件失败: %v", err)
+		}
+
+		tmpHosts := make(map[string]struct{})
+		for _, host := range hosts {
+			if host != "" {
+				if _, ok := tmpHosts[host]; !ok {
+					tmpHosts[host] = struct{}{}
+					if Info.Host == "" {
+						Info.Host = host
+					} else {
+						Info.Host += "," + host
+					}
+				}
+			}
+		}
+		LogInfo(fmt.Sprintf("从文件加载主机: %d 个", len(hosts)))
+	}
+
 	// 从文件加载端口列表
 	if PortsFile != "" {
 		ports, err := Readfile(PortsFile)

@@ -16,7 +16,7 @@ const (
 )
 
 // 插件分类映射表 - 所有插件名使用小写
-var pluginGroups = map[string][]string{
+var PluginGroups = map[string][]string{
 	ModeAll: {
 		"webtitle", "webpoc", // web类
 		"mysql", "mssql", "redis", "mongodb", "postgres", // 数据库类
@@ -78,12 +78,12 @@ func ParseScanMode(mode string) {
 	// 默认使用All模式
 	ScanMode = ModeAll
 	LogInfo(fmt.Sprintf("未识别的模式，使用默认模式: %s", ModeAll))
-	LogInfo(fmt.Sprintf("包含插件: %v", pluginGroups[ModeAll]))
+	LogInfo(fmt.Sprintf("包含插件: %v", PluginGroups[ModeAll]))
 }
 
 // GetPluginsForMode 获取指定模式下的插件列表
 func GetPluginsForMode(mode string) []string {
-	plugins, exists := pluginGroups[mode]
+	plugins, exists := PluginGroups[mode]
 	if exists {
 		return plugins
 	}

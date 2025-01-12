@@ -57,7 +57,7 @@ func handleAliveHosts(chanHosts chan string, hostslist []string, isPing bool) {
 				if isPing {
 					protocol = "PING"
 				}
-				fmt.Printf("目标 %-15s 存活 (%s)\n", ip, protocol)
+				Common.LogSuccess(fmt.Sprintf("目标 %-15s 存活 (%s)", ip, protocol))
 			}
 
 			AliveHosts = append(AliveHosts, ip)
@@ -76,7 +76,7 @@ func probeWithICMP(hostslist []string, chanHosts chan string) {
 	}
 
 	Common.LogError(fmt.Sprintf("ICMP监听失败: %v", err))
-	fmt.Println("正在尝试无监听ICMP探测...")
+	Common.LogInfo("正在尝试无监听ICMP探测...")
 
 	// 尝试无监听ICMP探测
 	conn2, err := net.DialTimeout("ip4:icmp", "127.0.0.1", 3*time.Second)
@@ -87,8 +87,8 @@ func probeWithICMP(hostslist []string, chanHosts chan string) {
 	}
 
 	Common.LogError(fmt.Sprintf("ICMP连接失败: %v", err))
-	fmt.Println("当前用户权限不足,无法发送ICMP包")
-	fmt.Println("切换为PING方式探测...")
+	Common.LogInfo("当前用户权限不足,无法发送ICMP包")
+	Common.LogInfo("切换为PING方式探测...")
 
 	// 降级使用ping探测
 	RunPing(hostslist, chanHosts)
@@ -100,8 +100,7 @@ func printAliveStats(hostslist []string) {
 	if len(hostslist) > 1000 {
 		arrTop, arrLen := ArrayCountValueTop(AliveHosts, Common.LiveTop, true)
 		for i := 0; i < len(arrTop); i++ {
-			output := fmt.Sprintf("B段 %-16s 存活主机数: %d", arrTop[i]+".0.0/16", arrLen[i])
-			Common.LogSuccess(output)
+			Common.LogSuccess(fmt.Sprintf("%s.0.0/16 存活主机数: %d", arrTop[i], arrLen[i]))
 		}
 	}
 
@@ -109,8 +108,7 @@ func printAliveStats(hostslist []string) {
 	if len(hostslist) > 256 {
 		arrTop, arrLen := ArrayCountValueTop(AliveHosts, Common.LiveTop, false)
 		for i := 0; i < len(arrTop); i++ {
-			output := fmt.Sprintf("C段 %-16s 存活主机数: %d", arrTop[i]+".0/24", arrLen[i])
-			Common.LogSuccess(output)
+			Common.LogSuccess(fmt.Sprintf("%s.0/24 存活主机数: %d", arrTop[i], arrLen[i]))
 		}
 	}
 }

@@ -36,21 +36,20 @@ func Scan(info Common.HostInfo) {
 		LocalScan = true
 
 		// 定义本地模式允许的插件
-		validLocalPlugins := map[string]bool{
-			"localinfo": true,
-			// 添加其他 ModeLocal 中定义的插件
+		validLocalPlugins := make(map[string]bool)
+		for _, plugin := range Common.PluginGroups[Common.ModeLocal] {
+			validLocalPlugins[plugin] = true
 		}
 
-		if Common.ScanMode != "" && Common.ScanMode != Common.ModeLocal {
-			// 如果指定了模式但不是 ModeLocal，检查是否是合法的单插件
+		// 如果没有指定扫描模式或为默认的All，设置为 ModeLocal
+		if Common.ScanMode == "" || Common.ScanMode == "All" {
+			Common.ScanMode = Common.ModeLocal
+		} else if Common.ScanMode != Common.ModeLocal {
+			// 不是完整模式时，检查是否是合法的单插件
 			if !validLocalPlugins[Common.ScanMode] {
 				Common.LogError(fmt.Sprintf("无效的本地模式插件: %s, 仅支持 localinfo", Common.ScanMode))
 				return
 			}
-			// ScanMode 保持为单插件名
-		} else {
-			// 没有指定模式或指定了 ModeLocal，使用完整的本地模式
-			Common.ScanMode = Common.ModeLocal
 		}
 
 		if Common.ScanMode == Common.ModeLocal {
@@ -65,22 +64,24 @@ func Scan(info Common.HostInfo) {
 		// Web模式
 		WebScan = true
 
-		// 定义Web模式允许的插件
-		validWebPlugins := map[string]bool{
-			"webtitle": true,
-			"webpoc":   true,
+		// 从 pluginGroups 获取Web模式允许的插件
+		validWebPlugins := make(map[string]bool)
+		for _, plugin := range Common.PluginGroups[Common.ModeWeb] {
+			validWebPlugins[plugin] = true
 		}
 
-		if Common.ScanMode != "" && Common.ScanMode != Common.ModeWeb {
-			// 如果指定了模式但不是 ModeWeb，检查是否是合法的单插件
+		// 如果没有指定扫描模式，默认设置为 ModeWeb
+		if Common.ScanMode == "" || Common.ScanMode == "All" {
+			Common.ScanMode = Common.ModeWeb
+		}
+
+		// 如果不是 ModeWeb，检查是否是合法的单插件
+		if Common.ScanMode != Common.ModeWeb {
 			if !validWebPlugins[Common.ScanMode] {
 				Common.LogError(fmt.Sprintf("无效的Web插件: %s, 仅支持 webtitle 和 webpoc", Common.ScanMode))
 				return
 			}
 			// ScanMode 保持为单插件名
-		} else {
-			// 没有指定模式或指定了 ModeWeb，使用完整的Web模式
-			Common.ScanMode = Common.ModeWeb
 		}
 
 		var targetInfos []Common.HostInfo
