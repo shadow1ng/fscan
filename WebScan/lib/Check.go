@@ -44,8 +44,27 @@ func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int) {
 	for i := 0; i < workers; i++ {
 		go func() {
 			for task := range tasks {
-				isVulnerable, details, vulName := executePoc(task.Req, task.Poc)
-
+				isVulnerable, err, vulName := executePoc(task.Req, task.Poc)
+				if err != nil {
+					wg.Done()
+					continue
+				}
+				details := func(enable bool) string {
+					data := ""
+					if !enable {
+						return data
+					}
+					if task.Poc.Detail.Author != "" {
+						data += "\tauthor:" + task.Poc.Detail.Author + "\n"
+					}
+					if len(task.Poc.Detail.Links) != 0 || task.Poc.Detail.Links != nil {
+						data += "\tlinks:" + strings.Join(task.Poc.Detail.Links, "\n") + "\n"
+					}
+					if task.Poc.Detail.Description != "" {
+						data += "\tdescription:" + task.Poc.Detail.Description + "\n"
+					}
+					return data
+				}(true)
 				if isVulnerable {
 					result := fmt.Sprintf("目标: %s\n  漏洞类型: %s\n  漏洞名称: %s\n  详细信息: %s",
 						task.Req.URL,
