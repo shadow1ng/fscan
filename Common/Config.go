@@ -876,9 +876,9 @@ var (
 	AddPasswords string // 原PassAdd
 
 	// 扫描配置
-	ScanMode        string // 原Scantype
-	ThreadNum       int    // 原Threads
-	UseSynScan      bool
+	ScanMode  string // 原Scantype
+	ThreadNum int    // 原Threads
+	//UseSynScan      bool
 	Timeout         int64 = 3
 	LiveTop         int
 	DisablePing     bool // 原NoPing

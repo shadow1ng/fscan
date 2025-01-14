@@ -109,7 +109,7 @@ func Flag(Info *HostInfo) {
 		"  服务类: ftp, ssh, telnet, smb, rdp, vnc, netbios\n"+
 		"  漏洞类: ms17010, smbghost, smb2\n"+
 		"  其他: findnet, wmiexec, localinfo")
-	flag.BoolVar(&UseSynScan, "sS", false, "使用SYN扫描替代TCP全连接扫描(需要root/管理员权限)")
+	//flag.BoolVar(&UseSynScan, "sS", false, "使用SYN扫描替代TCP全连接扫描(需要root/管理员权限)")
 	flag.IntVar(&ThreadNum, "t", 60, "设置扫描线程数")
 	flag.Int64Var(&Timeout, "time", 3, "设置连接超时时间(单位:秒)")
 	flag.IntVar(&LiveTop, "top", 10, "仅显示指定数量的存活主机")
