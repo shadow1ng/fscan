@@ -14,18 +14,36 @@ func FtpScan(info *Common.HostInfo) (tmperr error) {
 	}
 
 	maxRetries := Common.MaxRetries
+	target := fmt.Sprintf("%v:%v", info.Host, info.Ports)
 
-	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
+	Common.LogDebug(fmt.Sprintf("开始扫描 %s", target))
 	Common.LogDebug("尝试匿名登录...")
 
-	// 先尝试匿名登录
+	// 尝试匿名登录
 	for retryCount := 0; retryCount < maxRetries; retryCount++ {
-		flag, err := FtpConn(info, "anonymous", "")
-		if flag && err == nil {
+		success, dirs, err := FtpConn(info, "anonymous", "")
+		if success && err == nil {
 			Common.LogSuccess("匿名登录成功!")
+
+			// 保存匿名登录结果
+			result := &Common.ScanResult{
+				Time:   time.Now(),
+				Type:   Common.VULN,
+				Target: info.Host,
+				Status: "vulnerable",
+				Details: map[string]interface{}{
+					"port":        info.Ports,
+					"service":     "ftp",
+					"username":    "anonymous",
+					"password":    "",
+					"type":        "anonymous-login",
+					"directories": dirs,
+				},
+			}
+			Common.SaveResult(result)
 			return nil
 		}
-		errlog := fmt.Sprintf("ftp %v:%v %v %v", info.Host, info.Ports, "anonymous", err)
+		errlog := fmt.Sprintf("ftp %s %v", target, err)
 		Common.LogError(errlog)
 		break
 	}
@@ -37,7 +55,7 @@ func FtpScan(info *Common.HostInfo) (tmperr error) {
 	tried := 0
 	total := totalUsers * totalPass
 
-	// 遍历所有用户名密码组合
+	// 遍历用户名密码组合
 	for _, user := range Common.Userdict["ftp"] {
 		for _, pass := range Common.Passwords {
 			tried++
@@ -52,30 +70,46 @@ func FtpScan(info *Common.HostInfo) (tmperr error) {
 					Common.LogDebug(fmt.Sprintf("第%d次重试: %s:%s", retryCount+1, user, pass))
 				}
 
-				// 执行FTP连接
 				done := make(chan struct {
 					success bool
+					dirs    []string
 					err     error
 				}, 1)
 
 				go func(user, pass string) {
-					success, err := FtpConn(info, user, pass)
+					success, dirs, err := FtpConn(info, user, pass)
 					select {
 					case done <- struct {
 						success bool
+						dirs    []string
 						err     error
-					}{success, err}:
+					}{success, dirs, err}:
 					default:
 					}
 				}(user, pass)
 
-				// 等待结果或超时
 				select {
 				case result := <-done:
 					if result.success && result.err == nil {
-						successLog := fmt.Sprintf("FTP %v:%v %v %v",
-							info.Host, info.Ports, user, pass)
+						successLog := fmt.Sprintf("FTP服务 %s 成功爆破 用户名: %v 密码: %v", target, user, pass)
 						Common.LogSuccess(successLog)
+
+						// 保存爆破成功结果
+						vulnResult := &Common.ScanResult{
+							Time:   time.Now(),
+							Type:   Common.VULN,
+							Target: info.Host,
+							Status: "vulnerable",
+							Details: map[string]interface{}{
+								"port":        info.Ports,
+								"service":     "ftp",
+								"username":    user,
+								"password":    pass,
+								"type":        "weak-password",
+								"directories": result.dirs,
+							},
+						}
+						Common.SaveResult(vulnResult)
 						return nil
 					}
 					lastErr = result.err
@@ -83,18 +117,16 @@ func FtpScan(info *Common.HostInfo) (tmperr error) {
 					lastErr = fmt.Errorf("连接超时")
 				}
 
-				// 处理错误情况
+				// 错误处理
 				if lastErr != nil {
-					errlog := fmt.Sprintf("ftp %v:%v %v %v %v",
-						info.Host, info.Ports, user, pass, lastErr)
+					errlog := fmt.Sprintf("FTP服务 %s 尝试失败 用户名: %v 密码: %v 错误: %v",
+						target, user, pass, lastErr)
 					Common.LogError(errlog)
 
-					// 如果是密码错误，直接尝试下一个组合
 					if strings.Contains(lastErr.Error(), "Login incorrect") {
 						break
 					}
 
-					// 如果是连接数限制，等待后重试
 					if strings.Contains(lastErr.Error(), "too many connections") {
 						Common.LogDebug("连接数过多，等待5秒...")
 						time.Sleep(5 * time.Second)
@@ -112,39 +144,45 @@ func FtpScan(info *Common.HostInfo) (tmperr error) {
 }
 
 // FtpConn 建立FTP连接并尝试登录
-func FtpConn(info *Common.HostInfo, user string, pass string) (flag bool, err error) {
-	Host, Port, Username, Password := info.Host, info.Ports, user, pass
+func FtpConn(info *Common.HostInfo, user string, pass string) (success bool, directories []string, err error) {
+	Host, Port := info.Host, info.Ports
 
 	// 建立FTP连接
 	conn, err := ftp.DialTimeout(fmt.Sprintf("%v:%v", Host, Port), time.Duration(Common.Timeout)*time.Second)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
-	// 确保连接被关闭
 	defer func() {
 		if conn != nil {
-			conn.Quit() // 发送QUIT命令关闭连接
+			conn.Quit()
 		}
 	}()
 
 	// 尝试登录
-	if err = conn.Login(Username, Password); err != nil {
-		return false, err
+	if err = conn.Login(user, pass); err != nil {
+		return false, nil, err
 	}
 
-	// 登录成功,获取目录信息
-	result := fmt.Sprintf("ftp %v:%v:%v %v", Host, Port, Username, Password)
+	// 获取目录信息
 	dirs, err := conn.List("")
 	if err == nil && len(dirs) > 0 {
-		// 最多显示前6个目录
+		directories = make([]string, 0, min(6, len(dirs)))
 		for i := 0; i < len(dirs) && i < 6; i++ {
 			name := dirs[i].Name
 			if len(name) > 50 {
 				name = name[:50]
 			}
-			result += "\n   [->]" + name
+			directories = append(directories, name)
 		}
 	}
 
-	return true, nil
+	return true, directories, nil
+}
+
+// min 返回两个整数中的较小值
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

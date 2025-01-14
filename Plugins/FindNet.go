@@ -148,15 +148,7 @@ func read(text []byte, host string) error {
 		name = ""
 	}
 
-	// 构建基础结果
-	result := fmt.Sprintf("NetInfo 扫描结果")
-	result += fmt.Sprintf("\n目标主机: %s", host)
-	if name != "" {
-		result += fmt.Sprintf("\n主机名: %s", name)
-	}
-	result += "\n发现的网络接口:"
-
-	// 用于分类存储地址
+	// 用于收集地址信息
 	var ipv4Addrs []string
 	var ipv6Addrs []string
 	seenAddresses := make(map[string]bool)
@@ -184,7 +176,6 @@ func read(text []byte, host string) error {
 		if addr != "" && !seenAddresses[addr] {
 			seenAddresses[addr] = true
 
-			// 分类IPv4和IPv6地址
 			if strings.Contains(addr, ":") {
 				ipv6Addrs = append(ipv6Addrs, addr)
 			} else if net.ParseIP(addr) != nil {
@@ -193,22 +184,46 @@ func read(text []byte, host string) error {
 		}
 	}
 
-	// 输出IPv4地址
+	// 构建详细信息
+	details := map[string]interface{}{
+		"hostname": name,
+		"ipv4":     ipv4Addrs,
+		"ipv6":     ipv6Addrs,
+	}
+
+	// 保存扫描结果
+	result := &Common.ScanResult{
+		Time:    time.Now(),
+		Type:    Common.SERVICE,
+		Target:  host,
+		Status:  "identified",
+		Details: details,
+	}
+	Common.SaveResult(result)
+
+	// 构建控制台输出
+	var output strings.Builder
+	output.WriteString("NetInfo 扫描结果")
+	output.WriteString(fmt.Sprintf("\n目标主机: %s", host))
+	if name != "" {
+		output.WriteString(fmt.Sprintf("\n主机名: %s", name))
+	}
+	output.WriteString("\n发现的网络接口:")
+
 	if len(ipv4Addrs) > 0 {
-		result += "\n   IPv4地址:"
+		output.WriteString("\n   IPv4地址:")
 		for _, addr := range ipv4Addrs {
-			result += fmt.Sprintf("\n      └─ %s", addr)
+			output.WriteString(fmt.Sprintf("\n      └─ %s", addr))
 		}
 	}
 
-	// 输出IPv6地址
 	if len(ipv6Addrs) > 0 {
-		result += "\n   IPv6地址:"
+		output.WriteString("\n   IPv6地址:")
 		for _, addr := range ipv6Addrs {
-			result += fmt.Sprintf("\n      └─ %s", addr)
+			output.WriteString(fmt.Sprintf("\n      └─ %s", addr))
 		}
 	}
 
-	Common.LogSuccess(result)
+	Common.LogSuccess(output.String())
 	return nil
 }

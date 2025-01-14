@@ -14,9 +14,10 @@ func KafkaScan(info *Common.HostInfo) (tmperr error) {
 	}
 
 	maxRetries := Common.MaxRetries
-	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
+	target := fmt.Sprintf("%v:%v", info.Host, info.Ports)
+	Common.LogDebug(fmt.Sprintf("开始扫描 %s", target))
 
-	// 首先测试无认证访问
+	// 尝试无认证访问
 	Common.LogDebug("尝试无认证访问...")
 	for retryCount := 0; retryCount < maxRetries; retryCount++ {
 		if retryCount > 0 {
@@ -24,6 +25,20 @@ func KafkaScan(info *Common.HostInfo) (tmperr error) {
 		}
 		flag, err := KafkaConn(info, "", "")
 		if flag && err == nil {
+			// 保存无认证访问结果
+			result := &Common.ScanResult{
+				Time:   time.Now(),
+				Type:   Common.VULN,
+				Target: info.Host,
+				Status: "vulnerable",
+				Details: map[string]interface{}{
+					"port":    info.Ports,
+					"service": "kafka",
+					"type":    "unauthorized-access",
+				},
+			}
+			Common.SaveResult(result)
+			Common.LogSuccess(fmt.Sprintf("Kafka服务 %s 无需认证即可访问", target))
 			return nil
 		}
 		if err != nil && Common.CheckErrs(err) != nil {
@@ -49,13 +64,11 @@ func KafkaScan(info *Common.HostInfo) (tmperr error) {
 			pass = strings.Replace(pass, "{user}", user, -1)
 			Common.LogDebug(fmt.Sprintf("[%d/%d] 尝试: %s:%s", tried, total, user, pass))
 
-			// 重试循环
 			for retryCount := 0; retryCount < maxRetries; retryCount++ {
 				if retryCount > 0 {
 					Common.LogDebug(fmt.Sprintf("第%d次重试: %s:%s", retryCount+1, user, pass))
 				}
 
-				// 执行Kafka连接
 				done := make(chan struct {
 					success bool
 					err     error
@@ -72,33 +85,44 @@ func KafkaScan(info *Common.HostInfo) (tmperr error) {
 					}
 				}(user, pass)
 
-				// 等待结果或超时
 				var err error
 				select {
 				case result := <-done:
 					err = result.err
 					if result.success && err == nil {
+						// 保存爆破成功结果
+						vulnResult := &Common.ScanResult{
+							Time:   time.Now(),
+							Type:   Common.VULN,
+							Target: info.Host,
+							Status: "vulnerable",
+							Details: map[string]interface{}{
+								"port":     info.Ports,
+								"service":  "kafka",
+								"type":     "weak-password",
+								"username": user,
+								"password": pass,
+							},
+						}
+						Common.SaveResult(vulnResult)
+						Common.LogSuccess(fmt.Sprintf("Kafka服务 %s 爆破成功 用户名: %s 密码: %s", target, user, pass))
 						return nil
 					}
 				case <-time.After(time.Duration(Common.Timeout) * time.Second):
 					err = fmt.Errorf("连接超时")
 				}
 
-				// 处理错误情况
 				if err != nil {
-					errlog := fmt.Sprintf("Kafka服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
-						info.Host, info.Ports, user, pass, err)
-					Common.LogError(errlog)
-
-					// 检查是否需要重试
+					Common.LogError(fmt.Sprintf("Kafka服务 %s 尝试失败 用户名: %s 密码: %s 错误: %v",
+						target, user, pass, err))
 					if retryErr := Common.CheckErrs(err); retryErr != nil {
 						if retryCount == maxRetries-1 {
 							continue
 						}
-						continue // 继续重试
+						continue
 					}
 				}
-				break // 如果不需要重试，跳出重试循环
+				break
 			}
 		}
 	}
@@ -132,13 +156,6 @@ func KafkaConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 	consumer, err := sarama.NewConsumer(brokers, config)
 	if err == nil {
 		defer consumer.Close()
-		result := fmt.Sprintf("Kafka服务 %v:%v ", host, port)
-		if user != "" {
-			result += fmt.Sprintf("爆破成功 用户名: %v 密码: %v", user, pass)
-		} else {
-			result += "无需认证即可访问"
-		}
-		Common.LogSuccess(result)
 		return true, nil
 	}
 
@@ -146,13 +163,6 @@ func KafkaConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 	client, err := sarama.NewClient(brokers, config)
 	if err == nil {
 		defer client.Close()
-		result := fmt.Sprintf("Kafka服务 %v:%v ", host, port)
-		if user != "" {
-			result += fmt.Sprintf("爆破成功 用户名: %v 密码: %v", user, pass)
-		} else {
-			result += "无需认证即可访问"
-		}
-		Common.LogSuccess(result)
 		return true, nil
 	}
 

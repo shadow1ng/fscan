@@ -33,15 +33,27 @@ func MemcachedScan(info *Common.HostInfo) error {
 	rev := make([]byte, 1024)
 	n, err := client.Read(rev)
 	if err != nil {
-		errlog := fmt.Sprintf("Memcached %v:%v %v", info.Host, info.Ports, err)
-		Common.LogError(errlog)
+		Common.LogError(fmt.Sprintf("Memcached %v:%v %v", info.Host, info.Ports, err))
 		return err
 	}
 
 	// 检查响应内容
 	if strings.Contains(string(rev[:n]), "STAT") {
-		result := fmt.Sprintf("Memcached %s 未授权访问", realhost)
-		Common.LogSuccess(result)
+		// 保存结果
+		result := &Common.ScanResult{
+			Time:   time.Now(),
+			Type:   Common.VULN,
+			Target: info.Host,
+			Status: "vulnerable",
+			Details: map[string]interface{}{
+				"port":        info.Ports,
+				"service":     "memcached",
+				"type":        "unauthorized-access",
+				"description": "Memcached unauthorized access",
+			},
+		}
+		Common.SaveResult(result)
+		Common.LogSuccess(fmt.Sprintf("Memcached %s 未授权访问", realhost))
 	}
 
 	return nil

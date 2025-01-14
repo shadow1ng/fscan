@@ -40,6 +40,7 @@ func RdpScan(info *Common.HostInfo) (tmperr error) {
 	port, _ := strconv.Atoi(info.Ports)
 	total := len(Common.Userdict["rdp"]) * len(Common.Passwords)
 	num := 0
+	target := fmt.Sprintf("%v:%v", info.Host, port)
 
 	// 遍历用户名密码组合
 	for _, user := range Common.Userdict["rdp"] {
@@ -54,16 +55,39 @@ func RdpScan(info *Common.HostInfo) (tmperr error) {
 				// 连接成功
 				var result string
 				if Common.Domain != "" {
-					result = fmt.Sprintf("RDP %v:%v:%v\\%v %v", info.Host, port, Common.Domain, user, pass)
+					result = fmt.Sprintf("RDP %v Domain: %v\\%v Password: %v", target, Common.Domain, user, pass)
 				} else {
-					result = fmt.Sprintf("RDP %v:%v:%v %v", info.Host, port, user, pass)
+					result = fmt.Sprintf("RDP %v Username: %v Password: %v", target, user, pass)
 				}
 				Common.LogSuccess(result)
+
+				// 保存结果
+				details := map[string]interface{}{
+					"port":     port,
+					"service":  "rdp",
+					"username": user,
+					"password": pass,
+					"type":     "weak-password",
+				}
+				if Common.Domain != "" {
+					details["domain"] = Common.Domain
+				}
+
+				vulnResult := &Common.ScanResult{
+					Time:    time.Now(),
+					Type:    Common.VULN,
+					Target:  info.Host,
+					Status:  "vulnerable",
+					Details: details,
+				}
+				Common.SaveResult(vulnResult)
+
 				return nil
 			}
 
 			// 连接失败
-			errlog := fmt.Sprintf("(%v/%v) RDP %v:%v %v %v %v", num, total, info.Host, port, user, pass, err)
+			errlog := fmt.Sprintf("(%v/%v) RDP %v Username: %v Password: %v Error: %v",
+				num, total, target, user, pass, err)
 			Common.LogError(errlog)
 		}
 	}

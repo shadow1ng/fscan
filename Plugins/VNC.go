@@ -15,8 +15,9 @@ func VncScan(info *Common.HostInfo) (tmperr error) {
 
 	maxRetries := Common.MaxRetries
 	modename := "vnc"
+	target := fmt.Sprintf("%v:%v", info.Host, info.Ports)
 
-	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
+	Common.LogDebug(fmt.Sprintf("开始扫描 %s", target))
 	totalPass := len(Common.Passwords)
 	Common.LogDebug(fmt.Sprintf("开始尝试密码组合 (总密码数: %d)", totalPass))
 
@@ -33,7 +34,6 @@ func VncScan(info *Common.HostInfo) (tmperr error) {
 				Common.LogDebug(fmt.Sprintf("第%d次重试密码: %s", retryCount+1, pass))
 			}
 
-			// 执行VNC连接
 			done := make(chan struct {
 				success bool
 				err     error
@@ -50,37 +50,48 @@ func VncScan(info *Common.HostInfo) (tmperr error) {
 				}
 			}(pass)
 
-			// 等待结果或超时
 			var err error
 			select {
 			case result := <-done:
 				err = result.err
 				if result.success && err == nil {
 					// 连接成功
-					successLog := fmt.Sprintf("%s://%v:%v 密码: %v",
-						modename, info.Host, info.Ports, pass)
+					successLog := fmt.Sprintf("%s://%s 密码: %v", modename, target, pass)
 					Common.LogSuccess(successLog)
+
+					// 保存结果
+					vulnResult := &Common.ScanResult{
+						Time:   time.Now(),
+						Type:   Common.VULN,
+						Target: info.Host,
+						Status: "vulnerable",
+						Details: map[string]interface{}{
+							"port":     info.Ports,
+							"service":  "vnc",
+							"password": pass,
+							"type":     "weak-password",
+						},
+					}
+					Common.SaveResult(vulnResult)
 					return nil
 				}
 			case <-time.After(time.Duration(Common.Timeout) * time.Second):
 				err = fmt.Errorf("连接超时")
 			}
 
-			// 处理错误情况
 			if err != nil {
-				errlog := fmt.Sprintf("%s://%v:%v 尝试密码: %v 错误: %v",
-					modename, info.Host, info.Ports, pass, err)
+				errlog := fmt.Sprintf("%s://%s 尝试密码: %v 错误: %v",
+					modename, target, pass, err)
 				Common.LogError(errlog)
 
-				// 检查是否是需要重试的错误
 				if retryErr := Common.CheckErrs(err); retryErr != nil {
 					if retryCount == maxRetries-1 {
 						continue
 					}
-					continue // 继续重试
+					continue
 				}
 			}
-			break // 如果不需要重试，跳出重试循环
+			break
 		}
 	}
 

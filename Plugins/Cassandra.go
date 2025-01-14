@@ -14,9 +14,10 @@ func CassandraScan(info *Common.HostInfo) (tmperr error) {
 		return
 	}
 
+	target := fmt.Sprintf("%v:%v", info.Host, info.Ports)
 	maxRetries := Common.MaxRetries
 
-	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
+	Common.LogDebug(fmt.Sprintf("开始扫描 %s", target))
 	Common.LogDebug("尝试无认证访问...")
 
 	// 首先测试无认证访问
@@ -27,8 +28,24 @@ func CassandraScan(info *Common.HostInfo) (tmperr error) {
 
 		flag, err := CassandraConn(info, "", "")
 		if flag && err == nil {
-			Common.LogSuccess(fmt.Sprintf("Cassandra服务 %v:%v 无认证访问成功",
-				info.Host, info.Ports))
+			successMsg := fmt.Sprintf("Cassandra服务 %s 无认证访问成功", target)
+			Common.LogSuccess(successMsg)
+
+			// 保存无认证访问结果
+			result := &Common.ScanResult{
+				Time:   time.Now(),
+				Type:   Common.VULN,
+				Target: info.Host,
+				Status: "vulnerable",
+				Details: map[string]interface{}{
+					"port":        info.Ports,
+					"service":     "cassandra",
+					"auth_type":   "anonymous",
+					"type":        "unauthorized-access",
+					"description": "数据库允许无认证访问",
+				},
+			}
+			Common.SaveResult(result)
 			return err
 		}
 		if err != nil && Common.CheckErrs(err) != nil {
@@ -54,13 +71,11 @@ func CassandraScan(info *Common.HostInfo) (tmperr error) {
 			pass = strings.Replace(pass, "{user}", user, -1)
 			Common.LogDebug(fmt.Sprintf("[%d/%d] 尝试: %s:%s", tried, total, user, pass))
 
-			// 重试循环
 			for retryCount := 0; retryCount < maxRetries; retryCount++ {
 				if retryCount > 0 {
 					Common.LogDebug(fmt.Sprintf("第%d次重试: %s:%s", retryCount+1, user, pass))
 				}
 
-				// 执行连接
 				done := make(chan struct {
 					success bool
 					err     error
@@ -77,37 +92,47 @@ func CassandraScan(info *Common.HostInfo) (tmperr error) {
 					}
 				}(user, pass)
 
-				// 等待结果或超时
 				var err error
 				select {
 				case result := <-done:
 					err = result.err
 					if result.success && err == nil {
-						successLog := fmt.Sprintf("Cassandra服务 %v:%v 爆破成功 用户名: %v 密码: %v",
-							info.Host, info.Ports, user, pass)
-						Common.LogSuccess(successLog)
+						successMsg := fmt.Sprintf("Cassandra服务 %s 爆破成功 用户名: %v 密码: %v", target, user, pass)
+						Common.LogSuccess(successMsg)
+
+						// 保存爆破成功结果
+						vulnResult := &Common.ScanResult{
+							Time:   time.Now(),
+							Type:   Common.VULN,
+							Target: info.Host,
+							Status: "vulnerable",
+							Details: map[string]interface{}{
+								"port":     info.Ports,
+								"service":  "cassandra",
+								"username": user,
+								"password": pass,
+								"type":     "weak-password",
+							},
+						}
+						Common.SaveResult(vulnResult)
 						return nil
 					}
 				case <-time.After(time.Duration(Common.Timeout) * time.Second):
 					err = fmt.Errorf("连接超时")
 				}
 
-				// 处理错误情况
 				if err != nil {
-					errlog := fmt.Sprintf("Cassandra服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
-						info.Host, info.Ports, user, pass, err)
+					errlog := fmt.Sprintf("Cassandra服务 %s 尝试失败 用户名: %v 密码: %v 错误: %v", target, user, pass, err)
 					Common.LogError(errlog)
 
-					// 检查是否需要重试
 					if retryErr := Common.CheckErrs(err); retryErr != nil {
 						if retryCount == maxRetries-1 {
 							continue
 						}
-						continue // 继续重试
+						continue
 					}
 				}
-
-				break // 如果不需要重试，跳出重试循环
+				break
 			}
 		}
 	}
@@ -116,6 +141,7 @@ func CassandraScan(info *Common.HostInfo) (tmperr error) {
 	return tmperr
 }
 
+// CassandraConn 清理后的连接测试函数
 func CassandraConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 	host, port := info.Host, info.Ports
 	timeout := time.Duration(Common.Timeout) * time.Second
@@ -123,7 +149,7 @@ func CassandraConn(info *Common.HostInfo, user string, pass string) (bool, error
 	cluster := gocql.NewCluster(host)
 	cluster.Port, _ = strconv.Atoi(port)
 	cluster.Timeout = timeout
-	cluster.ProtoVersion = 4 // 指定协议版本
+	cluster.ProtoVersion = 4
 	cluster.Consistency = gocql.One
 
 	if user != "" || pass != "" {
@@ -133,7 +159,6 @@ func CassandraConn(info *Common.HostInfo, user string, pass string) (bool, error
 		}
 	}
 
-	// 增加重试机制
 	cluster.RetryPolicy = &gocql.SimpleRetryPolicy{NumRetries: 3}
 
 	session, err := cluster.CreateSession()
@@ -142,21 +167,12 @@ func CassandraConn(info *Common.HostInfo, user string, pass string) (bool, error
 	}
 	defer session.Close()
 
-	// 使用更简单的查询测试连接
 	var version string
 	if err := session.Query("SELECT peer FROM system.peers").Scan(&version); err != nil {
 		if err := session.Query("SELECT now() FROM system.local").Scan(&version); err != nil {
 			return false, err
 		}
 	}
-
-	result := fmt.Sprintf("Cassandra服务 %v:%v ", host, port)
-	if user != "" {
-		result += fmt.Sprintf("爆破成功 用户名: %v 密码: %v", user, pass)
-	} else {
-		result += "无需认证即可访问"
-	}
-	Common.LogSuccess(result)
 
 	return true, nil
 }

@@ -20,6 +20,47 @@ func NetBIOS(info *Common.HostInfo) error {
 	if len(output) > 0 {
 		result := fmt.Sprintf("NetBios %-15s %s", info.Host, output)
 		Common.LogSuccess(result)
+
+		// 保存结果
+		details := map[string]interface{}{
+			"port": info.Ports,
+		}
+
+		// 添加有效的 NetBIOS 信息
+		if netbios.ComputerName != "" {
+			details["computer_name"] = netbios.ComputerName
+		}
+		if netbios.DomainName != "" {
+			details["domain_name"] = netbios.DomainName
+		}
+		if netbios.NetDomainName != "" {
+			details["netbios_domain"] = netbios.NetDomainName
+		}
+		if netbios.NetComputerName != "" {
+			details["netbios_computer"] = netbios.NetComputerName
+		}
+		if netbios.WorkstationService != "" {
+			details["workstation_service"] = netbios.WorkstationService
+		}
+		if netbios.ServerService != "" {
+			details["server_service"] = netbios.ServerService
+		}
+		if netbios.DomainControllers != "" {
+			details["domain_controllers"] = netbios.DomainControllers
+		}
+		if netbios.OsVersion != "" {
+			details["os_version"] = netbios.OsVersion
+		}
+
+		scanResult := &Common.ScanResult{
+			Time:    time.Now(),
+			Type:    Common.SERVICE,
+			Target:  info.Host,
+			Status:  "identified",
+			Details: details,
+		}
+
+		Common.SaveResult(scanResult)
 		return nil
 	}
 	return errNetBIOS

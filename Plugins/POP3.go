@@ -16,8 +16,9 @@ func POP3Scan(info *Common.HostInfo) (tmperr error) {
 	}
 
 	maxRetries := Common.MaxRetries
+	target := fmt.Sprintf("%v:%v", info.Host, info.Ports)
 
-	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
+	Common.LogDebug(fmt.Sprintf("开始扫描 %s", target))
 	totalUsers := len(Common.Userdict["pop3"])
 	totalPass := len(Common.Passwords)
 	Common.LogDebug(fmt.Sprintf("开始尝试用户名密码组合 (总用户数: %d, 总密码数: %d)", totalUsers, totalPass))
@@ -38,53 +39,70 @@ func POP3Scan(info *Common.HostInfo) (tmperr error) {
 					Common.LogDebug(fmt.Sprintf("第%d次重试: %s:%s", retryCount+1, user, pass))
 				}
 
-				// 执行POP3连接
 				done := make(chan struct {
 					success bool
 					err     error
+					isTLS   bool
 				}, 1)
 
 				go func(user, pass string) {
-					success, err := POP3Conn(info, user, pass)
+					success, isTLS, err := POP3Conn(info, user, pass)
 					select {
 					case done <- struct {
 						success bool
 						err     error
-					}{success, err}:
+						isTLS   bool
+					}{success, err, isTLS}:
 					default:
 					}
 				}(user, pass)
 
-				// 等待结果或超时
 				var err error
 				select {
 				case result := <-done:
 					err = result.err
 					if result.success && err == nil {
-						successLog := fmt.Sprintf("POP3服务 %v:%v 用户名: %v 密码: %v",
-							info.Host, info.Ports, user, pass)
-						Common.LogSuccess(successLog)
+						successMsg := fmt.Sprintf("POP3服务 %s 用户名: %v 密码: %v", target, user, pass)
+						if result.isTLS {
+							successMsg += " (TLS)"
+						}
+						Common.LogSuccess(successMsg)
+
+						// 保存结果
+						vulnResult := &Common.ScanResult{
+							Time:   time.Now(),
+							Type:   Common.VULN,
+							Target: info.Host,
+							Status: "vulnerable",
+							Details: map[string]interface{}{
+								"port":     info.Ports,
+								"service":  "pop3",
+								"username": user,
+								"password": pass,
+								"type":     "weak-password",
+								"tls":      result.isTLS,
+							},
+						}
+						Common.SaveResult(vulnResult)
 						return nil
 					}
 				case <-time.After(time.Duration(Common.Timeout) * time.Second):
 					err = fmt.Errorf("连接超时")
 				}
 
-				// 处理错误情况
 				if err != nil {
-					errlog := fmt.Sprintf("POP3服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
-						info.Host, info.Ports, user, pass, err)
-					Common.LogError(errlog)
+					errMsg := fmt.Sprintf("POP3服务 %s 尝试失败 用户名: %v 密码: %v 错误: %v",
+						target, user, pass, err)
+					Common.LogError(errMsg)
 
-					// 检查是否需要重试
 					if retryErr := Common.CheckErrs(err); retryErr != nil {
 						if retryCount == maxRetries-1 {
 							continue
 						}
-						continue // 继续重试
+						continue
 					}
 				}
-				break // 如果不需要重试，跳出重试循环
+				break
 			}
 		}
 	}
@@ -93,16 +111,15 @@ func POP3Scan(info *Common.HostInfo) (tmperr error) {
 	return tmperr
 }
 
-func POP3Conn(info *Common.HostInfo, user string, pass string) (bool, error) {
-	host, port := info.Host, info.Ports
+func POP3Conn(info *Common.HostInfo, user string, pass string) (success bool, isTLS bool, err error) {
 	timeout := time.Duration(Common.Timeout) * time.Second
-	addr := fmt.Sprintf("%s:%s", host, port)
+	addr := fmt.Sprintf("%s:%s", info.Host, info.Ports)
 
 	// 首先尝试普通连接
 	conn, err := net.DialTimeout("tcp", addr, timeout)
 	if err == nil {
-		if flag, err := tryPOP3Auth(conn, host, port, user, pass, timeout, false); err == nil {
-			return flag, nil
+		if flag, err := tryPOP3Auth(conn, user, pass, timeout); err == nil {
+			return flag, false, nil
 		}
 		conn.Close()
 	}
@@ -113,14 +130,15 @@ func POP3Conn(info *Common.HostInfo, user string, pass string) (bool, error) {
 	}
 	conn, err = tls.DialWithDialer(&net.Dialer{Timeout: timeout}, "tcp", addr, tlsConfig)
 	if err != nil {
-		return false, fmt.Errorf("连接失败: %v", err)
+		return false, false, fmt.Errorf("连接失败: %v", err)
 	}
 	defer conn.Close()
 
-	return tryPOP3Auth(conn, host, port, user, pass, timeout, true)
+	success, err = tryPOP3Auth(conn, user, pass, timeout)
+	return success, true, err
 }
 
-func tryPOP3Auth(conn net.Conn, host string, port string, user string, pass string, timeout time.Duration, isTLS bool) (bool, error) {
+func tryPOP3Auth(conn net.Conn, user string, pass string, timeout time.Duration) (bool, error) {
 	reader := bufio.NewReader(conn)
 	conn.SetDeadline(time.Now().Add(timeout))
 
@@ -162,11 +180,6 @@ func tryPOP3Auth(conn net.Conn, host string, port string, user string, pass stri
 	}
 
 	if strings.Contains(response, "+OK") {
-		result := fmt.Sprintf("POP3服务 %v:%v 爆破成功 用户名: %v 密码: %v", host, port, user, pass)
-		if isTLS {
-			result += " (TLS)"
-		}
-		Common.LogSuccess(result)
 		return true, nil
 	}
 

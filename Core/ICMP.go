@@ -45,22 +45,33 @@ func CheckLive(hostslist []string, Ping bool) []string {
 	return AliveHosts
 }
 
-// handleAliveHosts 处理存活主机信息
 func handleAliveHosts(chanHosts chan string, hostslist []string, isPing bool) {
 	for ip := range chanHosts {
 		if _, ok := ExistHosts[ip]; !ok && IsContain(hostslist, ip) {
 			ExistHosts[ip] = struct{}{}
+			AliveHosts = append(AliveHosts, ip)
 
-			// 输出存活信息
-			if !Common.Silent {
-				protocol := "ICMP"
-				if isPing {
-					protocol = "PING"
-				}
-				Common.LogSuccess(fmt.Sprintf("目标 %-15s 存活 (%s)", ip, protocol))
+			// 使用Output系统保存存活主机信息
+			protocol := "ICMP"
+			if isPing {
+				protocol = "PING"
 			}
 
-			AliveHosts = append(AliveHosts, ip)
+			result := &Common.ScanResult{
+				Time:   time.Now(),
+				Type:   Common.HOST,
+				Target: ip,
+				Status: "alive",
+				Details: map[string]interface{}{
+					"protocol": protocol,
+				},
+			}
+			Common.SaveResult(result)
+
+			// 保留原有的控制台输出
+			if !Common.Silent {
+				Common.LogSuccess(fmt.Sprintf("目标 %-15s 存活 (%s)", ip, protocol))
+			}
 		}
 		livewg.Done()
 	}

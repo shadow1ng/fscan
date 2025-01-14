@@ -13,17 +13,37 @@ func MongodbScan(info *Common.HostInfo) error {
 		return nil
 	}
 
-	_, err := MongodbUnauth(info)
+	target := fmt.Sprintf("%s:%v", info.Host, info.Ports)
+	isUnauth, err := MongodbUnauth(info)
+
 	if err != nil {
-		errlog := fmt.Sprintf("MongoDB %v:%v %v", info.Host, info.Ports, err)
+		errlog := fmt.Sprintf("MongoDB %v %v", target, err)
 		Common.LogError(errlog)
+	} else if isUnauth {
+		// 记录控制台输出
+		Common.LogSuccess(fmt.Sprintf("MongoDB %v 未授权访问", target))
+
+		// 保存未授权访问结果
+		result := &Common.ScanResult{
+			Time:   time.Now(),
+			Type:   Common.VULN,
+			Target: info.Host,
+			Status: "vulnerable",
+			Details: map[string]interface{}{
+				"port":     info.Ports,
+				"service":  "mongodb",
+				"type":     "unauthorized-access",
+				"protocol": "mongodb",
+			},
+		}
+		Common.SaveResult(result)
 	}
+
 	return err
 }
 
 // MongodbUnauth 检测MongoDB未授权访问
 func MongodbUnauth(info *Common.HostInfo) (bool, error) {
-	// MongoDB查询数据包
 	msgPacket := createOpMsgPacket()
 	queryPacket := createOpQueryPacket()
 
@@ -41,8 +61,6 @@ func MongodbUnauth(info *Common.HostInfo) (bool, error) {
 
 	// 检查响应结果
 	if strings.Contains(reply, "totalLinesWritten") {
-		result := fmt.Sprintf("MongoDB %v 未授权访问", realhost)
-		Common.LogSuccess(result)
 		return true, nil
 	}
 

@@ -14,13 +14,28 @@ func LDAPScan(info *Common.HostInfo) (tmperr error) {
 	}
 
 	maxRetries := Common.MaxRetries
+	target := fmt.Sprintf("%v:%v", info.Host, info.Ports)
 
-	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
+	Common.LogDebug(fmt.Sprintf("开始扫描 %s", target))
 	Common.LogDebug("尝试匿名访问...")
 
 	// 首先尝试匿名访问
 	flag, err := LDAPConn(info, "", "")
 	if flag && err == nil {
+		// 记录匿名访问成功
+		result := &Common.ScanResult{
+			Time:   time.Now(),
+			Type:   Common.VULN,
+			Target: info.Host,
+			Status: "vulnerable",
+			Details: map[string]interface{}{
+				"port":    info.Ports,
+				"service": "ldap",
+				"type":    "anonymous-access",
+			},
+		}
+		Common.SaveResult(result)
+		Common.LogSuccess(fmt.Sprintf("LDAP服务 %s 匿名访问成功", target))
 		return err
 	}
 
@@ -44,7 +59,6 @@ func LDAPScan(info *Common.HostInfo) (tmperr error) {
 					Common.LogDebug(fmt.Sprintf("第%d次重试: %s:%s", retryCount+1, user, pass))
 				}
 
-				// 执行LDAP连接
 				done := make(chan struct {
 					success bool
 					err     error
@@ -61,30 +75,42 @@ func LDAPScan(info *Common.HostInfo) (tmperr error) {
 					}
 				}(user, pass)
 
-				// 等待结果或超时
 				var err error
 				select {
 				case result := <-done:
 					err = result.err
 					if result.success && err == nil {
+						// 记录成功爆破的凭据
+						vulnResult := &Common.ScanResult{
+							Time:   time.Now(),
+							Type:   Common.VULN,
+							Target: info.Host,
+							Status: "vulnerable",
+							Details: map[string]interface{}{
+								"port":     info.Ports,
+								"service":  "ldap",
+								"username": user,
+								"password": pass,
+								"type":     "weak-password",
+							},
+						}
+						Common.SaveResult(vulnResult)
+						Common.LogSuccess(fmt.Sprintf("LDAP服务 %s 爆破成功 用户名: %v 密码: %v", target, user, pass))
 						return nil
 					}
 				case <-time.After(time.Duration(Common.Timeout) * time.Second):
 					err = fmt.Errorf("连接超时")
 				}
 
-				// 处理错误情况
 				if err != nil {
-					errlog := fmt.Sprintf("LDAP服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
-						info.Host, info.Ports, user, pass, err)
+					errlog := fmt.Sprintf("LDAP服务 %s 尝试失败 用户名: %v 密码: %v 错误: %v", target, user, pass, err)
 					Common.LogError(errlog)
 
-					// 检查是否需要重试
 					if retryErr := Common.CheckErrs(err); retryErr != nil {
 						if retryCount == maxRetries-1 {
 							continue
 						}
-						continue // 继续重试
+						continue
 					}
 				}
 				break
@@ -97,11 +123,8 @@ func LDAPScan(info *Common.HostInfo) (tmperr error) {
 }
 
 func LDAPConn(info *Common.HostInfo, user string, pass string) (bool, error) {
-	host, port := info.Host, info.Ports
+	address := fmt.Sprintf("%s:%s", info.Host, info.Ports)
 	timeout := time.Duration(Common.Timeout) * time.Second
-	address := fmt.Sprintf("%s:%s", host, port)
-
-	Common.LogDebug(fmt.Sprintf("尝试连接: %s", address))
 
 	// 配置LDAP连接
 	l, err := ldap.Dial("tcp", address)
@@ -115,11 +138,9 @@ func LDAPConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 
 	// 尝试绑定
 	if user != "" {
-		// 构造DN
 		bindDN := fmt.Sprintf("cn=%s,dc=example,dc=com", user)
 		err = l.Bind(bindDN, pass)
 	} else {
-		// 匿名绑定
 		err = l.UnauthenticatedBind("")
 	}
 
@@ -140,15 +161,6 @@ func LDAPConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
-	// 记录成功结果
-	result := fmt.Sprintf("LDAP服务 %v:%v ", host, port)
-	if user != "" {
-		result += fmt.Sprintf("爆破成功 用户名: %v 密码: %v", user, pass)
-	} else {
-		result += "匿名访问成功"
-	}
-	Common.LogSuccess(result)
 
 	return true, nil
 }

@@ -160,6 +160,7 @@ func Flag(Info *HostInfo) {
 
 	// 输出配置
 	flag.StringVar(&Outputfile, "o", "result.txt", "指定结果输出文件名")
+	flag.StringVar(&OutputFormat, "f", "txt", "指定输出格式 (txt/json/csv)")
 	flag.BoolVar(&DisableSave, "no", false, "禁止保存扫描结果")
 	flag.BoolVar(&Silent, "silent", false, "启用静默扫描模式(减少屏幕输出)")
 	flag.BoolVar(&NoColor, "nocolor", false, "禁用彩色输出显示")

@@ -16,7 +16,6 @@ var (
 	dir        string // Redis数据库目录
 )
 
-// RedisScan 执行Redis服务扫描
 func RedisScan(info *Common.HostInfo) error {
 	Common.LogDebug(fmt.Sprintf("开始Redis扫描: %s:%v", info.Host, info.Ports))
 	starttime := time.Now().Unix()
@@ -25,6 +24,20 @@ func RedisScan(info *Common.HostInfo) error {
 	flag, err := RedisUnauth(info)
 	if flag && err == nil {
 		Common.LogSuccess(fmt.Sprintf("Redis无密码连接成功: %s:%v", info.Host, info.Ports))
+
+		// 保存未授权访问结果
+		result := &Common.ScanResult{
+			Time:   time.Now(),
+			Type:   Common.VULN,
+			Target: info.Host,
+			Status: "vulnerable",
+			Details: map[string]interface{}{
+				"port":    info.Ports,
+				"service": "redis",
+				"type":    "unauthorized",
+			},
+		}
+		Common.SaveResult(result)
 		return nil
 	}
 
@@ -42,19 +55,15 @@ func RedisScan(info *Common.HostInfo) error {
 			return fmt.Errorf(errMsg)
 		}
 
-		// 替换密码模板
 		pass = strings.Replace(pass, "{user}", "redis", -1)
 		Common.LogDebug(fmt.Sprintf("尝试密码: %s", pass))
 
-		// 密码重试逻辑
 		var lastErr error
 		for retryCount := 0; retryCount < Common.MaxRetries; retryCount++ {
-			// 如果不是第一次重试，添加重试日志
 			if retryCount > 0 {
 				Common.LogDebug(fmt.Sprintf("第 %d 次重试: %s", retryCount+1, pass))
 			}
 
-			// 执行Redis连接
 			done := make(chan struct {
 				success bool
 				err     error
@@ -68,13 +77,27 @@ func RedisScan(info *Common.HostInfo) error {
 				}{success, err}
 			}()
 
-			// 等待结果或超时
 			var connErr error
 			select {
 			case result := <-done:
 				if result.success {
 					Common.LogSuccess(fmt.Sprintf("Redis登录成功 %s:%v [%s]",
 						info.Host, info.Ports, pass))
+
+					// 保存弱密码结果
+					vulnResult := &Common.ScanResult{
+						Time:   time.Now(),
+						Type:   Common.VULN,
+						Target: info.Host,
+						Status: "vulnerable",
+						Details: map[string]interface{}{
+							"port":     info.Ports,
+							"service":  "redis",
+							"type":     "weak-password",
+							"password": pass,
+						},
+					}
+					Common.SaveResult(vulnResult)
 					return nil
 				}
 				connErr = result.err
@@ -82,27 +105,23 @@ func RedisScan(info *Common.HostInfo) error {
 				connErr = fmt.Errorf("连接超时")
 			}
 
-			// 处理错误情况
 			if connErr != nil {
 				lastErr = connErr
 				errMsg := fmt.Sprintf("Redis尝试失败 %s:%v [%s] %v",
 					info.Host, info.Ports, pass, connErr)
 				Common.LogError(errMsg)
 
-				// 检查是否需要重试
 				if retryErr := Common.CheckErrs(connErr); retryErr != nil {
 					if retryCount == Common.MaxRetries-1 {
 						Common.LogDebug(fmt.Sprintf("达到最大重试次数: %s", pass))
 						break
 					}
-					continue // 继续重试
+					continue
 				}
 			}
-
-			break // 如果不需要重试，跳出重试循环
+			break
 		}
 
-		// 如果最后一次尝试遇到需要重试的错误，返回该错误
 		if lastErr != nil && Common.CheckErrs(lastErr) != nil {
 			Common.LogDebug(fmt.Sprintf("Redis扫描中断: %v", lastErr))
 			return lastErr

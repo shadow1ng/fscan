@@ -18,8 +18,9 @@ func TelnetScan(info *Common.HostInfo) (tmperr error) {
 	}
 
 	maxRetries := Common.MaxRetries
+	target := fmt.Sprintf("%v:%v", info.Host, info.Ports)
 
-	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
+	Common.LogDebug(fmt.Sprintf("开始扫描 %s", target))
 	totalUsers := len(Common.Userdict["telnet"])
 	totalPass := len(Common.Passwords)
 	Common.LogDebug(fmt.Sprintf("开始尝试用户名密码组合 (总用户数: %d, 总密码数: %d)", totalUsers, totalPass))
@@ -40,7 +41,6 @@ func TelnetScan(info *Common.HostInfo) (tmperr error) {
 					Common.LogDebug(fmt.Sprintf("第%d次重试: %s:%s", retryCount+1, user, pass))
 				}
 
-				// 执行Telnet连接
 				done := make(chan struct {
 					success bool
 					noAuth  bool
@@ -59,43 +59,69 @@ func TelnetScan(info *Common.HostInfo) (tmperr error) {
 					}
 				}(user, pass)
 
-				// 等待结果或超时
 				var err error
 				select {
 				case result := <-done:
 					err = result.err
 					if result.noAuth {
 						// 无需认证
-						result := fmt.Sprintf("Telnet服务 %v:%v 无需认证",
-							info.Host, info.Ports)
-						Common.LogSuccess(result)
+						msg := fmt.Sprintf("Telnet服务 %s 无需认证", target)
+						Common.LogSuccess(msg)
+
+						// 保存结果
+						vulnResult := &Common.ScanResult{
+							Time:   time.Now(),
+							Type:   Common.VULN,
+							Target: info.Host,
+							Status: "vulnerable",
+							Details: map[string]interface{}{
+								"port":    info.Ports,
+								"service": "telnet",
+								"type":    "unauthorized-access",
+							},
+						}
+						Common.SaveResult(vulnResult)
 						return nil
+
 					} else if result.success {
 						// 成功爆破
-						result := fmt.Sprintf("Telnet服务 %v:%v 用户名:%v 密码:%v",
-							info.Host, info.Ports, user, pass)
-						Common.LogSuccess(result)
+						msg := fmt.Sprintf("Telnet服务 %s 用户名:%v 密码:%v", target, user, pass)
+						Common.LogSuccess(msg)
+
+						// 保存结果
+						vulnResult := &Common.ScanResult{
+							Time:   time.Now(),
+							Type:   Common.VULN,
+							Target: info.Host,
+							Status: "vulnerable",
+							Details: map[string]interface{}{
+								"port":     info.Ports,
+								"service":  "telnet",
+								"type":     "weak-password",
+								"username": user,
+								"password": pass,
+							},
+						}
+						Common.SaveResult(vulnResult)
 						return nil
 					}
 				case <-time.After(time.Duration(Common.Timeout) * time.Second):
 					err = fmt.Errorf("连接超时")
 				}
 
-				// 处理错误情况
 				if err != nil {
-					errlog := fmt.Sprintf("Telnet连接失败 %v:%v 用户名:%v 密码:%v 错误:%v",
-						info.Host, info.Ports, user, pass, err)
+					errlog := fmt.Sprintf("Telnet连接失败 %s 用户名:%v 密码:%v 错误:%v",
+						target, user, pass, err)
 					Common.LogError(errlog)
 
-					// 检查是否需要重试
 					if retryErr := Common.CheckErrs(err); retryErr != nil {
 						if retryCount == maxRetries-1 {
 							continue
 						}
-						continue // 继续重试
+						continue
 					}
 				}
-				break // 如果不需要重试，跳出重试循环
+				break
 			}
 		}
 	}
@@ -106,28 +132,21 @@ func TelnetScan(info *Common.HostInfo) (tmperr error) {
 
 // telnetConn 尝试建立Telnet连接并进行身份验证
 func telnetConn(info *Common.HostInfo, user, pass string) (flag bool, err error) {
-	// 创建telnet客户端
 	client := NewTelnet(info.Host, info.Ports)
 
-	// 建立连接
 	if err = client.Connect(); err != nil {
 		return false, err
 	}
 	defer client.Close()
 
-	// 设置认证信息
 	client.UserName = user
 	client.Password = pass
-
-	// 检测服务器类型
 	client.ServerType = client.MakeServerType()
 
-	// 如果是无需认证的服务器,直接返回成功
 	if client.ServerType == UnauthorizedAccess {
 		return true, nil
 	}
 
-	// 尝试登录认证
 	err = client.Login()
 	return false, err
 }

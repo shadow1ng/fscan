@@ -17,8 +17,9 @@ func SshScan(info *Common.HostInfo) (tmperr error) {
 	}
 
 	maxRetries := Common.MaxRetries
+	target := fmt.Sprintf("%v:%v", info.Host, info.Ports)
 
-	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
+	Common.LogDebug(fmt.Sprintf("开始扫描 %s", target))
 	totalUsers := len(Common.Userdict["ssh"])
 	totalPass := len(Common.Passwords)
 	Common.LogDebug(fmt.Sprintf("开始尝试用户名密码组合 (总用户数: %d, 总密码数: %d)", totalUsers, totalPass))
@@ -61,9 +62,39 @@ func SshScan(info *Common.HostInfo) (tmperr error) {
 				case result := <-done:
 					err = result.err
 					if result.success {
-						successLog := fmt.Sprintf("SSH认证成功 %v:%v User:%v Pass:%v",
-							info.Host, info.Ports, user, pass)
-						Common.LogSuccess(successLog)
+						successMsg := fmt.Sprintf("SSH认证成功 %s User:%v Pass:%v", target, user, pass)
+						Common.LogSuccess(successMsg)
+
+						// 保存结果
+						details := map[string]interface{}{
+							"port":     info.Ports,
+							"service":  "ssh",
+							"username": user,
+							"password": pass,
+							"type":     "weak-password",
+						}
+
+						// 如果使用了密钥认证，添加密钥信息
+						if Common.SshKeyPath != "" {
+							details["auth_type"] = "key"
+							details["key_path"] = Common.SshKeyPath
+							details["password"] = nil
+						}
+
+						// 如果执行了命令，添加命令信息
+						if Common.Command != "" {
+							details["command"] = Common.Command
+						}
+
+						vulnResult := &Common.ScanResult{
+							Time:    time.Now(),
+							Type:    Common.VULN,
+							Target:  info.Host,
+							Status:  "vulnerable",
+							Details: details,
+						}
+						Common.SaveResult(vulnResult)
+
 						time.Sleep(100 * time.Millisecond)
 						cancel()
 						return nil
@@ -75,9 +106,9 @@ func SshScan(info *Common.HostInfo) (tmperr error) {
 				cancel()
 
 				if err != nil {
-					errlog := fmt.Sprintf("SSH认证失败 %v:%v User:%v Pass:%v Err:%v",
-						info.Host, info.Ports, user, pass, err)
-					Common.LogError(errlog)
+					errMsg := fmt.Sprintf("SSH认证失败 %s User:%v Pass:%v Err:%v",
+						target, user, pass, err)
+					Common.LogError(errMsg)
 
 					if retryErr := Common.CheckErrs(err); retryErr != nil {
 						if retryCount == maxRetries-1 {

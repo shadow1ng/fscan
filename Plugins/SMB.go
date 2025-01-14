@@ -13,6 +13,8 @@ func SmbScan(info *Common.HostInfo) (tmperr error) {
 		return nil
 	}
 
+	target := fmt.Sprintf("%s:%s", info.Host, info.Ports)
+
 	// 遍历所有用户
 	for _, user := range Common.Userdict["smb"] {
 		// 遍历该用户的所有密码
@@ -21,19 +23,41 @@ func SmbScan(info *Common.HostInfo) (tmperr error) {
 
 			success, err := doWithTimeOut(info, user, pass)
 			if success {
-				if Common.Domain != "" {
-					Common.LogSuccess(fmt.Sprintf("SMB认证成功 %s:%s %s\\%s:%s",
-						info.Host, info.Ports, Common.Domain, user, pass))
-				} else {
-					Common.LogSuccess(fmt.Sprintf("SMB认证成功 %s:%s %s:%s",
-						info.Host, info.Ports, user, pass))
+				// 构建结果消息
+				var successMsg string
+				details := map[string]interface{}{
+					"port":     info.Ports,
+					"service":  "smb",
+					"username": user,
+					"password": pass,
+					"type":     "weak-password",
 				}
+
+				if Common.Domain != "" {
+					successMsg = fmt.Sprintf("SMB认证成功 %s %s\\%s:%s", target, Common.Domain, user, pass)
+					details["domain"] = Common.Domain
+				} else {
+					successMsg = fmt.Sprintf("SMB认证成功 %s %s:%s", target, user, pass)
+				}
+
+				// 记录成功日志
+				Common.LogSuccess(successMsg)
+
+				// 保存结果
+				result := &Common.ScanResult{
+					Time:    time.Now(),
+					Type:    Common.VULN,
+					Target:  info.Host,
+					Status:  "vulnerable",
+					Details: details,
+				}
+				Common.SaveResult(result)
 				return nil
 			}
 
 			if err != nil {
-				Common.LogError(fmt.Sprintf("SMB认证失败 %s:%s %s:%s %v",
-					info.Host, info.Ports, user, pass, err))
+				errMsg := fmt.Sprintf("SMB认证失败 %s %s:%s %v", target, user, pass, err)
+				Common.LogError(errMsg)
 
 				// 等待失败日志打印完成
 				time.Sleep(100 * time.Millisecond)
@@ -67,9 +91,6 @@ func SmblConn(info *Common.HostInfo, user string, pass string, signal chan struc
 		}
 		return false, fmt.Errorf("认证失败")
 	}
-
-	// 添加 debug 输出原始错误信息
-	Common.LogDebug(fmt.Sprintf("SMB original error: %v", err))
 
 	// 清理错误信息中的换行符和多余空格
 	errMsg := strings.TrimSpace(strings.ReplaceAll(err.Error(), "\n", " "))

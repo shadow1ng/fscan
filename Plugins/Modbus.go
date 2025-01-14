@@ -41,14 +41,30 @@ func ModbusScan(info *Common.HostInfo) error {
 
 	// 验证响应
 	if isValidModbusResponse(response[:n]) {
-		result := fmt.Sprintf("Modbus服务 %v:%v 无认证访问", host, port)
-		Common.LogSuccess(result)
-
-		// 尝试读取更多设备信息
+		// 获取设备信息
 		deviceInfo := parseModbusResponse(response[:n])
+
+		// 保存扫描结果
+		result := &Common.ScanResult{
+			Time:   time.Now(),
+			Type:   Common.VULN,
+			Target: host,
+			Status: "vulnerable",
+			Details: map[string]interface{}{
+				"port":      port,
+				"service":   "modbus",
+				"type":      "unauthorized-access",
+				"device_id": deviceInfo,
+			},
+		}
+		Common.SaveResult(result)
+
+		// 控制台输出
+		Common.LogSuccess(fmt.Sprintf("Modbus服务 %v:%v 无认证访问", host, port))
 		if deviceInfo != "" {
 			Common.LogSuccess(fmt.Sprintf("设备信息: %s", deviceInfo))
 		}
+
 		return nil
 	}
 

@@ -14,8 +14,9 @@ func Neo4jScan(info *Common.HostInfo) (tmperr error) {
 	}
 
 	maxRetries := Common.MaxRetries
+	target := fmt.Sprintf("%v:%v", info.Host, info.Ports)
 
-	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
+	Common.LogDebug(fmt.Sprintf("开始扫描 %s", target))
 
 	// 首先测试无认证访问和默认凭证
 	initialChecks := []struct {
@@ -31,6 +32,44 @@ func Neo4jScan(info *Common.HostInfo) (tmperr error) {
 		Common.LogDebug(fmt.Sprintf("尝试: %s:%s", check.user, check.pass))
 		flag, err := Neo4jConn(info, check.user, check.pass)
 		if flag && err == nil {
+			var msg string
+			if check.user == "" {
+				msg = fmt.Sprintf("Neo4j服务 %s 无需认证即可访问", target)
+				Common.LogSuccess(msg)
+
+				// 保存结果 - 无认证访问
+				result := &Common.ScanResult{
+					Time:   time.Now(),
+					Type:   Common.VULN,
+					Target: info.Host,
+					Status: "vulnerable",
+					Details: map[string]interface{}{
+						"port":    info.Ports,
+						"service": "neo4j",
+						"type":    "unauthorized-access",
+					},
+				}
+				Common.SaveResult(result)
+			} else {
+				msg = fmt.Sprintf("Neo4j服务 %s 默认凭证可用 用户名: %s 密码: %s", target, check.user, check.pass)
+				Common.LogSuccess(msg)
+
+				// 保存结果 - 默认凭证
+				result := &Common.ScanResult{
+					Time:   time.Now(),
+					Type:   Common.VULN,
+					Target: info.Host,
+					Status: "vulnerable",
+					Details: map[string]interface{}{
+						"port":     info.Ports,
+						"service":  "neo4j",
+						"type":     "default-credentials",
+						"username": check.user,
+						"password": check.pass,
+					},
+				}
+				Common.SaveResult(result)
+			}
 			return err
 		}
 	}
@@ -55,7 +94,6 @@ func Neo4jScan(info *Common.HostInfo) (tmperr error) {
 					Common.LogDebug(fmt.Sprintf("第%d次重试: %s:%s", retryCount+1, user, pass))
 				}
 
-				// 执行Neo4j连接
 				done := make(chan struct {
 					success bool
 					err     error
@@ -72,33 +110,47 @@ func Neo4jScan(info *Common.HostInfo) (tmperr error) {
 					}
 				}(user, pass)
 
-				// 等待结果或超时
 				var err error
 				select {
 				case result := <-done:
 					err = result.err
 					if result.success && err == nil {
+						msg := fmt.Sprintf("Neo4j服务 %s 爆破成功 用户名: %s 密码: %s", target, user, pass)
+						Common.LogSuccess(msg)
+
+						// 保存结果 - 成功爆破
+						vulnResult := &Common.ScanResult{
+							Time:   time.Now(),
+							Type:   Common.VULN,
+							Target: info.Host,
+							Status: "vulnerable",
+							Details: map[string]interface{}{
+								"port":     info.Ports,
+								"service":  "neo4j",
+								"type":     "weak-password",
+								"username": user,
+								"password": pass,
+							},
+						}
+						Common.SaveResult(vulnResult)
 						return nil
 					}
 				case <-time.After(time.Duration(Common.Timeout) * time.Second):
 					err = fmt.Errorf("连接超时")
 				}
 
-				// 处理错误情况
 				if err != nil {
-					errlog := fmt.Sprintf("Neo4j服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
-						info.Host, info.Ports, user, pass, err)
+					errlog := fmt.Sprintf("Neo4j服务 %s 尝试失败 用户名: %s 密码: %s 错误: %v", target, user, pass, err)
 					Common.LogError(errlog)
 
-					// 检查是否需要重试
 					if retryErr := Common.CheckErrs(err); retryErr != nil {
 						if retryCount == maxRetries-1 {
 							continue
 						}
-						continue // 继续重试
+						continue
 					}
 				}
-				break // 如果不需要重试，跳出重试循环
+				break
 			}
 		}
 	}
@@ -143,13 +195,5 @@ func Neo4jConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 		return false, err
 	}
 
-	// 连接成功
-	result := fmt.Sprintf("Neo4j服务 %v:%v ", host, port)
-	if user != "" {
-		result += fmt.Sprintf("爆破成功 用户名: %v 密码: %v", user, pass)
-	} else {
-		result += "无需认证即可访问"
-	}
-	Common.LogSuccess(result)
 	return true, nil
 }

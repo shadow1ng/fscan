@@ -145,21 +145,43 @@ func smbHashScan(info *Common.HostInfo) error {
 
 // logSuccessfulAuth 记录成功的认证
 func logSuccessfulAuth(info *Common.HostInfo, user, pass string, hash []byte) {
-	var result string
+	credential := pass
+	if len(hash) > 0 {
+		credential = Common.HashValue
+	}
+
+	// 保存认证成功结果
+	result := &Common.ScanResult{
+		Time:   time.Now(),
+		Type:   Common.VULN,
+		Target: info.Host,
+		Status: "success",
+		Details: map[string]interface{}{
+			"port":       info.Ports,
+			"service":    "smb2",
+			"username":   user,
+			"domain":     Common.Domain,
+			"type":       "weak-auth",
+			"credential": credential,
+			"auth_type":  map[bool]string{true: "hash", false: "password"}[len(hash) > 0],
+		},
+	}
+	Common.SaveResult(result)
+
+	// 控制台输出
+	var msg string
 	if Common.Domain != "" {
-		result = fmt.Sprintf("SMB2认证成功 %s:%s %s\\%s",
-			info.Host, info.Ports, Common.Domain, user)
+		msg = fmt.Sprintf("SMB2认证成功 %s:%s %s\\%s", info.Host, info.Ports, Common.Domain, user)
 	} else {
-		result = fmt.Sprintf("SMB2认证成功 %s:%s %s",
-			info.Host, info.Ports, user)
+		msg = fmt.Sprintf("SMB2认证成功 %s:%s %s", info.Host, info.Ports, user)
 	}
 
 	if len(hash) > 0 {
-		result += fmt.Sprintf(" Hash:%s", Common.HashValue)
+		msg += fmt.Sprintf(" Hash:%s", Common.HashValue)
 	} else {
-		result += fmt.Sprintf(" Pass:%s", pass)
+		msg += fmt.Sprintf(" Pass:%s", pass)
 	}
-	Common.LogSuccess(result)
+	Common.LogSuccess(msg)
 }
 
 // logFailedAuth 记录失败的认证
@@ -241,21 +263,42 @@ func Smb2Con(info *Common.HostInfo, user string, pass string, hash []byte, haspr
 
 // logShareInfo 记录SMB共享信息
 func logShareInfo(info *Common.HostInfo, user string, pass string, hash []byte, shares []string) {
-	var result string
+	credential := pass
+	if len(hash) > 0 {
+		credential = Common.HashValue
+	}
+
+	// 保存共享信息结果
+	result := &Common.ScanResult{
+		Time:   time.Now(),
+		Type:   Common.VULN,
+		Target: info.Host,
+		Status: "shares-found",
+		Details: map[string]interface{}{
+			"port":       info.Ports,
+			"service":    "smb2",
+			"username":   user,
+			"domain":     Common.Domain,
+			"shares":     shares,
+			"credential": credential,
+			"auth_type":  map[bool]string{true: "hash", false: "password"}[len(hash) > 0],
+		},
+	}
+	Common.SaveResult(result)
+
+	// 控制台输出
+	var msg string
 	if Common.Domain != "" {
-		result = fmt.Sprintf("SMB2共享信息 %s:%s %s\\%s",
-			info.Host, info.Ports, Common.Domain, user)
+		msg = fmt.Sprintf("SMB2共享信息 %s:%s %s\\%s", info.Host, info.Ports, Common.Domain, user)
 	} else {
-		result = fmt.Sprintf("SMB2共享信息 %s:%s %s",
-			info.Host, info.Ports, user)
+		msg = fmt.Sprintf("SMB2共享信息 %s:%s %s", info.Host, info.Ports, user)
 	}
 
 	if len(hash) > 0 {
-		result += fmt.Sprintf(" Hash:%s", Common.HashValue)
+		msg += fmt.Sprintf(" Hash:%s", Common.HashValue)
 	} else {
-		result += fmt.Sprintf(" Pass:%s", pass)
+		msg += fmt.Sprintf(" Pass:%s", pass)
 	}
-
-	result += fmt.Sprintf(" 共享:%v", shares)
-	Common.LogInfo(result)
+	msg += fmt.Sprintf(" 共享:%v", shares)
+	Common.LogInfo(msg)
 }

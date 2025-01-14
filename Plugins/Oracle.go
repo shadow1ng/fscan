@@ -15,8 +15,9 @@ func OracleScan(info *Common.HostInfo) (tmperr error) {
 	}
 
 	maxRetries := Common.MaxRetries
+	target := fmt.Sprintf("%v:%v", info.Host, info.Ports)
 
-	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
+	Common.LogDebug(fmt.Sprintf("开始扫描 %s", target))
 	totalUsers := len(Common.Userdict["oracle"])
 	totalPass := len(Common.Passwords)
 	Common.LogDebug(fmt.Sprintf("开始尝试用户名密码组合 (总用户数: %d, 总密码数: %d)", totalUsers, totalPass))
@@ -60,9 +61,24 @@ func OracleScan(info *Common.HostInfo) (tmperr error) {
 				case result := <-done:
 					err = result.err
 					if result.success && err == nil {
-						successLog := fmt.Sprintf("Oracle %v:%v %v %v",
-							info.Host, info.Ports, user, pass)
-						Common.LogSuccess(successLog)
+						successMsg := fmt.Sprintf("Oracle %s 成功爆破 用户名: %v 密码: %v", target, user, pass)
+						Common.LogSuccess(successMsg)
+
+						// 保存结果
+						vulnResult := &Common.ScanResult{
+							Time:   time.Now(),
+							Type:   Common.VULN,
+							Target: info.Host,
+							Status: "vulnerable",
+							Details: map[string]interface{}{
+								"port":     info.Ports,
+								"service":  "oracle",
+								"username": user,
+								"password": pass,
+								"type":     "weak-password",
+							},
+						}
+						Common.SaveResult(vulnResult)
 						return nil
 					}
 				case <-time.After(time.Duration(Common.Timeout) * time.Second):
@@ -71,19 +87,17 @@ func OracleScan(info *Common.HostInfo) (tmperr error) {
 
 				// 处理错误情况
 				if err != nil {
-					errlog := fmt.Sprintf("Oracle %v:%v %v %v %v",
-						info.Host, info.Ports, user, pass, err)
-					Common.LogError(errlog)
+					errMsg := fmt.Sprintf("Oracle %s 尝试失败 用户名: %v 密码: %v 错误: %v", target, user, pass, err)
+					Common.LogError(errMsg)
 
-					// 检查是否需要重试
 					if retryErr := Common.CheckErrs(err); retryErr != nil {
 						if retryCount == maxRetries-1 {
 							continue
 						}
-						continue // 继续重试
+						continue
 					}
 				}
-				break // 如果不需要重试，跳出重试循环
+				break
 			}
 		}
 	}
@@ -118,8 +132,5 @@ func OracleConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 		return false, err
 	}
 
-	// 连接成功
-	result := fmt.Sprintf("Oracle %v:%v:%v %v", host, port, username, password)
-	Common.LogSuccess(result)
 	return true, nil
 }

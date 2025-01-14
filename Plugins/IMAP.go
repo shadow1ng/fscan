@@ -11,14 +11,16 @@ import (
 	"time"
 )
 
+// IMAPScan 主扫描函数
 func IMAPScan(info *Common.HostInfo) (tmperr error) {
 	if Common.DisableBrute {
 		return
 	}
 
 	maxRetries := Common.MaxRetries
+	target := fmt.Sprintf("%v:%v", info.Host, info.Ports)
 
-	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
+	Common.LogDebug(fmt.Sprintf("开始扫描 %s", target))
 	totalUsers := len(Common.Userdict["imap"])
 	totalPass := len(Common.Passwords)
 	Common.LogDebug(fmt.Sprintf("开始尝试用户名密码组合 (总用户数: %d, 总密码数: %d)", totalUsers, totalPass))
@@ -26,20 +28,17 @@ func IMAPScan(info *Common.HostInfo) (tmperr error) {
 	tried := 0
 	total := totalUsers * totalPass
 
-	// 遍历所有用户名密码组合
 	for _, user := range Common.Userdict["imap"] {
 		for _, pass := range Common.Passwords {
 			tried++
 			pass = strings.Replace(pass, "{user}", user, -1)
 			Common.LogDebug(fmt.Sprintf("[%d/%d] 尝试: %s:%s", tried, total, user, pass))
 
-			// 重试循环
 			for retryCount := 0; retryCount < maxRetries; retryCount++ {
 				if retryCount > 0 {
 					Common.LogDebug(fmt.Sprintf("第%d次重试: %s:%s", retryCount+1, user, pass))
 				}
 
-				// 执行IMAP连接
 				done := make(chan struct {
 					success bool
 					err     error
@@ -56,23 +55,38 @@ func IMAPScan(info *Common.HostInfo) (tmperr error) {
 					}
 				}(user, pass)
 
-				// 等待结果或超时
 				var err error
 				select {
 				case result := <-done:
 					err = result.err
-					if result.success && err == nil {
+					if result.success {
+						successMsg := fmt.Sprintf("IMAP服务 %s 爆破成功 用户名: %v 密码: %v", target, user, pass)
+						Common.LogSuccess(successMsg)
+
+						// 保存结果
+						vulnResult := &Common.ScanResult{
+							Time:   time.Now(),
+							Type:   Common.VULN,
+							Target: info.Host,
+							Status: "vulnerable",
+							Details: map[string]interface{}{
+								"port":     info.Ports,
+								"service":  "imap",
+								"username": user,
+								"password": pass,
+								"type":     "weak-password",
+							},
+						}
+						Common.SaveResult(vulnResult)
 						return nil
 					}
 				case <-time.After(time.Duration(Common.Timeout) * time.Second):
 					err = fmt.Errorf("连接超时")
 				}
 
-				// 处理错误情况
 				if err != nil {
-					errlog := fmt.Sprintf("IMAP服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
-						info.Host, info.Ports, user, pass, err)
-					Common.LogError(errlog)
+					errMsg := fmt.Sprintf("IMAP服务 %s 尝试失败 用户名: %v 密码: %v 错误: %v", target, user, pass, err)
+					Common.LogError(errMsg)
 
 					if retryErr := Common.CheckErrs(err); retryErr != nil {
 						if retryCount == maxRetries-1 {
@@ -90,23 +104,22 @@ func IMAPScan(info *Common.HostInfo) (tmperr error) {
 	return tmperr
 }
 
+// IMAPConn 连接测试函数
 func IMAPConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 	host, port := info.Host, info.Ports
 	timeout := time.Duration(Common.Timeout) * time.Second
 	addr := fmt.Sprintf("%s:%s", host, port)
 
-	// 首先尝试普通连接
-	Common.LogDebug(fmt.Sprintf("尝试普通连接: %s", addr))
+	// 尝试普通连接
 	conn, err := net.DialTimeout("tcp", addr, timeout)
 	if err == nil {
-		if flag, err := tryIMAPAuth(conn, host, port, user, pass, timeout); err == nil {
+		if flag, err := tryIMAPAuth(conn, user, pass, timeout); err == nil {
 			return flag, nil
 		}
 		conn.Close()
 	}
 
-	// 如果普通连接失败，尝试TLS连接
-	Common.LogDebug(fmt.Sprintf("尝试TLS连接: %s", addr))
+	// 尝试TLS连接
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: true,
 	}
@@ -116,10 +129,11 @@ func IMAPConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 	}
 	defer conn.Close()
 
-	return tryIMAPAuth(conn, host, port, user, pass, timeout)
+	return tryIMAPAuth(conn, user, pass, timeout)
 }
 
-func tryIMAPAuth(conn net.Conn, host string, port string, user string, pass string, timeout time.Duration) (bool, error) {
+// tryIMAPAuth 尝试IMAP认证
+func tryIMAPAuth(conn net.Conn, user string, pass string, timeout time.Duration) (bool, error) {
 	conn.SetDeadline(time.Now().Add(timeout))
 
 	reader := bufio.NewReader(conn)
@@ -145,9 +159,6 @@ func tryIMAPAuth(conn net.Conn, host string, port string, user string, pass stri
 		}
 
 		if strings.Contains(response, "a001 OK") {
-			result := fmt.Sprintf("IMAP服务 %v:%v 爆破成功 用户名: %v 密码: %v",
-				host, port, user, pass)
-			Common.LogSuccess(result)
 			return true, nil
 		}
 

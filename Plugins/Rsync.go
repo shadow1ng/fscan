@@ -8,15 +8,15 @@ import (
 	"time"
 )
 
-// RsyncScan 执行 Rsync 服务扫描
 func RsyncScan(info *Common.HostInfo) (tmperr error) {
 	if Common.DisableBrute {
 		return
 	}
 
 	maxRetries := Common.MaxRetries
+	target := fmt.Sprintf("%v:%v", info.Host, info.Ports)
 
-	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
+	Common.LogDebug(fmt.Sprintf("开始扫描 %s", target))
 	Common.LogDebug("尝试匿名访问...")
 
 	// 首先测试匿名访问
@@ -27,14 +27,26 @@ func RsyncScan(info *Common.HostInfo) (tmperr error) {
 
 		flag, err := RsyncConn(info, "", "")
 		if flag && err == nil {
-			Common.LogSuccess(fmt.Sprintf("Rsync服务 %v:%v 匿名访问成功", info.Host, info.Ports))
+			Common.LogSuccess(fmt.Sprintf("Rsync服务 %s 匿名访问成功", target))
+
+			// 保存匿名访问结果
+			result := &Common.ScanResult{
+				Time:   time.Now(),
+				Type:   Common.VULN,
+				Target: info.Host,
+				Status: "vulnerable",
+				Details: map[string]interface{}{
+					"port":    info.Ports,
+					"service": "rsync",
+					"type":    "anonymous-access",
+				},
+			}
+			Common.SaveResult(result)
 			return err
 		}
 
 		if err != nil {
-			errlog := fmt.Sprintf("Rsync服务 %v:%v 匿名访问失败: %v", info.Host, info.Ports, err)
-			Common.LogError(errlog)
-
+			Common.LogError(fmt.Sprintf("Rsync服务 %s 匿名访问失败: %v", target, err))
 			if retryErr := Common.CheckErrs(err); retryErr != nil {
 				if retryCount == maxRetries-1 {
 					return err
@@ -52,20 +64,17 @@ func RsyncScan(info *Common.HostInfo) (tmperr error) {
 	tried := 0
 	total := totalUsers * totalPass
 
-	// 遍历所有用户名密码组合
 	for _, user := range Common.Userdict["rsync"] {
 		for _, pass := range Common.Passwords {
 			tried++
 			pass = strings.Replace(pass, "{user}", user, -1)
 			Common.LogDebug(fmt.Sprintf("[%d/%d] 尝试: %s:%s", tried, total, user, pass))
 
-			// 重试循环
 			for retryCount := 0; retryCount < maxRetries; retryCount++ {
 				if retryCount > 0 {
 					Common.LogDebug(fmt.Sprintf("第%d次重试: %s:%s", retryCount+1, user, pass))
 				}
 
-				// 执行Rsync连接
 				done := make(chan struct {
 					success bool
 					err     error
@@ -82,37 +91,46 @@ func RsyncScan(info *Common.HostInfo) (tmperr error) {
 					}
 				}(user, pass)
 
-				// 等待结果或超时
 				var err error
 				select {
 				case result := <-done:
 					err = result.err
 					if result.success {
-						successLog := fmt.Sprintf("Rsync服务 %v:%v 爆破成功 用户名: %v 密码: %v",
-							info.Host, info.Ports, user, pass)
-						Common.LogSuccess(successLog)
+						Common.LogSuccess(fmt.Sprintf("Rsync服务 %s 爆破成功 用户名: %v 密码: %v",
+							target, user, pass))
+
+						// 保存爆破成功结果
+						vulnResult := &Common.ScanResult{
+							Time:   time.Now(),
+							Type:   Common.VULN,
+							Target: info.Host,
+							Status: "vulnerable",
+							Details: map[string]interface{}{
+								"port":     info.Ports,
+								"service":  "rsync",
+								"type":     "weak-password",
+								"username": user,
+								"password": pass,
+							},
+						}
+						Common.SaveResult(vulnResult)
 						return nil
 					}
 				case <-time.After(time.Duration(Common.Timeout) * time.Second):
 					err = fmt.Errorf("连接超时")
 				}
 
-				// 处理错误情况
 				if err != nil {
-					errlog := fmt.Sprintf("Rsync服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
-						info.Host, info.Ports, user, pass, err)
-					Common.LogError(errlog)
-
-					// 检查是否需要重试
+					Common.LogError(fmt.Sprintf("Rsync服务 %s 尝试失败 用户名: %v 密码: %v 错误: %v",
+						target, user, pass, err))
 					if retryErr := Common.CheckErrs(err); retryErr != nil {
 						if retryCount == maxRetries-1 {
 							continue
 						}
-						continue // 继续重试
+						continue
 					}
 				}
-
-				break // 如果不需要重试，跳出重试循环
+				break
 			}
 		}
 	}

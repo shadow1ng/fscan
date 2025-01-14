@@ -198,7 +198,6 @@ func geturl(info *Common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 	if flag != 2 {
 		// 处理编码
 		if !utf8.Valid(body) {
-			Common.LogDebug("检测到非UTF8编码，尝试GBK解码")
 			body, _ = simplifiedchinese.GBK.NewDecoder().Bytes(body)
 		}
 
@@ -208,22 +207,53 @@ func geturl(info *Common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 		if length == "" {
 			length = fmt.Sprintf("%v", len(body))
 		}
-		Common.LogDebug(fmt.Sprintf("提取的标题: %s, 内容长度: %s", title, length))
 
-		// 处理重定向
+		// 收集服务器信息
+		serverInfo := make(map[string]interface{})
+		serverInfo["title"] = title
+		serverInfo["length"] = length
+		serverInfo["status_code"] = resp.StatusCode
+
+		// 收集响应头信息
+		for k, v := range resp.Header {
+			if len(v) > 0 {
+				serverInfo[strings.ToLower(k)] = v[0]
+			}
+		}
+
+		// 检查重定向
 		redirURL, err1 := resp.Location()
 		if err1 == nil {
 			reurl = redirURL.String()
-			Common.LogDebug(fmt.Sprintf("检测到重定向URL: %s", reurl))
+			serverInfo["redirect_url"] = reurl
 		}
 
-		// 输出结果
-		result := fmt.Sprintf("网站标题 %-25v 状态码:%-3v 长度:%-6v 标题:%v",
+		// 保存扫描结果
+		result := &Common.ScanResult{
+			Time:   time.Now(),
+			Type:   Common.SERVICE,
+			Target: info.Host,
+			Status: "identified",
+			Details: map[string]interface{}{
+				"port":         info.Ports,
+				"service":      "http",
+				"title":        title,
+				"url":          resp.Request.URL.String(),
+				"status_code":  resp.StatusCode,
+				"length":       length,
+				"server_info":  serverInfo,
+				"fingerprints": info.Infostr, // 指纹信息
+			},
+		}
+		Common.SaveResult(result)
+
+		// 输出控制台日志
+		logMsg := fmt.Sprintf("网站标题 %-25v 状态码:%-3v 长度:%-6v 标题:%v",
 			resp.Request.URL, resp.StatusCode, length, title)
 		if reurl != "" {
-			result += fmt.Sprintf(" 重定向地址: %s", reurl)
+			logMsg += fmt.Sprintf(" 重定向地址: %s", reurl)
 		}
-		Common.LogSuccess(result)
+		Common.LogSuccess(logMsg)
 	}
 
 	// 返回结果

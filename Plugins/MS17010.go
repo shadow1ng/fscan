@@ -203,15 +203,31 @@ func MS17010Scan(info *Common.HostInfo) error {
 		return fmt.Errorf("管道响应不完整")
 	}
 
-	// 漏洞检测
+	// 漏洞检测部分添加 Output
 	if reply[9] == 0x05 && reply[10] == 0x02 && reply[11] == 0x00 && reply[12] == 0xc0 {
+		// 构造基本详情
+		details := map[string]interface{}{
+			"port":          "445",
+			"vulnerability": "MS17-010",
+		}
 		if os != "" {
+			details["os"] = os
 			Common.LogSuccess(fmt.Sprintf("发现漏洞 %s [%s] MS17-010", ip, os))
 		} else {
 			Common.LogSuccess(fmt.Sprintf("发现漏洞 %s MS17-010", ip))
 		}
 
-		// DOUBLEPULSAR后门检测
+		// 保存 MS17-010 漏洞结果
+		result := &Common.ScanResult{
+			Time:    time.Now(),
+			Type:    Common.VULN,
+			Target:  ip,
+			Status:  "vulnerable",
+			Details: details,
+		}
+		Common.SaveResult(result)
+
+		// DOUBLEPULSAR 后门检测
 		trans2SessionSetupRequest[28] = treeID[0]
 		trans2SessionSetupRequest[29] = treeID[1]
 		trans2SessionSetupRequest[32] = userID[0]
@@ -230,14 +246,42 @@ func MS17010Scan(info *Common.HostInfo) error {
 
 		if reply[34] == 0x51 {
 			Common.LogSuccess(fmt.Sprintf("发现后门 %s DOUBLEPULSAR", ip))
+
+			// 保存 DOUBLEPULSAR 后门结果
+			backdoorResult := &Common.ScanResult{
+				Time:   time.Now(),
+				Type:   Common.VULN,
+				Target: ip,
+				Status: "backdoor",
+				Details: map[string]interface{}{
+					"port": "445",
+					"type": "DOUBLEPULSAR",
+					"os":   os,
+				},
+			}
+			Common.SaveResult(backdoorResult)
 		}
 
-		// Shellcode利用
+		// Shellcode 利用部分保持不变
 		if Common.Shellcode != "" {
 			defer MS17010EXP(info)
 		}
 	} else if os != "" {
 		Common.LogInfo(fmt.Sprintf("系统信息 %s [%s]", ip, os))
+
+		// 保存系统信息
+		sysResult := &Common.ScanResult{
+			Time:   time.Now(),
+			Type:   Common.SERVICE,
+			Target: ip,
+			Status: "identified",
+			Details: map[string]interface{}{
+				"port":    "445",
+				"service": "smb",
+				"os":      os,
+			},
+		}
+		Common.SaveResult(sysResult)
 	}
 
 	return nil

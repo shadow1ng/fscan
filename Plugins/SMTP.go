@@ -16,19 +16,36 @@ func SmtpScan(info *Common.HostInfo) (tmperr error) {
 	}
 
 	maxRetries := Common.MaxRetries
+	target := fmt.Sprintf("%v:%v", info.Host, info.Ports)
 
-	Common.LogDebug(fmt.Sprintf("开始扫描 %v:%v", info.Host, info.Ports))
+	Common.LogDebug(fmt.Sprintf("开始扫描 %s", target))
 	Common.LogDebug("尝试匿名访问...")
 
 	// 先测试匿名访问
 	for retryCount := 0; retryCount < maxRetries; retryCount++ {
 		flag, err := SmtpConn(info, "", "")
 		if flag && err == nil {
-			Common.LogSuccess("匿名访问成功!")
+			msg := fmt.Sprintf("SMTP服务 %s 允许匿名访问", target)
+			Common.LogSuccess(msg)
+
+			// 保存匿名访问结果
+			result := &Common.ScanResult{
+				Time:   time.Now(),
+				Type:   Common.VULN,
+				Target: info.Host,
+				Status: "vulnerable",
+				Details: map[string]interface{}{
+					"port":      info.Ports,
+					"service":   "smtp",
+					"type":      "anonymous-access",
+					"anonymous": true,
+				},
+			}
+			Common.SaveResult(result)
 			return err
 		}
 		if err != nil {
-			errlog := fmt.Sprintf("smtp %v:%v anonymous %v", info.Host, info.Ports, err)
+			errlog := fmt.Sprintf("smtp %s anonymous %v", target, err)
 			Common.LogError(errlog)
 
 			if retryErr := Common.CheckErrs(err); retryErr != nil {
@@ -61,7 +78,6 @@ func SmtpScan(info *Common.HostInfo) (tmperr error) {
 					Common.LogDebug(fmt.Sprintf("第%d次重试: %s:%s", retryCount+1, user, pass))
 				}
 
-				// 执行SMTP连接
 				done := make(chan struct {
 					success bool
 					err     error
@@ -78,34 +94,48 @@ func SmtpScan(info *Common.HostInfo) (tmperr error) {
 					}
 				}(user, pass)
 
-				// 等待结果或超时
 				var err error
 				select {
 				case result := <-done:
 					err = result.err
 					if result.success && err == nil {
+						msg := fmt.Sprintf("SMTP服务 %s 爆破成功 用户名: %v 密码: %v", target, user, pass)
+						Common.LogSuccess(msg)
+
+						// 保存成功爆破结果
+						vulnResult := &Common.ScanResult{
+							Time:   time.Now(),
+							Type:   Common.VULN,
+							Target: info.Host,
+							Status: "vulnerable",
+							Details: map[string]interface{}{
+								"port":     info.Ports,
+								"service":  "smtp",
+								"type":     "weak-password",
+								"username": user,
+								"password": pass,
+							},
+						}
+						Common.SaveResult(vulnResult)
 						return nil
 					}
 				case <-time.After(time.Duration(Common.Timeout) * time.Second):
 					err = fmt.Errorf("连接超时")
 				}
 
-				// 处理错误情况
 				if err != nil {
-					errlog := fmt.Sprintf("SMTP服务 %v:%v 尝试失败 用户名: %v 密码: %v 错误: %v",
-						info.Host, info.Ports, user, pass, err)
+					errlog := fmt.Sprintf("SMTP服务 %s 尝试失败 用户名: %v 密码: %v 错误: %v",
+						target, user, pass, err)
 					Common.LogError(errlog)
 
-					// 检查是否需要重试
 					if retryErr := Common.CheckErrs(err); retryErr != nil {
 						if retryCount == maxRetries-1 {
 							continue
 						}
-						continue // 继续重试
+						continue
 					}
 				}
-
-				break // 如果不需要重试，跳出重试循环
+				break
 			}
 		}
 	}
@@ -118,25 +148,20 @@ func SmtpScan(info *Common.HostInfo) (tmperr error) {
 func SmtpConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 	host, port := info.Host, info.Ports
 	timeout := time.Duration(Common.Timeout) * time.Second
-
-	// 构造地址
 	addr := fmt.Sprintf("%s:%s", host, port)
 
-	// 创建带超时的连接
 	conn, err := net.DialTimeout("tcp", addr, timeout)
 	if err != nil {
 		return false, err
 	}
 	defer conn.Close()
 
-	// 创建SMTP客户端
 	client, err := smtp.NewClient(conn, host)
 	if err != nil {
 		return false, err
 	}
 	defer client.Close()
 
-	// 如果提供了认证信息
 	if user != "" {
 		auth := smtp.PlainAuth("", user, pass, host)
 		err = client.Auth(auth)
@@ -145,20 +170,10 @@ func SmtpConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 		}
 	}
 
-	// 验证是否可以发送邮件
 	err = client.Mail("test@test.com")
 	if err != nil {
 		return false, err
 	}
-
-	// 如果成功
-	result := fmt.Sprintf("SMTP服务 %v:%v ", host, port)
-	if user != "" {
-		result += fmt.Sprintf("爆破成功 用户名: %v 密码: %v", user, pass)
-	} else {
-		result += "允许匿名访问"
-	}
-	Common.LogSuccess(result)
 
 	return true, nil
 }
