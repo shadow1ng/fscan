@@ -73,21 +73,33 @@ func formatLogMessage(entry *LogEntry) string {
 // printLog 根据日志级别打印日志
 func printLog(entry *LogEntry) {
 	// 根据当前设置的日志级别过滤日志
+	shouldPrint := false
 	switch LogLevel {
+	case LogLevelDebug:
+		// DEBUG级别显示所有日志
+		shouldPrint = true
+	case LogLevelError:
+		// ERROR级别显示 ERROR、SUCCESS、INFO
+		shouldPrint = entry.Level == LogLevelError ||
+			entry.Level == LogLevelSuccess ||
+			entry.Level == LogLevelInfo
+	case LogLevelSuccess:
+		// SUCCESS级别显示 SUCCESS、INFO
+		shouldPrint = entry.Level == LogLevelSuccess ||
+			entry.Level == LogLevelInfo
 	case LogLevelInfo:
-		// INFO模式下只打印 INFO、SUCCESS、ERROR 级别的日志
-		if entry.Level != LogLevelInfo &&
-			entry.Level != LogLevelSuccess &&
-			entry.Level != LogLevelError {
-			return
-		}
-	case LogLevelDebug, LogLevelAll:
-		// Debug或ALL模式下打印所有日志
+		// INFO级别只显示 INFO
+		shouldPrint = entry.Level == LogLevelInfo
+	case LogLevelAll:
+		// ALL显示所有日志
+		shouldPrint = true
 	default:
-		// 其他模式下只打印指定级别的日志
-		if entry.Level != LogLevel {
-			return
-		}
+		// 默认只显示 INFO
+		shouldPrint = entry.Level == LogLevelInfo
+	}
+
+	if !shouldPrint {
+		return
 	}
 
 	OutputMutex.Lock()
