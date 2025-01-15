@@ -37,7 +37,7 @@ func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int) {
 		workers = 1 // 确保至少有一个工作协程
 	}
 
-	tasks := make(chan Task, len(pocs)) // 使用带缓冲的通道，避免阻塞
+	tasks := make(chan Task, len(pocs))
 	var wg sync.WaitGroup
 
 	// 启动工作协程池
@@ -49,30 +49,50 @@ func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int) {
 					wg.Done()
 					continue
 				}
-				details := func(enable bool) string {
-					data := ""
-					if !enable {
-						return data
-					}
+
+				if isVulnerable {
+					// 构造详细信息
+					details := make(map[string]interface{})
+					details["vulnerability_type"] = task.Poc.Name
+					details["vulnerability_name"] = vulName
+
 					if task.Poc.Detail.Author != "" {
-						data += "\tauthor:" + task.Poc.Detail.Author + "\n"
+						details["author"] = task.Poc.Detail.Author
 					}
-					if len(task.Poc.Detail.Links) != 0 || task.Poc.Detail.Links != nil {
-						data += "\tlinks:" + strings.Join(task.Poc.Detail.Links, "\n") + "\n"
+					if len(task.Poc.Detail.Links) != 0 {
+						details["references"] = task.Poc.Detail.Links
 					}
 					if task.Poc.Detail.Description != "" {
-						data += "\tdescription:" + task.Poc.Detail.Description + "\n"
+						details["description"] = task.Poc.Detail.Description
 					}
-					return data
-				}(true)
-				if isVulnerable {
-					result := fmt.Sprintf("目标: %s\n  漏洞类型: %s\n  漏洞名称: %s\n  详细信息: %s",
+
+					// 保存漏洞结果
+					result := &Common.ScanResult{
+						Time:    time.Now(),
+						Type:    Common.VULN,
+						Target:  task.Req.URL.String(),
+						Status:  "vulnerable",
+						Details: details,
+					}
+					Common.SaveResult(result)
+
+					// 控制台输出
+					logMsg := fmt.Sprintf("目标: %s\n  漏洞类型: %s\n  漏洞名称: %s\n  详细信息:",
 						task.Req.URL,
 						task.Poc.Name,
-						vulName,
-						details)
+						vulName)
 
-					Common.LogSuccess(result)
+					if task.Poc.Detail.Author != "" {
+						logMsg += "\n\tauthor:" + task.Poc.Detail.Author
+					}
+					if len(task.Poc.Detail.Links) != 0 {
+						logMsg += "\n\tlinks:" + strings.Join(task.Poc.Detail.Links, "\n")
+					}
+					if task.Poc.Detail.Description != "" {
+						logMsg += "\n\tdescription:" + task.Poc.Detail.Description
+					}
+
+					Common.LogSuccess(logMsg)
 				}
 				wg.Done()
 			}

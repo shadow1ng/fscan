@@ -930,12 +930,12 @@ var (
 	EnableWmi  bool   // 原IsWmi
 
 	// 输出配置
-	DisableSave bool   // 禁止保存结果
-	Silent      bool   // 静默模式
-	NoColor     bool   // 禁用彩色输出
-	JsonFormat  bool   // JSON格式输出
-	LogLevel    string // 日志输出级别
-	NoProgress  bool   // 禁用进度条显示
+	DisableSave  bool   // 禁止保存结果
+	Silent       bool   // 静默模式
+	NoColor      bool   // 禁用彩色输出
+	JsonFormat   bool   // JSON格式输出
+	LogLevel     string // 日志输出级别
+	ShowProgress bool   // 是否显示进度条
 )
 
 var (

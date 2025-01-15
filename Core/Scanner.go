@@ -285,7 +285,7 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 	Common.LogInfo(fmt.Sprintf("加载的插件: %s", strings.Join(finalPlugins, ", ")))
 
 	// 初始化进度条
-	if !Common.NoProgress {
+	if Common.ShowProgress {
 		Common.ProgressBar = progressbar.NewOptions(actualTasks,
 			progressbar.OptionEnableColorCodes(true),
 			progressbar.OptionShowCount(),

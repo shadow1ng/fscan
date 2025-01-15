@@ -166,7 +166,7 @@ func Flag(Info *HostInfo) {
 	flag.BoolVar(&NoColor, "nocolor", false, "禁用彩色输出显示")
 	flag.BoolVar(&JsonFormat, "json", false, "以JSON格式输出结果")
 	flag.StringVar(&LogLevel, "log", LogLevelInfo, "日志输出级别(ALL/SUCCESS/ERROR/INFO/DEBUG)")
-	flag.BoolVar(&NoProgress, "nopg", false, "禁用进度条显示")
+	flag.BoolVar(&ShowProgress, "pg", false, "开启进度条显示")
 
 	flag.Parse()
 }
