@@ -1,0 +1,12 @@
+name: poc-yaml-etcd-v3-unauth
+rules:
+  - method: GET
+    path: /version
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.body.bcontains(b"etcdserver")
+
+detail:
+  author: rj45(https://github.com/INT2ECALL)
+  links:
+    - https://networksec.blog.csdn.net/article/details/144912358?spm=1001.2014.3001.5502
