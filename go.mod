@@ -1,21 +1,16 @@
 module github.com/shadow1ng/fscan
 
-go 1.22
-
-toolchain go1.23.3
+go 1.20
 
 require (
 	github.com/IBM/sarama v1.43.3
-	github.com/Ullaakut/nmap v2.0.2+incompatible
 	github.com/denisenkom/go-mssqldb v0.12.3
 	github.com/fatih/color v1.18.0
 	github.com/go-ldap/ldap/v3 v3.4.9
 	github.com/go-ole/go-ole v1.3.0
-	github.com/go-resty/resty/v2 v2.16.2
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/gocql/gocql v1.7.0
 	github.com/google/cel-go v0.13.0
-	github.com/google/gopacket v1.1.19
 	github.com/gosnmp/gosnmp v1.38.0
 	github.com/hirochachacha/go-smb2 v1.1.0
 	github.com/jlaffaye/ftp v0.2.0
@@ -24,6 +19,7 @@ require (
 	github.com/neo4j/neo4j-go-driver/v4 v4.4.7
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/satori/go.uuid v1.2.0
+	github.com/schollz/progressbar/v3 v3.13.1
 	github.com/sijms/go-ora/v2 v2.5.29
 	github.com/stacktitan/smb v0.0.0-20190531122847-da9a425dceb8
 	github.com/tomatome/grdp v0.0.0-20211231062539-be8adab7eaf3
@@ -68,12 +64,12 @@ require (
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
 	github.com/pierrec/lz4/v4 v4.1.21 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
-	github.com/schollz/progressbar/v3 v3.17.1 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
 	golang.org/x/term v0.27.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
