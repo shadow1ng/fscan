@@ -103,7 +103,7 @@ arch用户安装
   -pa string
         新增需要扫描的端口,-pa 3389 (会在原有端口列表基础上,新增该端口)
   -path string
-        fcgi、smb romote file path
+        fcgi、smb remote file path
   -ping
         使用ping代替icmp进行存活探测
   -pn string
