@@ -1,5 +1,3 @@
-// output.go
-
 package Common
 
 import (
@@ -48,25 +46,25 @@ type ScanResult struct {
 
 // InitOutput 初始化输出系统
 func InitOutput() error {
-	LogDebug("开始初始化输出系统")
+	LogDebug(GetText("output_init_start"))
 
 	// 验证输出格式
 	switch OutputFormat {
 	case "txt", "json", "csv":
 		// 有效的格式
 	default:
-		return fmt.Errorf("不支持的输出格式: %s", OutputFormat)
+		return fmt.Errorf(GetText("output_format_invalid"), OutputFormat)
 	}
 
 	// 验证输出路径
 	if Outputfile == "" {
-		return fmt.Errorf("输出文件路径不能为空")
+		return fmt.Errorf(GetText("output_path_empty"))
 	}
 
 	dir := filepath.Dir(Outputfile)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		LogDebug(fmt.Sprintf("创建输出目录失败: %v", err))
-		return fmt.Errorf("创建输出目录失败: %v", err)
+		LogDebug(GetText("output_create_dir_failed", err))
+		return fmt.Errorf(GetText("output_create_dir_failed", err))
 	}
 
 	manager := &OutputManager{
@@ -75,12 +73,12 @@ func InitOutput() error {
 	}
 
 	if err := manager.initialize(); err != nil {
-		LogDebug(fmt.Sprintf("初始化输出管理器失败: %v", err))
-		return fmt.Errorf("初始化输出管理器失败: %v", err)
+		LogDebug(GetText("output_init_failed", err))
+		return fmt.Errorf(GetText("output_init_failed", err))
 	}
 
 	ResultOutput = manager
-	LogDebug("输出系统初始化完成")
+	LogDebug(GetText("output_init_success"))
 	return nil
 }
 
@@ -89,52 +87,52 @@ func (om *OutputManager) initialize() error {
 	defer om.mu.Unlock()
 
 	if om.isInitialized {
-		LogDebug("输出管理器已经初始化，跳过")
+		LogDebug(GetText("output_already_init"))
 		return nil
 	}
 
-	LogDebug(fmt.Sprintf("正在打开输出文件: %s", om.outputPath))
+	LogDebug(GetText("output_opening_file", om.outputPath))
 	file, err := os.OpenFile(om.outputPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
-		LogDebug(fmt.Sprintf("打开输出文件失败: %v", err))
-		return fmt.Errorf("打开输出文件失败: %v", err)
+		LogDebug(GetText("output_open_file_failed", err))
+		return fmt.Errorf(GetText("output_open_file_failed", err))
 	}
 	om.file = file
 
 	switch om.outputFormat {
 	case "csv":
-		LogDebug("初始化CSV写入器")
+		LogDebug(GetText("output_init_csv"))
 		om.csvWriter = csv.NewWriter(file)
 		headers := []string{"Time", "Type", "Target", "Status", "Details"}
 		if err := om.csvWriter.Write(headers); err != nil {
-			LogDebug(fmt.Sprintf("写入CSV头失败: %v", err))
+			LogDebug(GetText("output_write_csv_header_failed", err))
 			file.Close()
-			return fmt.Errorf("写入CSV头失败: %v", err)
+			return fmt.Errorf(GetText("output_write_csv_header_failed", err))
 		}
 		om.csvWriter.Flush()
 	case "json":
-		LogDebug("初始化JSON编码器")
+		LogDebug(GetText("output_init_json"))
 		om.jsonEncoder = json.NewEncoder(file)
 		om.jsonEncoder.SetIndent("", "  ")
 	case "txt":
-		LogDebug("初始化文本输出")
+		LogDebug(GetText("output_init_txt"))
 	default:
-		LogDebug(fmt.Sprintf("不支持的输出格式: %s", om.outputFormat))
+		LogDebug(GetText("output_format_invalid", om.outputFormat))
 	}
 
 	om.isInitialized = true
-	LogDebug("输出管理器初始化完成")
+	LogDebug(GetText("output_init_complete"))
 	return nil
 }
 
 // SaveResult 保存扫描结果
 func SaveResult(result *ScanResult) error {
 	if ResultOutput == nil {
-		LogDebug("输出系统未初始化")
-		return fmt.Errorf("输出系统未初始化")
+		LogDebug(GetText("output_not_init"))
+		return fmt.Errorf(GetText("output_not_init"))
 	}
 
-	LogDebug(fmt.Sprintf("正在保存结果 - 类型: %s, 目标: %s", result.Type, result.Target))
+	LogDebug(GetText("output_saving_result", result.Type, result.Target))
 	return ResultOutput.saveResult(result)
 }
 
@@ -143,8 +141,8 @@ func (om *OutputManager) saveResult(result *ScanResult) error {
 	defer om.mu.Unlock()
 
 	if !om.isInitialized {
-		LogDebug("输出管理器未初始化")
-		return fmt.Errorf("输出管理器未初始化")
+		LogDebug(GetText("output_not_init"))
+		return fmt.Errorf(GetText("output_not_init"))
 	}
 
 	var err error
@@ -156,14 +154,14 @@ func (om *OutputManager) saveResult(result *ScanResult) error {
 	case "csv":
 		err = om.writeCsv(result)
 	default:
-		LogDebug(fmt.Sprintf("不支持的输出格式: %s", om.outputFormat))
-		return fmt.Errorf("不支持的输出格式: %s", om.outputFormat)
+		LogDebug(GetText("output_format_invalid", om.outputFormat))
+		return fmt.Errorf(GetText("output_format_invalid", om.outputFormat))
 	}
 
 	if err != nil {
-		LogDebug(fmt.Sprintf("保存结果失败: %v", err))
+		LogDebug(GetText("output_save_failed", err))
 	} else {
-		LogDebug(fmt.Sprintf("成功保存结果 - 类型: %s, 目标: %s", result.Type, result.Target))
+		LogDebug(GetText("output_save_success", result.Type, result.Target))
 	}
 	return err
 }
@@ -179,13 +177,13 @@ func (om *OutputManager) writeTxt(result *ScanResult) error {
 		details = strings.Join(pairs, ", ")
 	}
 
-	txt := fmt.Sprintf("[%s] [%s] Target: %s, Status: %s, Details: {%s}\n",
+	txt := GetText("output_txt_format",
 		result.Time.Format("2006-01-02 15:04:05"),
 		result.Type,
 		result.Target,
 		result.Status,
 		details,
-	)
+	) + "\n"
 	_, err := om.file.WriteString(txt)
 	return err
 }
@@ -218,30 +216,30 @@ func (om *OutputManager) writeCsv(result *ScanResult) error {
 // CloseOutput 关闭输出系统
 func CloseOutput() error {
 	if ResultOutput == nil {
-		LogDebug("输出系统未初始化，无需关闭")
+		LogDebug(GetText("output_no_need_close"))
 		return nil
 	}
 
-	LogDebug("正在关闭输出系统")
+	LogDebug(GetText("output_closing"))
 	ResultOutput.mu.Lock()
 	defer ResultOutput.mu.Unlock()
 
 	if !ResultOutput.isInitialized {
-		LogDebug("输出管理器未初始化，无需关闭")
+		LogDebug(GetText("output_no_need_close"))
 		return nil
 	}
 
 	if ResultOutput.csvWriter != nil {
-		LogDebug("刷新CSV写入器缓冲区")
+		LogDebug(GetText("output_flush_csv"))
 		ResultOutput.csvWriter.Flush()
 	}
 
 	if err := ResultOutput.file.Close(); err != nil {
-		LogDebug(fmt.Sprintf("关闭文件失败: %v", err))
-		return fmt.Errorf("关闭文件失败: %v", err)
+		LogDebug(GetText("output_close_failed", err))
+		return fmt.Errorf(GetText("output_close_failed", err))
 	}
 
 	ResultOutput.isInitialized = false
-	LogDebug("输出系统已关闭")
+	LogDebug(GetText("output_closed"))
 	return nil
 }

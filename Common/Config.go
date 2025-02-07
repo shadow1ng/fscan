@@ -936,6 +936,8 @@ var (
 	JsonFormat   bool   // JSON格式输出
 	LogLevel     string // 日志输出级别
 	ShowProgress bool   // 是否显示进度条
+
+	Language string // 语言
 )
 
 var (

@@ -22,7 +22,7 @@ func WrapperTCP(network, address string, forward *net.Dialer) (net.Conn, error) 
 	if Socks5Proxy == "" {
 		conn, err := forward.Dial(network, address)
 		if err != nil {
-			return nil, fmt.Errorf("建立TCP连接失败: %v", err)
+			return nil, fmt.Errorf(GetText("tcp_conn_failed"), err)
 		}
 		return conn, nil
 	}
@@ -30,12 +30,12 @@ func WrapperTCP(network, address string, forward *net.Dialer) (net.Conn, error) 
 	// Socks5代理模式
 	dialer, err := Socks5Dialer(forward)
 	if err != nil {
-		return nil, fmt.Errorf("创建Socks5代理失败: %v", err)
+		return nil, fmt.Errorf(GetText("socks5_create_failed"), err)
 	}
 
 	conn, err := dialer.Dial(network, address)
 	if err != nil {
-		return nil, fmt.Errorf("通过Socks5建立连接失败: %v", err)
+		return nil, fmt.Errorf(GetText("socks5_conn_failed"), err)
 	}
 
 	return conn, nil
@@ -46,12 +46,12 @@ func Socks5Dialer(forward *net.Dialer) (proxy.Dialer, error) {
 	// 解析代理URL
 	u, err := url.Parse(Socks5Proxy)
 	if err != nil {
-		return nil, fmt.Errorf("解析Socks5代理地址失败: %v", err)
+		return nil, fmt.Errorf(GetText("socks5_parse_failed"), err)
 	}
 
 	// 验证代理类型
 	if strings.ToLower(u.Scheme) != "socks5" {
-		return nil, errors.New("仅支持socks5代理")
+		return nil, errors.New(GetText("socks5_only"))
 	}
 
 	address := u.Host
@@ -71,7 +71,7 @@ func Socks5Dialer(forward *net.Dialer) (proxy.Dialer, error) {
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("创建Socks5代理失败: %v", err)
+		return nil, fmt.Errorf(GetText("socks5_create_failed"), err)
 	}
 
 	return dialer, nil

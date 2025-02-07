@@ -1,10 +1,9 @@
 package Common
 
 import (
-	"fmt"
-	"sort"
 	"strconv"
 	"strings"
+	"sort"
 )
 
 // ParsePort 解析端口配置字符串为端口号列表
@@ -42,7 +41,7 @@ func ParsePort(ports string) []int {
 		if strings.Contains(port, "-") {
 			ranges := strings.Split(port, "-")
 			if len(ranges) < 2 {
-				LogError(fmt.Sprintf("端口范围格式错误: %s", port))
+				LogError(GetText("port_range_format_error", port))
 				continue
 			}
 
@@ -63,7 +62,7 @@ func ParsePort(ports string) []int {
 		end, _ := strconv.Atoi(upper)
 		for i := start; i <= end; i++ {
 			if i > 65535 || i < 1 {
-				LogError(fmt.Sprintf("忽略无效端口: %d", i))
+				LogError(GetText("ignore_invalid_port", i))
 				continue
 			}
 			scanPorts = append(scanPorts, i)
@@ -74,7 +73,7 @@ func ParsePort(ports string) []int {
 	scanPorts = removeDuplicate(scanPorts)
 	sort.Ints(scanPorts)
 
-	LogInfo(fmt.Sprintf("有效端口数量: %d", len(scanPorts)))
+	LogInfo(GetText("valid_port_count", len(scanPorts)))
 	return scanPorts
 }
 

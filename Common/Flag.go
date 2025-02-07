@@ -58,115 +58,81 @@ func Flag(Info *HostInfo) {
 	Banner()
 
 	// 目标配置
-	flag.StringVar(&Info.Host, "h", "", "指定目标主机,支持以下格式:\n"+
-		"  - 单个IP: 192.168.11.11\n"+
-		"  - IP范围: 192.168.11.11-255\n"+
-		"  - 多个IP: 192.168.11.11,192.168.11.12")
-	flag.StringVar(&ExcludeHosts, "eh", "", "排除指定主机范围,支持CIDR格式,如: 192.168.1.1/24")
-	flag.StringVar(&Ports, "p", MainPorts, "指定扫描端口,支持以下格式:\n"+
-		"端口格式:\n"+
-		"  - 单个端口: 22\n"+
-		"  - 端口范围: 1-65535\n"+
-		"  - 多个端口: 22,80,3306\n\n"+
-		"预定义端口组(别名):\n"+
-		"  - main: 常用端口 (21,22,23,80,81,135,139,443,445,1433,1521,3306,5432,6379,7001,8000,8080,8089,9000,9200,11211,27017)\n"+
-		"  - service: 服务端口 (21,22,23,135,139,445,1433,1521,2222,3306,3389,5432,6379,9000,11211,27017)\n"+
-		"  - db: 数据库端口 (1433,1521,3306,5432,6379,11211,27017)\n"+
-		"  - web: Web服务端口 (包含常见的 80-90,443,800-1080,2000-8000,8080-9000,9090-10000 等Web端口)\n"+
-		"  - all: 全部端口 (1-65535)\n\n"+
-		"示例:\n"+
-		"  -p main         扫描常用端口\n"+
-		"  -p web         扫描Web端口\n"+
-		"  -p 80,443      扫描指定端口\n"+
-		"  -p 1-1000      扫描1-1000端口范围\n"+
-		"默认使用 main 端口组")
-	flag.StringVar(&AddPorts, "pa", "", "在默认端口基础上额外添加端口,如: -pa 3389")
-	flag.StringVar(&ExcludePorts, "pn", "", "排除指定端口,如: -pn 445")
+	flag.StringVar(&Info.Host, "h", "", GetText("flag_host"))
+	flag.StringVar(&ExcludeHosts, "eh", "", GetText("flag_exclude_hosts"))
+	flag.StringVar(&Ports, "p", MainPorts, GetText("flag_ports"))
 
 	// 认证配置
-	flag.StringVar(&AddUsers, "usera", "", "在默认用户列表基础上添加自定义用户名")
-	flag.StringVar(&AddPasswords, "pwda", "", "在默认密码列表基础上添加自定义密码")
-	flag.StringVar(&Username, "user", "", "指定单个用户名")
-	flag.StringVar(&Password, "pwd", "", "指定单个密码")
-	flag.StringVar(&Domain, "domain", "", "指定域名(仅用于SMB协议)")
-	flag.StringVar(&SshKeyPath, "sshkey", "", "指定SSH私钥文件路径(默认为id_rsa)")
+	flag.StringVar(&AddUsers, "usera", "", GetText("flag_add_users"))
+	flag.StringVar(&AddPasswords, "pwda", "", GetText("flag_add_passwords"))
+	flag.StringVar(&Username, "user", "", GetText("flag_username"))
+	flag.StringVar(&Password, "pwd", "", GetText("flag_password"))
+	flag.StringVar(&Domain, "domain", "", GetText("flag_domain"))
+	flag.StringVar(&SshKeyPath, "sshkey", "", GetText("flag_ssh_key"))
 
 	// 扫描配置
-	flag.StringVar(&ScanMode, "m", "All", "指定扫描模式:\n"+
-		"预设扫描模式(大写开头):\n"+
-		"  - All: 全量扫描，包含所有可用插件\n"+
-		"  - Basic: 基础扫描，包含 web/ftp/ssh/smb/findnet\n"+
-		"  - Database: 数据库扫描，包含 mysql/mssql/redis/mongodb/postgres/oracle/memcached\n"+
-		"  - Web: Web服务扫描，包含 web/fcgi\n"+
-		"  - Service: 常见服务扫描，包含 ftp/ssh/telnet/smb/rdp/vnc/netbios\n"+
-		"  - Vul: 漏洞扫描，包含 ms17010/smbghost/smb2\n"+
-		"  - Port: 端口扫描模式\n"+
-		"  - ICMP: ICMP存活探测\n"+
-		"  - Local: 本地信息收集\n\n"+
-		"单个插件模式(小写):\n"+
-		"  Web类: web, fcgi\n"+
-		"  数据库类: mysql, mssql, redis, mongodb, postgres, oracle, memcached\n"+
-		"  服务类: ftp, ssh, telnet, smb, rdp, vnc, netbios\n"+
-		"  漏洞类: ms17010, smbghost, smb2\n"+
-		"  其他: findnet, wmiexec, localinfo")
-	//flag.BoolVar(&UseSynScan, "sS", false, "使用SYN扫描替代TCP全连接扫描(需要root/管理员权限)")
-	flag.IntVar(&ThreadNum, "t", 60, "设置扫描线程数")
-	flag.Int64Var(&Timeout, "time", 3, "设置连接超时时间(单位:秒)")
-	flag.IntVar(&LiveTop, "top", 10, "仅显示指定数量的存活主机")
-	flag.BoolVar(&DisablePing, "np", false, "禁用主机存活探测")
-	flag.BoolVar(&UsePing, "ping", false, "使用系统ping命令替代ICMP探测")
-	flag.StringVar(&Command, "c", "", "指定要执行的系统命令(支持ssh和wmiexec)")
-	flag.BoolVar(&SkipFingerprint, "skip", false, "跳过端口指纹识别")
+	flag.StringVar(&ScanMode, "m", "All", GetText("flag_scan_mode"))
+	flag.IntVar(&ThreadNum, "t", 60, GetText("flag_thread_num"))
+	flag.Int64Var(&Timeout, "time", 3, GetText("flag_timeout"))
+	flag.IntVar(&LiveTop, "top", 10, GetText("flag_live_top"))
+	flag.BoolVar(&DisablePing, "np", false, GetText("flag_disable_ping"))
+	flag.BoolVar(&UsePing, "ping", false, GetText("flag_use_ping"))
+	flag.StringVar(&Command, "c", "", GetText("flag_command"))
+	flag.BoolVar(&SkipFingerprint, "skip", false, GetText("flag_skip_fingerprint"))
 
 	// 文件配置
-	flag.StringVar(&HostsFile, "hf", "", "从文件中读取目标主机列表")
-	flag.StringVar(&UsersFile, "userf", "", "从文件中读取用户名字典")
-	flag.StringVar(&PasswordsFile, "pwdf", "", "从文件中读取密码字典")
-	flag.StringVar(&HashFile, "hashf", "", "从文件中读取Hash字典")
-	flag.StringVar(&PortsFile, "portf", "", "从文件中读取端口列表")
+	flag.StringVar(&HostsFile, "hf", "", GetText("flag_hosts_file"))
+	flag.StringVar(&UsersFile, "userf", "", GetText("flag_users_file"))
+	flag.StringVar(&PasswordsFile, "pwdf", "", GetText("flag_passwords_file"))
+	flag.StringVar(&HashFile, "hashf", "", GetText("flag_hash_file"))
+	flag.StringVar(&PortsFile, "portf", "", GetText("flag_ports_file"))
 
 	// Web配置
-	flag.StringVar(&TargetURL, "u", "", "指定目标URL")
-	flag.StringVar(&URLsFile, "uf", "", "从文件中读取URL列表")
-	flag.StringVar(&Cookie, "cookie", "", "设置HTTP请求Cookie")
-	flag.Int64Var(&WebTimeout, "wt", 5, "设置Web请求超时时间(单位:秒)")
-	flag.StringVar(&HttpProxy, "proxy", "", "设置HTTP代理服务器")
-	flag.StringVar(&Socks5Proxy, "socks5", "", "设置Socks5代理(用于TCP连接,将影响超时设置)")
+	flag.StringVar(&TargetURL, "u", "", GetText("flag_target_url"))
+	flag.StringVar(&URLsFile, "uf", "", GetText("flag_urls_file"))
+	flag.StringVar(&Cookie, "cookie", "", GetText("flag_cookie"))
+	flag.Int64Var(&WebTimeout, "wt", 5, GetText("flag_web_timeout"))
+	flag.StringVar(&HttpProxy, "proxy", "", GetText("flag_http_proxy"))
+	flag.StringVar(&Socks5Proxy, "socks5", "", GetText("flag_socks5_proxy"))
 
 	// 本地扫描配置
-	flag.BoolVar(&LocalMode, "local", false, "启用本地信息收集模式")
+	flag.BoolVar(&LocalMode, "local", false, GetText("flag_local_mode"))
 
 	// POC配置
-	flag.StringVar(&PocPath, "pocpath", "", "指定自定义POC文件路径")
-	flag.StringVar(&Pocinfo.PocName, "pocname", "", "指定要使用的POC名称,如: -pocname weblogic")
-	flag.BoolVar(&PocFull, "full", false, "启用完整POC扫描(如测试shiro全部100个key)")
-	flag.BoolVar(&DnsLog, "dns", false, "启用dnslog进行漏洞验证")
-	flag.IntVar(&PocNum, "num", 20, "设置POC扫描并发数")
+	flag.StringVar(&PocPath, "pocpath", "", GetText("flag_poc_path"))
+	flag.StringVar(&Pocinfo.PocName, "pocname", "", GetText("flag_poc_name"))
+	flag.BoolVar(&PocFull, "full", false, GetText("flag_poc_full"))
+	flag.BoolVar(&DnsLog, "dns", false, GetText("flag_dns_log"))
+	flag.IntVar(&PocNum, "num", 20, GetText("flag_poc_num"))
 
 	// Redis利用配置
-	flag.StringVar(&RedisFile, "rf", "", "指定Redis写入的SSH公钥文件")
-	flag.StringVar(&RedisShell, "rs", "", "指定Redis写入的计划任务内容")
-	flag.BoolVar(&DisableRedis, "noredis", false, "禁用Redis安全检测")
+	flag.StringVar(&RedisFile, "rf", "", GetText("flag_redis_file"))
+	flag.StringVar(&RedisShell, "rs", "", GetText("flag_redis_shell"))
+	flag.BoolVar(&DisableRedis, "noredis", false, GetText("flag_disable_redis"))
 
 	// 暴力破解配置
-	flag.BoolVar(&DisableBrute, "nobr", false, "禁用密码暴力破解")
-	flag.IntVar(&MaxRetries, "retry", 3, "设置最大重试次数")
+	flag.BoolVar(&DisableBrute, "nobr", false, GetText("flag_disable_brute"))
+	flag.IntVar(&MaxRetries, "retry", 3, GetText("flag_max_retries"))
 
 	// 其他配置
-	flag.StringVar(&RemotePath, "path", "", "指定FCG/SMB远程文件路径")
-	flag.StringVar(&HashValue, "hash", "", "指定要破解的Hash值")
-	flag.StringVar(&Shellcode, "sc", "", "指定MS17漏洞利用的shellcode")
-	flag.BoolVar(&EnableWmi, "wmi", false, "启用WMI协议扫描")
+	flag.StringVar(&RemotePath, "path", "", GetText("flag_remote_path"))
+	flag.StringVar(&HashValue, "hash", "", GetText("flag_hash_value"))
+	flag.StringVar(&Shellcode, "sc", "", GetText("flag_shellcode"))
+	flag.BoolVar(&EnableWmi, "wmi", false, GetText("flag_enable_wmi"))
 
 	// 输出配置
-	flag.StringVar(&Outputfile, "o", "result.txt", "指定结果输出文件名")
-	flag.StringVar(&OutputFormat, "f", "txt", "指定输出格式 (txt/json/csv)")
-	flag.BoolVar(&DisableSave, "no", false, "禁止保存扫描结果")
-	flag.BoolVar(&Silent, "silent", false, "启用静默扫描模式(减少屏幕输出)")
-	flag.BoolVar(&NoColor, "nocolor", false, "禁用彩色输出显示")
-	flag.BoolVar(&JsonFormat, "json", false, "以JSON格式输出结果")
-	flag.StringVar(&LogLevel, "log", LogLevelSuccess, "日志输出级别(ALL/SUCCESS/ERROR/INFO/DEBUG)")
-	flag.BoolVar(&ShowProgress, "pg", false, "开启进度条显示")
+	flag.StringVar(&Outputfile, "o", "result.txt", GetText("flag_output_file"))
+	flag.StringVar(&OutputFormat, "f", "txt", GetText("flag_output_format"))
+	flag.BoolVar(&DisableSave, "no", false, GetText("flag_disable_save"))
+	flag.BoolVar(&Silent, "silent", false, GetText("flag_silent_mode"))
+	flag.BoolVar(&NoColor, "nocolor", false, GetText("flag_no_color"))
+	flag.BoolVar(&JsonFormat, "json", false, GetText("flag_json_format"))
+	flag.StringVar(&LogLevel, "log", LogLevelSuccess, GetText("flag_log_level"))
+	flag.BoolVar(&ShowProgress, "pg", false, GetText("flag_show_progress"))
+
+	flag.StringVar(&Language, "lang", "en", GetText("flag_language"))
 
 	flag.Parse()
+
+	SetLanguage()
 }
