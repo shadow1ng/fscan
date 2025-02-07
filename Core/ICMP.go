@@ -45,6 +45,16 @@ func CheckLive(hostslist []string, Ping bool) []string {
 	return AliveHosts
 }
 
+// IsContain 检查切片中是否包含指定元素
+func IsContain(items []string, item string) bool {
+	for _, eachItem := range items {
+		if eachItem == item {
+			return true
+		}
+	}
+	return false
+}
+
 func handleAliveHosts(chanHosts chan string, hostslist []string, isPing bool) {
 	for ip := range chanHosts {
 		if _, ok := ExistHosts[ip]; !ok && IsContain(hostslist, ip) {
