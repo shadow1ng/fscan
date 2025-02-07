@@ -39,23 +39,19 @@ func MysqlScan(info *common.HostInfo) (tmperr error) {
 func MysqlConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
-	for _, database := range []string{"mysql", "information_schema"} {
-		dsn := fmt.Sprintf("%v:%v@tcp(%v:%v)/%v?charset=utf8&timeout=%v", Username, Password, Host, Port, database, time.Duration(common.Timeout)*time.Second)
-		db, err := sql.Open("mysql", dsn)
+	dataSourceName := fmt.Sprintf("%v:%v@tcp(%v:%v)/mysql?charset=utf8&timeout=%v", Username, Password, Host, Port, time.Duration(common.Timeout)*time.Second)
+	db, err := sql.Open("mysql", dataSourceName)
+	if err == nil {
+		db.SetConnMaxLifetime(time.Duration(common.Timeout) * time.Second)
+		db.SetConnMaxIdleTime(time.Duration(common.Timeout) * time.Second)
+		db.SetMaxIdleConns(0)
+		defer db.Close()
+		err = db.Ping()
 		if err == nil {
-			db.SetConnMaxLifetime(time.Duration(common.Timeout) * time.Second)
-			db.SetConnMaxIdleTime(time.Duration(common.Timeout) * time.Second)
-			db.SetMaxIdleConns(0)
-			err = db.Ping()
-			if err == nil {
-				result := fmt.Sprintf("[+] mysql %v:%v:%v %v", Host, Port, Username, Password)
-				common.LogSuccess(result)
-				flag = true
-				_ = db.Close()
-				break
-			}
+			result := fmt.Sprintf("[+] mysql %v:%v:%v %v", Host, Port, Username, Password)
+			common.LogSuccess(result)
+			flag = true
 		}
-		_ = db.Close()
 	}
 	return flag, err
 }
