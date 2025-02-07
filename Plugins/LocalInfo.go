@@ -10,17 +10,19 @@ import (
 )
 
 var (
+	// 文件扫描黑名单,跳过这些类型和目录
 	blacklist = []string{
 		".exe", ".dll", ".png", ".jpg", ".bmp", ".xml", ".bin",
 		".dat", ".manifest", "locale", "winsxs", "windows\\sys",
 	}
 
+	// 敏感文件关键词白名单
 	whitelist = []string{
 		"密码", "账号", "账户", "配置", "服务器",
 		"数据库", "备忘", "常用", "通讯录",
 	}
 
-	// Linux系统关键配置文件
+	// Linux系统关键配置文件路径
 	linuxSystemPaths = []string{
 		// Apache配置
 		"/etc/apache/httpd.conf",
@@ -79,7 +81,7 @@ var (
 		"/root/.mysql_history",
 	}
 
-	// Windows系统关键配置文件
+	// Windows系统关键配置文件路径
 	windowsSystemPaths = []string{
 		"C:\\boot.ini",
 		"C:\\windows\\systems32\\inetsrv\\MetaBase.xml",
@@ -88,25 +90,28 @@ var (
 	}
 )
 
+// LocalInfoScan 本地信息收集主函数
 func LocalInfoScan(info *Common.HostInfo) (err error) {
-	fmt.Println("LocalInfo扫描模块开始...")
+	Common.LogInfo("开始本地信息收集...")
+	
+	// 获取用户主目录
 	home, err := os.UserHomeDir()
 	if err != nil {
-		errlog := fmt.Sprintf("Get UserHomeDir error: %v", err)
-		Common.LogError(errlog)
+		Common.LogError(fmt.Sprintf("获取用户主目录失败: %v", err))
 		return err
 	}
 
-	// 扫描固定位置
+	// 扫描固定位置的敏感文件
 	scanFixedLocations(home)
 
-	// 规则搜索
+	// 根据规则搜索敏感文件
 	searchSensitiveFiles()
 
-	fmt.Println("LocalInfo扫描模块结束...")
+	Common.LogInfo("本地信息收集完成")
 	return nil
 }
 
+// scanFixedLocations 扫描固定位置的敏感文件
 func scanFixedLocations(home string) {
 	var paths []string
 
@@ -146,13 +151,14 @@ func scanFixedLocations(home string) {
 	}
 }
 
+// checkAndLogFile 检查并记录敏感文件
 func checkAndLogFile(path string) {
 	if _, err := os.Stat(path); err == nil {
-		result := fmt.Sprintf("Found sensitive file: %s", path)
-		Common.LogSuccess(result)
+		Common.LogSuccess(fmt.Sprintf("发现敏感文件: %s", path))
 	}
 }
 
+// searchSensitiveFiles 搜索敏感文件
 func searchSensitiveFiles() {
 	var searchPaths []string
 
@@ -202,8 +208,7 @@ func searchSensitiveFiles() {
 			for _, white := range whitelist {
 				fileName := strings.ToLower(info.Name())
 				if strings.Contains(fileName, white) {
-					result := fmt.Sprintf("Found potential sensitive file: %s", path)
-					Common.LogSuccess(result)
+					Common.LogSuccess(fmt.Sprintf("发现潜在敏感文件: %s", path))
 					break
 				}
 			}
