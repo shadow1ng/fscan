@@ -1,10 +1,12 @@
 package Common
 
 import (
+	"os"
 	"flag"
 	"fmt"
 	"github.com/fatih/color"
 	"strings"
+	"runtime"
 )
 
 func Banner() {
@@ -132,7 +134,14 @@ func Flag(Info *HostInfo) {
 
 	flag.StringVar(&Language, "lang", "zh", GetText("flag_language"))
 
-	flag.Parse()
+	envArgsString := os.Getenv("FS_ARGS")
+	if envArgsString != "" && runtime.GOOS != "windows" {
+		envArgs := strings.Split(envArgsString, " ")
+		flag.CommandLine.Parse(envArgs)
+		os.Unsetenv("FS_ARGS")
+	} else {
+		flag.Parse()
+	}
 
 	SetLanguage()
 }
