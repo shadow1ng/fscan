@@ -63,6 +63,7 @@ func ParsePass(Info *HostInfo) {
 					PwdList = append(PwdList, pass)
 				}
 			}
+			PwdList = append(PwdList, "")
 			Passwords = PwdList
 		}
 	}
