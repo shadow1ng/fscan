@@ -1,0 +1,1 @@
+docker run --rm -p 5020:5020 oitc/modbus-server:latest

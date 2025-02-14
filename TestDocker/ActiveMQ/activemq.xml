@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:amq="http://activemq.apache.org/schema/core"
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://activemq.apache.org/schema/core http://activemq.apache.org/schema/core/activemq-core.xsd">
+
+    <broker xmlns="http://activemq.apache.org/schema/core" useJmx="true" persistent="false">
+        <!-- 安全设置 -->
+        <plugins>
+            <simpleAuthenticationPlugin>
+                <users>
+                    <authenticationUser username="admin" password="123456" groups="admins,publishers,consumers"/>
+                    <authenticationUser username="test" password="test123" groups="publishers,consumers"/>
+                    <authenticationUser username="root" password="root123" groups="admins"/>
+                    <authenticationUser username="system" password="admin123" groups="admins"/>
+                </users>
+            </simpleAuthenticationPlugin>
+
+            <!-- 授权插件 -->
+            <authorizationPlugin>
+                <map>
+                    <authorizationMap>
+                        <authorizationEntries>
+                            <authorizationEntry queue=">" read="consumers" write="publishers" admin="admins"/>
+                            <authorizationEntry topic=">" read="consumers" write="publishers" admin="admins"/>
+                        </authorizationEntries>
+                    </authorizationMap>
+                </map>
+            </authorizationPlugin>
+        </plugins>
+
+        <transportConnectors>
+            <transportConnector name="openwire" uri="tcp://0.0.0.0:61616?maximumConnections=1000&amp;wireFormat.maxFrameSize=104857600"/>
+            <transportConnector name="stomp" uri="stomp://0.0.0.0:61613?maximumConnections=1000&amp;wireFormat.maxFrameSize=104857600"/>
+        </transportConnectors>
+    </broker>
+</beans>

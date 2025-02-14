@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/Common"
 	"gopkg.in/yaml.v3"
 	"net"
 	"strconv"
@@ -14,18 +14,59 @@ import (
 
 var errNetBIOS = errors.New("netbios error")
 
-func NetBIOS(info *common.HostInfo) error {
+func NetBIOS(info *Common.HostInfo) error {
 	netbios, _ := NetBIOS1(info)
 	output := netbios.String()
 	if len(output) > 0 {
-		result := fmt.Sprintf("[*] NetBios %-15s %s", info.Host, output)
-		common.LogSuccess(result)
+		result := fmt.Sprintf("NetBios %-15s %s", info.Host, output)
+		Common.LogSuccess(result)
+
+		// 保存结果
+		details := map[string]interface{}{
+			"port": info.Ports,
+		}
+
+		// 添加有效的 NetBIOS 信息
+		if netbios.ComputerName != "" {
+			details["computer_name"] = netbios.ComputerName
+		}
+		if netbios.DomainName != "" {
+			details["domain_name"] = netbios.DomainName
+		}
+		if netbios.NetDomainName != "" {
+			details["netbios_domain"] = netbios.NetDomainName
+		}
+		if netbios.NetComputerName != "" {
+			details["netbios_computer"] = netbios.NetComputerName
+		}
+		if netbios.WorkstationService != "" {
+			details["workstation_service"] = netbios.WorkstationService
+		}
+		if netbios.ServerService != "" {
+			details["server_service"] = netbios.ServerService
+		}
+		if netbios.DomainControllers != "" {
+			details["domain_controllers"] = netbios.DomainControllers
+		}
+		if netbios.OsVersion != "" {
+			details["os_version"] = netbios.OsVersion
+		}
+
+		scanResult := &Common.ScanResult{
+			Time:    time.Now(),
+			Type:    Common.SERVICE,
+			Target:  info.Host,
+			Status:  "identified",
+			Details: details,
+		}
+
+		Common.SaveResult(scanResult)
 		return nil
 	}
 	return errNetBIOS
 }
 
-func NetBIOS1(info *common.HostInfo) (netbios NetBiosInfo, err error) {
+func NetBIOS1(info *Common.HostInfo) (netbios NetBiosInfo, err error) {
 	netbios, err = GetNbnsname(info)
 	var payload0 []byte
 	if netbios.ServerService != "" || netbios.WorkstationService != "" {
@@ -40,12 +81,12 @@ func NetBIOS1(info *common.HostInfo) (netbios NetBiosInfo, err error) {
 	}
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	var conn net.Conn
-	conn, err = common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.Timeout)*time.Second)
+	conn, err = Common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(Common.Timeout)*time.Second)
 	if err != nil {
 		return
 	}
 	defer conn.Close()
-	err = conn.SetDeadline(time.Now().Add(time.Duration(common.Timeout) * time.Second))
+	err = conn.SetDeadline(time.Now().Add(time.Duration(Common.Timeout) * time.Second))
 	if err != nil {
 		return
 	}
@@ -84,16 +125,16 @@ func NetBIOS1(info *common.HostInfo) (netbios NetBiosInfo, err error) {
 	return
 }
 
-func GetNbnsname(info *common.HostInfo) (netbios NetBiosInfo, err error) {
+func GetNbnsname(info *Common.HostInfo) (netbios NetBiosInfo, err error) {
 	senddata1 := []byte{102, 102, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 32, 67, 75, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 0, 0, 33, 0, 1}
 	//senddata1 := []byte("ff\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00 CKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\x00\x00!\x00\x01")
 	realhost := fmt.Sprintf("%s:137", info.Host)
-	conn, err := net.DialTimeout("udp", realhost, time.Duration(common.Timeout)*time.Second)
+	conn, err := net.DialTimeout("udp", realhost, time.Duration(Common.Timeout)*time.Second)
 	if err != nil {
 		return
 	}
 	defer conn.Close()
-	err = conn.SetDeadline(time.Now().Add(time.Duration(common.Timeout) * time.Second))
+	err = conn.SetDeadline(time.Now().Add(time.Duration(Common.Timeout) * time.Second))
 	if err != nil {
 		return
 	}
@@ -229,7 +270,7 @@ func (info *NetBiosInfo) String() (output string) {
 	}
 	if text == "" {
 	} else if info.DomainControllers != "" {
-		output = fmt.Sprintf("[+] DC:%-24s", text)
+		output = fmt.Sprintf("DC:%-24s", text)
 	} else {
 		output = fmt.Sprintf("%-30s", text)
 	}
