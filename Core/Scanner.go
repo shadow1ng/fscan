@@ -35,9 +35,11 @@ func Scan(info Common.HostInfo) {
 	switch {
 	case Common.LocalMode:
 		// 本地信息收集模式
+		LocalScan = true
 		executeLocalScan(info, &ch, &wg)
 	case len(Common.URLs) > 0:
 		// Web扫描模式
+		WebScan = true
 		executeWebScan(info, &ch, &wg)
 	default:
 		// 主机扫描模式
@@ -67,6 +69,7 @@ func executeLocalScan(info Common.HostInfo, ch *chan struct{}, wg *sync.WaitGrou
 	// 输出使用的插件信息
 	if Common.ScanMode == Common.ModeLocal {
 		Common.LogInfo("使用全部本地插件")
+		Common.ParseScanMode(Common.ScanMode)
 	} else {
 		Common.LogInfo(fmt.Sprintf("使用插件: %s", Common.ScanMode))
 	}
@@ -106,6 +109,7 @@ func executeWebScan(info Common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup)
 	// 输出使用的插件信息
 	if Common.ScanMode == Common.ModeWeb {
 		Common.LogInfo("使用全部Web插件")
+		Common.ParseScanMode(Common.ScanMode)
 	} else {
 		Common.LogInfo(fmt.Sprintf("使用插件: %s", Common.ScanMode))
 	}
@@ -208,7 +212,7 @@ func shouldPingScan(hosts []string) bool {
 // 返回: 存活端口列表
 func getAlivePorts(hosts []string) []string {
 	var alivePorts []string
-	
+
 	// 根据扫描模式选择端口扫描方式
 	if Common.IsWebScan() {
 		alivePorts = NoPortScan(hosts, Common.Ports)
@@ -266,7 +270,7 @@ func prepareTargetInfos(alivePorts []string, baseInfo Common.HostInfo) []Common.
 
 // ScanTask 扫描任务结构体
 type ScanTask struct {
-	pluginName string        // 插件名称
+	pluginName string          // 插件名称
 	target     Common.HostInfo // 目标信息
 }
 
@@ -292,7 +296,6 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 			if !exists {
 				continue
 			}
-
 			taskAdded, newTasks := collectScanTasks(plugin, target, targetPort, pluginName, isSinglePlugin)
 			if taskAdded {
 				actualTasks += len(newTasks)

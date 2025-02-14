@@ -40,7 +40,7 @@ var PluginGroups = map[string][]string{
 		"ms17010", "smbghost", "smb2",
 	},
 	ModeLocal: {
-		"localinfo",
+		"localinfo", "minidump", "dcinfo",
 	},
 }
 

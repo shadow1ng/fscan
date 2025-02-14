@@ -1100,7 +1100,7 @@ var i18nMap = map[string]map[string]string{
 }
 
 // 当前语言设置
-var currentLang = LangJA
+var currentLang = LangZH
 
 func SetLanguage() {
 	// 使用flag设置的语言
