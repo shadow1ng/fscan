@@ -1,7 +1,32 @@
 # Fscan 2.0.0
 [English][url-docen]
 
+# 0x00 新增功能
+
+1、UI/UX 优化
+
+2、增加修改-f -o参数，-f支持txt/csv/json，输出格式优化
+
+3、增加端口指纹识别功能。
+
+4、增加本地信息搜集模块，增加本地域控探测模块，增加本地Minidump模块
+
+5、增加Telnet、VNC、Elasticsearch、RabbitMQ、Kafka、ActiveMQ、LDAP、SMTP、IMAP、POP3、SNMP、Zabbix、Modbus、Rsync、Cassandra、Neo4j扫描。
+
+6、架构重构，以反射+插件模块构建
+
+7、增加-log参数，支持INFO，SUCCESS、ERROR、DEBUG参数，用于调试具体信息。
+
+8、优化线程，现在会以更好的多线程运行
+
+
+
+**新版由于对旧版代码进行了全面的重构，难免会有Bug，请在遇到Bug时提交Issue，会尽快修复处理，感谢。**
+
+**欢迎提交新的插件模块，目前插件为快速热插拔形式，适用于简易开发。**
+
 # 0x01 简介
+
 一款功能丰富的内网综合扫描工具，提供一键自动化、全方位的漏洞扫描能力。
 
 ## 主要功能
@@ -49,79 +74,121 @@
 
 # 0x03 使用说明
 
-## 基础扫描
+## 基础扫描配置
 
-```bash
-# 单一目标或网段扫描
-fscan -h 192.168.1.1/24    # 扫描整个C段
-fscan -h 192.168.1.1/16    # 扫描B段
-fscan -h 192.168.1.1-255   # 范围扫描
-fscan -h 192.168.1.1,192.168.1.2   # 多目标扫描
+**以下参数由于重构原因并不能保证每一个参数都可以正常运行，出现问题请及时提交Issue。**
 
-# 从文件导入目标
-fscan -hf ip.txt
+**目标配置**
+
+```
+-h      指定目标(支持格式:192.168.1.1/24, 192.168.1.1-255, 192.168.1.1,192.168.1.2)
+-eh     排除特定目标
+-hf     从文件导入目标
 ```
 
-## 端口配置
-```bash
-fscan -h 192.168.1.1/24 -p 22,80,3306    # 指定端口扫描
-fscan -h 192.168.1.1/24 -p 1-65535        # 端口范围
-fscan -h 192.168.1.1/24 -pa 3389          # 添加额外端口
-fscan -h 192.168.1.1/24 -pn 445           # 排除特定端口
+**端口配置**
+```
+-p      指定端口范围(默认常用端口)，如: -p 22,80,3306 或 -p 1-65535
+-portf  从文件导入端口列表
 ```
 
 ## 认证配置
-```bash
-# 用户名密码配置
-fscan -h 192.168.1.1/24 -user admin -pwd password    # 指定用户名密码
-fscan -h 192.168.1.1/24 -userf users.txt -pwdf pwd.txt    # 指定字典文件
-fscan -h 192.168.1.1/24 -usera newuser -pwda newpass      # 添加额外用户名密码
 
-# SSH相关
-fscan -h 192.168.1.1/24 -sshkey id_rsa    # 指定SSH密钥
-fscan -h 192.168.1.1/24 -c "whoami"       # SSH连接后执行命令
+**用户名密码**
+```
+-user   指定用户名
+-pwd    指定密码
+-userf  用户名字典文件
+-pwdf   密码字典文件
+-usera  添加额外用户名
+-pwda   添加额外密码
+-domain 指定域名
+```
+
+**SSH相关**
+```
+-sshkey SSH私钥路径
+-c      SSH连接后执行的命令
 ```
 
 ## 扫描控制
-```bash
-# 扫描方式
-fscan -h 192.168.1.1/24 -np        # 跳过存活检测
-fscan -h 192.168.1.1/24 -ping      # 使用ping替代ICMP
-fscan -h 192.168.1.1/24 -t 1000    # 设置线程数
-fscan -h 192.168.1.1/24 -time 5    # 设置超时时间
 
-# 特定服务扫描
-fscan -h 192.168.1.1/24 -m ssh     # 指定扫描类型
+**扫描模式**
+```
+-m      指定扫描模式(默认为All)
+-t      线程数(默认60)
+-time   超时时间(默认3秒)
+-top    存活检测结果展示数量(默认10)
+-np     跳过存活检测
+-ping   使用ping代替ICMP
+-skip   跳过指纹识别
 ```
 
-## Web扫描
-```bash
-# Web目标扫描
-fscan -u http://example.com        # 单一URL扫描
-fscan -uf urls.txt                 # 批量URL扫描
-fscan -h 192.168.1.1/24 -nopoc     # 禁用Web POC扫描
+## Web扫描配置
 
-# Web扫描配置
-fscan -cookie "session=xxx"         # 设置Cookie
-fscan -wt 10                        # Web请求超时时间
+```
+-u      指定单个URL扫描
+-uf     从文件导入URL列表
+-cookie 设置Cookie
+-wt     Web请求超时时间(默认5秒)
 ```
 
 ## 代理设置
-```bash
-fscan -proxy http://127.0.0.1:8080      # HTTP代理
-fscan -socks5 127.0.0.1:1080            # SOCKS5代理
+
+```
+-proxy  HTTP代理(如: http://127.0.0.1:8080)
+-socks5 SOCKS5代理(如: 127.0.0.1:1080)
+```
+
+## POC扫描配置
+
+```
+-pocpath POC文件路径
+-pocname 指定POC名称
+-full    启用完整POC扫描
+-dns     启用DNS日志
+-num     POC并发数(默认20)
+```
+
+## Redis利用配置
+
+```
+-rf      Redis文件名
+-rs      Redis Shell配置
+-noredis 禁用Redis检测
 ```
 
 ## 输出控制
-```bash
-fscan -h 192.168.1.1/24 -o result.txt    # 指定输出文件
-fscan -h 192.168.1.1/24 -no              # 不保存结果
-fscan -h 192.168.1.1/24 -json            # JSON格式输出
-fscan -h 192.168.1.1/24 -silent          # 静默模式
-fscan -h 192.168.1.1/24 -nocolor         # 禁用彩色输出
+
+```
+-o       输出文件路径(默认关闭)
+-f       输出格式(默认txt)
+-no      禁用结果保存
+-silent  静默模式
+-nocolor 禁用彩色输出
+-json    JSON格式输出
+-log     日志级别设置
+-pg      显示扫描进度条
 ```
 
+## 其他配置
+
+```
+-local   本地模式
+-nobr    禁用暴力破解
+-retry   最大重试次数(默认3次)
+-path    远程路径配置
+-hash    哈希值
+-hashf   哈希文件
+-sc      Shellcode配置
+-wmi     启用WMI
+-lang    语言设置(默认zh)
+```
+
+**以上参数由于重构原因并不能保证每一个参数都可以正常运行，出现问题请及时提交Issue。**
+
 ## 编译说明
+
 ```bash
 # 基础编译
 go build -ldflags="-s -w" -trimpath main.go
@@ -138,97 +205,7 @@ yay -S fscan-git
 paru -S fscan-git
 ```
 
-# 0x04 参数说明
-
-## 目标设置
-* `-h` : 目标主机配置
-  * 单个IP: `192.168.11.11`
-  * IP范围: `192.168.11.11-255`
-  * IP段: `192.168.11.11/24`
-  * 多目标: `192.168.11.11,192.168.11.12`
-* `-hf` : 从文件读取目标列表
-* `-eh` : 排除特定IP范围，例如: `-eh 192.168.1.1/24`
-* `-u` : 指定单个URL进行Web扫描
-* `-uf` : 从文件读取URL列表
-
-## 扫描模式
-* `-m` : 指定扫描模式，支持以下选项：
-  * `All`: 全量扫描（默认）
-  * `Basic`: 基础服务扫描（Web、FTP、SSH、SMB等）
-  * `Database`: 数据库服务扫描
-  * `Web`: 仅Web服务扫描
-  * `Service`: 常用服务扫描
-  * `Vul`: 漏洞扫描
-  * `Port`: 端口扫描
-  * `ICMP`: ICMP探测
-  * `Local`: 本地信息收集
-
-## 端口配置
-* `-p` : 指定扫描端口
-  * 支持范围: `1-65535`
-  * 支持列表: `80,443,3306`
-  * 预设组:
-    * `main`: 常用主要端口
-    * `service`: 服务端口
-    * `db`: 数据库端口
-    * `web`: Web服务端口
-    * `all`: 全端口
-* `-pa` : 在默认端口基础上添加端口
-* `-pn` : 排除指定端口
-* `-portf` : 从文件读取端口列表
-
-## 认证配置
-* `-user` : 指定单个用户名
-* `-pwd` : 指定单个密码
-* `-userf` : 指定用户名字典文件
-* `-pwdf` : 指定密码字典文件
-* `-usera` : 在默认用户列表基础上添加用户
-* `-pwda` : 在默认密码列表基础上添加密码
-* `-domain` : 指定域名（用于SMB认证）
-* `-sshkey` : 指定SSH私钥文件路径
-* `-hashf` : 指定Hash字典文件
-
-## 扫描控制
-* `-t` : 扫描线程数（默认600）
-* `-time` : TCP连接超时时间（默认3秒）
-* `-wt` : Web请求超时时间（默认5秒）
-* `-br` : 密码爆破线程数（默认1）
-* `-np` : 禁用存活探测
-* `-ping` : 使用ping代替ICMP进行存活探测
-* `-top` : 显示指定数量的存活主机（默认10）
-* `-local` : 启用本地扫描模式
-
-## Web扫描设置
-* `-cookie` : 设置请求Cookie
-* `-num` : Web POC并发数（默认20）
-* `-pocname` : 指定POC名称进行模糊匹配
-* `-pocpath` : 自定义POC文件路径
-* `-nopoc` : 禁用Web POC扫描
-* `-full` : 启用完整POC扫描
-* `-dns` : 启用dnslog验证
-
-## 代理设置
-* `-proxy` : HTTP代理，例如: `http://127.0.0.1:8080`
-* `-socks5` : SOCKS5代理，例如: `127.0.0.1:1080`
-
-## 特殊功能
-* `-c` : 执行命令（支持SSH/WMI）
-* `-rf` : Redis写入SSH公钥的文件路径
-* `-rs` : Redis反弹Shell的目标地址
-* `-sc` : MS17010漏洞利用的Shellcode选项
-* `-wmi` : 启用WMI功能
-* `-path` : 指定远程文件路径（用于FCG/SMB）
-
-## 输出控制
-* `-o` : 结果输出文件路径（默认"result.txt"）
-* `-no` : 禁用结果保存
-* `-nobr` : 禁用密码爆破
-* `-silent` : 静默模式（无进度输出）
-* `-nocolor` : 禁用彩色输出
-* `-json` : 使用JSON格式输出
-* `-debug` : 设置调试信息输出间隔（默认60秒）
-
-# 0x05 运行截图
+# 0x04 运行截图
 
 `fscan.exe -h 192.168.x.x  (全功能、ms17010、读取网卡信息)`
 ![](image/1.png)
@@ -253,7 +230,13 @@ paru -S fscan-git
 `go run .\main.go -h 192.0.0.0/8 -m icmp(探测每个C段的网关和数个随机IP,并统计top 10 B、C段存活数量)`
 ![img.png](image/live.png)
 
-# 0x06 免责声明
+新的展示
+
+![2.0-1](image/2.0-1.png)
+
+![2.0-2](image/2.0-2.png)
+
+# 0x05 免责声明
 
 本工具仅面向**合法授权**的企业安全建设行为，如您需要测试本工具的可用性，请自行搭建靶机环境。
 
@@ -268,7 +251,7 @@ paru -S fscan-git
 除非您已充分阅读、完全理解并接受本协议所有条款，否则，请您不要安装并使用本工具。您的使用行为或者您以其他任何明示或者默示方式表示接受本协议的，即视为您已阅读并同意本协议的约束。
 
 
-# 0x07 404StarLink 2.0 - Galaxy
+# 0x06 404StarLink 2.0 - Galaxy
 ![](https://github.com/knownsec/404StarLink-Project/raw/master/logo.png)
 
 fscan 是 404Team [星链计划2.0](https://github.com/knownsec/404StarLink2.0-Galaxy) 中的一环，如果对fscan 有任何疑问又或是想要找小伙伴交流，可以参考星链计划的加群方式。
@@ -276,13 +259,13 @@ fscan 是 404Team [星链计划2.0](https://github.com/knownsec/404StarLink2.0-G
 - [https://github.com/knownsec/404StarLink2.0-Galaxy#community](https://github.com/knownsec/404StarLink2.0-Galaxy#community)
 
 演示视频[【安全工具】5大功能，一键化内网扫描神器——404星链计划fscan](https://www.bilibili.com/video/BV1Cv4y1R72M)
-# 0x08 Star Chart
+# 0x07 Star Chart
 [![Stargazers over time](https://starchart.cc/shadow1ng/fscan.svg)](https://starchart.cc/shadow1ng/fscan)
 
-# 0x09 捐赠
+# 0x08 捐赠
  如果你觉得这个项目对你有帮助，你可以请作者喝饮料🍹 [点我](image/sponsor.png)
 
-# 0x10 参考链接
+# 0x09 参考链接
 https://github.com/Adminisme/ServerScan  
 https://github.com/netxfly/x-crack  
 https://github.com/hack2fun/Gscan  
@@ -290,7 +273,7 @@ https://github.com/k8gege/LadonGo
 https://github.com/jjf012/gopoc
 
 
-# 0x11 最近更新
+# 0x10 最近更新
 ## 2024 更新
 
 - **2024/12/19**: v2.0.0 重大更新
