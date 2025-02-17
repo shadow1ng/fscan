@@ -1,11 +1,13 @@
-name: poc-yaml-etcd-v3-unauth
+name: ETCD V3未授权
 rules:
-  - method: GET
-    path: /version
+  - method: POST
+    path: /v3/kv/range
     follow_redirects: false
+    Content-Type: application/json;charset=utf-8
     expression: |
-      response.status == 200 && response.body.bcontains(b"etcdserver")
-
+      response.status == 200 && response.body.bcontains(b"cluster")  && response.body.bcontains(b"head")
+    body: |
+      {"key": "bmFtZQ=="}
 detail:
   author: rj45(https://github.com/INT2ECALL)
   links:
