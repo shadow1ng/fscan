@@ -20,8 +20,10 @@ var AllPocs []*lib.Poc
 
 // WebScan 执行Web漏洞扫描
 func WebScan(info *Common.HostInfo) {
+	if Common.DisablePocScan {
+		return
+	}
 	once.Do(initpoc)
-
 	var pocinfo = Common.Pocinfo
 
 	// 自动构建URL

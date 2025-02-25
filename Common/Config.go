@@ -907,8 +907,9 @@ var (
 	LocalMode bool // -local 本地模式
 
 	// POC配置
-	PocPath string
-	Pocinfo PocInfo
+	DisablePocScan bool //nopoc
+	PocPath        string
+	Pocinfo        PocInfo
 
 	// Redis配置
 	RedisFile    string

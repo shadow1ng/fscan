@@ -99,6 +99,7 @@ func Flag(Info *HostInfo) {
 	flag.BoolVar(&LocalMode, "local", false, GetText("flag_local_mode"))
 
 	// POC配置
+	flag.BoolVar(&DisablePocScan, "nopoc", false, GetText("flag_nopoc"))
 	flag.StringVar(&PocPath, "pocpath", "", GetText("flag_poc_path"))
 	flag.StringVar(&Pocinfo.PocName, "pocname", "", GetText("flag_poc_name"))
 	flag.BoolVar(&PocFull, "full", false, GetText("flag_poc_full"))
