@@ -77,19 +77,19 @@ func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int) {
 					Common.SaveResult(result)
 
 					// 控制台输出
-					logMsg := fmt.Sprintf("目标: %s\n  漏洞类型: %s\n  漏洞名称: %s\n  详细信息:",
+					logMsg := fmt.Sprintf("目标: %s\n  漏洞名称: %s\n  详细信息: ",
 						task.Req.URL,
 						task.Poc.Name,
-						vulName)
+					)
 
 					if task.Poc.Detail.Author != "" {
-						logMsg += "\n\tauthor:" + task.Poc.Detail.Author
+						logMsg += "author:" + task.Poc.Detail.Author
 					}
 					if len(task.Poc.Detail.Links) != 0 {
-						logMsg += "\n\tlinks:" + strings.Join(task.Poc.Detail.Links, "\n")
+						logMsg += "\n\t    links:" + strings.Join(task.Poc.Detail.Links, "\n")
 					}
 					if task.Poc.Detail.Description != "" {
-						logMsg += "\n\tdescription:" + task.Poc.Detail.Description
+						logMsg += "\n\t    description:" + task.Poc.Detail.Description
 					}
 
 					Common.LogSuccess(logMsg)
