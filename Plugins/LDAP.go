@@ -16,13 +16,13 @@ func LDAPScan(info *Common.HostInfo) (tmperr error) {
 	maxRetries := Common.MaxRetries
 	target := fmt.Sprintf("%v:%v", info.Host, info.Ports)
 
-	Common.LogDebug(fmt.Sprintf("开始扫描 %s", target))
-	Common.LogDebug("尝试匿名访问...")
+	Common.LogDebug(fmt.Sprintf("Starting scan %s", target))
+	Common.LogDebug("Attempting anonymous access...")
 
-	// 首先尝试匿名访问
+	// First try anonymous access
 	flag, err := LDAPConn(info, "", "")
 	if flag && err == nil {
-		// 记录匿名访问成功
+		// Record successful anonymous access
 		result := &Common.ScanResult{
 			Time:   time.Now(),
 			Type:   Common.VULN,
@@ -35,28 +35,28 @@ func LDAPScan(info *Common.HostInfo) (tmperr error) {
 			},
 		}
 		Common.SaveResult(result)
-		Common.LogSuccess(fmt.Sprintf("LDAP服务 %s 匿名访问成功", target))
+		Common.LogSuccess(fmt.Sprintf("LDAP service %s anonymous access successful", target))
 		return err
 	}
 
 	totalUsers := len(Common.Userdict["ldap"])
 	totalPass := len(Common.Passwords)
-	Common.LogDebug(fmt.Sprintf("开始尝试用户名密码组合 (总用户数: %d, 总密码数: %d)", totalUsers, totalPass))
+	Common.LogDebug(fmt.Sprintf("Starting username and password combinations (Total users: %d, Total passwords: %d)", totalUsers, totalPass))
 
 	tried := 0
 	total := totalUsers * totalPass
 
-	// 遍历所有用户名密码组合
+	// Iterate over all username and password combinations
 	for _, user := range Common.Userdict["ldap"] {
 		for _, pass := range Common.Passwords {
 			tried++
 			pass = strings.Replace(pass, "{user}", user, -1)
-			Common.LogDebug(fmt.Sprintf("[%d/%d] 尝试: %s:%s", tried, total, user, pass))
+			Common.LogDebug(fmt.Sprintf("[%d/%d] Trying: %s:%s", tried, total, user, pass))
 
-			// 重试循环
+			// Retry loop
 			for retryCount := 0; retryCount < maxRetries; retryCount++ {
 				if retryCount > 0 {
-					Common.LogDebug(fmt.Sprintf("第%d次重试: %s:%s", retryCount+1, user, pass))
+					Common.LogDebug(fmt.Sprintf("Retry %d: %s:%s", retryCount+1, user, pass))
 				}
 
 				done := make(chan struct {
@@ -80,7 +80,7 @@ func LDAPScan(info *Common.HostInfo) (tmperr error) {
 				case result := <-done:
 					err = result.err
 					if result.success && err == nil {
-						// 记录成功爆破的凭据
+						// Record successful brute force credentials
 						vulnResult := &Common.ScanResult{
 							Time:   time.Now(),
 							Type:   Common.VULN,
@@ -95,15 +95,15 @@ func LDAPScan(info *Common.HostInfo) (tmperr error) {
 							},
 						}
 						Common.SaveResult(vulnResult)
-						Common.LogSuccess(fmt.Sprintf("LDAP服务 %s 爆破成功 用户名: %v 密码: %v", target, user, pass))
+						Common.LogSuccess(fmt.Sprintf("LDAP service %s brute force successful Username: %v Password: %v", target, user, pass))
 						return nil
 					}
 				case <-time.After(time.Duration(Common.Timeout) * time.Second):
-					err = fmt.Errorf("连接超时")
+					err = fmt.Errorf("connection timeout")
 				}
 
 				if err != nil {
-					errlog := fmt.Sprintf("LDAP服务 %s 尝试失败 用户名: %v 密码: %v 错误: %v", target, user, pass, err)
+					errlog := fmt.Sprintf("LDAP service %s attempt failed Username: %v Password: %v Error: %v", target, user, pass, err)
 					Common.LogError(errlog)
 
 					if retryErr := Common.CheckErrs(err); retryErr != nil {
@@ -118,7 +118,7 @@ func LDAPScan(info *Common.HostInfo) (tmperr error) {
 		}
 	}
 
-	Common.LogDebug(fmt.Sprintf("扫描完成，共尝试 %d 个组合", tried))
+	Common.LogDebug(fmt.Sprintf("Scan complete, tried %d combinations", tried))
 	return tmperr
 }
 
@@ -126,17 +126,17 @@ func LDAPConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 	address := fmt.Sprintf("%s:%s", info.Host, info.Ports)
 	timeout := time.Duration(Common.Timeout) * time.Second
 
-	// 配置LDAP连接
+	// Configure LDAP connection
 	l, err := ldap.Dial("tcp", address)
 	if err != nil {
 		return false, err
 	}
 	defer l.Close()
 
-	// 设置超时
+	// Set timeout
 	l.SetTimeout(timeout)
 
-	// 尝试绑定
+	// Attempt to bind
 	if user != "" {
 		bindDN := fmt.Sprintf("cn=%s,dc=example,dc=com", user)
 		err = l.Bind(bindDN, pass)
@@ -148,7 +148,7 @@ func LDAPConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 		return false, err
 	}
 
-	// 尝试简单搜索以验证权限
+	// Attempt a simple search to verify permissions
 	searchRequest := ldap.NewSearchRequest(
 		"dc=example,dc=com",
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,

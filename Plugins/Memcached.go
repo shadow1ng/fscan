@@ -7,29 +7,29 @@ import (
 	"time"
 )
 
-// MemcachedScan 检测Memcached未授权访问
+// MemcachedScan checks for unauthorized access to Memcached
 func MemcachedScan(info *Common.HostInfo) error {
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	timeout := time.Duration(Common.Timeout) * time.Second
 
-	// 建立TCP连接
+	// Establish TCP connection
 	client, err := Common.WrapperTcpWithTimeout("tcp", realhost, timeout)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	// 设置超时时间
+	// Set timeout
 	if err := client.SetDeadline(time.Now().Add(timeout)); err != nil {
 		return err
 	}
 
-	// 发送stats命令
+	// Send stats command
 	if _, err := client.Write([]byte("stats\n")); err != nil {
 		return err
 	}
 
-	// 读取响应
+	// Read response
 	rev := make([]byte, 1024)
 	n, err := client.Read(rev)
 	if err != nil {
@@ -37,9 +37,9 @@ func MemcachedScan(info *Common.HostInfo) error {
 		return err
 	}
 
-	// 检查响应内容
+	// Check response content
 	if strings.Contains(string(rev[:n]), "STAT") {
-		// 保存结果
+		// Save result
 		result := &Common.ScanResult{
 			Time:   time.Now(),
 			Type:   Common.VULN,
@@ -53,7 +53,7 @@ func MemcachedScan(info *Common.HostInfo) error {
 			},
 		}
 		Common.SaveResult(result)
-		Common.LogSuccess(fmt.Sprintf("Memcached %s 未授权访问", realhost))
+		Common.LogSuccess(fmt.Sprintf("Memcached %s unauthorized access", realhost))
 	}
 
 	return nil
