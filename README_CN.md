@@ -334,5 +334,3 @@ https://github.com/jjf012/gopoc
 - **2020/11/15**: 支持文件导入IP
 
 _感谢所有为项目做出贡献的开发者_
-
-[url-docen]: README_EN.md

