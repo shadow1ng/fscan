@@ -10,30 +10,30 @@ import (
 	"net"
 )
 
-// ReadBytes 从连接读取数据直到EOF或错误
+// ReadBytes reads data from the connection until EOF or error
 func ReadBytes(conn net.Conn) ([]byte, error) {
-	size := 4096 // 缓冲区大小
+	size := 4096 // Buffer size
 	buf := make([]byte, size)
 	var result []byte
 	var lastErr error
 
-	// 循环读取数据
+	// Loop to read data
 	for {
 		count, err := conn.Read(buf)
-		if err != nil {
+		if (err != nil) {
 			lastErr = err
 			break
 		}
 
 		result = append(result, buf[0:count]...)
 
-		// 如果读取的数据小于缓冲区,说明已经读完
+		// If the read data is less than the buffer size, it means it has been read completely
 		if count < size {
 			break
 		}
 	}
 
-	// 如果读到了数据,则忽略错误
+	// If data is read, ignore the error
 	if len(result) > 0 {
 		return result, nil
 	}
@@ -41,86 +41,86 @@ func ReadBytes(conn net.Conn) ([]byte, error) {
 	return result, lastErr
 }
 
-// 默认AES加密密钥
+// Default AES encryption key
 var key = "0123456789abcdef"
 
-// AesEncrypt 使用AES-CBC模式加密字符串
+// AesEncrypt encrypts a string using AES-CBC mode
 func AesEncrypt(orig string, key string) (string, error) {
-	// 转为字节数组
+	// Convert to byte array
 	origData := []byte(orig)
 	keyBytes := []byte(key)
 
-	// 创建加密块,要求密钥长度必须为16/24/32字节
+	// Create encryption block, the key length must be 16/24/32 bytes
 	block, err := aes.NewCipher(keyBytes)
 	if err != nil {
-		return "", fmt.Errorf("创建加密块失败: %v", err)
+		return "", fmt.Errorf("Failed to create encryption block: %v", err)
 	}
 
-	// 获取块大小并填充数据
+	// Get block size and pad data
 	blockSize := block.BlockSize()
 	origData = PKCS7Padding(origData, blockSize)
 
-	// 创建CBC加密模式
+	// Create CBC encryption mode
 	blockMode := cipher.NewCBCEncrypter(block, keyBytes[:blockSize])
 
-	// 加密数据
+	// Encrypt data
 	encrypted := make([]byte, len(origData))
 	blockMode.CryptBlocks(encrypted, origData)
 
-	// base64编码
+	// Base64 encode
 	return base64.StdEncoding.EncodeToString(encrypted), nil
 }
 
-// AesDecrypt 使用AES-CBC模式解密字符串
+// AesDecrypt decrypts a string using AES-CBC mode
 func AesDecrypt(crypted string, key string) (string, error) {
-	// base64解码
+	// Base64 decode
 	cryptedBytes, err := base64.StdEncoding.DecodeString(crypted)
 	if err != nil {
-		return "", fmt.Errorf("base64解码失败: %v", err)
+		return "", fmt.Errorf("Failed to base64 decode: %v", err)
 	}
 
 	keyBytes := []byte(key)
 
-	// 创建解密块
+	// Create decryption block
 	block, err := aes.NewCipher(keyBytes)
 	if err != nil {
-		return "", fmt.Errorf("创建解密块失败: %v", err)
+		return "", fmt.Errorf("Failed to create decryption block: %v", err)
 	}
 
-	// 创建CBC解密模式
+	// Create CBC decryption mode
 	blockSize := block.BlockSize()
 	blockMode := cipher.NewCBCDecrypter(block, keyBytes[:blockSize])
 
-	// 解密数据
+	// Decrypt data
 	origData := make([]byte, len(cryptedBytes))
 	blockMode.CryptBlocks(origData, cryptedBytes)
 
-	// 去除填充
+	// Remove padding
 	origData, err = PKCS7UnPadding(origData)
 	if err != nil {
-		return "", fmt.Errorf("去除PKCS7填充失败: %v", err)
+		return "", fmt.Errorf("Failed to remove PKCS7 padding: %v", err)
 	}
 
 	return string(origData), nil
 }
 
-// PKCS7Padding 对数据进行PKCS7填充
+// PKCS7Padding pads data using PKCS7
 func PKCS7Padding(data []byte, blockSize int) []byte {
 	padding := blockSize - len(data)%blockSize
 	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
 	return append(data, padtext...)
 }
 
-// PKCS7UnPadding 去除PKCS7填充
+// PKCS7UnPadding removes PKCS7 padding
 func PKCS7UnPadding(data []byte) ([]byte, error) {
 	length := len(data)
 	if length == 0 {
-		return nil, errors.New("数据长度为0")
+		return nil, errors.New("Data length is 0")
 	}
 
 	padding := int(data[length-1])
 	if padding > length {
-		return nil, errors.New("填充长度无效")
+		return nil, errors.New("Invalid padding length")
 	}
 
 	return data[:length-padding], nil

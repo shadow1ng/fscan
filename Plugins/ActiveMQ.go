@@ -16,21 +16,21 @@ func ActiveMQScan(info *Common.HostInfo) (tmperr error) {
 	maxRetries := Common.MaxRetries
 	target := fmt.Sprintf("%v:%v", info.Host, info.Ports)
 
-	Common.LogDebug(fmt.Sprintf("开始扫描 %s", target))
-	Common.LogDebug("尝试默认账户 admin:admin")
+	Common.LogDebug(fmt.Sprintf("Starting scan %s", target))
+	Common.LogDebug("Trying default account admin:admin")
 
-	// 首先测试默认账户
+	// First test the default account
 	for retryCount := 0; retryCount < maxRetries; retryCount++ {
 		if retryCount > 0 {
-			Common.LogDebug(fmt.Sprintf("第%d次重试默认账户", retryCount+1))
+			Common.LogDebug(fmt.Sprintf("Retrying default account for the %d time", retryCount+1))
 		}
 
 		flag, err := ActiveMQConn(info, "admin", "admin")
 		if flag {
-			successMsg := fmt.Sprintf("ActiveMQ服务 %s 成功爆破 用户名: admin 密码: admin", target)
+			successMsg := fmt.Sprintf("ActiveMQ service %s successfully brute-forced Username: admin Password: admin", target)
 			Common.LogSuccess(successMsg)
 
-			// 保存结果
+			// Save result
 			result := &Common.ScanResult{
 				Time:   time.Now(),
 				Type:   Common.VULN,
@@ -48,7 +48,7 @@ func ActiveMQScan(info *Common.HostInfo) (tmperr error) {
 			return nil
 		}
 		if err != nil {
-			errMsg := fmt.Sprintf("ActiveMQ服务 %s 默认账户尝试失败: %v", target, err)
+			errMsg := fmt.Sprintf("ActiveMQ service %s default account attempt failed: %v", target, err)
 			Common.LogError(errMsg)
 
 			if retryErr := Common.CheckErrs(err); retryErr != nil {
@@ -63,22 +63,22 @@ func ActiveMQScan(info *Common.HostInfo) (tmperr error) {
 
 	totalUsers := len(Common.Userdict["activemq"])
 	totalPass := len(Common.Passwords)
-	Common.LogDebug(fmt.Sprintf("开始尝试用户名密码组合 (总用户数: %d, 总密码数: %d)", totalUsers, totalPass))
+	Common.LogDebug(fmt.Sprintf("Starting to try username and password combinations (Total users: %d, Total passwords: %d)", totalUsers, totalPass))
 
 	tried := 0
 	total := totalUsers * totalPass
 
-	// 遍历所有用户名密码组合
+	// Iterate over all username and password combinations
 	for _, user := range Common.Userdict["activemq"] {
 		for _, pass := range Common.Passwords {
 			tried++
 			pass = strings.Replace(pass, "{user}", user, -1)
-			Common.LogDebug(fmt.Sprintf("[%d/%d] 尝试: %s:%s", tried, total, user, pass))
+			Common.LogDebug(fmt.Sprintf("[%d/%d] Trying: %s:%s", tried, total, user, pass))
 
-			// 重试循环
+			// Retry loop
 			for retryCount := 0; retryCount < maxRetries; retryCount++ {
 				if retryCount > 0 {
-					Common.LogDebug(fmt.Sprintf("第%d次重试: %s:%s", retryCount+1, user, pass))
+					Common.LogDebug(fmt.Sprintf("Retrying for the %d time: %s:%s", retryCount+1, user, pass))
 				}
 
 				done := make(chan struct {
@@ -102,10 +102,10 @@ func ActiveMQScan(info *Common.HostInfo) (tmperr error) {
 				case result := <-done:
 					err = result.err
 					if result.success {
-						successMsg := fmt.Sprintf("ActiveMQ服务 %s 成功爆破 用户名: %v 密码: %v", target, user, pass)
+						successMsg := fmt.Sprintf("ActiveMQ service %s successfully brute-forced Username: %v Password: %v", target, user, pass)
 						Common.LogSuccess(successMsg)
 
-						// 保存结果
+						// Save result
 						vulnResult := &Common.ScanResult{
 							Time:   time.Now(),
 							Type:   Common.VULN,
@@ -123,11 +123,11 @@ func ActiveMQScan(info *Common.HostInfo) (tmperr error) {
 						return nil
 					}
 				case <-time.After(time.Duration(Common.Timeout) * time.Second):
-					err = fmt.Errorf("连接超时")
+					err = fmt.Errorf("connection timeout")
 				}
 
 				if err != nil {
-					errMsg := fmt.Sprintf("ActiveMQ服务 %s 尝试失败 用户名: %v 密码: %v 错误: %v", target, user, pass, err)
+					errMsg := fmt.Sprintf("ActiveMQ service %s attempt failed Username: %v Password: %v Error: %v", target, user, pass, err)
 					Common.LogError(errMsg)
 
 					if retryErr := Common.CheckErrs(err); retryErr != nil {
@@ -142,11 +142,11 @@ func ActiveMQScan(info *Common.HostInfo) (tmperr error) {
 		}
 	}
 
-	Common.LogDebug(fmt.Sprintf("扫描完成，共尝试 %d 个组合", tried))
+	Common.LogDebug(fmt.Sprintf("Scan completed, tried %d combinations", tried))
 	return tmperr
 }
 
-// ActiveMQConn 统一的连接测试函数
+// ActiveMQConn unified connection test function
 func ActiveMQConn(info *Common.HostInfo, user string, pass string) (bool, error) {
 	timeout := time.Duration(Common.Timeout) * time.Second
 	addr := fmt.Sprintf("%s:%s", info.Host, info.Ports)
@@ -157,16 +157,16 @@ func ActiveMQConn(info *Common.HostInfo, user string, pass string) (bool, error)
 	}
 	defer conn.Close()
 
-	// STOMP协议的CONNECT命令
+	// STOMP protocol CONNECT command
 	stompConnect := fmt.Sprintf("CONNECT\naccept-version:1.0,1.1,1.2\nhost:/\nlogin:%s\npasscode:%s\n\n\x00", user, pass)
 
-	// 发送认证请求
+	// Send authentication request
 	conn.SetWriteDeadline(time.Now().Add(timeout))
 	if _, err := conn.Write([]byte(stompConnect)); err != nil {
 		return false, err
 	}
 
-	// 读取响应
+	// Read response
 	conn.SetReadDeadline(time.Now().Add(timeout))
 	respBuf := make([]byte, 1024)
 	n, err := conn.Read(respBuf)
@@ -174,7 +174,7 @@ func ActiveMQConn(info *Common.HostInfo, user string, pass string) (bool, error)
 		return false, err
 	}
 
-	// 检查认证结果
+	// Check authentication result
 	response := string(respBuf[:n])
 
 	if strings.Contains(response, "CONNECTED") {
@@ -182,8 +182,8 @@ func ActiveMQConn(info *Common.HostInfo, user string, pass string) (bool, error)
 	}
 
 	if strings.Contains(response, "Authentication failed") || strings.Contains(response, "ERROR") {
-		return false, fmt.Errorf("认证失败")
+		return false, fmt.Errorf("authentication failed")
 	}
 
-	return false, fmt.Errorf("未知响应: %s", response)
+	return false, fmt.Errorf("unknown response: %s", response)
 }
