@@ -27,30 +27,30 @@ func FindnetScan(info *Common.HostInfo) error {
 	target := fmt.Sprintf("%s:%v", info.Host, 135)
 	conn, err := Common.WrapperTcpWithTimeout("tcp", target, time.Duration(Common.Timeout)*time.Second)
 	if err != nil {
-		return fmt.Errorf("连接RPC端口失败: %v", err)
+		return fmt.Errorf("Failed to connect to RPC port: %v", err)
 	}
 	defer conn.Close()
 
 	if err = conn.SetDeadline(time.Now().Add(time.Duration(Common.Timeout) * time.Second)); err != nil {
-		return fmt.Errorf("设置超时失败: %v", err)
+		return fmt.Errorf("Failed to set timeout: %v", err)
 	}
 
 	if _, err = conn.Write(bufferV1); err != nil {
-		return fmt.Errorf("发送RPC请求1失败: %v", err)
+		return fmt.Errorf("Failed to send RPC request 1: %v", err)
 	}
 
 	reply := make([]byte, 4096)
 	if _, err = conn.Read(reply); err != nil {
-		return fmt.Errorf("读取RPC响应1失败: %v", err)
+		return fmt.Errorf("Failed to read RPC response 1: %v", err)
 	}
 
 	if _, err = conn.Write(bufferV2); err != nil {
-		return fmt.Errorf("发送RPC请求2失败: %v", err)
+		return fmt.Errorf("Failed to send RPC request 2: %v", err)
 	}
 
 	n, err := conn.Read(reply)
 	if err != nil || n < 42 {
-		return fmt.Errorf("读取RPC响应2失败: %v", err)
+		return fmt.Errorf("Failed to read RPC response 2: %v", err)
 	}
 
 	text := reply[42:]
@@ -64,7 +64,7 @@ func FindnetScan(info *Common.HostInfo) error {
 	}
 
 	if !found {
-		return fmt.Errorf("未找到有效的响应标记")
+		return fmt.Errorf("No valid response marker found")
 	}
 
 	return read(text, info.Host)
@@ -104,17 +104,17 @@ func isValidHostname(name string) bool {
 }
 
 func isValidNetworkAddress(addr string) bool {
-	// 检查是否为IPv4或IPv6
+	// Check if it's an IPv4 or IPv6 address
 	if ip := net.ParseIP(addr); ip != nil {
 		return true
 	}
 
-	// 检查是否为有效主机名
+	// Check if it's a valid hostname
 	return isValidHostname(addr)
 }
 
 func cleanAndValidateAddress(data []byte) string {
-	// 转换为字符串并清理不可打印字符
+	// Convert to string and clean non-printable characters
 	addr := strings.Map(func(r rune) rune {
 		if unicode.IsPrint(r) {
 			return r
@@ -122,7 +122,7 @@ func cleanAndValidateAddress(data []byte) string {
 		return -1
 	}, string(data))
 
-	// 移除前后空白
+	// Trim leading and trailing whitespace
 	addr = strings.TrimSpace(addr)
 
 	if isValidNetworkAddress(addr) {
@@ -134,7 +134,7 @@ func cleanAndValidateAddress(data []byte) string {
 func read(text []byte, host string) error {
 	encodedStr := hex.EncodeToString(text)
 
-	// 解析主机名
+	// Parse hostname
 	var hostName string
 	for i := 0; i < len(encodedStr)-4; i += 4 {
 		if encodedStr[i:i+4] == "0000" {
@@ -148,16 +148,16 @@ func read(text []byte, host string) error {
 		name = ""
 	}
 
-	// 用于收集地址信息
+	// Collect address information
 	var ipv4Addrs []string
 	var ipv6Addrs []string
 	seenAddresses := make(map[string]bool)
 
-	// 解析网络信息
+	// Parse network information
 	netInfo := strings.Replace(encodedStr, "0700", "", -1)
 	segments := strings.Split(netInfo, "000000")
 
-	// 处理每个网络地址
+	// Process each network address
 	for _, segment := range segments {
 		if len(segment) == 0 {
 			continue
@@ -184,14 +184,14 @@ func read(text []byte, host string) error {
 		}
 	}
 
-	// 构建详细信息
+	// Build details
 	details := map[string]interface{}{
 		"hostname": name,
 		"ipv4":     ipv4Addrs,
 		"ipv6":     ipv6Addrs,
 	}
 
-	// 保存扫描结果
+	// Save scan result
 	result := &Common.ScanResult{
 		Time:    time.Now(),
 		Type:    Common.SERVICE,
@@ -201,24 +201,24 @@ func read(text []byte, host string) error {
 	}
 	Common.SaveResult(result)
 
-	// 构建控制台输出
+	// Build console output
 	var output strings.Builder
-	output.WriteString("NetInfo 扫描结果")
-	output.WriteString(fmt.Sprintf("\n目标主机: %s", host))
+	output.WriteString("NetInfo Scan Result")
+	output.WriteString(fmt.Sprintf("\nTarget Host: %s", host))
 	if name != "" {
-		output.WriteString(fmt.Sprintf("\n主机名: %s", name))
+		output.WriteString(fmt.Sprintf("\nHostname: %s", name))
 	}
-	output.WriteString("\n发现的网络接口:")
+	output.WriteString("\nDiscovered Network Interfaces:")
 
 	if len(ipv4Addrs) > 0 {
-		output.WriteString("\n   IPv4地址:")
+		output.WriteString("\n   IPv4 Addresses:")
 		for _, addr := range ipv4Addrs {
 			output.WriteString(fmt.Sprintf("\n      └─ %s", addr))
 		}
 	}
 
 	if len(ipv6Addrs) > 0 {
-		output.WriteString("\n   IPv6地址:")
+		output.WriteString("\n   IPv6 Addresses:")
 		for _, addr := range ipv6Addrs {
 			output.WriteString(fmt.Sprintf("\n      └─ %s", addr))
 		}

