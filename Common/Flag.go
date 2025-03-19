@@ -131,7 +131,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&LogLevel, "log", LogLevelSuccess, GetText("flag_log_level"))
 	flag.BoolVar(&ShowProgress, "pg", false, GetText("flag_show_progress"))
 
-	flag.StringVar(&Language, "lang", "zh", GetText("flag_language"))
+	flag.StringVar(&Language, "lang", "en", GetText("flag_language"))
 
 	flag.Parse()
 
