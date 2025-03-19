@@ -14,38 +14,38 @@ import (
 )
 
 var (
-	AliveHosts []string                    // 存活主机列表
-	ExistHosts = make(map[string]struct{}) // 已发现主机记录
-	livewg     sync.WaitGroup              // 存活检测等待组
+	AliveHosts []string                    // List of alive hosts
+	ExistHosts = make(map[string]struct{}) // Record of discovered hosts
+	livewg     sync.WaitGroup              // Wait group for live detection
 )
 
-// CheckLive 检测主机存活状态
+// CheckLive checks the live status of hosts
 func CheckLive(hostslist []string, Ping bool) []string {
-	// 创建主机通道
+	// Create host channel
 	chanHosts := make(chan string, len(hostslist))
 
-	// 处理存活主机
+	// Handle alive hosts
 	go handleAliveHosts(chanHosts, hostslist, Ping)
 
-	// 根据Ping参数选择检测方式
+	// Choose detection method based on Ping parameter
 	if Ping {
-		// 使用ping方式探测
+		// Use ping method
 		RunPing(hostslist, chanHosts)
 	} else {
 		probeWithICMP(hostslist, chanHosts)
 	}
 
-	// 等待所有检测完成
+	// Wait for all detections to complete
 	livewg.Wait()
 	close(chanHosts)
 
-	// 输出存活统计信息
+	// Print alive statistics
 	printAliveStats(hostslist)
 
 	return AliveHosts
 }
 
-// IsContain 检查切片中是否包含指定元素
+// IsContain checks if the slice contains the specified element
 func IsContain(items []string, item string) bool {
 	for _, eachItem := range items {
 		if eachItem == item {
@@ -61,7 +61,7 @@ func handleAliveHosts(chanHosts chan string, hostslist []string, isPing bool) {
 			ExistHosts[ip] = struct{}{}
 			AliveHosts = append(AliveHosts, ip)
 
-			// 使用Output系统保存存活主机信息
+			 // Use Output system to save alive host information
 			protocol := "ICMP"
 			if isPing {
 				protocol = "PING"
@@ -78,7 +78,7 @@ func handleAliveHosts(chanHosts chan string, hostslist []string, isPing bool) {
 			}
 			Common.SaveResult(result)
 
-			// 保留原有的控制台输出
+			 // Keep original console output
 			if !Common.Silent {
 				Common.LogSuccess(Common.GetText("target_alive", ip, protocol))
 			}
@@ -87,9 +87,9 @@ func handleAliveHosts(chanHosts chan string, hostslist []string, isPing bool) {
 	}
 }
 
-// probeWithICMP 使用ICMP方式探测
+// probeWithICMP probes using ICMP method
 func probeWithICMP(hostslist []string, chanHosts chan string) {
-	// 尝试监听本地ICMP
+	// Try to listen on local ICMP
 	conn, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
 	if err == nil {
 		RunIcmp1(hostslist, conn, chanHosts)
@@ -99,7 +99,7 @@ func probeWithICMP(hostslist []string, chanHosts chan string) {
 	Common.LogError(Common.GetText("icmp_listen_failed", err))
 	Common.LogInfo(Common.GetText("trying_no_listen_icmp"))
 
-	// 尝试无监听ICMP探测
+	// Try no-listen ICMP probe
 	conn2, err := net.DialTimeout("ip4:icmp", "127.0.0.1", 3*time.Second)
 	if err == nil {
 		defer conn2.Close()
@@ -111,22 +111,22 @@ func probeWithICMP(hostslist []string, chanHosts chan string) {
 	Common.LogInfo(Common.GetText("insufficient_privileges"))
 	Common.LogInfo(Common.GetText("switching_to_ping"))
 
-	// 降级使用ping探测
+	// Fallback to ping probe
 	RunPing(hostslist, chanHosts)
 }
 
-// printAliveStats 打印存活统计信息
+// printAliveStats prints alive statistics
 func printAliveStats(hostslist []string) {
-	// 大规模扫描时输出 /16 网段统计
-	if len(hostslist) > 1000 {
+	// Output /16 subnet statistics for large-scale scans
+	if (len(hostslist) > 1000) {
 		arrTop, arrLen := ArrayCountValueTop(AliveHosts, Common.LiveTop, true)
 		for i := 0; i < len(arrTop); i++ {
 			Common.LogSuccess(Common.GetText("subnet_16_alive", arrTop[i], arrLen[i]))
 		}
 	}
 
-	// 输出 /24 网段统计
-	if len(hostslist) > 256 {
+	// Output /24 subnet statistics
+	if (len(hostslist) > 256) {
 		arrTop, arrLen := ArrayCountValueTop(AliveHosts, Common.LiveTop, false)
 		for i := 0; i < len(arrTop); i++ {
 			Common.LogSuccess(Common.GetText("subnet_24_alive", arrTop[i], arrLen[i]))
@@ -134,17 +134,17 @@ func printAliveStats(hostslist []string) {
 	}
 }
 
-// RunIcmp1 使用ICMP批量探测主机存活(监听模式)
+// RunIcmp1 uses ICMP to probe host liveliness (listen mode)
 func RunIcmp1(hostslist []string, conn *icmp.PacketConn, chanHosts chan string) {
 	endflag := false
 
-	// 启动监听协程
+	// Start listening goroutine
 	go func() {
 		for {
 			if endflag {
 				return
 			}
-			// 接收ICMP响应
+			// Receive ICMP response
 			msg := make([]byte, 100)
 			_, sourceIP, _ := conn.ReadFrom(msg)
 			if sourceIP != nil {
@@ -154,22 +154,22 @@ func RunIcmp1(hostslist []string, conn *icmp.PacketConn, chanHosts chan string) 
 		}
 	}()
 
-	// 发送ICMP请求
+	// Send ICMP requests
 	for _, host := range hostslist {
 		dst, _ := net.ResolveIPAddr("ip", host)
 		IcmpByte := makemsg(host)
 		conn.WriteTo(IcmpByte, dst)
 	}
 
-	// 等待响应
+	// Wait for responses
 	start := time.Now()
 	for {
-		// 所有主机都已响应则退出
+		// Exit if all hosts have responded
 		if len(AliveHosts) == len(hostslist) {
 			break
 		}
 
-		// 根据主机数量设置超时时间
+		// Set timeout based on number of hosts
 		since := time.Since(start)
 		wait := time.Second * 6
 		if len(hostslist) <= 256 {
@@ -185,9 +185,9 @@ func RunIcmp1(hostslist []string, conn *icmp.PacketConn, chanHosts chan string) 
 	conn.Close()
 }
 
-// RunIcmp2 使用ICMP并发探测主机存活(无监听模式)
+// RunIcmp2 uses ICMP to probe host liveliness (no-listen mode)
 func RunIcmp2(hostslist []string, chanHosts chan string) {
-	// 控制并发数
+	// Control concurrency
 	num := 1000
 	if len(hostslist) < num {
 		num = len(hostslist)
@@ -196,7 +196,7 @@ func RunIcmp2(hostslist []string, chanHosts chan string) {
 	var wg sync.WaitGroup
 	limiter := make(chan struct{}, num)
 
-	// 并发探测
+	// Concurrent probing
 	for _, host := range hostslist {
 		wg.Add(1)
 		limiter <- struct{}{}
@@ -218,29 +218,29 @@ func RunIcmp2(hostslist []string, chanHosts chan string) {
 	close(limiter)
 }
 
-// icmpalive 检测主机ICMP是否存活
+// icmpalive checks if the host is alive using ICMP
 func icmpalive(host string) bool {
 	startTime := time.Now()
 
-	// 建立ICMP连接
+	// Establish ICMP connection
 	conn, err := net.DialTimeout("ip4:icmp", host, 6*time.Second)
 	if err != nil {
 		return false
 	}
 	defer conn.Close()
 
-	// 设置超时时间
+	// Set timeout
 	if err := conn.SetDeadline(startTime.Add(6 * time.Second)); err != nil {
 		return false
 	}
 
-	// 构造并发送ICMP请求
+	// Construct and send ICMP request
 	msg := makemsg(host)
 	if _, err := conn.Write(msg); err != nil {
 		return false
 	}
 
-	// 接收ICMP响应
+	// Receive ICMP response
 	receive := make([]byte, 60)
 	if _, err := conn.Read(receive); err != nil {
 		return false
@@ -249,13 +249,13 @@ func icmpalive(host string) bool {
 	return true
 }
 
-// RunPing 使用系统Ping命令并发探测主机存活
+// RunPing uses system ping command to probe host liveliness concurrently
 func RunPing(hostslist []string, chanHosts chan string) {
 	var wg sync.WaitGroup
-	// 限制并发数为50
+	// Limit concurrency to 50
 	limiter := make(chan struct{}, 50)
 
-	// 并发探测
+	// Concurrent probing
 	for _, host := range hostslist {
 		wg.Add(1)
 		limiter <- struct{}{}
@@ -276,9 +276,9 @@ func RunPing(hostslist []string, chanHosts chan string) {
 	wg.Wait()
 }
 
-// ExecCommandPing 执行系统Ping命令检测主机存活
+// ExecCommandPing executes system ping command to check host liveliness
 func ExecCommandPing(ip string) bool {
-	// 过滤黑名单字符
+	// Filter blacklist characters
 	forbiddenChars := []string{";", "&", "|", "`", "$", "\\", "'", "%", "\"", "\n"}
 	for _, char := range forbiddenChars {
 		if strings.Contains(ip, char) {
@@ -287,7 +287,7 @@ func ExecCommandPing(ip string) bool {
 	}
 
 	var command *exec.Cmd
-	// 根据操作系统选择不同的ping命令
+	// Choose different ping commands based on OS
 	switch runtime.GOOS {
 	case "windows":
 		command = exec.Command("cmd", "/c", "ping -n 1 -w 1 "+ip+" && echo true || echo false")
@@ -297,11 +297,11 @@ func ExecCommandPing(ip string) bool {
 		command = exec.Command("/bin/bash", "-c", "ping -c 1 -w 1 "+ip+" && echo true || echo false")
 	}
 
-	// 捕获命令输出
+	// Capture command output
 	var outinfo bytes.Buffer
 	command.Stdout = &outinfo
 
-	// 执行命令
+	// Execute command
 	if err := command.Start(); err != nil {
 		return false
 	}
@@ -310,76 +310,76 @@ func ExecCommandPing(ip string) bool {
 		return false
 	}
 
-	// 分析输出结果
+	// Analyze output result
 	output := outinfo.String()
 	return strings.Contains(output, "true") && strings.Count(output, ip) > 2
 }
 
-// makemsg 构造ICMP echo请求消息
+// makemsg constructs ICMP echo request message
 func makemsg(host string) []byte {
 	msg := make([]byte, 40)
 
-	// 获取标识符
+	// Get identifier
 	id0, id1 := genIdentifier(host)
 
-	// 设置ICMP头部
+	// Set ICMP header
 	msg[0] = 8                      // Type: Echo Request
 	msg[1] = 0                      // Code: 0
-	msg[2] = 0                      // Checksum高位(待计算)
-	msg[3] = 0                      // Checksum低位(待计算)
+	msg[2] = 0                      // Checksum high byte (to be calculated)
+	msg[3] = 0                      // Checksum low byte (to be calculated)
 	msg[4], msg[5] = id0, id1       // Identifier
 	msg[6], msg[7] = genSequence(1) // Sequence Number
 
-	// 计算校验和
+	// Calculate checksum
 	check := checkSum(msg[0:40])
-	msg[2] = byte(check >> 8)  // 设置校验和高位
-	msg[3] = byte(check & 255) // 设置校验和低位
+	msg[2] = byte(check >> 8)  // Set checksum high byte
+	msg[3] = byte(check & 255) // Set checksum low byte
 
 	return msg
 }
 
-// checkSum 计算ICMP校验和
+// checkSum calculates ICMP checksum
 func checkSum(msg []byte) uint16 {
 	sum := 0
 	length := len(msg)
 
-	// 按16位累加
+	// Accumulate in 16-bit units
 	for i := 0; i < length-1; i += 2 {
 		sum += int(msg[i])*256 + int(msg[i+1])
 	}
 
-	// 处理奇数长度情况
+	// Handle odd length case
 	if length%2 == 1 {
 		sum += int(msg[length-1]) * 256
 	}
 
-	// 将高16位加到低16位
+	// Add high 16 bits to low 16 bits
 	sum = (sum >> 16) + (sum & 0xffff)
 	sum = sum + (sum >> 16)
 
-	// 取反得到校验和
+	// Take one's complement to get checksum
 	return uint16(^sum)
 }
 
-// genSequence 生成ICMP序列号
+// genSequence generates ICMP sequence number
 func genSequence(v int16) (byte, byte) {
-	ret1 := byte(v >> 8)  // 高8位
-	ret2 := byte(v & 255) // 低8位
+	ret1 := byte(v >> 8)  // High 8 bits
+	ret2 := byte(v & 255) // Low 8 bits
 	return ret1, ret2
 }
 
-// genIdentifier 根据主机地址生成标识符
+// genIdentifier generates identifier based on host address
 func genIdentifier(host string) (byte, byte) {
-	return host[0], host[1] // 使用主机地址前两个字节
+	return host[0], host[1] // Use first two bytes of host address
 }
 
-// ArrayCountValueTop 统计IP地址段存活数量并返回TOP N结果
+// ArrayCountValueTop counts the number of alive IP segments and returns the top N results
 func ArrayCountValueTop(arrInit []string, length int, flag bool) (arrTop []string, arrLen []int) {
 	if len(arrInit) == 0 {
 		return
 	}
 
-	// 统计各网段出现次数
+	// Count occurrences of each segment
 	segmentCounts := make(map[string]int)
 	for _, ip := range arrInit {
 		segments := strings.Split(ip, ".")
@@ -387,29 +387,29 @@ func ArrayCountValueTop(arrInit []string, length int, flag bool) (arrTop []strin
 			continue
 		}
 
-		// 根据flag确定统计B段还是C段
+		// Determine whether to count B segment or C segment based on flag
 		var segment string
 		if flag {
-			segment = fmt.Sprintf("%s.%s", segments[0], segments[1]) // B段
+			segment = fmt.Sprintf("%s.%s", segments[0], segments[1]) // B segment
 		} else {
-			segment = fmt.Sprintf("%s.%s.%s", segments[0], segments[1], segments[2]) // C段
+			segment = fmt.Sprintf("%s.%s.%s", segments[0], segments[1], segments[2]) // C segment
 		}
 
 		segmentCounts[segment]++
 	}
 
-	// 创建副本用于排序
+	// Create a copy for sorting
 	sortMap := make(map[string]int)
 	for k, v := range segmentCounts {
 		sortMap[k] = v
 	}
 
-	// 获取TOP N结果
+	// Get top N results
 	for i := 0; i < length && len(sortMap) > 0; i++ {
 		maxSegment := ""
 		maxCount := 0
 
-		// 查找当前最大值
+		// Find current maximum value
 		for segment, count := range sortMap {
 			if count > maxCount {
 				maxCount = count
@@ -417,11 +417,11 @@ func ArrayCountValueTop(arrInit []string, length int, flag bool) (arrTop []strin
 			}
 		}
 
-		// 添加到结果集
+		// Add to result set
 		arrTop = append(arrTop, maxSegment)
 		arrLen = append(arrLen, maxCount)
 
-		// 从待处理map中删除已处理项
+		// Remove processed item from map
 		delete(sortMap, maxSegment)
 	}
 

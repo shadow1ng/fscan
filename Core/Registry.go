@@ -5,11 +5,11 @@ import (
 	"github.com/shadow1ng/fscan/Plugins"
 )
 
-// init 初始化并注册所有扫描插件
-// 包括标准端口服务扫描、特殊扫描类型和本地信息收集等
+// init initializes and registers all scan plugins
+// including standard port service scans, special scan types, and local information collection
 func init() {
-	// 1. 标准网络服务扫描插件
-	// 文件传输和远程访问服务
+	// 1. Standard network service scan plugins
+	// File transfer and remote access services
 	Common.RegisterPlugin("ftp", Common.ScanPlugin{
 		Name:     "FTP",
 		Ports:    []int{21},
@@ -28,7 +28,7 @@ func init() {
 		ScanFunc: Plugins.TelnetScan,
 	})
 
-	// Windows网络服务
+	// Windows network services
 	Common.RegisterPlugin("findnet", Common.ScanPlugin{
 		Name:     "FindNet",
 		Ports:    []int{135},
@@ -47,7 +47,7 @@ func init() {
 		ScanFunc: Plugins.SmbScan,
 	})
 
-	// 数据库服务
+	// Database services
 	Common.RegisterPlugin("mssql", Common.ScanPlugin{
 		Name:     "MSSQL",
 		Ports:    []int{1433, 1434},
@@ -66,7 +66,7 @@ func init() {
 		ScanFunc: Plugins.MysqlScan,
 	})
 
-	// 中间件和消息队列服务
+	// Middleware and message queue services
 	Common.RegisterPlugin("elasticsearch", Common.ScanPlugin{
 		Name:     "Elasticsearch",
 		Ports:    []int{9200, 9300},
@@ -91,14 +91,14 @@ func init() {
 		ScanFunc: Plugins.ActiveMQScan,
 	})
 
-	// 目录和认证服务
+	// Directory and authentication services
 	Common.RegisterPlugin("ldap", Common.ScanPlugin{
 		Name:     "LDAP",
 		Ports:    []int{389, 636},
 		ScanFunc: Plugins.LDAPScan,
 	})
 
-	// 邮件服务
+	// Mail services
 	Common.RegisterPlugin("smtp", Common.ScanPlugin{
 		Name:     "SMTP",
 		Ports:    []int{25, 465, 587},
@@ -117,7 +117,7 @@ func init() {
 		ScanFunc: Plugins.POP3Scan,
 	})
 
-	// 网络管理和监控服务
+	// Network management and monitoring services
 	Common.RegisterPlugin("snmp", Common.ScanPlugin{
 		Name:     "SNMP",
 		Ports:    []int{161, 162},
@@ -130,14 +130,14 @@ func init() {
 		ScanFunc: Plugins.ModbusScan,
 	})
 
-	// 数据同步和备份服务
+	// Data synchronization and backup services
 	Common.RegisterPlugin("rsync", Common.ScanPlugin{
 		Name:     "Rsync",
 		Ports:    []int{873},
 		ScanFunc: Plugins.RsyncScan,
 	})
 
-	// NoSQL数据库
+	// NoSQL databases
 	Common.RegisterPlugin("cassandra", Common.ScanPlugin{
 		Name:     "Cassandra",
 		Ports:    []int{9042},
@@ -150,7 +150,7 @@ func init() {
 		ScanFunc: Plugins.Neo4jScan,
 	})
 
-	// 远程桌面和显示服务
+	// Remote desktop and display services
 	Common.RegisterPlugin("rdp", Common.ScanPlugin{
 		Name:     "RDP",
 		Ports:    []int{3389, 13389, 33389},
@@ -169,7 +169,7 @@ func init() {
 		ScanFunc: Plugins.VncScan,
 	})
 
-	// 缓存和键值存储服务
+	// Cache and key-value storage services
 	Common.RegisterPlugin("redis", Common.ScanPlugin{
 		Name:     "Redis",
 		Ports:    []int{6379, 6380, 16379},
@@ -194,7 +194,7 @@ func init() {
 		ScanFunc: Plugins.MongodbScan,
 	})
 
-	// 2. 特殊漏洞扫描插件
+	// 2. Special vulnerability scan plugins
 	Common.RegisterPlugin("ms17010", Common.ScanPlugin{
 		Name:     "MS17010",
 		Ports:    []int{445},
@@ -207,7 +207,7 @@ func init() {
 		ScanFunc: Plugins.SmbGhost,
 	})
 
-	// 3. Web应用扫描插件
+	// 3. Web application scan plugins
 	Common.RegisterPlugin("webtitle", Common.ScanPlugin{
 		Name:     "WebTitle",
 		Ports:    Common.ParsePortsFromString(Common.WebPorts),
@@ -220,7 +220,7 @@ func init() {
 		ScanFunc: Plugins.WebPoc,
 	})
 
-	// 4. Windows系统专用插件
+	// 4. Windows system specific plugins
 	Common.RegisterPlugin("smb2", Common.ScanPlugin{
 		Name:     "SMBScan2",
 		Ports:    []int{445},
@@ -233,7 +233,7 @@ func init() {
 		ScanFunc: Plugins.WmiExec,
 	})
 
-	// 5. 本地信息收集插件
+	// 5. Local information collection plugins
 	Common.RegisterPlugin("localinfo", Common.ScanPlugin{
 		Name:     "LocalInfo",
 		Ports:    []int{},

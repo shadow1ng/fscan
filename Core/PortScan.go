@@ -10,47 +10,47 @@ import (
 	"time"
 )
 
-// Addr 表示待扫描的地址
+// Addr represents the address to be scanned
 type Addr struct {
-	ip   string // IP地址
-	port int    // 端口号
+	ip   string // IP address
+	port int    // Port number
 }
 
-// ScanResult 扫描结果
+// ScanResult scanning result
 type ScanResult struct {
-	Address string       // IP地址
-	Port    int         // 端口号
-	Service *ServiceInfo // 服务信息
+	Address string       // IP address
+	Port    int          // Port number
+	Service *ServiceInfo // Service information
 }
 
-// PortScan 执行端口扫描
-// hostslist: 待扫描的主机列表
-// ports: 待扫描的端口范围
-// timeout: 超时时间(秒)
-// 返回活跃地址列表
+// PortScan executes port scanning
+// hostslist: List of hosts to be scanned
+// ports: Port range to be scanned
+// timeout: Timeout in seconds
+// Returns list of active addresses
 func PortScan(hostslist []string, ports string, timeout int64) []string {
 	var results []ScanResult
 	var aliveAddrs []string
 	var mu sync.Mutex
 
-	// 解析并验证端口列表
+	// Parse and validate port list
 	probePorts := Common.ParsePort(ports)
 	if len(probePorts) == 0 {
-		Common.LogError(fmt.Sprintf("端口格式错误: %s", ports))
+		Common.LogError(fmt.Sprintf("Invalid port format: %s", ports))
 		return aliveAddrs
 	}
 
-	// 排除指定端口
+	// Exclude specified ports
 	probePorts = excludeNoPorts(probePorts)
 
-	// 初始化并发控制
+	// Initialize concurrency control
 	workers := Common.ThreadNum
-	addrs := make(chan Addr, 100)      // 待扫描地址通道
-	scanResults := make(chan ScanResult, 100) // 扫描结果通道
+	addrs := make(chan Addr, 100)           // Channel for addresses to be scanned
+	scanResults := make(chan ScanResult, 100) // Channel for scan results
 	var wg sync.WaitGroup
 	var workerWg sync.WaitGroup
 
-	// 启动扫描工作协程
+	// Start scanning worker goroutines
 	for i := 0; i < workers; i++ {
 		workerWg.Add(1)
 		go func() {
@@ -61,7 +61,7 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 		}()
 	}
 
-	// 启动结果处理协程
+	// Start result processing goroutine
 	var resultWg sync.WaitGroup
 	resultWg.Add(1)
 	go func() {
@@ -75,7 +75,7 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 		}
 	}()
 
-	// 分发扫描任务
+	// Distribute scanning tasks
 	for _, port := range probePorts {
 		for _, host := range hostslist {
 			wg.Add(1)
@@ -83,7 +83,7 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 		}
 	}
 
-	// 等待所有任务完成
+	// Wait for all tasks to complete
 	close(addrs)
 	workerWg.Wait()
 	wg.Wait()
@@ -93,11 +93,11 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 	return aliveAddrs
 }
 
-// PortConnect 执行单个端口连接检测
-// addr: 待检测的地址
-// results: 结果通道
-// timeout: 超时时间
-// wg: 等待组
+// PortConnect performs connection detection for a single port
+// addr: Address to be detected
+// results: Results channel
+// timeout: Timeout duration
+// wg: Wait group
 func PortConnect(addr Addr, results chan<- ScanResult, timeout int64, wg *sync.WaitGroup) {
 	defer wg.Done()
 
@@ -105,7 +105,7 @@ func PortConnect(addr Addr, results chan<- ScanResult, timeout int64, wg *sync.W
 	var err error
 	var conn net.Conn
 
-	// 尝试建立TCP连接
+	// Try to establish TCP connection
 	conn, err = Common.WrapperTcpWithTimeout("tcp4",
 		fmt.Sprintf("%s:%v", addr.ip, addr.port),
 		time.Duration(timeout)*time.Second)
@@ -118,11 +118,11 @@ func PortConnect(addr Addr, results chan<- ScanResult, timeout int64, wg *sync.W
 		return
 	}
 
-	// 记录开放端口
+	// Record open port
 	address := fmt.Sprintf("%s:%d", addr.ip, addr.port)
-	Common.LogSuccess(fmt.Sprintf("端口开放 %s", address))
+	Common.LogSuccess(fmt.Sprintf("Port open %s", address))
 
-	// 保存端口扫描结果
+	// Save port scan result
 	portResult := &Common.ScanResult{
 		Time:   time.Now(),
 		Type:   Common.PORT,
@@ -134,66 +134,66 @@ func PortConnect(addr Addr, results chan<- ScanResult, timeout int64, wg *sync.W
 	}
 	Common.SaveResult(portResult)
 
-	// 构造扫描结果
+	// Construct scan result
 	result := ScanResult{
 		Address: addr.ip,
 		Port:    addr.port,
 	}
 
-	// 执行服务识别
+	// Perform service identification
 	if !Common.SkipFingerprint && conn != nil {
 		scanner := NewPortInfoScanner(addr.ip, addr.port, conn, time.Duration(timeout)*time.Second)
 		if serviceInfo, err := scanner.Identify(); err == nil {
 			result.Service = serviceInfo
 
-			// 构造服务识别日志
+			// Construct service identification log
 			var logMsg strings.Builder
-			logMsg.WriteString(fmt.Sprintf("服务识别 %s => ", address))
+			logMsg.WriteString(fmt.Sprintf("Service identification %s => ", address))
 
 			if serviceInfo.Name != "unknown" {
 				logMsg.WriteString(fmt.Sprintf("[%s]", serviceInfo.Name))
 			}
 
 			if serviceInfo.Version != "" {
-				logMsg.WriteString(fmt.Sprintf(" 版本:%s", serviceInfo.Version))
+				logMsg.WriteString(fmt.Sprintf(" Version:%s", serviceInfo.Version))
 			}
 
-			// 收集服务详细信息
+			// Collect service details
 			details := map[string]interface{}{
 				"port":    addr.port,
 				"service": serviceInfo.Name,
 			}
 
-			// 添加版本信息
+			// Add version information
 			if serviceInfo.Version != "" {
 				details["version"] = serviceInfo.Version
 			}
 
-			// 添加产品信息
+			// Add product information
 			if v, ok := serviceInfo.Extras["vendor_product"]; ok && v != "" {
 				details["product"] = v
-				logMsg.WriteString(fmt.Sprintf(" 产品:%s", v))
+				logMsg.WriteString(fmt.Sprintf(" Product:%s", v))
 			}
 
-			// 添加操作系统信息
+			// Add operating system information
 			if v, ok := serviceInfo.Extras["os"]; ok && v != "" {
 				details["os"] = v
-				logMsg.WriteString(fmt.Sprintf(" 系统:%s", v))
+				logMsg.WriteString(fmt.Sprintf(" OS:%s", v))
 			}
 
-			// 添加额外信息
+			// Add additional information
 			if v, ok := serviceInfo.Extras["info"]; ok && v != "" {
 				details["info"] = v
-				logMsg.WriteString(fmt.Sprintf(" 信息:%s", v))
+				logMsg.WriteString(fmt.Sprintf(" Info:%s", v))
 			}
 
-			// 添加Banner信息
+			// Add Banner information
 			if len(serviceInfo.Banner) > 0 && len(serviceInfo.Banner) < 100 {
 				details["banner"] = strings.TrimSpace(serviceInfo.Banner)
 				logMsg.WriteString(fmt.Sprintf(" Banner:[%s]", strings.TrimSpace(serviceInfo.Banner)))
 			}
 
-			// 保存服务识别结果
+			// Save service identification result
 			serviceResult := &Common.ScanResult{
 				Time:    time.Now(),
 				Type:    Common.SERVICE,
@@ -210,17 +210,17 @@ func PortConnect(addr Addr, results chan<- ScanResult, timeout int64, wg *sync.W
 	results <- result
 }
 
-// NoPortScan 生成端口列表(不进行扫描)
-// hostslist: 主机列表
-// ports: 端口范围
-// 返回地址列表
+// NoPortScan generates a port list (without scanning)
+// hostslist: Host list
+// ports: Port range
+// Returns address list
 func NoPortScan(hostslist []string, ports string) []string {
 	var AliveAddress []string
 
-	// 解析并排除端口
+	// Parse and exclude ports
 	probePorts := excludeNoPorts(Common.ParsePort(ports))
 
-	// 生成地址列表
+	// Generate address list
 	for _, port := range probePorts {
 		for _, host := range hostslist {
 			address := fmt.Sprintf("%s:%d", host, port)
@@ -231,27 +231,27 @@ func NoPortScan(hostslist []string, ports string) []string {
 	return AliveAddress
 }
 
-// excludeNoPorts 排除指定的端口
-// ports: 原始端口列表
-// 返回过滤后的端口列表
+// excludeNoPorts excludes specified ports
+// ports: Original port list
+// Returns filtered port list
 func excludeNoPorts(ports []int) []int {
 	noPorts := Common.ParsePort(Common.ExcludePorts)
 	if len(noPorts) == 0 {
 		return ports
 	}
 
-	// 使用map过滤端口
+	// Use map to filter ports
 	temp := make(map[int]struct{})
 	for _, port := range ports {
 		temp[port] = struct{}{}
 	}
 
-	// 移除需要排除的端口
+	// Remove ports to be excluded
 	for _, port := range noPorts {
 		delete(temp, port)
 	}
 
-	// 转换为有序切片
+	// Convert to ordered slice
 	var newPorts []int
 	for port := range temp {
 		newPorts = append(newPorts, port)
