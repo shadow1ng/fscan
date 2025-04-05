@@ -2,9 +2,11 @@ package Plugins
 
 import (
 	"compress/gzip"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -368,58 +370,144 @@ func gettitle(body []byte) (title string) {
 // GetProtocol 检测目标主机的协议类型(HTTP/HTTPS)
 func GetProtocol(host string, Timeout int64) (protocol string) {
 	Common.LogDebug(fmt.Sprintf("开始检测主机协议 - 主机: %s, 超时: %d秒", host, Timeout))
-	protocol = "http"
+	protocol = "http" // 默认协议
 
-	// 根据标准端口快速判断协议
-	if strings.HasSuffix(host, ":80") || !strings.Contains(host, ":") {
-		Common.LogDebug("检测到HTTP标准端口或无端口，使用HTTP协议")
+	timeoutDuration := time.Duration(Timeout) * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
+	defer cancel()
+
+	// 1. 根据标准端口快速判断协议
+	if strings.HasSuffix(host, ":80") {
+		Common.LogDebug("检测到标准HTTP端口，使用HTTP协议")
 		return
 	} else if strings.HasSuffix(host, ":443") {
-		Common.LogDebug("检测到HTTPS标准端口，使用HTTPS协议")
-		protocol = "https"
-		return
+		Common.LogDebug("检测到标准HTTPS端口，使用HTTPS协议")
+		return "https"
 	}
 
-	// 尝试建立TCP连接
-	Common.LogDebug("尝试建立TCP连接")
-	socksconn, err := Common.WrapperTcpWithTimeout("tcp", host, time.Duration(Timeout)*time.Second)
-	if err != nil {
-		Common.LogDebug(fmt.Sprintf("TCP连接失败: %v", err))
-		return
-	}
+	// 2. 并发检测HTTP和HTTPS
+	resultChan := make(chan string, 2)
 
-	// 尝试TLS握手
-	Common.LogDebug("开始TLS握手")
-	conn := tls.Client(socksconn, &tls.Config{
-		MinVersion:         tls.VersionTLS10,
-		InsecureSkipVerify: true,
-	})
-
-	// 确保连接关闭
-	defer func() {
-		if conn != nil {
-			defer func() {
-				if err := recover(); err != nil {
-					Common.LogError(fmt.Sprintf("连接关闭时发生错误: %v", err))
-				}
-			}()
-			Common.LogDebug("关闭连接")
-			conn.Close()
+	// 检测HTTPS
+	go func() {
+		tlsConfig := &tls.Config{
+			InsecureSkipVerify: true,
+			MinVersion:         tls.VersionTLS10,
 		}
+
+		dialer := &net.Dialer{
+			Timeout: timeoutDuration / 2, // 缩短单次尝试的超时时间
+		}
+
+		conn, err := tls.DialWithDialer(dialer, "tcp", host, tlsConfig)
+		if err == nil {
+			Common.LogDebug("HTTPS连接成功")
+			conn.Close()
+			resultChan <- "https"
+			return
+		}
+
+		// 分析TLS错误
+		if err != nil {
+			errMsg := strings.ToLower(err.Error())
+			// 这些错误可能表明服务器确实支持TLS，但有其他问题
+			if strings.Contains(errMsg, "handshake failure") ||
+				strings.Contains(errMsg, "certificate") ||
+				strings.Contains(errMsg, "tls") ||
+				strings.Contains(errMsg, "x509") ||
+				strings.Contains(errMsg, "secure") {
+				Common.LogDebug(fmt.Sprintf("TLS握手有错误但可能是HTTPS协议: %v", err))
+				resultChan <- "https"
+				return
+			}
+		}
+		resultChan <- ""
 	}()
 
-	// 设置连接超时
-	conn.SetDeadline(time.Now().Add(time.Duration(Timeout) * time.Second))
+	// 检测HTTP
+	go func() {
+		req, err := http.NewRequestWithContext(ctx, "HEAD", fmt.Sprintf("http://%s", host), nil)
+		if err != nil {
+			resultChan <- ""
+			return
+		}
 
-	// 执行TLS握手
-	err = conn.Handshake()
-	if err == nil || strings.Contains(err.Error(), "handshake failure") {
-		Common.LogDebug("TLS握手成功或握手失败但确认是HTTPS协议")
-		protocol = "https"
-	} else {
-		Common.LogDebug(fmt.Sprintf("TLS握手失败: %v，使用HTTP协议", err))
+		client := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+				DialContext: (&net.Dialer{
+					Timeout: timeoutDuration / 2,
+				}).DialContext,
+			},
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse // 不跟随重定向
+			},
+			Timeout: timeoutDuration / 2,
+		}
+
+		resp, err := client.Do(req)
+		if err == nil {
+			resp.Body.Close()
+			Common.LogDebug(fmt.Sprintf("HTTP连接成功，状态码: %d", resp.StatusCode))
+			resultChan <- "http"
+			return
+		}
+
+		// 尝试原始TCP连接和简单HTTP请求
+		netConn, err := net.DialTimeout("tcp", host, timeoutDuration/2)
+		if err == nil {
+			defer netConn.Close()
+			netConn.SetDeadline(time.Now().Add(timeoutDuration / 2))
+
+			// 发送简单HTTP请求
+			_, err = netConn.Write([]byte("HEAD / HTTP/1.0\r\nHost: " + host + "\r\n\r\n"))
+			if err == nil {
+				// 读取响应
+				buf := make([]byte, 1024)
+				netConn.SetDeadline(time.Now().Add(timeoutDuration / 2))
+				n, err := netConn.Read(buf)
+				if err == nil && n > 0 {
+					response := string(buf[:n])
+					if strings.Contains(response, "HTTP/") {
+						Common.LogDebug("通过原始TCP连接确认HTTP协议")
+						resultChan <- "http"
+						return
+					}
+				}
+			}
+		}
+
+		resultChan <- ""
+	}()
+
+	// 3. 收集结果并决定使用哪种协议
+	var httpsResult, httpResult string
+
+	// 等待两个goroutine返回结果或超时
+	for i := 0; i < 2; i++ {
+		select {
+		case result := <-resultChan:
+			if result == "https" {
+				httpsResult = result
+			} else if result == "http" {
+				httpResult = result
+			}
+		case <-ctx.Done():
+			Common.LogDebug("协议检测超时")
+			break
+		}
 	}
 
-	Common.LogDebug(fmt.Sprintf("协议检测完成，使用: %s", protocol))
-	return protocol
+	// 4. 决定使用哪种协议
+	if httpsResult == "https" {
+		Common.LogDebug("优先使用HTTPS协议")
+		return "https"
+	} else if httpResult == "http" {
+		Common.LogDebug("使用HTTP协议")
+		return "http"
+	}
+
+	// 5. 如果两种协议都无法确认，保持默认值
+	Common.LogDebug(fmt.Sprintf("无法确定协议，使用默认协议: %s", protocol))
+	return
 }
