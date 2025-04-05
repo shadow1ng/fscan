@@ -732,12 +732,12 @@ var i18nMap = map[string]map[string]string{
 		LangJA: "パラメータ -h、-u、-local は同時に使用できません",
 		LangRU: "Параметры -h, -u, -local нельзя использовать одновременно",
 	},
-	"brute_threads": {
-		LangZH: "暴力破解线程数: %d",
-		LangEN: "Brute force threads: %d",
-		LangJA: "ブルートフォーススレッド数: %d",
-		LangRU: "Потоков для брутфорса: %d",
-	},
+	//"brute_threads": {
+	//	LangZH: "暴力破解线程数: %d",
+	//	LangEN: "Brute force threads: %d",
+	//	LangJA: "ブルートフォーススレッド数: %d",
+	//	LangRU: "Потоков для брутфорса: %d",
+	//},
 	"extra_ports": {
 		LangZH: "额外端口: %s",
 		LangEN: "Extra ports: %s",

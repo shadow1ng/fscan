@@ -917,8 +917,8 @@ var (
 
 	// 爆破配置
 	DisableBrute bool // 原IsBrute
-	BruteThreads int  // 原BruteThread
-	MaxRetries   int  // 最大重试次数
+	//BruteThreads int  // 原BruteThread
+	MaxRetries int // 最大重试次数
 
 	// 其他配置
 	RemotePath string   // 原Path

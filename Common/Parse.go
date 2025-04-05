@@ -248,11 +248,11 @@ func ParseInput(Info *HostInfo) error {
 		return fmt.Errorf(GetText("params_conflict"))
 	}
 
-	// 处理爆破线程配置
-	if BruteThreads <= 0 {
-		BruteThreads = 1
-		LogInfo(GetText("brute_threads", BruteThreads))
-	}
+	//// 处理爆破线程配置
+	//if BruteThreads <= 0 {
+	//	BruteThreads = 1
+	//	LogInfo(GetText("brute_threads", BruteThreads))
+	//}
 
 	// 处理端口配置
 	if Ports == MainPorts {
