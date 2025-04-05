@@ -27,46 +27,69 @@ type Task struct {
 	Poc *Poc          // POC检测脚本
 }
 
+// VulnResult 漏洞结果结构体
+type VulnResult struct {
+	Poc     *Poc                   // POC脚本
+	VulName string                 // 漏洞名称
+	Target  string                 // 目标URL
+	Details map[string]interface{} // 详细信息
+}
+
 // CheckMultiPoc 并发执行多个POC检测
 // 参数说明:
 // - req: HTTP请求对象
 // - pocs: POC检测脚本列表
 // - workers: 并发工作协程数量
 func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int) {
+	// 确保至少有一个工作协程
 	if workers <= 0 {
-		workers = 1 // 确保至少有一个工作协程
+		workers = 1
 	}
 
+	// 创建任务通道，缓冲区大小为POC列表长度
 	tasks := make(chan Task, len(pocs))
 	var wg sync.WaitGroup
 
-	// 启动工作协程池
+	// 启动指定数量的工作协程池
 	for i := 0; i < workers; i++ {
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
+			// 从任务通道循环获取任务
 			for task := range tasks {
+				// 执行POC检测，返回是否存在漏洞、错误信息和漏洞名称
 				isVulnerable, err, vulName := executePoc(task.Req, task.Poc)
+
+				// 处理执行过程中的错误
 				if err != nil {
-					wg.Done()
+					Common.LogError(fmt.Sprintf("执行POC错误 %s: %v", task.Poc.Name, err))
 					continue
 				}
 
-				if isVulnerable {
-					// 构造详细信息
+				// 仅当通过普通POC规则(非clusterpoc)检测到漏洞时，才创建结果
+				// 因为clusterpoc已在内部处理了漏洞输出
+				if isVulnerable && vulName != "" {
+					// 构造漏洞详细信息
 					details := make(map[string]interface{})
 					details["vulnerability_type"] = task.Poc.Name
 					details["vulnerability_name"] = vulName
 
+					// 添加作者信息（如果有）
 					if task.Poc.Detail.Author != "" {
 						details["author"] = task.Poc.Detail.Author
 					}
+
+					// 添加参考链接（如果有）
 					if len(task.Poc.Detail.Links) != 0 {
 						details["references"] = task.Poc.Detail.Links
 					}
+
+					// 添加漏洞描述（如果有）
 					if task.Poc.Detail.Description != "" {
 						details["description"] = task.Poc.Detail.Description
 					}
 
-					// 保存漏洞结果
+					// 创建并保存扫描结果
 					result := &Common.ScanResult{
 						Time:    time.Now(),
 						Type:    Common.VULN,
@@ -76,41 +99,96 @@ func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int) {
 					}
 					Common.SaveResult(result)
 
-					// 控制台输出
+					// 构造控制台输出的日志信息
 					logMsg := fmt.Sprintf("目标: %s\n  漏洞类型: %s\n  漏洞名称: %s\n  详细信息:",
 						task.Req.URL,
 						task.Poc.Name,
 						vulName)
 
+					// 添加作者信息到日志
 					if task.Poc.Detail.Author != "" {
-						logMsg += "\n\tauthor:" + task.Poc.Detail.Author
-					}
-					if len(task.Poc.Detail.Links) != 0 {
-						logMsg += "\n\tlinks:" + strings.Join(task.Poc.Detail.Links, "\n")
-					}
-					if task.Poc.Detail.Description != "" {
-						logMsg += "\n\tdescription:" + task.Poc.Detail.Description
+						logMsg += "\n\t作者:" + task.Poc.Detail.Author
 					}
 
+					// 添加参考链接到日志
+					if len(task.Poc.Detail.Links) != 0 {
+						logMsg += "\n\t参考链接:" + strings.Join(task.Poc.Detail.Links, "\n")
+					}
+
+					// 添加描述信息到日志
+					if task.Poc.Detail.Description != "" {
+						logMsg += "\n\t描述:" + task.Poc.Detail.Description
+					}
+
+					// 输出成功日志
 					Common.LogSuccess(logMsg)
 				}
-				wg.Done()
 			}
 		}()
 	}
 
-	// 分发任务
+	// 分发所有POC任务到通道
 	for _, poc := range pocs {
-		wg.Add(1)
 		tasks <- Task{
 			Req: req,
 			Poc: poc,
 		}
 	}
 
-	// 等待所有任务完成
-	wg.Wait()
+	// 关闭任务通道
 	close(tasks)
+
+	// 等待所有POC检测任务完成
+	wg.Wait()
+}
+
+// createVulnDetails 创建漏洞详情信息
+func createVulnDetails(poc *Poc, vulName string) map[string]interface{} {
+	details := make(map[string]interface{})
+	details["vulnerability_type"] = poc.Name
+	details["vulnerability_name"] = vulName
+
+	// 添加作者信息（如果有）
+	if poc.Detail.Author != "" {
+		details["author"] = poc.Detail.Author
+	}
+
+	// 添加参考链接（如果有）
+	if len(poc.Detail.Links) != 0 {
+		details["references"] = poc.Detail.Links
+	}
+
+	// 添加漏洞描述（如果有）
+	if poc.Detail.Description != "" {
+		details["description"] = poc.Detail.Description
+	}
+
+	return details
+}
+
+// buildLogMessage 构建漏洞日志消息
+func buildLogMessage(result *VulnResult) string {
+	logMsg := fmt.Sprintf("目标: %s\n  漏洞类型: %s\n  漏洞名称: %s\n  详细信息:",
+		result.Target,
+		result.Poc.Name,
+		result.VulName)
+
+	// 添加作者信息到日志
+	if result.Poc.Detail.Author != "" {
+		logMsg += "\n\t作者:" + result.Poc.Detail.Author
+	}
+
+	// 添加参考链接到日志
+	if len(result.Poc.Detail.Links) != 0 {
+		logMsg += "\n\t参考链接:" + strings.Join(result.Poc.Detail.Links, "\n")
+	}
+
+	// 添加描述信息到日志
+	if result.Poc.Detail.Description != "" {
+		logMsg += "\n\t描述:" + result.Poc.Detail.Description
+	}
+
+	return logMsg
 }
 
 // executePoc 执行单个POC检测
@@ -170,8 +248,13 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 		return success, err, ""
 	}
 
+	return executeRules(oReq, p, variableMap, req, env)
+}
+
+// executeRules 执行POC规则并返回结果
+func executeRules(oReq *http.Request, p *Poc, variableMap map[string]interface{}, req *Request, env *cel.Env) (bool, error, string) {
 	// 处理单个规则的函数
-	DealWithRule := func(rule Rules) (bool, error) {
+	executeRule := func(rule Rules) (bool, error) {
 		Headers := cloneMap(rule.Headers)
 
 		// 替换变量
@@ -251,9 +334,9 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 	}
 
 	// 处理规则组的函数
-	DealWithRules := func(rules []Rules) bool {
+	executeRuleSet := func(rules []Rules) bool {
 		for _, rule := range rules {
-			flag, err := DealWithRule(rule)
+			flag, err := executeRule(rule)
 			if err != nil || !flag {
 				return false
 			}
@@ -264,17 +347,18 @@ func executePoc(oReq *http.Request, p *Poc) (bool, error, string) {
 	// 执行检测规则
 	success := false
 	if len(p.Rules) > 0 {
-		success = DealWithRules(p.Rules)
+		success = executeRuleSet(p.Rules)
+		return success, nil, ""
 	} else {
 		for _, item := range p.Groups {
 			name, rules := item.Key, item.Value
-			if success = DealWithRules(rules); success {
+			if success = executeRuleSet(rules); success {
 				return true, nil, name
 			}
 		}
 	}
 
-	return success, nil, ""
+	return false, nil, ""
 }
 
 // doSearch 在响应体中执行正则匹配并提取命名捕获组
@@ -377,6 +461,61 @@ func newReverse() *Reverse {
 func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, req *Request, env *cel.Env) (success bool, err error) {
 	var strMap StrMap     // 存储成功的参数组合
 	var shiroKeyCount int // shiro key测试计数
+
+	// 记录漏洞的辅助函数，统一保存结果和输出日志
+	recordVulnerability := func(targetURL string, params StrMap, skipSave bool) {
+		// 构造详细信息
+		details := make(map[string]interface{})
+		details["vulnerability_type"] = p.Name
+		details["vulnerability_name"] = p.Name // 使用POC名称作为漏洞名称
+
+		// 添加作者信息（如果有）
+		if p.Detail.Author != "" {
+			details["author"] = p.Detail.Author
+		}
+
+		// 添加参考链接（如果有）
+		if len(p.Detail.Links) != 0 {
+			details["references"] = p.Detail.Links
+		}
+
+		// 添加漏洞描述（如果有）
+		if p.Detail.Description != "" {
+			details["description"] = p.Detail.Description
+		}
+
+		// 添加参数信息（如果有）
+		if len(params) > 0 {
+			paramMap := make(map[string]string)
+			for _, item := range params {
+				paramMap[item.Key] = item.Value
+			}
+			details["parameters"] = paramMap
+		}
+
+		// 保存漏洞结果（除非明确指示跳过）
+		if !skipSave {
+			result := &Common.ScanResult{
+				Time:    time.Now(),
+				Type:    Common.VULN,
+				Target:  targetURL,
+				Status:  "vulnerable",
+				Details: details,
+			}
+			Common.SaveResult(result)
+		}
+
+		// 生成日志消息
+		var logMsg string
+		if p.Name == "poc-yaml-backup-file" || p.Name == "poc-yaml-sql-file" {
+			logMsg = fmt.Sprintf("检测到漏洞 %s %s", targetURL, p.Name)
+		} else {
+			logMsg = fmt.Sprintf("检测到漏洞 %s %s 参数:%v", targetURL, p.Name, params)
+		}
+
+		// 输出成功日志
+		Common.LogSuccess(logMsg)
+	}
 
 	// 遍历POC规则
 	for ruleIndex, rule := range p.Rules {
@@ -497,22 +636,20 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 			}
 
 			if success {
+				targetURL := fmt.Sprintf("%s://%s%s", req.Url.Scheme, req.Url.Host, req.Url.Path)
+
 				// 处理成功情况
 				if currentRule.Continue {
-					targetURL := fmt.Sprintf("%s://%s%s", req.Url.Scheme, req.Url.Host, req.Url.Path)
-					if p.Name == "poc-yaml-backup-file" || p.Name == "poc-yaml-sql-file" {
-						Common.LogSuccess(fmt.Sprintf("检测到漏洞 %s %s", targetURL, p.Name))
-					} else {
-						Common.LogSuccess(fmt.Sprintf("检测到漏洞 %s %s 参数:%v", targetURL, p.Name, currentParams))
-					}
+					// 使用Continue标志时，记录但继续测试其他参数
+					recordVulnerability(targetURL, currentParams, false)
 					continue
 				}
 
 				// 记录成功的参数组合
 				strMap = append(strMap, currentParams...)
 				if ruleIndex == len(p.Rules)-1 {
-					targetURL := fmt.Sprintf("%s://%s%s", req.Url.Scheme, req.Url.Host, req.Url.Path)
-					Common.LogSuccess(fmt.Sprintf("检测到漏洞 %s %s 参数:%v", targetURL, p.Name, strMap))
+					// 最终规则成功，记录完整的结果并返回
+					recordVulnerability(targetURL, strMap, false)
 					return false, nil
 				}
 				break paramLoop
@@ -698,11 +835,15 @@ func cloneRules(tags Rules) Rules {
 		FollowRedirects: tags.FollowRedirects,
 		Expression:      tags.Expression,
 		Headers:         cloneMap(tags.Headers),
+		Continue:        tags.Continue,
 	}
 }
 
 // cloneMap 深度复制字符串映射
 func cloneMap(tags map[string]string) map[string]string {
+	if tags == nil {
+		return nil
+	}
 	cloneTags := make(map[string]string, len(tags))
 	for key, value := range tags {
 		cloneTags[key] = value
