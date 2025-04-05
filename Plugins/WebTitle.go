@@ -228,6 +228,17 @@ func geturl(info *Common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 			serverInfo["redirect_url"] = reurl
 		}
 
+		// 处理指纹信息 - 添加调试日志
+		Common.LogDebug(fmt.Sprintf("保存结果前的指纹信息: %v", info.Infostr))
+
+		// 处理空指纹情况
+		fingerprints := info.Infostr
+		if len(fingerprints) == 1 && fingerprints[0] == "" {
+			// 如果是只包含空字符串的数组，替换为空数组
+			fingerprints = []string{}
+			Common.LogDebug("检测到空指纹，已转换为空数组")
+		}
+
 		// 保存扫描结果
 		result := &Common.ScanResult{
 			Time:   time.Now(),
@@ -242,16 +253,21 @@ func geturl(info *Common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 				"status_code":  resp.StatusCode,
 				"length":       length,
 				"server_info":  serverInfo,
-				"fingerprints": info.Infostr, // 指纹信息
+				"fingerprints": fingerprints, // 使用处理过的指纹信息
 			},
 		}
 		Common.SaveResult(result)
+		Common.LogDebug(fmt.Sprintf("已保存结果，指纹信息: %v", fingerprints))
 
 		// 输出控制台日志
 		logMsg := fmt.Sprintf("网站标题 %-25v 状态码:%-3v 长度:%-6v 标题:%v",
 			resp.Request.URL, resp.StatusCode, length, title)
 		if reurl != "" {
 			logMsg += fmt.Sprintf(" 重定向地址: %s", reurl)
+		}
+		// 添加指纹信息到控制台日志
+		if len(fingerprints) > 0 {
+			logMsg += fmt.Sprintf(" 指纹:%v", fingerprints)
 		}
 		Common.LogSuccess(logMsg)
 	}
