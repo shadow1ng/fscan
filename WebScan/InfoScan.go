@@ -63,7 +63,7 @@ func InfoCheck(Url string, CheckData *[]CheckDatas) []string {
 		return matchedInfos
 	}
 
-	return []string{""}
+	return []string{}
 }
 
 // CalcMd5 计算内容的MD5并与指纹库比对
