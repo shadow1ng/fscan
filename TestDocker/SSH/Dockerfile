@@ -11,7 +11,7 @@ RUN mkdir /var/run/sshd
 
 # 允许root用户SSH登录并设置密码
 RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
-RUN echo 'root:123456' | chpasswd
+RUN echo 'root:Aa123456789' | chpasswd
 
 # 开放22端口
 EXPOSE 22
