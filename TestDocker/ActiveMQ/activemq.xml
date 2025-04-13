@@ -11,7 +11,7 @@
         <plugins>
             <simpleAuthenticationPlugin>
                 <users>
-                    <authenticationUser username="admin" password="123456" groups="admins,publishers,consumers"/>
+                    <authenticationUser username="admin" password="Aa123456789" groups="admins,publishers,consumers"/>
                     <authenticationUser username="test" password="test123" groups="publishers,consumers"/>
                     <authenticationUser username="root" password="root123" groups="admins"/>
                     <authenticationUser username="system" password="admin123" groups="admins"/>

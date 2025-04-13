@@ -2,145 +2,280 @@ package Plugins
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
 	"net"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
+// TelnetCredential 表示一个Telnet凭据
+type TelnetCredential struct {
+	Username string
+	Password string
+}
+
+// TelnetScanResult 表示Telnet扫描结果
+type TelnetScanResult struct {
+	Success    bool
+	Error      error
+	Credential TelnetCredential
+	NoAuth     bool
+}
+
 // TelnetScan 执行Telnet服务扫描和密码爆破
-func TelnetScan(info *Common.HostInfo) (tmperr error) {
+func TelnetScan(info *Common.HostInfo) error {
 	if Common.DisableBrute {
-		return
+		return nil
 	}
 
-	maxRetries := Common.MaxRetries
 	target := fmt.Sprintf("%v:%v", info.Host, info.Ports)
-
 	Common.LogDebug(fmt.Sprintf("开始扫描 %s", target))
-	totalUsers := len(Common.Userdict["telnet"])
-	totalPass := len(Common.Passwords)
-	Common.LogDebug(fmt.Sprintf("开始尝试用户名密码组合 (总用户数: %d, 总密码数: %d)", totalUsers, totalPass))
 
-	tried := 0
-	total := totalUsers * totalPass
+	// 设置全局超时上下文
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(Common.GlobalTimeout)*time.Second)
+	defer cancel()
 
-	// 遍历所有用户名密码组合
+	// 构建凭据列表
+	var credentials []TelnetCredential
 	for _, user := range Common.Userdict["telnet"] {
 		for _, pass := range Common.Passwords {
-			tried++
-			pass = strings.Replace(pass, "{user}", user, -1)
-			Common.LogDebug(fmt.Sprintf("[%d/%d] 尝试: %s:%s", tried, total, user, pass))
+			actualPass := strings.Replace(pass, "{user}", user, -1)
+			credentials = append(credentials, TelnetCredential{
+				Username: user,
+				Password: actualPass,
+			})
+		}
+	}
 
-			// 重试循环
-			for retryCount := 0; retryCount < maxRetries; retryCount++ {
-				if retryCount > 0 {
-					Common.LogDebug(fmt.Sprintf("第%d次重试: %s:%s", retryCount+1, user, pass))
+	Common.LogDebug(fmt.Sprintf("开始尝试用户名密码组合 (总用户数: %d, 总密码数: %d, 总组合数: %d)",
+		len(Common.Userdict["telnet"]), len(Common.Passwords), len(credentials)))
+
+	// 使用工作池并发扫描
+	result := concurrentTelnetScan(ctx, info, credentials, Common.Timeout, Common.MaxRetries)
+	if result != nil {
+		// 记录成功结果
+		saveTelnetResult(info, target, result)
+		return nil
+	}
+
+	// 检查是否因为全局超时而退出
+	select {
+	case <-ctx.Done():
+		Common.LogDebug("Telnet扫描全局超时")
+		return fmt.Errorf("全局超时")
+	default:
+		Common.LogDebug(fmt.Sprintf("扫描完成，共尝试 %d 个组合", len(credentials)))
+		return nil
+	}
+}
+
+// concurrentTelnetScan 并发扫描Telnet服务
+func concurrentTelnetScan(ctx context.Context, info *Common.HostInfo, credentials []TelnetCredential, timeoutSeconds int64, maxRetries int) *TelnetScanResult {
+	// 使用ModuleThreadNum控制并发数
+	maxConcurrent := Common.ModuleThreadNum
+	if maxConcurrent <= 0 {
+		maxConcurrent = 10 // 默认值
+	}
+	if maxConcurrent > len(credentials) {
+		maxConcurrent = len(credentials)
+	}
+
+	// 创建工作池
+	var wg sync.WaitGroup
+	resultChan := make(chan *TelnetScanResult, 1)
+	workChan := make(chan TelnetCredential, maxConcurrent)
+	scanCtx, scanCancel := context.WithCancel(ctx)
+	defer scanCancel()
+
+	// 启动工作协程
+	for i := 0; i < maxConcurrent; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for credential := range workChan {
+				select {
+				case <-scanCtx.Done():
+					return
+				default:
+					result := tryTelnetCredential(scanCtx, info, credential, timeoutSeconds, maxRetries)
+					if result.Success || result.NoAuth {
+						select {
+						case resultChan <- result:
+							scanCancel() // 找到有效凭据或无需认证，取消其他工作
+						default:
+						}
+						return
+					}
 				}
+			}
+		}()
+	}
 
-				done := make(chan struct {
+	// 发送工作
+	go func() {
+		for i, cred := range credentials {
+			select {
+			case <-scanCtx.Done():
+				break
+			default:
+				Common.LogDebug(fmt.Sprintf("[%d/%d] 尝试: %s:%s", i+1, len(credentials), cred.Username, cred.Password))
+				workChan <- cred
+			}
+		}
+		close(workChan)
+	}()
+
+	// 等待结果或完成
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// 获取结果，考虑全局超时
+	select {
+	case result, ok := <-resultChan:
+		if ok && result != nil && (result.Success || result.NoAuth) {
+			return result
+		}
+		return nil
+	case <-ctx.Done():
+		Common.LogDebug("Telnet并发扫描全局超时")
+		scanCancel() // 确保取消所有未完成工作
+		return nil
+	}
+}
+
+// tryTelnetCredential 尝试单个Telnet凭据
+func tryTelnetCredential(ctx context.Context, info *Common.HostInfo, credential TelnetCredential, timeoutSeconds int64, maxRetries int) *TelnetScanResult {
+	var lastErr error
+
+	for retry := 0; retry < maxRetries; retry++ {
+		select {
+		case <-ctx.Done():
+			return &TelnetScanResult{
+				Success:    false,
+				Error:      fmt.Errorf("全局超时"),
+				Credential: credential,
+			}
+		default:
+			if retry > 0 {
+				Common.LogDebug(fmt.Sprintf("第%d次重试: %s:%s", retry+1, credential.Username, credential.Password))
+				time.Sleep(500 * time.Millisecond) // 重试前等待
+			}
+
+			// 创建结果通道
+			resultChan := make(chan struct {
+				success bool
+				noAuth  bool
+				err     error
+			}, 1)
+
+			// 设置单个连接超时
+			connCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSeconds)*time.Second)
+			go func() {
+				defer cancel()
+				noAuth, err := telnetConnWithContext(connCtx, info, credential.Username, credential.Password)
+				select {
+				case <-connCtx.Done():
+					// 连接已超时或取消
+				case resultChan <- struct {
 					success bool
 					noAuth  bool
 					err     error
-				}, 1)
-
-				go func(user, pass string) {
-					flag, err := telnetConn(info, user, pass)
-					select {
-					case done <- struct {
-						success bool
-						noAuth  bool
-						err     error
-					}{err == nil, flag, err}:
-					default:
-					}
-				}(user, pass)
-
-				var err error
-				select {
-				case result := <-done:
-					err = result.err
-					if result.noAuth {
-						// 无需认证
-						msg := fmt.Sprintf("Telnet服务 %s 无需认证", target)
-						Common.LogSuccess(msg)
-
-						// 保存结果
-						vulnResult := &Common.ScanResult{
-							Time:   time.Now(),
-							Type:   Common.VULN,
-							Target: info.Host,
-							Status: "vulnerable",
-							Details: map[string]interface{}{
-								"port":    info.Ports,
-								"service": "telnet",
-								"type":    "unauthorized-access",
-							},
-						}
-						Common.SaveResult(vulnResult)
-						return nil
-
-					} else if result.success {
-						// 成功爆破
-						msg := fmt.Sprintf("Telnet服务 %s 用户名:%v 密码:%v", target, user, pass)
-						Common.LogSuccess(msg)
-
-						// 保存结果
-						vulnResult := &Common.ScanResult{
-							Time:   time.Now(),
-							Type:   Common.VULN,
-							Target: info.Host,
-							Status: "vulnerable",
-							Details: map[string]interface{}{
-								"port":     info.Ports,
-								"service":  "telnet",
-								"type":     "weak-password",
-								"username": user,
-								"password": pass,
-							},
-						}
-						Common.SaveResult(vulnResult)
-						return nil
-					}
-				case <-time.After(time.Duration(Common.Timeout) * time.Second):
-					err = fmt.Errorf("连接超时")
+				}{err == nil, noAuth, err}:
 				}
+			}()
 
-				if err != nil {
-					errlog := fmt.Sprintf("Telnet连接失败 %s 用户名:%v 密码:%v 错误:%v",
-						target, user, pass, err)
-					Common.LogError(errlog)
+			// 等待结果或超时
+			var success bool
+			var noAuth bool
+			var err error
 
-					if retryErr := Common.CheckErrs(err); retryErr != nil {
-						if retryCount == maxRetries-1 {
-							continue
-						}
-						continue
+			select {
+			case result := <-resultChan:
+				success = result.success
+				noAuth = result.noAuth
+				err = result.err
+			case <-connCtx.Done():
+				if ctx.Err() != nil {
+					// 全局超时
+					return &TelnetScanResult{
+						Success:    false,
+						Error:      ctx.Err(),
+						Credential: credential,
 					}
 				}
-				break
+				// 单个连接超时
+				err = fmt.Errorf("连接超时")
+			}
+
+			if noAuth {
+				return &TelnetScanResult{
+					Success:    false,
+					NoAuth:     true,
+					Credential: credential,
+				}
+			}
+
+			if success {
+				return &TelnetScanResult{
+					Success:    true,
+					Credential: credential,
+				}
+			}
+
+			lastErr = err
+			if err != nil {
+				// 检查是否需要重试
+				if retryErr := Common.CheckErrs(err); retryErr == nil {
+					break // 不需要重试的错误
+				}
 			}
 		}
 	}
 
-	Common.LogDebug(fmt.Sprintf("扫描完成，共尝试 %d 个组合", tried))
-	return tmperr
+	return &TelnetScanResult{
+		Success:    false,
+		Error:      lastErr,
+		Credential: credential,
+	}
 }
 
-// telnetConn 尝试建立Telnet连接并进行身份验证
-func telnetConn(info *Common.HostInfo, user, pass string) (flag bool, err error) {
-	client := NewTelnet(info.Host, info.Ports)
-
-	if err = client.Connect(); err != nil {
+// telnetConnWithContext 带上下文的Telnet连接尝试
+func telnetConnWithContext(ctx context.Context, info *Common.HostInfo, user, pass string) (bool, error) {
+	// 创建TCP连接(使用上下文控制)
+	var d net.Dialer
+	conn, err := d.DialContext(ctx, "tcp", fmt.Sprintf("%s:%s", info.Host, info.Ports))
+	if err != nil {
 		return false, err
 	}
+
+	client := &TelnetClient{
+		IPAddr:   info.Host,
+		Port:     info.Ports,
+		UserName: user,
+		Password: pass,
+		conn:     conn,
+	}
+
+	// 设置连接关闭
 	defer client.Close()
 
-	client.UserName = user
-	client.Password = pass
+	// 检查上下文是否已取消
+	select {
+	case <-ctx.Done():
+		return false, ctx.Err()
+	default:
+	}
+
+	// 初始化连接
+	client.init()
+
 	client.ServerType = client.MakeServerType()
 
 	if client.ServerType == UnauthorizedAccess {
@@ -151,119 +286,42 @@ func telnetConn(info *Common.HostInfo, user, pass string) (flag bool, err error)
 	return false, err
 }
 
-const (
-	// 写入操作后的延迟时间
-	TIME_DELAY_AFTER_WRITE = 300 * time.Millisecond
+// saveTelnetResult 保存Telnet扫描结果
+func saveTelnetResult(info *Common.HostInfo, target string, result *TelnetScanResult) {
+	var successMsg string
+	var details map[string]interface{}
 
-	// Telnet基础控制字符
-	IAC  = byte(255) // 解释为命令(Interpret As Command)
-	DONT = byte(254) // 请求对方停止执行某选项
-	DO   = byte(253) // 请求对方执行某选项
-	WONT = byte(252) // 拒绝执行某选项
-	WILL = byte(251) // 同意执行某选项
+	if result.NoAuth {
+		successMsg = fmt.Sprintf("Telnet服务 %s 无需认证", target)
+		details = map[string]interface{}{
+			"port":    info.Ports,
+			"service": "telnet",
+			"type":    "unauthorized-access",
+		}
+	} else {
+		successMsg = fmt.Sprintf("Telnet服务 %s 用户名:%v 密码:%v",
+			target, result.Credential.Username, result.Credential.Password)
+		details = map[string]interface{}{
+			"port":     info.Ports,
+			"service":  "telnet",
+			"type":     "weak-password",
+			"username": result.Credential.Username,
+			"password": result.Credential.Password,
+		}
+	}
 
-	// 子协商相关控制字符
-	SB = byte(250) // 子协商开始(Subnegotiation Begin)
-	SE = byte(240) // 子协商结束(Subnegotiation End)
+	Common.LogSuccess(successMsg)
 
-	// 特殊功能字符
-	NULL  = byte(0)   // 空字符
-	EOF   = byte(236) // 文档结束
-	SUSP  = byte(237) // 暂停进程
-	ABORT = byte(238) // 停止进程
-	REOR  = byte(239) // 记录结束
-
-	// 控制操作字符
-	NOP = byte(241) // 无操作
-	DM  = byte(242) // 数据标记
-	BRK = byte(243) // 中断
-	IP  = byte(244) // 中断进程
-	AO  = byte(245) // 终止输出
-	AYT = byte(246) // 在线确认
-	EC  = byte(247) // 擦除字符
-	EL  = byte(248) // 擦除行
-	GA  = byte(249) // 继续进行
-
-	// Telnet协议选项代码 (来自arpa/telnet.h)
-	BINARY = byte(0) // 8位数据通道
-	ECHO   = byte(1) // 回显
-	RCP    = byte(2) // 准备重新连接
-	SGA    = byte(3) // 禁止继续
-	NAMS   = byte(4) // 近似消息大小
-	STATUS = byte(5) // 状态查询
-	TM     = byte(6) // 时间标记
-	RCTE   = byte(7) // 远程控制传输和回显
-
-	// 输出协商选项
-	NAOL   = byte(8)  // 输出行宽度协商
-	NAOP   = byte(9)  // 输出页面大小协商
-	NAOCRD = byte(10) // 回车处理协商
-	NAOHTS = byte(11) // 水平制表符停止协商
-	NAOHTD = byte(12) // 水平制表符处理协商
-	NAOFFD = byte(13) // 换页符处理协商
-	NAOVTS = byte(14) // 垂直制表符停止协商
-	NAOVTD = byte(15) // 垂直制表符处理协商
-	NAOLFD = byte(16) // 换行符处理协商
-
-	// 扩展功能选项
-	XASCII       = byte(17) // 扩展ASCII字符集
-	LOGOUT       = byte(18) // 强制登出
-	BM           = byte(19) // 字节宏
-	DET          = byte(20) // 数据输入终端
-	SUPDUP       = byte(21) // SUPDUP协议
-	SUPDUPOUTPUT = byte(22) // SUPDUP输出
-	SNDLOC       = byte(23) // 发送位置
-
-	// 终端相关选项
-	TTYPE        = byte(24) // 终端类型
-	EOR          = byte(25) // 记录结束
-	TUID         = byte(26) // TACACS用户识别
-	OUTMRK       = byte(27) // 输出标记
-	TTYLOC       = byte(28) // 终端位置编号
-	VT3270REGIME = byte(29) // 3270体制
-
-	// 通信控制选项
-	X3PAD    = byte(30) // X.3 PAD
-	NAWS     = byte(31) // 窗口大小
-	TSPEED   = byte(32) // 终端速度
-	LFLOW    = byte(33) // 远程流控制
-	LINEMODE = byte(34) // 行模式选项
-
-	// 环境与认证选项
-	XDISPLOC       = byte(35) // X显示位置
-	OLD_ENVIRON    = byte(36) // 旧环境变量
-	AUTHENTICATION = byte(37) // 认证
-	ENCRYPT        = byte(38) // 加密选项
-	NEW_ENVIRON    = byte(39) // 新环境变量
-
-	// IANA分配的额外选项
-	// http://www.iana.org/assignments/telnet-options
-	TN3270E             = byte(40) // TN3270E
-	XAUTH               = byte(41) // XAUTH
-	CHARSET             = byte(42) // 字符集
-	RSP                 = byte(43) // 远程串行端口
-	COM_PORT_OPTION     = byte(44) // COM端口控制
-	SUPPRESS_LOCAL_ECHO = byte(45) // 禁止本地回显
-	TLS                 = byte(46) // 启动TLS
-	KERMIT              = byte(47) // KERMIT协议
-	SEND_URL            = byte(48) // 发送URL
-	FORWARD_X           = byte(49) // X转发
-
-	// 特殊用途选项
-	PRAGMA_LOGON     = byte(138) // PRAGMA登录
-	SSPI_LOGON       = byte(139) // SSPI登录
-	PRAGMA_HEARTBEAT = byte(140) // PRAGMA心跳
-	EXOPL            = byte(255) // 扩展选项列表
-	NOOPT            = byte(0)   // 无选项
-)
-
-// 服务器类型常量定义
-const (
-	Closed              = iota // 连接关闭
-	UnauthorizedAccess         // 无需认证
-	OnlyPassword               // 仅需密码
-	UsernameAndPassword        // 需要用户名和密码
-)
+	// 保存结果
+	vulnResult := &Common.ScanResult{
+		Time:    time.Now(),
+		Type:    Common.VULN,
+		Target:  info.Host,
+		Status:  "vulnerable",
+		Details: details,
+	}
+	Common.SaveResult(vulnResult)
+}
 
 // TelnetClient Telnet客户端结构体
 type TelnetClient struct {
@@ -276,28 +334,8 @@ type TelnetClient struct {
 	ServerType   int      // 服务器类型
 }
 
-// NewTelnet 创建新的Telnet客户端实例
-func NewTelnet(addr, port string) *TelnetClient {
-	return &TelnetClient{
-		IPAddr:       addr,
-		Port:         port,
-		UserName:     "",
-		Password:     "",
-		conn:         nil,
-		LastResponse: "",
-		ServerType:   Closed,
-	}
-}
-
-// Connect 建立Telnet连接
-func (c *TelnetClient) Connect() error {
-	// 建立TCP连接,超时时间5秒
-	conn, err := net.DialTimeout("tcp", c.Netloc(), 5*time.Second)
-	if err != nil {
-		return err
-	}
-	c.conn = conn
-
+// init 初始化Telnet连接
+func (c *TelnetClient) init() {
 	// 启动后台goroutine处理服务器响应
 	go func() {
 		for {
@@ -328,8 +366,7 @@ func (c *TelnetClient) Connect() error {
 	}()
 
 	// 等待连接初始化完成
-	time.Sleep(time.Second * 3)
-	return nil
+	time.Sleep(time.Second * 2)
 }
 
 // WriteContext 写入数据到Telnet连接
@@ -362,7 +399,9 @@ func (c *TelnetClient) Netloc() string {
 
 // Close 关闭Telnet连接
 func (c *TelnetClient) Close() {
-	c.conn.Close()
+	if c.conn != nil {
+		c.conn.Close()
+	}
 }
 
 // SerializationResponse 解析Telnet响应数据
@@ -398,9 +437,11 @@ func (c *TelnetClient) SerializationResponse(responseBuf []byte) (displayBuf []b
 		if ch == SB {
 			displayBuf = append(displayBuf, responseBuf[:index]...)
 			seIndex := bytes.IndexByte(responseBuf, SE)
-			commandList = append(commandList, responseBuf[index:seIndex])
-			responseBuf = responseBuf[seIndex+1:]
-			continue
+			if seIndex != -1 && seIndex > index {
+				commandList = append(commandList, responseBuf[index:seIndex+1])
+				responseBuf = responseBuf[seIndex+1:]
+				continue
+			}
 		}
 
 		break
@@ -465,6 +506,8 @@ func (c *TelnetClient) MakeReply(command []byte) []byte {
 // read 从Telnet连接读取数据
 func (c *TelnetClient) read() ([]byte, error) {
 	var buf [2048]byte
+	// 设置读取超时为2秒
+	_ = c.conn.SetReadDeadline(time.Now().Add(time.Second * 2))
 	n, err := c.conn.Read(buf[0:])
 	if err != nil {
 		return nil, err
@@ -481,6 +524,8 @@ func (c *TelnetClient) write(buf []byte) error {
 	if err != nil {
 		return err
 	}
+	// 写入后短暂延迟，让服务器有时间处理
+	time.Sleep(TIME_DELAY_AFTER_WRITE)
 	return nil
 }
 
@@ -503,7 +548,17 @@ func (c *TelnetClient) Login() error {
 // MakeServerType 通过分析服务器响应判断服务器类型
 func (c *TelnetClient) MakeServerType() int {
 	responseString := c.ReadContext()
+
+	// 空响应情况
+	if responseString == "" {
+		return Closed
+	}
+
 	response := strings.Split(responseString, "\n")
+	if len(response) == 0 {
+		return Closed
+	}
+
 	lastLine := strings.ToLower(response[len(response)-1])
 
 	// 检查是否需要用户名和密码
@@ -556,7 +611,7 @@ func (c *TelnetClient) loginForOnlyPassword() error {
 
 	// 发送密码并等待响应
 	c.WriteContext(c.Password)
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 2)
 
 	// 验证登录结果
 	responseString := c.ReadContext()
@@ -574,12 +629,12 @@ func (c *TelnetClient) loginForOnlyPassword() error {
 func (c *TelnetClient) loginForUsernameAndPassword() error {
 	// 发送用户名
 	c.WriteContext(c.UserName)
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 2)
 	c.Clear()
 
 	// 发送密码
 	c.WriteContext(c.Password)
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 3)
 
 	// 验证登录结果
 	responseString := c.ReadContext()
@@ -640,12 +695,21 @@ func (c *TelnetClient) isLoginFailed(responseString string) bool {
 
 // isLoginSucceed 检查是否登录成功
 func (c *TelnetClient) isLoginSucceed(responseString string) bool {
+	// 空响应视为失败
+	if responseString == "" {
+		return false
+	}
+
 	// 获取最后一行响应
 	lines := strings.Split(responseString, "\n")
+	if len(lines) == 0 {
+		return false
+	}
+
 	lastLine := lines[len(lines)-1]
 
 	// 检查命令提示符
-	if regexp.MustCompile("^[#$].*").MatchString(lastLine) ||
+	if regexp.MustCompile("^[#$>].*").MatchString(lastLine) ||
 		regexp.MustCompile("^<[a-zA-Z0-9_]+>.*").MatchString(lastLine) {
 		return true
 	}
@@ -658,7 +722,7 @@ func (c *TelnetClient) isLoginSucceed(responseString string) bool {
 	// 发送测试命令验证
 	c.Clear()
 	c.WriteContext("?")
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 2)
 	responseString = c.ReadContext()
 
 	// 检查响应长度
@@ -668,3 +732,38 @@ func (c *TelnetClient) isLoginSucceed(responseString string) bool {
 
 	return false
 }
+
+// Telnet协议常量定义
+const (
+	// 写入操作后的延迟时间
+	TIME_DELAY_AFTER_WRITE = 300 * time.Millisecond
+
+	// Telnet基础控制字符
+	IAC  = byte(255) // 解释为命令(Interpret As Command)
+	DONT = byte(254) // 请求对方停止执行某选项
+	DO   = byte(253) // 请求对方执行某选项
+	WONT = byte(252) // 拒绝执行某选项
+	WILL = byte(251) // 同意执行某选项
+
+	// 子协商相关控制字符
+	SB = byte(250) // 子协商开始(Subnegotiation Begin)
+	SE = byte(240) // 子协商结束(Subnegotiation End)
+
+	// 特殊功能字符
+	NULL  = byte(0)   // 空字符
+	EOF   = byte(236) // 文档结束
+	SUSP  = byte(237) // 暂停进程
+	ABORT = byte(238) // 停止进程
+	REOR  = byte(239) // 记录结束
+
+	// Telnet选项代码
+	BINARY = byte(0) // 8位数据通道
+	ECHO   = byte(1) // 回显
+	SGA    = byte(3) // 禁止继续
+
+	// 服务器类型常量定义
+	Closed              = iota // 连接关闭
+	UnauthorizedAccess         // 无需认证
+	OnlyPassword               // 仅需密码
+	UsernameAndPassword        // 需要用户名和密码
+)

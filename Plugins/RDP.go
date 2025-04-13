@@ -1,6 +1,7 @@
 package Plugins
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
@@ -22,84 +23,200 @@ import (
 	"time"
 )
 
-// Brutelist 表示暴力破解的用户名密码组合
-type Brutelist struct {
-	user string
-	pass string
+// RDPCredential 表示一个RDP凭据
+type RDPCredential struct {
+	Username string
+	Password string
+	Domain   string
+}
+
+// RDPScanResult 表示RDP扫描结果
+type RDPScanResult struct {
+	Success    bool
+	Error      error
+	Credential RDPCredential
 }
 
 // RdpScan 执行RDP服务扫描
-func RdpScan(info *Common.HostInfo) (tmperr error) {
+func RdpScan(info *Common.HostInfo) error {
 	defer func() {
-		recover()
+		if r := recover(); r != nil {
+			Common.LogError(fmt.Sprintf("RDP扫描panic: %v", r))
+		}
 	}()
+
 	if Common.DisableBrute {
-		return
+		return nil
 	}
 
 	port, _ := strconv.Atoi(info.Ports)
-	total := len(Common.Userdict["rdp"]) * len(Common.Passwords)
-	num := 0
 	target := fmt.Sprintf("%v:%v", info.Host, port)
+	Common.LogDebug(fmt.Sprintf("开始扫描 %s", target))
 
-	// 遍历用户名密码组合
+	// 设置全局超时上下文
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(Common.GlobalTimeout)*time.Second)
+	defer cancel()
+
+	// 构建凭据列表
+	var credentials []RDPCredential
 	for _, user := range Common.Userdict["rdp"] {
 		for _, pass := range Common.Passwords {
-			num++
-			pass = strings.Replace(pass, "{user}", user, -1)
-
-			// 尝试连接
-			flag, err := RdpConn(info.Host, Common.Domain, user, pass, port, Common.Timeout)
-
-			if flag && err == nil {
-				// 连接成功
-				var result string
-				if Common.Domain != "" {
-					result = fmt.Sprintf("RDP %v Domain: %v\\%v Password: %v", target, Common.Domain, user, pass)
-				} else {
-					result = fmt.Sprintf("RDP %v Username: %v Password: %v", target, user, pass)
-				}
-				Common.LogSuccess(result)
-
-				// 保存结果
-				details := map[string]interface{}{
-					"port":     port,
-					"service":  "rdp",
-					"username": user,
-					"password": pass,
-					"type":     "weak-password",
-				}
-				if Common.Domain != "" {
-					details["domain"] = Common.Domain
-				}
-
-				vulnResult := &Common.ScanResult{
-					Time:    time.Now(),
-					Type:    Common.VULN,
-					Target:  info.Host,
-					Status:  "vulnerable",
-					Details: details,
-				}
-				Common.SaveResult(vulnResult)
-
-				return nil
-			}
-
-			// 连接失败
-			errlog := fmt.Sprintf("(%v/%v) RDP %v Username: %v Password: %v Error: %v",
-				num, total, target, user, pass, err)
-			Common.LogError(errlog)
+			actualPass := strings.Replace(pass, "{user}", user, -1)
+			credentials = append(credentials, RDPCredential{
+				Username: user,
+				Password: actualPass,
+				Domain:   Common.Domain,
+			})
 		}
 	}
 
-	return tmperr
+	Common.LogDebug(fmt.Sprintf("开始尝试用户名密码组合 (总用户数: %d, 总密码数: %d, 总组合数: %d)",
+		len(Common.Userdict["rdp"]), len(Common.Passwords), len(credentials)))
+
+	// 使用工作池并发扫描
+	result := concurrentRdpScan(ctx, info, credentials, port, Common.Timeout)
+	if result != nil {
+		// 记录成功结果
+		saveRdpResult(info, target, port, result.Credential)
+		return nil
+	}
+
+	// 检查是否因为全局超时而退出
+	select {
+	case <-ctx.Done():
+		Common.LogDebug("RDP扫描全局超时")
+		return fmt.Errorf("全局超时")
+	default:
+		Common.LogDebug(fmt.Sprintf("扫描完成，共尝试 %d 个组合", len(credentials)))
+		return nil
+	}
+}
+
+// concurrentRdpScan 并发扫描RDP服务
+func concurrentRdpScan(ctx context.Context, info *Common.HostInfo, credentials []RDPCredential, port int, timeoutSeconds int64) *RDPScanResult {
+	// 使用ModuleThreadNum控制并发数
+	maxConcurrent := Common.ModuleThreadNum
+	if maxConcurrent <= 0 {
+		maxConcurrent = 10 // 默认值
+	}
+	if maxConcurrent > len(credentials) {
+		maxConcurrent = len(credentials)
+	}
+
+	// 创建工作池
+	var wg sync.WaitGroup
+	resultChan := make(chan *RDPScanResult, 1)
+	workChan := make(chan RDPCredential, maxConcurrent)
+	scanCtx, scanCancel := context.WithCancel(ctx)
+	defer scanCancel()
+
+	// 启动工作协程
+	for i := 0; i < maxConcurrent; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for credential := range workChan {
+				select {
+				case <-scanCtx.Done():
+					return
+				default:
+					result := tryRdpCredential(scanCtx, info.Host, credential, port, timeoutSeconds)
+					if result.Success {
+						select {
+						case resultChan <- result:
+							scanCancel() // 找到有效凭据，取消其他工作
+						default:
+						}
+						return
+					}
+				}
+			}
+		}()
+	}
+
+	// 发送工作
+	go func() {
+		for i, cred := range credentials {
+			select {
+			case <-scanCtx.Done():
+				break
+			default:
+				Common.LogDebug(fmt.Sprintf("[%d/%d] 尝试: %s:%s", i+1, len(credentials), cred.Username, cred.Password))
+				workChan <- cred
+			}
+		}
+		close(workChan)
+	}()
+
+	// 等待结果或完成
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// 获取结果，考虑全局超时
+	select {
+	case result, ok := <-resultChan:
+		if ok && result != nil && result.Success {
+			return result
+		}
+		return nil
+	case <-ctx.Done():
+		Common.LogDebug("RDP并发扫描全局超时")
+		scanCancel() // 确保取消所有未完成工作
+		return nil
+	}
+}
+
+// tryRdpCredential 尝试单个RDP凭据
+func tryRdpCredential(ctx context.Context, host string, credential RDPCredential, port int, timeoutSeconds int64) *RDPScanResult {
+	// 创建结果通道
+	resultChan := make(chan *RDPScanResult, 1)
+
+	// 在协程中进行连接尝试
+	go func() {
+		success, err := RdpConn(host, credential.Domain, credential.Username, credential.Password, port, timeoutSeconds)
+
+		select {
+		case <-ctx.Done():
+			// 上下文已取消，不返回结果
+		case resultChan <- &RDPScanResult{
+			Success:    success,
+			Error:      err,
+			Credential: credential,
+		}:
+			// 成功发送结果
+		}
+	}()
+
+	// 等待结果或上下文取消
+	select {
+	case result := <-resultChan:
+		return result
+	case <-ctx.Done():
+		return &RDPScanResult{
+			Success:    false,
+			Error:      ctx.Err(),
+			Credential: credential,
+		}
+	case <-time.After(time.Duration(timeoutSeconds) * time.Second):
+		// 单个连接超时
+		return &RDPScanResult{
+			Success:    false,
+			Error:      fmt.Errorf("连接超时"),
+			Credential: credential,
+		}
+	}
 }
 
 // RdpConn 尝试RDP连接
 func RdpConn(ip, domain, user, password string, port int, timeout int64) (bool, error) {
 	defer func() {
-		recover()
+		if r := recover(); r != nil {
+			glog.Error("RDP连接panic:", r)
+		}
 	}()
+
 	target := fmt.Sprintf("%s:%d", ip, port)
 
 	// 创建RDP客户端
@@ -109,6 +226,43 @@ func RdpConn(ip, domain, user, password string, port int, timeout int64) (bool, 
 	}
 
 	return true, nil
+}
+
+// saveRdpResult 保存RDP扫描结果
+func saveRdpResult(info *Common.HostInfo, target string, port int, credential RDPCredential) {
+	var successMsg string
+
+	if credential.Domain != "" {
+		successMsg = fmt.Sprintf("RDP %v Domain: %v\\%v Password: %v",
+			target, credential.Domain, credential.Username, credential.Password)
+	} else {
+		successMsg = fmt.Sprintf("RDP %v Username: %v Password: %v",
+			target, credential.Username, credential.Password)
+	}
+
+	Common.LogSuccess(successMsg)
+
+	// 保存结果
+	details := map[string]interface{}{
+		"port":     port,
+		"service":  "rdp",
+		"username": credential.Username,
+		"password": credential.Password,
+		"type":     "weak-password",
+	}
+
+	if credential.Domain != "" {
+		details["domain"] = credential.Domain
+	}
+
+	vulnResult := &Common.ScanResult{
+		Time:    time.Now(),
+		Type:    Common.VULN,
+		Target:  info.Host,
+		Status:  "vulnerable",
+		Details: details,
+	}
+	Common.SaveResult(vulnResult)
 }
 
 // Client RDP客户端结构
@@ -161,8 +315,25 @@ func (g *Client) Login(domain, user, pwd string, timeout int64) error {
 	// 设置事件处理器
 	g.setupEventHandlers(wg, &breakFlag, &err)
 
-	wg.Wait()
-	return err
+	// 添加额外的超时保护
+	connectionDone := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(connectionDone)
+	}()
+
+	select {
+	case <-connectionDone:
+		// 连接过程正常完成
+		return err
+	case <-time.After(time.Duration(timeout) * time.Second):
+		// 超时
+		if !breakFlag {
+			breakFlag = true
+			wg.Done()
+		}
+		return fmt.Errorf("连接超时")
+	}
 }
 
 // initProtocolStack 初始化RDP协议栈
