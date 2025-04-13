@@ -3,6 +3,7 @@ package Core
 import (
 	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/Plugins"
+	"sort"
 )
 
 // init 初始化并注册所有扫描插件
@@ -17,7 +18,7 @@ func init() {
 	})
 
 	Common.RegisterPlugin("ssh", Common.ScanPlugin{
-		Name:     "SSH", 
+		Name:     "SSH",
 		Ports:    []int{22, 2222},
 		ScanFunc: Plugins.SshScan,
 	})
@@ -176,12 +177,6 @@ func init() {
 		ScanFunc: Plugins.RedisScan,
 	})
 
-	Common.RegisterPlugin("fcgi", Common.ScanPlugin{
-		Name:     "FastCGI",
-		Ports:    []int{9000},
-		ScanFunc: Plugins.FcgiScan,
-	})
-
 	Common.RegisterPlugin("memcached", Common.ScanPlugin{
 		Name:     "Memcached",
 		Ports:    []int{11211},
@@ -227,12 +222,6 @@ func init() {
 		ScanFunc: Plugins.SmbScan2,
 	})
 
-	Common.RegisterPlugin("wmiexec", Common.ScanPlugin{
-		Name:     "WMIExec",
-		Ports:    []int{135},
-		ScanFunc: Plugins.WmiExec,
-	})
-
 	// 5. 本地信息收集插件
 	Common.RegisterPlugin("localinfo", Common.ScanPlugin{
 		Name:     "LocalInfo",
@@ -251,4 +240,20 @@ func init() {
 		Ports:    []int{},
 		ScanFunc: Plugins.MiniDump,
 	})
+}
+
+// GetAllPlugins 返回所有已注册插件的名称列表
+// 当用户未指定特定插件或使用"All"模式时使用
+func GetAllPlugins() []string {
+	pluginNames := make([]string, 0, len(Common.PluginManager))
+
+	// 遍历插件管理器，获取所有插件名称
+	for name := range Common.PluginManager {
+		pluginNames = append(pluginNames, name)
+	}
+
+	// 对插件名称进行排序，使输出更加一致
+	sort.Strings(pluginNames)
+
+	return pluginNames
 }

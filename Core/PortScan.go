@@ -19,7 +19,7 @@ type Addr struct {
 // ScanResult 扫描结果
 type ScanResult struct {
 	Address string       // IP地址
-	Port    int         // 端口号
+	Port    int          // 端口号
 	Service *ServiceInfo // 服务信息
 }
 
@@ -45,7 +45,7 @@ func PortScan(hostslist []string, ports string, timeout int64) []string {
 
 	// 初始化并发控制
 	workers := Common.ThreadNum
-	addrs := make(chan Addr, 100)      // 待扫描地址通道
+	addrs := make(chan Addr, 100)             // 待扫描地址通道
 	scanResults := make(chan ScanResult, 100) // 扫描结果通道
 	var wg sync.WaitGroup
 	var workerWg sync.WaitGroup
@@ -141,7 +141,7 @@ func PortConnect(addr Addr, results chan<- ScanResult, timeout int64, wg *sync.W
 	}
 
 	// 执行服务识别
-	if !Common.SkipFingerprint && conn != nil {
+	if Common.EnableFingerprint && conn != nil {
 		scanner := NewPortInfoScanner(addr.ip, addr.port, conn, time.Duration(timeout)*time.Second)
 		if serviceInfo, err := scanner.Identify(); err == nil {
 			result.Service = serviceInfo

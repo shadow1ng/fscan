@@ -864,93 +864,105 @@ type PocInfo struct {
 }
 
 var (
-	// 目标配置
-	Ports        string
-	ExcludePorts string // 原NoPorts
-	ExcludeHosts string
-	AddPorts     string // 原PortAdd
+	// =========================================================
+	// 扫描目标配置
+	// =========================================================
+	Ports        string   // 要扫描的端口列表，如"80,443,8080"
+	ExcludePorts string   // 要排除的端口列表
+	ExcludeHosts string   // 要排除的主机列表
+	AddPorts     string   // 额外添加的端口列表
+	HostPort     []string // 主机:端口格式的目标列表
 
-	// 认证配置
-	Username     string
-	Password     string
-	Domain       string
-	SshKeyPath   string // 原SshKey
-	AddUsers     string // 原UserAdd
-	AddPasswords string // 原PassAdd
+	// =========================================================
+	// 认证与凭据配置
+	// =========================================================
+	Username     string // 用于认证的用户名
+	Password     string // 用于认证的密码
+	AddUsers     string // 额外添加的用户名列表
+	AddPasswords string // 额外添加的密码列表
 
-	// 扫描配置
-	ScanMode        string // 原Scantype
-	ThreadNum       int    // 原Threads
-	ModuleThreadNum int    = 10
-	Timeout         int64  = 3
-	GlobalTimeout   int64  = 180
-	LiveTop         int
-	DisablePing     bool // 原NoPing
-	UsePing         bool // 原Ping
-	Command         string
-	SkipFingerprint bool
+	// 特定服务认证
+	Domain     string   // Active Directory/SMB域名
+	HashValue  string   // 用于哈希认证的单个哈希值
+	HashValues []string // 哈希值列表
+	HashBytes  [][]byte // 二进制格式的哈希值列表
+	HashFile   string   // 包含哈希值的文件路径
+	SshKeyPath string   // SSH私钥文件路径
 
-	// 文件配置
-	HostsFile     string // 原HostFile
-	UsersFile     string // 原Userfile
-	PasswordsFile string // 原Passfile
-	HashFile      string // 原Hashfile
-	PortsFile     string // 原PortFile
+	// =========================================================
+	// 扫描控制配置
+	// =========================================================
+	ScanMode          string // 扫描模式或指定的插件列表
+	ThreadNum         int    // 并发扫描线程数
+	ModuleThreadNum   int    // 模块内部线程数
+	Timeout           int64  // 单个扫描操作超时时间(秒)
+	GlobalTimeout     int64  // 整体扫描超时时间(秒)
+	LiveTop           int    // 显示的存活主机排名数量
+	DisablePing       bool   // 是否禁用主机存活性检测
+	UsePing           bool   // 是否使用ICMP Ping检测主机存活
+	EnableFingerprint bool   // 是否跳过服务指纹识别
+	LocalMode         bool   // 是否启用本地信息收集模式
 
-	// Web配置
-	TargetURL   string   // 原URL
-	URLsFile    string   // 原UrlFile
-	URLs        []string // 原Urls
-	WebTimeout  int64    = 5
-	HttpProxy   string   // 原Proxy
-	Socks5Proxy string
+	// =========================================================
+	// 输入文件配置
+	// =========================================================
+	HostsFile     string // 包含目标主机的文件路径
+	UsersFile     string // 包含用户名列表的文件路径
+	PasswordsFile string // 包含密码列表的文件路径
+	PortsFile     string // 包含端口列表的文件路径
 
-	LocalMode bool // -local 本地模式
+	// =========================================================
+	// Web扫描配置
+	// =========================================================
+	TargetURL   string   // 单个目标URL
+	URLsFile    string   // 包含URL列表的文件路径
+	URLs        []string // 解析后的URL目标列表
+	WebTimeout  int64    // Web请求超时时间(秒)，默认5秒
+	HttpProxy   string   // HTTP代理地址
+	Socks5Proxy string   // SOCKS5代理地址
 
+	// =========================================================
+	// POC与漏洞利用配置
+	// =========================================================
 	// POC配置
-	PocPath string
-	Pocinfo PocInfo
+	PocPath string  // POC脚本路径
+	Pocinfo PocInfo // POC详细信息结构
 
-	// Redis配置
-	RedisFile         string
-	RedisShell        string
-	DisableRedis      bool // 原Noredistest
-	RedisWritePath    string
-	RedisWriteContent string
-	RedisWriteFile    string
+	// Redis利用
+	RedisFile         string // Redis利用目标文件
+	RedisShell        string // Redis反弹Shell命令
+	DisableRedis      bool   // 是否禁用Redis利用测试
+	RedisWritePath    string // Redis文件写入路径
+	RedisWriteContent string // Redis文件写入内容
+	RedisWriteFile    string // Redis写入的源文件
 
-	// 爆破配置
-	DisableBrute bool // 原IsBrute
-	//BruteThreads int  // 原BruteThread
-	MaxRetries int // 最大重试次数
+	// 其他漏洞利用
+	Shellcode string // 用于MS17010等漏洞利用的Shellcode
 
-	// 其他配置
-	RemotePath string   // 原Path
-	HashValue  string   // 原Hash
-	HashValues []string // 原Hashs
-	HashBytes  [][]byte
-	HostPort   []string
-	Shellcode  string // 原SC
-	EnableWmi  bool   // 原IsWmi
+	// =========================================================
+	// 暴力破解控制
+	// =========================================================
+	DisableBrute bool // 是否禁用暴力破解模块
+	MaxRetries   int  // 连接失败最大重试次数
 
-	// 输出配置
-	DisableSave  bool   // 禁止保存结果
-	Silent       bool   // 静默模式
-	NoColor      bool   // 禁用彩色输出
-	JsonFormat   bool   // JSON格式输出
-	LogLevel     string // 日志输出级别
-	ShowProgress bool   // 是否显示进度条
-
-	Language string // 语言
+	// =========================================================
+	// 输出与显示配置
+	// =========================================================
+	DisableSave   bool   // 是否禁止保存扫描结果
+	Silent        bool   // 是否启用静默模式
+	NoColor       bool   // 是否禁用彩色输出
+	LogLevel      string // 日志输出级别
+	ShowProgress  bool   // 是否显示进度条
+	ShowScanPlan  bool   // 是否显示扫描计划详情
+	SlowLogOutput bool   // 是否启用慢速日志输出
+	Language      string // 界面语言设置
 )
 
 var (
-	UserAgent  = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36"
-	Accept     = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"
-	DnsLog     bool
-	PocNum     int
-	PocFull    bool
-	CeyeDomain string
-	ApiKey     string
-	Cookie     string
+	UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36"
+	Accept    = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"
+	DnsLog    bool
+	PocNum    int
+	PocFull   bool
+	Cookie    string
 )

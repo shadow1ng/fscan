@@ -234,70 +234,51 @@ var i18nMap = map[string]map[string]string{
 			"Пример: -p main, -p 80,443, -p 1-1000",
 	},
 	"flag_scan_mode": {
-		LangZH: "指定扫描模式:\n" +
-			"预设模式:\n" +
-			"  - All: 全量扫描\n" +
-			"  - Basic: 基础扫描(Web/FTP/SSH等)\n" +
-			"  - Database: 数据库扫描\n" +
-			"  - Web: Web服务扫描\n" +
-			"  - Service: 常见服务扫描\n" +
-			"  - Vul: 漏洞扫描\n" +
-			"  - Port: 端口扫描\n" +
-			"  - ICMP: 存活探测\n" +
-			"  - Local: 本地信息\n" +
-			"单项扫描:\n" +
-			"  - web/db: mysql,redis等\n" +
-			"  - service: ftp,ssh等\n" +
-			"  - vul: ms17010等",
+		LangZH: "指定要使用的扫描插件:\n" +
+			"  - All: 使用所有非敏感插件\n" +
+			"  - 单个插件: 如 ssh, redis, mysql\n" +
+			"  - 多个插件: 使用逗号分隔，如 ssh,ftp,redis\n\n" +
+			"插件分类:\n" +
+			"  - 服务类: ssh, ftp, telnet, smb, rdp, vnc...\n" +
+			"  - 数据库类: mysql, redis, mongodb, postgres...\n" +
+			"  - Web类: webtitle, webpoc...\n" +
+			"  - 漏洞类: ms17010...\n" +
+			"  - 本地类: localinfo, dcinfo, minidump (需明确指定)",
 
-		LangEN: "Specify scan mode:\n" +
-			"Preset modes:\n" +
-			"  - All: Full scan\n" +
-			"  - Basic: Basic scan(Web/FTP/SSH)\n" +
-			"  - Database: Database scan\n" +
-			"  - Web: Web service scan\n" +
-			"  - Service: Common service scan\n" +
-			"  - Vul: Vulnerability scan\n" +
-			"  - Port: Port scan\n" +
-			"  - ICMP: Alive detection\n" +
-			"  - Local: Local info\n" +
-			"Single scan:\n" +
-			"  - web/db: mysql,redis etc\n" +
-			"  - service: ftp,ssh etc\n" +
-			"  - vul: ms17010 etc",
+		LangEN: "Specify scan plugins to use:\n" +
+			"  - All: Use all non-sensitive plugins\n" +
+			"  - Single plugin: e.g., ssh, redis, mysql\n" +
+			"  - Multiple plugins: comma-separated, e.g., ssh,ftp,redis\n\n" +
+			"Plugin categories:\n" +
+			"  - Services: ssh, ftp, telnet, smb, rdp, vnc...\n" +
+			"  - Databases: mysql, redis, mongodb, postgres...\n" +
+			"  - Web: webtitle, webpoc...\n" +
+			"  - Vulnerabilities: ms17010...\n" +
+			"  - Local: localinfo, dcinfo, minidump (must be explicitly specified)",
 
-		LangJA: "スキャンモードを指定:\n" +
-			"プリセットモード:\n" +
-			"  - All: フルスキャン\n" +
-			"  - Basic: 基本スキャン(Web/FTP/SSH)\n" +
-			"  - Database: データベーススキャン\n" +
-			"  - Web: Webサービススキャン\n" +
-			"  - Service: 一般サービススキャン\n" +
-			"  - Vul: 脆弱性スキャン\n" +
-			"  - Port: ポートスキャン\n" +
-			"  - ICMP: 生存確認\n" +
-			"  - Local: ローカル情報\n" +
-			"単一スキャン:\n" +
-			"  - web/db: mysql,redis など\n" +
-			"  - service: ftp,ssh など\n" +
-			"  - vul: ms17010 など",
+		LangJA: "使用するスキャンプラグインを指定:\n" +
+			"  - All: すべての非機密プラグインを使用\n" +
+			"  - 単一プラグイン: 例 ssh, redis, mysql\n" +
+			"  - 複数プラグイン: カンマ区切り、例 ssh,ftp,redis\n\n" +
+			"プラグインカテゴリ:\n" +
+			"  - サービス: ssh, ftp, telnet, smb, rdp, vnc...\n" +
+			"  - データベース: mysql, redis, mongodb, postgres...\n" +
+			"  - Web: webtitle, webpoc...\n" +
+			"  - 脆弱性: ms17010...\n" +
+			"  - ローカル: localinfo, dcinfo, minidump (明示的に指定が必要)",
 
-		LangRU: "Укажите режим сканирования:\n" +
-			"Предустановки:\n" +
-			"  - All: Полное сканирование\n" +
-			"  - Basic: Базовое сканирование(Web/FTP/SSH)\n" +
-			"  - Database: Сканирование БД\n" +
-			"  - Web: Веб-сервисы\n" +
-			"  - Service: Общие службы\n" +
-			"  - Vul: Уязвимости\n" +
-			"  - Port: Порты\n" +
-			"  - ICMP: Обнаружение\n" +
-			"  - Local: Локальная информация\n" +
-			"Одиночное сканирование:\n" +
-			"  - web/db: mysql,redis и др\n" +
-			"  - service: ftp,ssh и др\n" +
-			"  - vul: ms17010 и др",
+		LangRU: "Укажите используемые плагины сканирования:\n" +
+			"  - All: Использовать все неконфиденциальные плагины\n" +
+			"  - Один плагин: например, ssh, redis, mysql\n" +
+			"  - Несколько плагинов: через запятую, например ssh,ftp,redis\n\n" +
+			"Категории плагинов:\n" +
+			"  - Сервисы: ssh, ftp, telnet, smb, rdp, vnc...\n" +
+			"  - Базы данных: mysql, redis, mongodb, postgres...\n" +
+			"  - Веб: webtitle, webpoc...\n" +
+			"  - Уязвимости: ms17010...\n" +
+			"  - Локальные: localinfo, dcinfo, minidump (требуется явное указание)",
 	},
+
 	"flag_exclude_hosts": {
 		LangZH: "排除指定主机范围,支持CIDR格式,如: 192.168.1.1/24",
 		LangEN: "Exclude host ranges, supports CIDR format, e.g.: 192.168.1.1/24",
@@ -368,6 +349,20 @@ var i18nMap = map[string]map[string]string{
 		LangRU: "Показать только указанное количество активных хостов",
 	},
 
+	"flag_module_thread_num": {
+		LangZH: "设置每个模块的最大线程数(默认:10)",
+		LangEN: "Set maximum threads per module (default:10)",
+		LangJA: "モジュールごとの最大スレッド数を設定(デフォルト:10)",
+		LangRU: "Установить максимальное количество потоков на модуль (по умолчанию:10)",
+	},
+
+	"flag_global_timeout": {
+		LangZH: "设置全局扫描超时时间(单位:秒，默认:180)",
+		LangEN: "Set global scan timeout (in seconds, default:180)",
+		LangJA: "グローバルスキャンのタイムアウトを設定(秒単位、デフォルト:180)",
+		LangRU: "Установить глобальный таймаут сканирования (в секундах, по умолчанию:180)",
+	},
+
 	"flag_disable_ping": {
 		LangZH: "禁用主机存活探测",
 		LangEN: "Disable host alive detection",
@@ -382,14 +377,7 @@ var i18nMap = map[string]map[string]string{
 		LangRU: "Использовать системную команду ping вместо ICMP-зондирования",
 	},
 
-	"flag_command": {
-		LangZH: "指定要执行的系统命令(支持ssh和wmiexec)",
-		LangEN: "Specify system command to execute (supports ssh and wmiexec)",
-		LangJA: "実行するシステムコマンドを指定(sshとwmiexecをサポート)",
-		LangRU: "Указать системную команду для выполнения (поддерживает ssh и wmiexec)",
-	},
-
-	"flag_skip_fingerprint": {
+	"flag_enable_fingerprint": {
 		LangZH: "跳过端口指纹识别",
 		LangEN: "Skip port fingerprint identification",
 		LangJA: "ポートフィンガープリント識別をスキップ",
@@ -638,13 +626,6 @@ var i18nMap = map[string]map[string]string{
 		LangRU: "Отключить цветной вывод",
 	},
 
-	"flag_json_format": {
-		LangZH: "以JSON格式输出结果",
-		LangEN: "Output results in JSON format",
-		LangJA: "結果をJSON形式で出力",
-		LangRU: "Вывести результаты в формате JSON",
-	},
-
 	"flag_log_level": {
 		LangZH: "日志输出级别(ALL/SUCCESS/ERROR/INFO/DEBUG)",
 		LangEN: "Log output level (ALL/SUCCESS/ERROR/INFO/DEBUG)",
@@ -658,6 +639,21 @@ var i18nMap = map[string]map[string]string{
 		LangJA: "プログレスバー表示を有効化",
 		LangRU: "Включить отображение индикатора выполнения",
 	},
+
+	"flag_show_scan_plan": {
+		LangZH: "显示扫描计划详情",
+		LangEN: "Show scan plan details",
+		LangJA: "スキャン計画の詳細を表示する",
+		LangRU: "Показать детали плана сканирования",
+	},
+
+	"flag_slow_log_output": {
+		LangZH: "启用慢速日志输出，便于肉眼观察",
+		LangEN: "Enable slow log output for better visual observation",
+		LangJA: "目視観察のための低速ログ出力を有効にする",
+		LangRU: "Включить медленный вывод журнала для лучшего визуального наблюдения",
+	},
+
 	"no_username_specified": {
 		LangZH: "加载用户名: %d 个",
 		LangEN: "Loaded usernames: %d",
@@ -754,12 +750,7 @@ var i18nMap = map[string]map[string]string{
 		LangJA: "パラメータ -h、-u、-local は同時に使用できません",
 		LangRU: "Параметры -h, -u, -local нельзя использовать одновременно",
 	},
-	//"brute_threads": {
-	//	LangZH: "暴力破解线程数: %d",
-	//	LangEN: "Brute force threads: %d",
-	//	LangJA: "ブルートフォーススレッド数: %d",
-	//	LangRU: "Потоков для брутфорса: %d",
-	//},
+
 	"extra_ports": {
 		LangZH: "额外端口: %s",
 		LangEN: "Extra ports: %s",
@@ -998,42 +989,6 @@ var i18nMap = map[string]map[string]string{
 		LangEN: "Valid port count: %d",
 		LangJA: "有効なポート数: %d",
 		LangRU: "Количество действительных портов: %d",
-	},
-	"parse_scan_mode": {
-		LangZH: "解析扫描模式: %s",
-		LangEN: "Parse scan mode: %s",
-		LangJA: "スキャンモードを解析: %s",
-		LangRU: "Разбор режима сканирования: %s",
-	},
-	"using_preset_mode": {
-		LangZH: "使用预设模式: %s",
-		LangEN: "Using preset mode: %s",
-		LangJA: "プリセットモードを使用: %s",
-		LangRU: "Использование предустановленного режима: %s",
-	},
-	"using_preset_mode_plugins": {
-		LangZH: "使用预设模式: %s, 包含插件: %v",
-		LangEN: "Using preset mode: %s, included plugins: %v",
-		LangJA: "プリセットモードを使用: %s, 含まれるプラグイン: %v",
-		LangRU: "Использование предустановленного режима: %s, включенные плагины: %v",
-	},
-	"using_single_plugin": {
-		LangZH: "使用单个插件: %s",
-		LangEN: "Using single plugin: %s",
-		LangJA: "単一のプラグインを使用: %s",
-		LangRU: "Использование одного плагина: %s",
-	},
-	"using_default_mode": {
-		LangZH: "未识别的模式，使用默认模式: %s",
-		LangEN: "Unrecognized mode, using default mode: %s",
-		LangJA: "認識できないモード、デフォルトモードを使用: %s",
-		LangRU: "Нераспознанный режим, использование режима по умолчанию: %s",
-	},
-	"included_plugins": {
-		LangZH: "包含插件: %v",
-		LangEN: "Included plugins: %v",
-		LangJA: "含まれるプラグイン: %v",
-		LangRU: "Включенные плагины: %v",
 	},
 	"tcp_conn_failed": {
 		LangZH: "建立TCP连接失败: %v",

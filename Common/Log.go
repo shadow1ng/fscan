@@ -122,8 +122,10 @@ func printLog(entry *LogEntry) {
 		fmt.Println(logMsg)
 	}
 
-	// 等待日志输出完成
-	time.Sleep(50 * time.Millisecond)
+	// 根据慢速输出设置决定是否添加延迟
+	if SlowLogOutput {
+		time.Sleep(50 * time.Millisecond)
+	}
 
 	// 重新显示进度条
 	if ProgressBar != nil {

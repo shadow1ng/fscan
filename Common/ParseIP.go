@@ -13,26 +13,37 @@ import (
 	"strings"
 )
 
-var ParseIPErr = errors.New(GetText("parse_ip_error"))
+// IP解析相关错误
+var (
+	ErrParseIP = errors.New(GetText("parse_ip_error")) // IP解析失败的统一错误
+)
 
-// ParseIP 解析IP地址配置
+// ParseIP 解析各种格式的IP地址
+// 参数:
+//   - host: 主机地址（可以是单个IP、IP范围、CIDR或常用网段简写）
+//   - filename: 包含主机地址的文件名
+//   - nohosts: 需要排除的主机地址列表
+//
+// 返回:
+//   - []string: 解析后的IP地址列表
+//   - error: 解析过程中的错误
 func ParseIP(host string, filename string, nohosts ...string) (hosts []string, err error) {
-	// 处理主机和端口组合的情况
+	// 处理主机和端口组合的情况 (格式: IP:PORT)
 	if filename == "" && strings.Contains(host, ":") {
 		hostport := strings.Split(host, ":")
 		if len(hostport) == 2 {
 			host = hostport[0]
-			hosts = ParseIPs(host)
+			hosts = parseIPList(host)
 			Ports = hostport[1]
 			LogInfo(GetText("host_port_parsed", Ports))
 		}
 	} else {
 		// 解析主机地址
-		hosts = ParseIPs(host)
+		hosts = parseIPList(host)
 
 		// 从文件加载额外主机
 		if filename != "" {
-			fileHosts, err := Readipfile(filename)
+			fileHosts, err := readIPFile(filename)
 			if err != nil {
 				LogError(GetText("read_host_file_failed", err))
 			} else {
@@ -42,177 +53,137 @@ func ParseIP(host string, filename string, nohosts ...string) (hosts []string, e
 		}
 	}
 
-	// 处理排除主机
-	if len(nohosts) > 0 && nohosts[0] != "" {
-		excludeHosts := ParseIPs(nohosts[0])
-		if len(excludeHosts) > 0 {
-			// 使用map存储有效主机
-			temp := make(map[string]struct{})
-			for _, host := range hosts {
-				temp[host] = struct{}{}
-			}
+	// 处理需要排除的主机
+	hosts = excludeHosts(hosts, nohosts)
 
-			// 删除需要排除的主机
-			for _, host := range excludeHosts {
-				delete(temp, host)
-			}
-
-			// 重建主机列表
-			var newHosts []string
-			for host := range temp {
-				newHosts = append(newHosts, host)
-			}
-			hosts = newHosts
-			sort.Strings(hosts)
-			LogInfo(GetText("hosts_excluded", len(excludeHosts)))
-		}
-	}
-
-	// 去重处理
-	hosts = RemoveDuplicate(hosts)
+	// 去重并排序
+	hosts = removeDuplicateIPs(hosts)
 	LogInfo(GetText("final_valid_hosts", len(hosts)))
 
 	// 检查解析结果
 	if len(hosts) == 0 && len(HostPort) == 0 && (host != "" || filename != "") {
-		return nil, ParseIPErr
+		return nil, ErrParseIP
 	}
 
 	return hosts, nil
 }
 
-func ParseIPs(ip string) (hosts []string) {
-	if strings.Contains(ip, ",") {
-		IPList := strings.Split(ip, ",")
-		var ips []string
-		for _, ip := range IPList {
-			ips = parseIP(ip)
-			hosts = append(hosts, ips...)
+// parseIPList 解析逗号分隔的IP地址列表
+// 参数:
+//   - ipList: 逗号分隔的IP地址列表字符串
+//
+// 返回:
+//   - []string: 解析后的IP地址列表
+func parseIPList(ipList string) []string {
+	var result []string
+
+	// 处理逗号分隔的IP列表
+	if strings.Contains(ipList, ",") {
+		ips := strings.Split(ipList, ",")
+		for _, ip := range ips {
+			if parsed := parseSingleIP(ip); len(parsed) > 0 {
+				result = append(result, parsed...)
+			}
 		}
-	} else {
-		hosts = parseIP(ip)
+	} else if ipList != "" {
+		// 解析单个IP地址或范围
+		result = parseSingleIP(ipList)
 	}
-	return hosts
+
+	return result
 }
 
-func parseIP(ip string) []string {
-	reg := regexp.MustCompile(`[a-zA-Z]+`)
+// parseSingleIP 解析单个IP地址或IP范围
+// 支持多种格式:
+// - 普通IP: 192.168.1.1
+// - 简写网段: 192, 172, 10
+// - CIDR: 192.168.0.0/24
+// - 范围: 192.168.1.1-192.168.1.100 或 192.168.1.1-100
+// - 域名: example.com
+// 参数:
+//   - ip: IP地址或范围字符串
+//
+// 返回:
+//   - []string: 解析后的IP地址列表
+func parseSingleIP(ip string) []string {
+	// 检测是否包含字母（可能是域名）
+	isAlpha := regexp.MustCompile(`[a-zA-Z]+`).MatchString(ip)
 
+	// 根据不同格式解析IP
 	switch {
 	case ip == "192":
-		return parseIP("192.168.0.0/16")
+		// 常用内网段简写
+		return parseSingleIP("192.168.0.0/16")
 	case ip == "172":
-		return parseIP("172.16.0.0/12")
+		// 常用内网段简写
+		return parseSingleIP("172.16.0.0/12")
 	case ip == "10":
-		return parseIP("10.0.0.0/8")
+		// 常用内网段简写
+		return parseSingleIP("10.0.0.0/8")
 	case strings.HasSuffix(ip, "/8"):
-		return parseIP8(ip)
+		// 处理/8网段（使用采样方式）
+		return parseSubnet8(ip)
 	case strings.Contains(ip, "/"):
-		return parseIP2(ip)
-	case reg.MatchString(ip):
+		// 处理CIDR格式
+		return parseCIDR(ip)
+	case isAlpha:
+		// 处理域名，直接返回
 		return []string{ip}
 	case strings.Contains(ip, "-"):
-		return parseIP1(ip)
+		// 处理IP范围
+		return parseIPRange(ip)
 	default:
-		testIP := net.ParseIP(ip)
-		if testIP == nil {
-			LogError(GetText("invalid_ip_format", ip))
-			return nil
+		// 尝试解析为单个IP地址
+		if testIP := net.ParseIP(ip); testIP != nil {
+			return []string{ip}
 		}
-		return []string{ip}
+		LogError(GetText("invalid_ip_format", ip))
+		return nil
 	}
 }
 
-// parseIP2 解析CIDR格式的IP地址段
-func parseIP2(host string) []string {
-	_, ipNet, err := net.ParseCIDR(host)
+// parseCIDR 解析CIDR格式的IP地址段
+// 例如: 192.168.1.0/24
+// 参数:
+//   - cidr: CIDR格式的IP地址段
+//
+// 返回:
+//   - []string: 展开后的IP地址列表
+func parseCIDR(cidr string) []string {
+	// 解析CIDR格式
+	_, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {
-		LogError(GetText("cidr_parse_failed", host, err))
+		LogError(GetText("cidr_parse_failed", cidr, err))
 		return nil
 	}
 
-	ipRange := IPRange(ipNet)
-	hosts := parseIP1(ipRange)
-	LogInfo(GetText("parse_cidr_to_range", host, ipRange))
+	// 转换为IP范围
+	ipRange := calculateIPRange(ipNet)
+	hosts := parseIPRange(ipRange)
+	LogInfo(GetText("parse_cidr_to_range", cidr, ipRange))
 	return hosts
 }
 
-// parseIP1 解析IP范围格式的地址
-func parseIP1(ip string) []string {
-	ipRange := strings.Split(ip, "-")
-	testIP := net.ParseIP(ipRange[0])
-	var allIP []string
+// calculateIPRange 计算CIDR的起始IP和结束IP
+// 例如: 192.168.1.0/24 -> 192.168.1.0-192.168.1.255
+// 参数:
+//   - cidr: 解析后的IPNet对象
+//
+// 返回:
+//   - string: 格式为"起始IP-结束IP"的范围字符串
+func calculateIPRange(cidr *net.IPNet) string {
+	// 获取网络起始IP
+	start := cidr.IP.String()
+	mask := cidr.Mask
 
-	// 处理简写格式 (192.168.111.1-255)
-	if len(ipRange[1]) < 4 {
-		endNum, err := strconv.Atoi(ipRange[1])
-		if testIP == nil || endNum > 255 || err != nil {
-			LogError(GetText("ip_range_format_error", ip))
-			return nil
-		}
+	// 计算广播地址(最后一个IP)
+	bcst := make(net.IP, len(cidr.IP))
+	copy(bcst, cidr.IP)
 
-		splitIP := strings.Split(ipRange[0], ".")
-		startNum, err1 := strconv.Atoi(splitIP[3])
-		endNum, err2 := strconv.Atoi(ipRange[1])
-		prefixIP := strings.Join(splitIP[0:3], ".")
-
-		if startNum > endNum || err1 != nil || err2 != nil {
-			LogError(GetText("invalid_ip_range", startNum, endNum))
-			return nil
-		}
-
-		for i := startNum; i <= endNum; i++ {
-			allIP = append(allIP, prefixIP+"."+strconv.Itoa(i))
-		}
-
-		LogInfo(GetText("generate_ip_range", prefixIP, startNum, prefixIP, endNum))
-	} else {
-		// 处理完整IP范围格式
-		splitIP1 := strings.Split(ipRange[0], ".")
-		splitIP2 := strings.Split(ipRange[1], ".")
-
-		if len(splitIP1) != 4 || len(splitIP2) != 4 {
-			LogError(GetText("ip_format_error", ip))
-			return nil
-		}
-
-		start, end := [4]int{}, [4]int{}
-		for i := 0; i < 4; i++ {
-			ip1, err1 := strconv.Atoi(splitIP1[i])
-			ip2, err2 := strconv.Atoi(splitIP2[i])
-			if ip1 > ip2 || err1 != nil || err2 != nil {
-				LogError(GetText("invalid_ip_range", ipRange[0], ipRange[1]))
-				return nil
-			}
-			start[i], end[i] = ip1, ip2
-		}
-
-		startNum := start[0]<<24 | start[1]<<16 | start[2]<<8 | start[3]
-		endNum := end[0]<<24 | end[1]<<16 | end[2]<<8 | end[3]
-
-		for num := startNum; num <= endNum; num++ {
-			ip := strconv.Itoa((num>>24)&0xff) + "." +
-				strconv.Itoa((num>>16)&0xff) + "." +
-				strconv.Itoa((num>>8)&0xff) + "." +
-				strconv.Itoa((num)&0xff)
-			allIP = append(allIP, ip)
-		}
-
-		LogInfo(GetText("generate_ip_range", ipRange[0], ipRange[1]))
-	}
-
-	return allIP
-}
-
-// IPRange 计算CIDR的起始IP和结束IP
-func IPRange(c *net.IPNet) string {
-	start := c.IP.String()
-	mask := c.Mask
-	bcst := make(net.IP, len(c.IP))
-	copy(bcst, c.IP)
-
+	// 将网络掩码按位取反，然后与IP地址按位或，得到广播地址
 	for i := 0; i < len(mask); i++ {
 		ipIdx := len(bcst) - i - 1
-		bcst[ipIdx] = c.IP[ipIdx] | ^mask[len(mask)-i-1]
+		bcst[ipIdx] = cidr.IP[ipIdx] | ^mask[len(mask)-i-1]
 	}
 	end := bcst.String()
 
@@ -221,8 +192,218 @@ func IPRange(c *net.IPNet) string {
 	return result
 }
 
-// Readipfile 从文件中按行读取IP地址
-func Readipfile(filename string) ([]string, error) {
+// parseIPRange 解析IP范围格式的地址
+// 支持两种格式:
+// - 完整格式: 192.168.1.1-192.168.1.100
+// - 简写格式: 192.168.1.1-100
+// 参数:
+//   - ipRange: IP范围字符串
+//
+// 返回:
+//   - []string: 展开后的IP地址列表
+func parseIPRange(ipRange string) []string {
+	parts := strings.Split(ipRange, "-")
+	if len(parts) != 2 {
+		LogError(GetText("ip_range_format_error", ipRange))
+		return nil
+	}
+
+	startIP := parts[0]
+	endIP := parts[1]
+
+	// 验证起始IP
+	if net.ParseIP(startIP) == nil {
+		LogError(GetText("invalid_ip_format", startIP))
+		return nil
+	}
+
+	// 处理简写格式 (如: 192.168.1.1-100)
+	if len(endIP) < 4 || !strings.Contains(endIP, ".") {
+		return parseShortIPRange(startIP, endIP)
+	} else {
+		// 处理完整格式 (如: 192.168.1.1-192.168.1.100)
+		return parseFullIPRange(startIP, endIP)
+	}
+}
+
+// parseShortIPRange 解析简写格式的IP范围
+// 例如: 192.168.1.1-100 表示从192.168.1.1到192.168.1.100
+// 参数:
+//   - startIP: 起始IP
+//   - endSuffix: 结束IP的最后一部分
+//
+// 返回:
+//   - []string: 展开后的IP地址列表
+func parseShortIPRange(startIP, endSuffix string) []string {
+	var allIP []string
+
+	// 将结束段转换为数字
+	endNum, err := strconv.Atoi(endSuffix)
+	if err != nil || endNum > 255 {
+		LogError(GetText("ip_range_format_error", startIP+"-"+endSuffix))
+		return nil
+	}
+
+	// 分解起始IP
+	ipParts := strings.Split(startIP, ".")
+	if len(ipParts) != 4 {
+		LogError(GetText("ip_format_error", startIP))
+		return nil
+	}
+
+	// 获取前缀和起始IP的最后一部分
+	prefixIP := strings.Join(ipParts[0:3], ".")
+	startNum, err := strconv.Atoi(ipParts[3])
+	if err != nil || startNum > endNum {
+		LogError(GetText("invalid_ip_range", startNum, endNum))
+		return nil
+	}
+
+	// 生成IP范围
+	for i := startNum; i <= endNum; i++ {
+		allIP = append(allIP, fmt.Sprintf("%s.%d", prefixIP, i))
+	}
+
+	LogInfo(GetText("generate_ip_range", prefixIP, startNum, prefixIP, endNum))
+	return allIP
+}
+
+// parseFullIPRange 解析完整格式的IP范围
+// 例如: 192.168.1.1-192.168.2.100
+// 参数:
+//   - startIP: 起始IP
+//   - endIP: 结束IP
+//
+// 返回:
+//   - []string: 展开后的IP地址列表
+func parseFullIPRange(startIP, endIP string) []string {
+	var allIP []string
+
+	// 验证结束IP
+	if net.ParseIP(endIP) == nil {
+		LogError(GetText("invalid_ip_format", endIP))
+		return nil
+	}
+
+	// 分解起始IP和结束IP
+	startParts := strings.Split(startIP, ".")
+	endParts := strings.Split(endIP, ".")
+
+	if len(startParts) != 4 || len(endParts) != 4 {
+		LogError(GetText("ip_format_error", startIP+"-"+endIP))
+		return nil
+	}
+
+	// 转换为整数数组
+	var start, end [4]int
+	for i := 0; i < 4; i++ {
+		var err1, err2 error
+		start[i], err1 = strconv.Atoi(startParts[i])
+		end[i], err2 = strconv.Atoi(endParts[i])
+
+		if err1 != nil || err2 != nil || start[i] > 255 || end[i] > 255 {
+			LogError(GetText("ip_format_error", startIP+"-"+endIP))
+			return nil
+		}
+	}
+
+	// 计算IP地址的整数表示
+	startInt := (start[0] << 24) | (start[1] << 16) | (start[2] << 8) | start[3]
+	endInt := (end[0] << 24) | (end[1] << 16) | (end[2] << 8) | end[3]
+
+	// 检查范围的有效性
+	if startInt > endInt {
+		LogError(GetText("invalid_ip_range", startIP, endIP))
+		return nil
+	}
+
+	// 限制IP范围的大小，防止生成过多IP导致内存问题
+	if endInt-startInt > 65535 {
+		LogError(GetText("ip_range_too_large", startIP, endIP))
+		// 可以考虑在这里实现采样或截断策略
+	}
+
+	// 生成IP范围
+	for ipInt := startInt; ipInt <= endInt; ipInt++ {
+		ip := fmt.Sprintf("%d.%d.%d.%d",
+			(ipInt>>24)&0xFF,
+			(ipInt>>16)&0xFF,
+			(ipInt>>8)&0xFF,
+			ipInt&0xFF)
+		allIP = append(allIP, ip)
+	}
+
+	LogInfo(GetText("generate_ip_range_full", startIP, endIP, len(allIP)))
+	return allIP
+}
+
+// parseSubnet8 解析/8网段的IP地址，生成采样IP列表
+// 由于/8网段包含1600多万个IP，因此采用采样方式
+// 参数:
+//   - subnet: CIDR格式的/8网段
+//
+// 返回:
+//   - []string: 采样的IP地址列表
+func parseSubnet8(subnet string) []string {
+	// 去除CIDR后缀获取基础IP
+	baseIP := subnet[:len(subnet)-2]
+	if net.ParseIP(baseIP) == nil {
+		LogError(GetText("invalid_ip_format", baseIP))
+		return nil
+	}
+
+	// 获取/8网段的第一段
+	firstOctet := strings.Split(baseIP, ".")[0]
+	var sampleIPs []string
+
+	LogInfo(GetText("parse_subnet", firstOctet))
+
+	// 预分配足够的容量以提高性能
+	// 每个二级网段10个IP，共256*256个二级网段
+	sampleIPs = make([]string, 0, 10)
+
+	// 对常用网段进行更全面的扫描
+	commonSecondOctets := []int{0, 1, 2, 10, 100, 200, 254}
+
+	// 对于每个选定的第二段，采样部分第三段
+	for _, secondOctet := range commonSecondOctets {
+		for thirdOctet := 0; thirdOctet < 256; thirdOctet += 10 {
+			// 添加常见的网关和服务器IP
+			sampleIPs = append(sampleIPs, fmt.Sprintf("%s.%d.%d.1", firstOctet, secondOctet, thirdOctet))   // 默认网关
+			sampleIPs = append(sampleIPs, fmt.Sprintf("%s.%d.%d.254", firstOctet, secondOctet, thirdOctet)) // 通常用于路由器/交换机
+
+			// 随机采样不同范围的主机IP
+			fourthOctet := randomInt(2, 253)
+			sampleIPs = append(sampleIPs, fmt.Sprintf("%s.%d.%d.%d", firstOctet, secondOctet, thirdOctet, fourthOctet))
+		}
+	}
+
+	// 对其他二级网段进行稀疏采样
+	samplingStep := 32 // 每32个二级网段采样1个
+	for secondOctet := 0; secondOctet < 256; secondOctet += samplingStep {
+		for thirdOctet := 0; thirdOctet < 256; thirdOctet += samplingStep {
+			// 对于采样的网段，取几个代表性IP
+			sampleIPs = append(sampleIPs, fmt.Sprintf("%s.%d.%d.1", firstOctet, secondOctet, thirdOctet))
+			sampleIPs = append(sampleIPs, fmt.Sprintf("%s.%d.%d.%d", firstOctet, secondOctet, thirdOctet, randomInt(2, 253)))
+		}
+	}
+
+	LogInfo(GetText("sample_ip_generated", len(sampleIPs)))
+	return sampleIPs
+}
+
+// readIPFile 从文件中按行读取IP地址
+// 支持两种格式:
+// - 每行一个IP或IP范围
+// - IP:PORT 格式指定端口
+// 参数:
+//   - filename: 包含IP地址的文件路径
+//
+// 返回:
+//   - []string: 解析后的IP地址列表
+//   - error: 读取和解析过程中的错误
+func readIPFile(filename string) ([]string, error) {
+	// 打开文件
 	file, err := os.Open(filename)
 	if err != nil {
 		LogError(GetText("open_file_failed", filename, err))
@@ -230,105 +411,139 @@ func Readipfile(filename string) ([]string, error) {
 	}
 	defer file.Close()
 
-	var content []string
+	var ipList []string
 	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanLines)
 
+	// 逐行处理
+	lineCount := 0
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue // 跳过空行和注释行
 		}
 
-		text := strings.Split(line, ":")
-		if len(text) == 2 {
-			port := strings.Split(text[1], " ")[0]
-			num, err := strconv.Atoi(port)
-			if err != nil || num < 1 || num > 65535 {
-				LogError(GetText("invalid_port", line))
-				continue
-			}
+		lineCount++
 
-			hosts := ParseIPs(text[0])
-			for _, host := range hosts {
-				HostPort = append(HostPort, fmt.Sprintf("%s:%s", host, port))
+		// 处理IP:PORT格式
+		if strings.Contains(line, ":") {
+			parts := strings.Split(line, ":")
+			if len(parts) == 2 {
+				// 提取端口部分，处理可能的注释
+				portPart := strings.Split(parts[1], " ")[0]
+				portPart = strings.Split(portPart, "#")[0]
+				port, err := strconv.Atoi(portPart)
+
+				// 验证端口有效性
+				if err != nil || port < 1 || port > 65535 {
+					LogError(GetText("invalid_port", line))
+					continue
+				}
+
+				// 解析IP部分并与端口组合
+				hosts := parseIPList(parts[0])
+				for _, host := range hosts {
+					HostPort = append(HostPort, fmt.Sprintf("%s:%s", host, portPart))
+				}
+				LogInfo(GetText("parse_ip_port", line))
+			} else {
+				LogError(GetText("invalid_ip_port_format", line))
 			}
-			LogInfo(GetText("parse_ip_port", line))
 		} else {
-			hosts := ParseIPs(line)
-			content = append(content, hosts...)
+			// 处理纯IP格式
+			hosts := parseIPList(line)
+			ipList = append(ipList, hosts...)
 			LogInfo(GetText("parse_ip_address", line))
 		}
 	}
 
+	// 检查扫描过程中的错误
 	if err := scanner.Err(); err != nil {
 		LogError(GetText("read_file_error", err))
-		return content, err
+		return ipList, err
 	}
 
-	LogInfo(GetText("file_parse_complete", len(content)))
-	return content, nil
+	LogInfo(GetText("file_parse_complete", len(ipList)))
+	return ipList, nil
 }
 
-// RemoveDuplicate 对字符串切片进行去重
-func RemoveDuplicate(old []string) []string {
-	temp := make(map[string]struct{})
-	var result []string
-
-	for _, item := range old {
-		if _, exists := temp[item]; !exists {
-			temp[item] = struct{}{}
-			result = append(result, item)
-		}
+// excludeHosts 从主机列表中排除指定的主机
+// 参数:
+//   - hosts: 原始主机列表
+//   - nohosts: 需要排除的主机列表(可选)
+//
+// 返回:
+//   - []string: 排除后的主机列表
+func excludeHosts(hosts []string, nohosts []string) []string {
+	// 如果没有需要排除的主机，直接返回原列表
+	if len(nohosts) == 0 || nohosts[0] == "" {
+		return hosts
 	}
+
+	// 解析排除列表
+	excludeList := parseIPList(nohosts[0])
+	if len(excludeList) == 0 {
+		return hosts
+	}
+
+	// 使用map存储有效主机，提高查找效率
+	hostMap := make(map[string]struct{}, len(hosts))
+	for _, host := range hosts {
+		hostMap[host] = struct{}{}
+	}
+
+	// 从map中删除需要排除的主机
+	for _, host := range excludeList {
+		delete(hostMap, host)
+	}
+
+	// 重建主机列表
+	result := make([]string, 0, len(hostMap))
+	for host := range hostMap {
+		result = append(result, host)
+	}
+
+	// 排序以保持结果的稳定性
+	sort.Strings(result)
+	LogInfo(GetText("hosts_excluded", len(excludeList)))
 
 	return result
 }
 
-// parseIP8 解析/8网段的IP地址
-func parseIP8(ip string) []string {
-	// 去除CIDR后缀获取基础IP
-	realIP := ip[:len(ip)-2]
-	testIP := net.ParseIP(realIP)
-
-	if testIP == nil {
-		LogError(GetText("invalid_ip_format", realIP))
-		return nil
+// removeDuplicateIPs 去除重复的IP地址
+// 参数:
+//   - ips: 包含可能重复项的IP地址列表
+//
+// 返回:
+//   - []string: 去重后的IP地址列表
+func removeDuplicateIPs(ips []string) []string {
+	// 使用map去重
+	ipMap := make(map[string]struct{}, len(ips))
+	for _, ip := range ips {
+		ipMap[ip] = struct{}{}
 	}
 
-	// 获取/8网段的第一段
-	ipRange := strings.Split(ip, ".")[0]
-	var allIP []string
-
-	LogInfo(GetText("parse_subnet", ipRange))
-
-	// 遍历所有可能的第二、三段
-	for a := 0; a <= 255; a++ {
-		for b := 0; b <= 255; b++ {
-			// 添加常用网关IP
-			allIP = append(allIP, fmt.Sprintf("%s.%d.%d.1", ipRange, a, b)) // 默认网关
-			allIP = append(allIP, fmt.Sprintf("%s.%d.%d.2", ipRange, a, b)) // 备用网关
-			allIP = append(allIP, fmt.Sprintf("%s.%d.%d.4", ipRange, a, b)) // 常用服务器
-			allIP = append(allIP, fmt.Sprintf("%s.%d.%d.5", ipRange, a, b)) // 常用服务器
-
-			// 随机采样不同范围的IP
-			allIP = append(allIP, fmt.Sprintf("%s.%d.%d.%d", ipRange, a, b, RandInt(6, 55)))    // 低段随机
-			allIP = append(allIP, fmt.Sprintf("%s.%d.%d.%d", ipRange, a, b, RandInt(56, 100)))  // 中低段随机
-			allIP = append(allIP, fmt.Sprintf("%s.%d.%d.%d", ipRange, a, b, RandInt(101, 150))) // 中段随机
-			allIP = append(allIP, fmt.Sprintf("%s.%d.%d.%d", ipRange, a, b, RandInt(151, 200))) // 中高段随机
-			allIP = append(allIP, fmt.Sprintf("%s.%d.%d.%d", ipRange, a, b, RandInt(201, 253))) // 高段随机
-			allIP = append(allIP, fmt.Sprintf("%s.%d.%d.254", ipRange, a, b))                   // 广播地址前
-		}
+	// 创建结果切片并添加唯一的IP
+	result := make([]string, 0, len(ipMap))
+	for ip := range ipMap {
+		result = append(result, ip)
 	}
 
-	LogInfo(GetText("sample_ip_generated", len(allIP)))
-	return allIP
+	// 排序以保持结果的稳定性
+	sort.Strings(result)
+	return result
 }
 
-// RandInt 生成指定范围内的随机整数
-func RandInt(min, max int) int {
-	if min >= max || min == 0 || max == 0 {
+// randomInt 生成指定范围内的随机整数
+// 参数:
+//   - min: 最小值(包含)
+//   - max: 最大值(包含)
+//
+// 返回:
+//   - int: 生成的随机数
+func randomInt(min, max int) int {
+	if min >= max || min < 0 || max <= 0 {
 		return max
 	}
-	return rand.Intn(max-min) + min
+	return rand.Intn(max-min+1) + min
 }
