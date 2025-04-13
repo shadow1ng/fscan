@@ -912,9 +912,12 @@ var (
 	Pocinfo PocInfo
 
 	// Redis配置
-	RedisFile    string
-	RedisShell   string
-	DisableRedis bool // 原Noredistest
+	RedisFile         string
+	RedisShell        string
+	DisableRedis      bool // 原Noredistest
+	RedisWritePath    string
+	RedisWriteContent string
+	RedisWriteFile    string
 
 	// 爆破配置
 	DisableBrute bool // 原IsBrute

@@ -536,6 +536,28 @@ var i18nMap = map[string]map[string]string{
 		LangJA: "Redisセキュリティ検出を無効化",
 		LangRU: "Отключить обнаружение безопасности Redis",
 	},
+
+	"flag_redis_write_path": {
+		LangZH: "指定Redis写入的文件路径(如:/var/www/html/shell.php)",
+		LangEN: "Specify file path for Redis arbitrary write (e.g., /var/www/html/shell.php)",
+		LangJA: "Redis書き込み用のファイルパスを指定（例：/var/www/html/shell.php）",
+		LangRU: "Указать путь к файлу для произвольной записи Redis (например, /var/www/html/shell.php)",
+	},
+
+	"flag_redis_write_content": {
+		LangZH: "指定Redis写入的文件内容(与-rwp配合使用)",
+		LangEN: "Specify content for Redis arbitrary write (use with -rwp)",
+		LangJA: "Redis書き込み用の内容を指定（-rwpと併用）",
+		LangRU: "Указать содержимое для произвольной записи Redis (использовать с -rwp)",
+	},
+
+	"flag_redis_write_file": {
+		LangZH: "指定Redis写入的本地文件路径(将文件内容写入-rwp指定的路径)",
+		LangEN: "Specify local file to read content from for Redis write (written to path specified by -rwp)",
+		LangJA: "Redis書き込み用のローカルファイルパスを指定（内容が-rwpで指定されたパスに書き込まれる）",
+		LangRU: "Указать локальный файл для чтения содержимого для записи Redis (записывается по пути, указанному в -rwp)",
+	},
+
 	// 暴力破解配置
 	"flag_disable_brute": {
 		LangZH: "禁用密码暴力破解",
