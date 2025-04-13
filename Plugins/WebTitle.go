@@ -48,7 +48,7 @@ func WebTitle(info *Common.HostInfo) error {
 	return err
 }
 
-// GOWebTitle 获取网站标题并处理URL
+// GOWebTitle 获取网站标题并处理URL，增强错误处理和协议切换
 func GOWebTitle(info *Common.HostInfo) (err error, CheckData []WebScan.CheckDatas) {
 	Common.LogDebug(fmt.Sprintf("开始处理URL: %s", info.Url))
 
@@ -79,12 +79,35 @@ func GOWebTitle(info *Common.HostInfo) (err error, CheckData []WebScan.CheckData
 	}
 	Common.LogDebug(fmt.Sprintf("协议检测完成后的URL: %s", info.Url))
 
+	// 记录原始URL协议
+	originalProtocol := "http"
+	if strings.HasPrefix(info.Url, "https://") {
+		originalProtocol = "https"
+	}
+
 	// 第一次获取URL
 	Common.LogDebug("第一次尝试访问URL")
 	err, result, CheckData := geturl(info, 1, CheckData)
 	Common.LogDebug(fmt.Sprintf("第一次访问结果 - 错误: %v, 返回信息: %s", err, result))
+
+	// 如果访问失败并且使用的是HTTPS，尝试降级到HTTP
 	if err != nil && !strings.Contains(err.Error(), "EOF") {
-		return
+		if originalProtocol == "https" {
+			Common.LogDebug("HTTPS访问失败，尝试降级到HTTP")
+			// 替换协议部分
+			info.Url = strings.Replace(info.Url, "https://", "http://", 1)
+			Common.LogDebug(fmt.Sprintf("降级后的URL: %s", info.Url))
+			err, result, CheckData = geturl(info, 1, CheckData)
+			Common.LogDebug(fmt.Sprintf("HTTP降级访问结果 - 错误: %v, 返回信息: %s", err, result))
+
+			// 如果仍然失败，返回错误
+			if err != nil && !strings.Contains(err.Error(), "EOF") {
+				return
+			}
+		} else {
+			// 如果本来就是HTTP并且失败了，直接返回错误
+			return
+		}
 	}
 
 	// 处理URL跳转
@@ -94,32 +117,53 @@ func GOWebTitle(info *Common.HostInfo) (err error, CheckData []WebScan.CheckData
 		err, result, CheckData = geturl(info, 3, CheckData)
 		Common.LogDebug(fmt.Sprintf("重定向请求结果 - 错误: %v, 返回信息: %s", err, result))
 		if err != nil {
-			return
-		}
-	}
+			// 如果重定向跟踪失败，尝试降级协议
+			if strings.HasPrefix(info.Url, "https://") {
+				Common.LogDebug("重定向HTTPS访问失败，尝试降级到HTTP")
+				info.Url = strings.Replace(info.Url, "https://", "http://", 1)
+				err, result, CheckData = geturl(info, 3, CheckData)
+				Common.LogDebug(fmt.Sprintf("重定向降级访问结果 - 错误: %v, 返回信息: %s", err, result))
+			}
 
-	// 处理HTTP到HTTPS的升级
-	if result == "https" && !strings.HasPrefix(info.Url, "https://") {
-		Common.LogDebug("正在升级到HTTPS")
-		info.Url = strings.Replace(info.Url, "http://", "https://", 1)
-		Common.LogDebug(fmt.Sprintf("升级后的URL: %s", info.Url))
-		err, result, CheckData = geturl(info, 1, CheckData)
-
-		// 处理升级后的跳转
-		if strings.Contains(result, "://") {
-			Common.LogDebug(fmt.Sprintf("HTTPS升级后发现重定向到: %s", result))
-			info.Url = result
-			err, _, CheckData = geturl(info, 3, CheckData)
 			if err != nil {
 				return
 			}
 		}
 	}
 
-	Common.LogDebug(fmt.Sprintf("GOWebTitle执行完成 - 错误: %v", err))
-	if err != nil {
-		return
+	// 处理HTTP到HTTPS的升级提示
+	if result == "https" && !strings.HasPrefix(info.Url, "https://") {
+		Common.LogDebug("正在升级到HTTPS")
+		info.Url = strings.Replace(info.Url, "http://", "https://", 1)
+		Common.LogDebug(fmt.Sprintf("升级后的URL: %s", info.Url))
+		err, result, CheckData = geturl(info, 1, CheckData)
+		Common.LogDebug(fmt.Sprintf("HTTPS升级访问结果 - 错误: %v, 返回信息: %s", err, result))
+
+		// 如果HTTPS升级后访问失败，回退到HTTP
+		if err != nil && !strings.Contains(err.Error(), "EOF") {
+			Common.LogDebug("HTTPS升级访问失败，回退到HTTP")
+			info.Url = strings.Replace(info.Url, "https://", "http://", 1)
+			err, result, CheckData = geturl(info, 1, CheckData)
+			Common.LogDebug(fmt.Sprintf("回退到HTTP访问结果 - 错误: %v, 返回信息: %s", err, result))
+		}
+
+		// 处理升级后的跳转
+		if strings.Contains(result, "://") {
+			Common.LogDebug(fmt.Sprintf("协议升级后发现重定向到: %s", result))
+			info.Url = result
+			err, _, CheckData = geturl(info, 3, CheckData)
+			if err != nil {
+				// 如果重定向跟踪失败，再次尝试降级
+				if strings.HasPrefix(info.Url, "https://") {
+					Common.LogDebug("升级后重定向HTTPS访问失败，尝试降级到HTTP")
+					info.Url = strings.Replace(info.Url, "https://", "http://", 1)
+					err, _, CheckData = geturl(info, 3, CheckData)
+				}
+			}
+		}
 	}
+
+	Common.LogDebug(fmt.Sprintf("GOWebTitle执行完成 - 错误: %v", err))
 	return
 }
 
@@ -367,10 +411,12 @@ func gettitle(body []byte) (title string) {
 	return
 }
 
-// GetProtocol 检测目标主机的协议类型(HTTP/HTTPS)
+// GetProtocol 检测目标主机的协议类型(HTTP/HTTPS)，优先返回可用的协议
 func GetProtocol(host string, Timeout int64) (protocol string) {
 	Common.LogDebug(fmt.Sprintf("开始检测主机协议 - 主机: %s, 超时: %d秒", host, Timeout))
-	protocol = "http" // 默认协议
+
+	// 默认使用http协议
+	protocol = "http"
 
 	timeoutDuration := time.Duration(Timeout) * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
@@ -379,31 +425,38 @@ func GetProtocol(host string, Timeout int64) (protocol string) {
 	// 1. 根据标准端口快速判断协议
 	if strings.HasSuffix(host, ":80") {
 		Common.LogDebug("检测到标准HTTP端口，使用HTTP协议")
-		return
+		return "http"
 	} else if strings.HasSuffix(host, ":443") {
 		Common.LogDebug("检测到标准HTTPS端口，使用HTTPS协议")
 		return "https"
 	}
 
 	// 2. 并发检测HTTP和HTTPS
-	resultChan := make(chan string, 2)
+	type protocolResult struct {
+		name    string
+		success bool
+	}
+
+	resultChan := make(chan protocolResult, 2)
+	singleTimeout := timeoutDuration / 2 // 每个协议检测的超时时间减半
 
 	// 检测HTTPS
 	go func() {
+		Common.LogDebug("开始检测HTTPS协议")
 		tlsConfig := &tls.Config{
 			InsecureSkipVerify: true,
 			MinVersion:         tls.VersionTLS10,
 		}
 
 		dialer := &net.Dialer{
-			Timeout: timeoutDuration / 2, // 缩短单次尝试的超时时间
+			Timeout: singleTimeout,
 		}
 
 		conn, err := tls.DialWithDialer(dialer, "tcp", host, tlsConfig)
 		if err == nil {
 			Common.LogDebug("HTTPS连接成功")
 			conn.Close()
-			resultChan <- "https"
+			resultChan <- protocolResult{"https", true}
 			return
 		}
 
@@ -417,18 +470,21 @@ func GetProtocol(host string, Timeout int64) (protocol string) {
 				strings.Contains(errMsg, "x509") ||
 				strings.Contains(errMsg, "secure") {
 				Common.LogDebug(fmt.Sprintf("TLS握手有错误但可能是HTTPS协议: %v", err))
-				resultChan <- "https"
+				resultChan <- protocolResult{"https", true}
 				return
 			}
+			Common.LogDebug(fmt.Sprintf("HTTPS连接失败: %v", err))
 		}
-		resultChan <- ""
+		resultChan <- protocolResult{"https", false}
 	}()
 
 	// 检测HTTP
 	go func() {
+		Common.LogDebug("开始检测HTTP协议")
 		req, err := http.NewRequestWithContext(ctx, "HEAD", fmt.Sprintf("http://%s", host), nil)
 		if err != nil {
-			resultChan <- ""
+			Common.LogDebug(fmt.Sprintf("创建HTTP请求失败: %v", err))
+			resultChan <- protocolResult{"http", false}
 			return
 		}
 
@@ -436,61 +492,68 @@ func GetProtocol(host string, Timeout int64) (protocol string) {
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 				DialContext: (&net.Dialer{
-					Timeout: timeoutDuration / 2,
+					Timeout: singleTimeout,
 				}).DialContext,
 			},
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse // 不跟随重定向
 			},
-			Timeout: timeoutDuration / 2,
+			Timeout: singleTimeout,
 		}
 
 		resp, err := client.Do(req)
 		if err == nil {
 			resp.Body.Close()
 			Common.LogDebug(fmt.Sprintf("HTTP连接成功，状态码: %d", resp.StatusCode))
-			resultChan <- "http"
+			resultChan <- protocolResult{"http", true}
 			return
 		}
 
+		Common.LogDebug(fmt.Sprintf("标准HTTP请求失败: %v，尝试原始TCP连接", err))
+
 		// 尝试原始TCP连接和简单HTTP请求
-		netConn, err := net.DialTimeout("tcp", host, timeoutDuration/2)
+		netConn, err := net.DialTimeout("tcp", host, singleTimeout)
 		if err == nil {
 			defer netConn.Close()
-			netConn.SetDeadline(time.Now().Add(timeoutDuration / 2))
+			netConn.SetDeadline(time.Now().Add(singleTimeout))
 
 			// 发送简单HTTP请求
 			_, err = netConn.Write([]byte("HEAD / HTTP/1.0\r\nHost: " + host + "\r\n\r\n"))
 			if err == nil {
 				// 读取响应
 				buf := make([]byte, 1024)
-				netConn.SetDeadline(time.Now().Add(timeoutDuration / 2))
+				netConn.SetDeadline(time.Now().Add(singleTimeout))
 				n, err := netConn.Read(buf)
 				if err == nil && n > 0 {
 					response := string(buf[:n])
 					if strings.Contains(response, "HTTP/") {
 						Common.LogDebug("通过原始TCP连接确认HTTP协议")
-						resultChan <- "http"
+						resultChan <- protocolResult{"http", true}
 						return
 					}
 				}
 			}
+			Common.LogDebug("原始TCP连接成功但HTTP响应无效")
+		} else {
+			Common.LogDebug(fmt.Sprintf("原始TCP连接失败: %v", err))
 		}
 
-		resultChan <- ""
+		resultChan <- protocolResult{"http", false}
 	}()
 
 	// 3. 收集结果并决定使用哪种协议
-	var httpsResult, httpResult string
+	var httpsSuccess, httpSuccess bool
 
 	// 等待两个goroutine返回结果或超时
 	for i := 0; i < 2; i++ {
 		select {
 		case result := <-resultChan:
-			if result == "https" {
-				httpsResult = result
-			} else if result == "http" {
-				httpResult = result
+			if result.name == "https" {
+				httpsSuccess = result.success
+				Common.LogDebug(fmt.Sprintf("HTTPS检测结果: %v", httpsSuccess))
+			} else if result.name == "http" {
+				httpSuccess = result.success
+				Common.LogDebug(fmt.Sprintf("HTTP检测结果: %v", httpSuccess))
 			}
 		case <-ctx.Done():
 			Common.LogDebug("协议检测超时")
@@ -498,12 +561,12 @@ func GetProtocol(host string, Timeout int64) (protocol string) {
 		}
 	}
 
-	// 4. 决定使用哪种协议
-	if httpsResult == "https" {
-		Common.LogDebug("优先使用HTTPS协议")
+	// 4. 决定使用哪种协议 - 优先使用HTTPS，如果HTTPS不可用则使用HTTP
+	if httpsSuccess {
+		Common.LogDebug("选择使用HTTPS协议")
 		return "https"
-	} else if httpResult == "http" {
-		Common.LogDebug("使用HTTP协议")
+	} else if httpSuccess {
+		Common.LogDebug("选择使用HTTP协议")
 		return "http"
 	}
 
