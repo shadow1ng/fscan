@@ -2,6 +2,9 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/shadow1ng/fscan/Common"
@@ -9,34 +12,48 @@ import (
 	pb "github.com/shadow1ng/fscan/RPC/lib"
 )
 
-// FscanService 实现了 pb.FscanServiceServer 接口，用于提供扫描相关的服务。
 type FscanService struct {
 	pb.UnimplementedFscanServiceServer
+	scanMutex  sync.Mutex
+	isScanning int32 // 原子变量，用于标记是否正在扫描
 }
 
-// StartScan 用于启动扫描任务。
-// 参数：
-// - ctx：请求上下文，用于控制超时、取消等操作。
-// - req：StartScanRequest，包括扫描目标、端口、模式等参数。
-// 返回值：
-// - StartScanResponse：包含任务 ID 和提示信息。
-// - error：执行中出现的错误信息。
 func (s *FscanService) StartScan(ctx context.Context, req *pb.StartScanRequest) (*pb.StartScanResponse, error) {
-	Common.LogDebug("接收到扫描请求，目标: " + req.Arg + ", " + req.Secret)
-	// TODO: 在此处实现实际的扫描逻辑，例如调用扫描器、创建任务、存储任务状态等。
-	// 可以异步执行扫描逻辑，并生成一个唯一的 taskID 进行标识。
-	var info Common.HostInfo
-	if err := Common.FlagFromRemote(&info, req.Arg); err != nil {
-		return nil, err
+	if !atomic.CompareAndSwapInt32(&s.isScanning, 0, 1) {
+		return &pb.StartScanResponse{
+			TaskId:  "",
+			Message: "已有扫描任务正在运行，请稍后重试",
+		}, nil
 	}
-	if err := Common.Parse(&info); err != nil {
-		return nil, err
-	}
-	Common.LogDebug("解析参数成功，目标: " + info.Host + ", " + info.Ports)
-	go Core.Scan(info) // 建议异步执行
+
+	taskID := "uuid"
+
+	go func(taskID string, req *pb.StartScanRequest) {
+		defer atomic.StoreInt32(&s.isScanning, 0)
+
+		s.scanMutex.Lock()
+		defer s.scanMutex.Unlock()
+
+		Common.LogDebug("异步执行扫描请求，目标: " + req.Arg + ", " + req.Secret)
+
+		var info Common.HostInfo
+		if err := Common.FlagFromRemote(&info, req.Arg); err != nil {
+			return
+		}
+		if err := Common.Parse(&info); err != nil {
+			return
+		}
+		//TODO: 结果保存需要在output模块中设计
+		if err := Common.InitOutput(); err != nil {
+			Common.LogError(fmt.Sprintf("初始化输出系统失败: %v", err))
+			return
+		}
+
+		Core.Scan(info)
+	}(taskID, req)
 
 	return &pb.StartScanResponse{
-		TaskId:  "task_123456", // TODO: 返回真实生成的 taskID
+		TaskId:  taskID,
 		Message: "扫描任务已启动",
 	}, nil
 }
