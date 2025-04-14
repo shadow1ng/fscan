@@ -1,17 +1,19 @@
 module github.com/shadow1ng/fscan
 
-go 1.20
+go 1.23.0
+
+toolchain go1.23.6
 
 require (
 	github.com/IBM/sarama v1.43.3
 	github.com/denisenkom/go-mssqldb v0.12.3
 	github.com/fatih/color v1.18.0
 	github.com/go-ldap/ldap/v3 v3.4.9
-	github.com/go-ole/go-ole v1.3.0
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/gocql/gocql v1.7.0
 	github.com/google/cel-go v0.13.0
 	github.com/gosnmp/gosnmp v1.38.0
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.3
 	github.com/hirochachacha/go-smb2 v1.1.0
 	github.com/jlaffaye/ftp v0.2.0
 	github.com/lib/pq v1.10.9
@@ -23,12 +25,13 @@ require (
 	github.com/sijms/go-ora/v2 v2.5.29
 	github.com/stacktitan/smb v0.0.0-20190531122847-da9a425dceb8
 	github.com/tomatome/grdp v0.0.0-20211231062539-be8adab7eaf3
-	golang.org/x/crypto v0.31.0
-	golang.org/x/net v0.32.0
-	golang.org/x/sys v0.28.0
-	golang.org/x/text v0.21.0
+	golang.org/x/crypto v0.33.0
+	golang.org/x/net v0.35.0
+	golang.org/x/sys v0.30.0
+	golang.org/x/text v0.22.0
 	google.golang.org/genproto v0.0.0-20221027153422-115e99e71e1c
-	google.golang.org/protobuf v1.28.1
+	google.golang.org/grpc v1.70.0
+	google.golang.org/protobuf v1.36.5
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -71,7 +74,7 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
-	golang.org/x/term v0.27.0 // indirect
+	golang.org/x/term v0.29.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 )
 
