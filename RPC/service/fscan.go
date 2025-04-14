@@ -2,9 +2,9 @@ package service
 
 import (
 	"context"
-	"log"
 	"time"
 
+	"github.com/shadow1ng/fscan/Common"
 	pb "github.com/shadow1ng/fscan/RPC/lib"
 )
 
@@ -21,8 +21,7 @@ type FscanService struct {
 // - StartScanResponse：包含任务 ID 和提示信息。
 // - error：执行中出现的错误信息。
 func (s *FscanService) StartScan(ctx context.Context, req *pb.StartScanRequest) (*pb.StartScanResponse, error) {
-	log.Printf("启动扫描: target=%s, port=%s, mode=%s", req.Secret, req.Arg)
-
+	Common.LogDebug("接收到扫描请求，目标: " + req.Arg + ", " + req.Secret)
 	// TODO: 在此处实现实际的扫描逻辑，例如调用扫描器、创建任务、存储任务状态等。
 	// 可以异步执行扫描逻辑，并生成一个唯一的 taskID 进行标识。
 
