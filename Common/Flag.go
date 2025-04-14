@@ -152,6 +152,8 @@ func Flag(Info *HostInfo) {
 	// ═════════════════════════════════════════════════
 	flag.StringVar(&Shellcode, "sc", "", GetText("flag_shellcode"))
 	flag.StringVar(&Language, "lang", "zh", GetText("flag_language"))
+	flag.StringVar(&ApiAddr, "api", "", GetText("flag_api"))
+	flag.StringVar(&SecretKey, "secret", "", GetText("flag_api_key"))
 
 	// 解析命令行参数
 	parseCommandLineArgs()

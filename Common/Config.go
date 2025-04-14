@@ -957,6 +957,8 @@ var (
 	ShowScanPlan  bool   // 是否显示扫描计划详情
 	SlowLogOutput bool   // 是否启用慢速日志输出
 	Language      string // 界面语言设置
+	ApiAddr      string // API地址
+	SecretKey     string // 加密密钥
 )
 
 var (
