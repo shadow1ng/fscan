@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/shadow1ng/fscan/Common"
+	"github.com/shadow1ng/fscan/Core"
 	pb "github.com/shadow1ng/fscan/RPC/lib"
 )
 
@@ -24,6 +25,15 @@ func (s *FscanService) StartScan(ctx context.Context, req *pb.StartScanRequest) 
 	Common.LogDebug("接收到扫描请求，目标: " + req.Arg + ", " + req.Secret)
 	// TODO: 在此处实现实际的扫描逻辑，例如调用扫描器、创建任务、存储任务状态等。
 	// 可以异步执行扫描逻辑，并生成一个唯一的 taskID 进行标识。
+	var info Common.HostInfo
+	if err := Common.FlagFromRemote(&info, req.Arg); err != nil {
+		return nil, err
+	}
+	if err := Common.Parse(&info); err != nil {
+		return nil, err
+	}
+	Common.LogDebug("解析参数成功，目标: " + info.Host + ", " + info.Ports)
+	go Core.Scan(info) // 建议异步执行
 
 	return &pb.StartScanResponse{
 		TaskId:  "task_123456", // TODO: 返回真实生成的 taskID
