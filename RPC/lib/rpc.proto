@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package lib;
+
+option go_package = "./;lib";
+
+import "google/api/annotations.proto";
+
+service FscanService {
+  // 启动扫描任务
+  rpc StartScan(StartScanRequest) returns (StartScanResponse) {
+    option (google.api.http) = {
+      post: "/v1/startscan"
+      body: "*"
+    };
+  }
+
+  // 获取扫描结果（非流式）
+  rpc GetScanResults(TaskResultsRequest) returns (TaskResultsResponse) {
+    option (google.api.http) = {
+      post: "/v1/getresults"
+      body: "*"
+    };
+  }
+
+  // 获取扫描结果（流式）
+  rpc StreamScanResults(TaskResultsRequest) returns (stream ScanResult) {
+    option (google.api.http) = {
+      get: "/v1/streamresults"
+    };
+  }
+}
+
+// 启动任务的请求
+message StartScanRequest {
+  string secret = 1;
+  string arg= 2;
+}
+
+// 启动任务的响应
+message StartScanResponse {
+  string task_id = 1;
+  string message = 2;
+}
+
+// 获取扫描结果的请求
+message TaskResultsRequest {
+  string task_id = 1;
+  uint32 offset = 2;
+}
+
+// 获取扫描结果的响应
+message TaskResultsResponse {
+  string task_id = 1;
+  repeated ScanResult results = 2;
+  bool finished = 3;
+}
+
+// 扫描结果结构体
+message ScanResult {
+  string time = 1;
+  string type = 2;
+  string target = 3;
+  string status = 4;
+  string details_json = 5;
+}
