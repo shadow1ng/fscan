@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-var version = "2.0.0"
+var version = "2.0.1"
 var Userdict = map[string][]string{
 	"ftp":        {"ftp", "admin", "www", "web", "root", "db", "wwwroot", "data"},
 	"mysql":      {"root", "mysql"},
