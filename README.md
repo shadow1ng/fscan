@@ -1,7 +1,7 @@
 # FScan
 
 <div align="center">   <img src="image/gpt-4o/final.png" alt="FScan Logo" width="300px"/>   <br><br>
-<img src="https://img.shields.io/badge/官方网站-FScan.club-blue?style=for-the-badge&logo=firefox&logoColor=white" alt="官方网站"></a><a href="#"><img src="https://img.shields.io/badge/语言-Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="语言"></a><a href="#"><img src="https://img.shields.io/badge/版本-2.0.0-red?style=for-the-badge" alt="版本"></a><img src="https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge&logo=github-actions" alt="Build"></a><a href="#"><img src="https://img.shields.io/badge/支持-Windows|Linux|MacOS-lightgrey?style=for-the-badge&logo=windows" alt="平台"></a>
+<img src="https://img.shields.io/badge/官方网站-FScan.club-blue?style=for-the-badge&logo=firefox&logoColor=white" alt="官方网站"></a><a href="#"><img src="https://img.shields.io/badge/语言-Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="语言"></a><a href="#"><img src="https://img.shields.io/badge/版本-2.0.0-red?style=for-the-badge" alt="版本"></a><img src="https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge&logo=github-actions" alt="Build"></a><a href="#"><img src="https://img.shields.io/badge/支持-Windows|Linux|MacOS-lightgrey?style=for-the-badge&logo=windows" alt="平台"></a></div>
 
 
 ## 简介
@@ -71,4 +71,4 @@ https://github.com/jjf012/gopoc
 玲珑安全往期学员报喜🎉: https://www.ifhsec.com/list.html  
 玲珑安全漏洞挖掘培训学习联系微信: linglongsec
 
-<div align="center">   <a href="https://fscan.club"><img src="https://img.shields.io/badge/官方网站-fscan.club-blue?style=social&logo=world&logoColor=black" alt="官网"></a>&nbsp;&nbsp;   <a href="#"><img src="https://img.shields.io/badge/QQ群-12345678-blue?style=social&logo=tencentqq&logoColor=black" alt="QQ群"></a>&nbsp;&nbsp;   </div> <br> <div align="center">   <b>FScan</b> - 为后渗透提供支持   <br>   <small>Copyright © 2025 FScan Team</small> </div>
+<div align="center">   <a href="https://fscan.club"><img src="https://img.shields.io/badge/官方网站-fscan.club-blue?style=social&logo=world&logoColor=black" alt="官网"></a>&nbsp;&nbsp;   <a href="#"><img src="https://img.shields.io/badge/QQ群-799860092-blue?style=social&logo=tencentqq&logoColor=black" alt="QQ群"></a>&nbsp;&nbsp;   </div> <br> <div align="center">   <b>FScan</b> - 为后渗透提供支持   <br>   <small>Copyright © 2025 FScan Team</small> </div>
