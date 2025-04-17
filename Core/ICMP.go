@@ -97,7 +97,7 @@ func probeWithICMP(hostslist []string, chanHosts chan string) {
 	}
 
 	Common.LogError(Common.GetText("icmp_listen_failed", err))
-	Common.LogInfo(Common.GetText("trying_no_listen_icmp"))
+	Common.LogBase(Common.GetText("trying_no_listen_icmp"))
 
 	// 尝试无监听ICMP探测
 	conn2, err := net.DialTimeout("ip4:icmp", "127.0.0.1", 3*time.Second)
@@ -108,8 +108,8 @@ func probeWithICMP(hostslist []string, chanHosts chan string) {
 	}
 
 	Common.LogError(Common.GetText("icmp_connect_failed", err))
-	Common.LogInfo(Common.GetText("insufficient_privileges"))
-	Common.LogInfo(Common.GetText("switching_to_ping"))
+	Common.LogBase(Common.GetText("insufficient_privileges"))
+	Common.LogBase(Common.GetText("switching_to_ping"))
 
 	// 降级使用ping探测
 	RunPing(hostslist, chanHosts)

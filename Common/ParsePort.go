@@ -1,9 +1,9 @@
 package Common
 
 import (
+	"sort"
 	"strconv"
 	"strings"
-	"sort"
 )
 
 // ParsePort 解析端口配置字符串为端口号列表
@@ -73,7 +73,7 @@ func ParsePort(ports string) []int {
 	scanPorts = removeDuplicate(scanPorts)
 	sort.Ints(scanPorts)
 
-	LogInfo(GetText("valid_port_count", len(scanPorts)))
+	LogBase(GetText("valid_port_count", len(scanPorts)))
 	return scanPorts
 }
 

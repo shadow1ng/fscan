@@ -253,7 +253,7 @@ func geturl(info *Common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 		if reurl != "" {
 			logMsg += fmt.Sprintf(" 重定向地址: %s", reurl)
 		}
-		Common.LogSuccess(logMsg)
+		Common.LogInfo(logMsg)
 	}
 
 	// 返回结果

@@ -31,7 +31,7 @@ func ParseUser() error {
 	// 处理直接指定的用户名列表
 	if Username != "" {
 		usernames = strings.Split(Username, ",")
-		LogInfo(GetText("no_username_specified", len(usernames)))
+		LogBase(GetText("no_username_specified", len(usernames)))
 	}
 
 	// 从文件加载用户名列表
@@ -47,12 +47,12 @@ func ParseUser() error {
 				usernames = append(usernames, user)
 			}
 		}
-		LogInfo(GetText("load_usernames_from_file", len(users)))
+		LogBase(GetText("load_usernames_from_file", len(users)))
 	}
 
 	// 去重处理
 	usernames = RemoveDuplicate(usernames)
-	LogInfo(GetText("total_usernames", len(usernames)))
+	LogBase(GetText("total_usernames", len(usernames)))
 
 	// 更新用户字典
 	for name := range Userdict {
@@ -74,7 +74,7 @@ func ParsePass(Info *HostInfo) error {
 			}
 		}
 		Passwords = pwdList
-		LogInfo(GetText("load_passwords", len(pwdList)))
+		LogBase(GetText("load_passwords", len(pwdList)))
 	}
 
 	// 从文件加载密码列表
@@ -89,7 +89,7 @@ func ParsePass(Info *HostInfo) error {
 			}
 		}
 		Passwords = pwdList
-		LogInfo(GetText("load_passwords_from_file", len(passes)))
+		LogBase(GetText("load_passwords_from_file", len(passes)))
 	}
 
 	// 处理哈希文件
@@ -111,7 +111,7 @@ func ParsePass(Info *HostInfo) error {
 				LogError(GetText("invalid_hash", line))
 			}
 		}
-		LogInfo(GetText("load_valid_hashes", validCount))
+		LogBase(GetText("load_valid_hashes", validCount))
 	}
 
 	// 处理直接指定的URL列表
@@ -126,7 +126,7 @@ func ParsePass(Info *HostInfo) error {
 				}
 			}
 		}
-		LogInfo(GetText("load_urls", len(URLs)))
+		LogBase(GetText("load_urls", len(URLs)))
 	}
 
 	// 从文件加载URL列表
@@ -145,7 +145,7 @@ func ParsePass(Info *HostInfo) error {
 				}
 			}
 		}
-		LogInfo(GetText("load_urls_from_file", len(urls)))
+		LogBase(GetText("load_urls_from_file", len(urls)))
 	}
 
 	// 从文件加载主机列表
@@ -168,7 +168,7 @@ func ParsePass(Info *HostInfo) error {
 				}
 			}
 		}
-		LogInfo(GetText("load_hosts_from_file", len(hosts)))
+		LogBase(GetText("load_hosts_from_file", len(hosts)))
 	}
 
 	// 从文件加载端口列表
@@ -186,7 +186,7 @@ func ParsePass(Info *HostInfo) error {
 			}
 		}
 		Ports = newport.String()
-		LogInfo(GetText("load_ports_from_file"))
+		LogBase(GetText("load_ports_from_file"))
 	}
 
 	return nil
@@ -222,7 +222,7 @@ func Readfile(filename string) ([]string, error) {
 		return nil, err
 	}
 
-	LogInfo(GetText("read_file_success", filename, lineCount))
+	LogBase(GetText("read_file_success", filename, lineCount))
 	return content, nil
 }
 
@@ -251,7 +251,7 @@ func ParseInput(Info *HostInfo) error {
 	// 处理爆破线程配置
 	if BruteThreads <= 0 {
 		BruteThreads = 1
-		LogInfo(GetText("brute_threads", BruteThreads))
+		LogBase(GetText("brute_threads", BruteThreads))
 	}
 
 	// 处理端口配置
@@ -265,7 +265,7 @@ func ParseInput(Info *HostInfo) error {
 		} else {
 			Ports += "," + AddPorts
 		}
-		LogInfo(GetText("extra_ports", AddPorts))
+		LogBase(GetText("extra_ports", AddPorts))
 	}
 
 	// 处理用户名配置
@@ -275,7 +275,7 @@ func ParseInput(Info *HostInfo) error {
 			Userdict[dict] = append(Userdict[dict], users...)
 			Userdict[dict] = RemoveDuplicate(Userdict[dict])
 		}
-		LogInfo(GetText("extra_usernames", AddUsers))
+		LogBase(GetText("extra_usernames", AddUsers))
 	}
 
 	// 处理密码配置
@@ -283,7 +283,7 @@ func ParseInput(Info *HostInfo) error {
 		passes := strings.Split(AddPasswords, ",")
 		Passwords = append(Passwords, passes...)
 		Passwords = RemoveDuplicate(Passwords)
-		LogInfo(GetText("extra_passwords", AddPasswords))
+		LogBase(GetText("extra_passwords", AddPasswords))
 	}
 
 	// 处理Socks5代理配置
@@ -301,7 +301,7 @@ func ParseInput(Info *HostInfo) error {
 			return fmt.Errorf(GetText("socks5_proxy_error", err))
 		}
 		DisablePing = true
-		LogInfo(GetText("socks5_proxy", Socks5Proxy))
+		LogBase(GetText("socks5_proxy", Socks5Proxy))
 	}
 
 	// 处理HTTP代理配置
@@ -325,7 +325,7 @@ func ParseInput(Info *HostInfo) error {
 		if err != nil {
 			return fmt.Errorf(GetText("proxy_format_error", err))
 		}
-		LogInfo(GetText("http_proxy", HttpProxy))
+		LogBase(GetText("http_proxy", HttpProxy))
 	}
 
 	// 处理Hash配置

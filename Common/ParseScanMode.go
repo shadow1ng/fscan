@@ -46,7 +46,7 @@ var PluginGroups = map[string][]string{
 
 // ParseScanMode 解析扫描模式
 func ParseScanMode(mode string) {
-	LogInfo(GetText("parse_scan_mode", mode))
+	LogBase(GetText("parse_scan_mode", mode))
 
 	// 检查是否是预设模式
 	presetModes := []string{
@@ -58,9 +58,9 @@ func ParseScanMode(mode string) {
 		if mode == presetMode {
 			ScanMode = mode
 			if plugins := GetPluginsForMode(mode); plugins != nil {
-				LogInfo(GetText("using_preset_mode_plugins", mode, plugins))
+				LogBase(GetText("using_preset_mode_plugins", mode, plugins))
 			} else {
-				LogInfo(GetText("using_preset_mode", mode))
+				LogBase(GetText("using_preset_mode", mode))
 			}
 			return
 		}
@@ -69,14 +69,14 @@ func ParseScanMode(mode string) {
 	// 检查是否是有效的插件名
 	if _, exists := PluginManager[mode]; exists {
 		ScanMode = mode
-		LogInfo(GetText("using_single_plugin", mode))
+		LogBase(GetText("using_single_plugin", mode))
 		return
 	}
 
 	// 默认使用All模式
 	ScanMode = ModeAll
-	LogInfo(GetText("using_default_mode", ModeAll))
-	LogInfo(GetText("included_plugins", PluginGroups[ModeAll]))
+	LogBase(GetText("using_default_mode", ModeAll))
+	LogBase(GetText("included_plugins", PluginGroups[ModeAll]))
 }
 
 // GetPluginsForMode 获取指定模式下的插件列表

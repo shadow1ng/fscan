@@ -22,7 +22,7 @@ var (
 // Scan 执行扫描主流程
 // info: 主机信息结构体,包含扫描目标的基本信息
 func Scan(info Common.HostInfo) {
-	Common.LogInfo("开始信息扫描")
+	Common.LogBase("开始信息扫描")
 
 	// 初始化HTTP客户端配置
 	lib.Inithttp()
@@ -55,7 +55,7 @@ func Scan(info Common.HostInfo) {
 // ch: 并发控制通道
 // wg: 等待组
 func executeLocalScan(info Common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup) {
-	Common.LogInfo("执行本地信息收集")
+	Common.LogBase("执行本地信息收集")
 
 	// 获取本地模式支持的插件列表
 	validLocalPlugins := getValidPlugins(Common.ModeLocal)
@@ -68,10 +68,10 @@ func executeLocalScan(info Common.HostInfo, ch *chan struct{}, wg *sync.WaitGrou
 
 	// 输出使用的插件信息
 	if Common.ScanMode == Common.ModeLocal {
-		Common.LogInfo("使用全部本地插件")
+		Common.LogBase("使用全部本地插件")
 		Common.ParseScanMode(Common.ScanMode)
 	} else {
-		Common.LogInfo(fmt.Sprintf("使用插件: %s", Common.ScanMode))
+		Common.LogBase(fmt.Sprintf("使用插件: %s", Common.ScanMode))
 	}
 
 	// 执行扫描任务
@@ -83,7 +83,7 @@ func executeLocalScan(info Common.HostInfo, ch *chan struct{}, wg *sync.WaitGrou
 // ch: 并发控制通道
 // wg: 等待组
 func executeWebScan(info Common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup) {
-	Common.LogInfo("开始Web扫描")
+	Common.LogBase("开始Web扫描")
 
 	// 获取Web模式支持的插件列表
 	validWebPlugins := getValidPlugins(Common.ModeWeb)
@@ -108,10 +108,10 @@ func executeWebScan(info Common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup)
 
 	// 输出使用的插件信息
 	if Common.ScanMode == Common.ModeWeb {
-		Common.LogInfo("使用全部Web插件")
+		Common.LogBase("使用全部Web插件")
 		Common.ParseScanMode(Common.ScanMode)
 	} else {
-		Common.LogInfo(fmt.Sprintf("使用插件: %s", Common.ScanMode))
+		Common.LogBase(fmt.Sprintf("使用插件: %s", Common.ScanMode))
 	}
 
 	// 执行扫描任务
@@ -136,7 +136,7 @@ func executeHostScan(info Common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup
 		return
 	}
 
-	Common.LogInfo("开始主机扫描")
+	Common.LogBase("开始主机扫描")
 	executeScan(hosts, info, ch, wg)
 }
 
@@ -177,7 +177,7 @@ func executeScan(hosts []string, info Common.HostInfo, ch *chan struct{}, wg *sy
 		// 检查主机存活性
 		if shouldPingScan(hosts) {
 			hosts = CheckLive(hosts, Common.UsePing)
-			Common.LogInfo(fmt.Sprintf("存活主机数量: %d", len(hosts)))
+			Common.LogBase(fmt.Sprintf("存活主机数量: %d", len(hosts)))
 			if Common.IsICMPScan() {
 				return
 			}
@@ -195,7 +195,7 @@ func executeScan(hosts []string, info Common.HostInfo, ch *chan struct{}, wg *sy
 
 	// 执行漏洞扫描
 	if len(targetInfos) > 0 {
-		Common.LogInfo("开始漏洞扫描")
+		Common.LogBase("开始漏洞扫描")
 		executeScans(targetInfos, ch, wg)
 	}
 }
@@ -218,7 +218,7 @@ func getAlivePorts(hosts []string) []string {
 		alivePorts = NoPortScan(hosts, Common.Ports)
 	} else if len(hosts) > 0 {
 		alivePorts = PortScan(hosts, Common.Ports, Common.Timeout)
-		Common.LogInfo(fmt.Sprintf("存活端口数量: %d", len(alivePorts)))
+		Common.LogBase(fmt.Sprintf("存活端口数量: %d", len(alivePorts)))
 		if Common.IsPortScan() {
 			return nil
 		}
@@ -229,7 +229,7 @@ func getAlivePorts(hosts []string) []string {
 		alivePorts = append(alivePorts, Common.HostPort...)
 		alivePorts = Common.RemoveDuplicate(alivePorts)
 		Common.HostPort = nil
-		Common.LogInfo(fmt.Sprintf("存活端口数量: %d", len(alivePorts)))
+		Common.LogBase(fmt.Sprintf("存活端口数量: %d", len(alivePorts)))
 	}
 
 	return alivePorts
@@ -307,7 +307,7 @@ func executeScans(targets []Common.HostInfo, ch *chan struct{}, wg *sync.WaitGro
 
 	// 处理插件列表
 	finalPlugins := getUniquePlugins(loadedPlugins)
-	Common.LogInfo(fmt.Sprintf("加载的插件: %s", strings.Join(finalPlugins, ", ")))
+	Common.LogBase(fmt.Sprintf("加载的插件: %s", strings.Join(finalPlugins, ", ")))
 
 	// 初始化进度条
 	initializeProgressBar(actualTasks)
@@ -406,7 +406,7 @@ func finishScan(wg *sync.WaitGroup) {
 		Common.ProgressBar.Finish()
 		fmt.Println()
 	}
-	Common.LogSuccess(fmt.Sprintf("扫描已完成: %v/%v", Common.End, Common.Num))
+	Common.LogBase(fmt.Sprintf("扫描已完成: %v/%v", Common.End, Common.Num))
 }
 
 // Mutex 用于保护共享资源的并发访问
@@ -445,7 +445,7 @@ func ScanFunc(name *string, info *Common.HostInfo) {
 
 	plugin, exists := Common.PluginManager[*name]
 	if !exists {
-		Common.LogInfo(fmt.Sprintf("扫描类型 %v 无对应插件，已跳过", *name))
+		Common.LogBase(fmt.Sprintf("扫描类型 %v 无对应插件，已跳过", *name))
 		return
 	}
 
