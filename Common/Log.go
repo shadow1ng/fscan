@@ -44,6 +44,7 @@ type LogEntry struct {
 const (
 	LogLevelAll     = "ALL"     // 显示所有级别日志
 	LogLevelError   = "ERROR"   // 仅显示错误日志
+	LogLevelBase    = "BASE"    // 仅显示信息日志
 	LogLevelInfo    = "INFO"    // 仅显示信息日志
 	LogLevelSuccess = "SUCCESS" // 仅显示成功日志
 	LogLevelDebug   = "DEBUG"   // 仅显示调试日志
@@ -51,10 +52,11 @@ const (
 
 // 日志级别对应的显示颜色映射
 var logColors = map[string]color.Attribute{
-	LogLevelError:   color.FgRed,    // 错误日志显示红色
-	LogLevelInfo:    color.FgYellow, // 信息日志显示黄色
-	LogLevelSuccess: color.FgGreen,  // 成功日志显示绿色
-	LogLevelDebug:   color.FgBlue,   // 调试日志显示蓝色
+	LogLevelError:   color.FgBlue,   // 错误日志显示蓝色
+	LogLevelBase:    color.FgYellow, // 信息日志显示黄色
+	LogLevelInfo:    color.FgGreen,  // 信息日志显示绿色
+	LogLevelSuccess: color.FgRed,    // 成功日志显示红色
+	LogLevelDebug:   color.FgWhite,  // 调试日志显示白色
 }
 
 // InitLogger 初始化日志系统
@@ -63,42 +65,50 @@ func InitLogger() {
 	log.SetOutput(io.Discard)
 }
 
+var StartTime = time.Now()
+
 // formatLogMessage 格式化日志消息为标准格式
 // 返回格式：[时间] [级别] 内容
 func formatLogMessage(entry *LogEntry) string {
-	timeStr := entry.Time.Format("2006-01-02 15:04:05")
-	return fmt.Sprintf("[%s] [%s] %s", timeStr, entry.Level, entry.Content)
+	elapsed := time.Since(StartTime)
+	var timeStr string
+
+	// 根据时间长短选择合适的单位
+	switch {
+	case elapsed < time.Second:
+		// 毫秒显示，不需要小数
+		timeStr = fmt.Sprintf("%dms", elapsed.Milliseconds())
+	case elapsed < time.Minute:
+		// 秒显示，保留一位小数
+		timeStr = fmt.Sprintf("%.1fs", elapsed.Seconds())
+	case elapsed < time.Hour:
+		// 分钟和秒显示
+		minutes := int(elapsed.Minutes())
+		seconds := int(elapsed.Seconds()) % 60
+		timeStr = fmt.Sprintf("%dm%ds", minutes, seconds)
+	default:
+		// 小时、分钟和秒显示
+		hours := int(elapsed.Hours())
+		minutes := int(elapsed.Minutes()) % 60
+		seconds := int(elapsed.Seconds()) % 60
+		timeStr = fmt.Sprintf("%dh%dm%ds", hours, minutes, seconds)
+	}
+	str := "   "
+	switch entry.Level {
+	case LogLevelSuccess:
+		str = "[+]"
+	case LogLevelInfo:
+		str = "[*]"
+	case LogLevelError:
+		str = "[-]"
+	}
+
+	return fmt.Sprintf("[%s] %s %s", timeStr, str, entry.Content)
 }
 
 // printLog 根据日志级别打印日志
 func printLog(entry *LogEntry) {
-	// 根据当前设置的日志级别过滤日志
-	shouldPrint := false
-	switch LogLevel {
-	case LogLevelDebug:
-		// DEBUG级别显示所有日志
-		shouldPrint = true
-	case LogLevelError:
-		// ERROR级别显示 ERROR、SUCCESS、INFO
-		shouldPrint = entry.Level == LogLevelError ||
-			entry.Level == LogLevelSuccess ||
-			entry.Level == LogLevelInfo
-	case LogLevelSuccess:
-		// SUCCESS级别显示 SUCCESS、INFO
-		shouldPrint = entry.Level == LogLevelSuccess ||
-			entry.Level == LogLevelInfo
-	case LogLevelInfo:
-		// INFO级别只显示 INFO
-		shouldPrint = entry.Level == LogLevelInfo
-	case LogLevelAll:
-		// ALL显示所有日志
-		shouldPrint = true
-	default:
-		// 默认只显示 INFO
-		shouldPrint = entry.Level == LogLevelInfo
-	}
-
-	if !shouldPrint {
+	if LogLevel != "debug" && entry.Level == LogLevelDebug {
 		return
 	}
 
@@ -141,27 +151,6 @@ func clearAndWaitProgress() {
 	}
 }
 
-// LogError 记录错误日志，自动包含文件名和行号信息
-func LogError(errMsg string) {
-	// 获取调用者的文件名和行号
-	_, file, line, ok := runtime.Caller(1)
-	if !ok {
-		file = "unknown"
-		line = 0
-	}
-	file = filepath.Base(file)
-
-	errorMsg := fmt.Sprintf("%s:%d - %s", file, line, errMsg)
-
-	entry := &LogEntry{
-		Level:   LogLevelError,
-		Time:    time.Now(),
-		Content: errorMsg,
-	}
-
-	handleLog(entry)
-}
-
 // handleLog 统一处理日志的输出
 func handleLog(entry *LogEntry) {
 	if ProgressBar != nil {
@@ -173,6 +162,24 @@ func handleLog(entry *LogEntry) {
 	if ProgressBar != nil {
 		ProgressBar.RenderBlank()
 	}
+}
+
+// LogDebug 记录调试日志
+func LogDebug(msg string) {
+	handleLog(&LogEntry{
+		Level:   LogLevelDebug,
+		Time:    time.Now(),
+		Content: msg,
+	})
+}
+
+// LogInfo 记录进度信息
+func LogBase(msg string) {
+	handleLog(&LogEntry{
+		Level:   LogLevelBase,
+		Time:    time.Now(),
+		Content: msg,
+	})
 }
 
 // LogInfo 记录信息日志
@@ -200,13 +207,25 @@ func LogSuccess(result string) {
 	status.mu.Unlock()
 }
 
-// LogDebug 记录调试日志
-func LogDebug(msg string) {
-	handleLog(&LogEntry{
-		Level:   LogLevelDebug,
+// LogError 记录错误日志，自动包含文件名和行号信息
+func LogError(errMsg string) {
+	// 获取调用者的文件名和行号
+	_, file, line, ok := runtime.Caller(1)
+	if !ok {
+		file = "unknown"
+		line = 0
+	}
+	file = filepath.Base(file)
+
+	errorMsg := fmt.Sprintf("%s:%d - %s", file, line, errMsg)
+
+	entry := &LogEntry{
+		Level:   LogLevelError,
 		Time:    time.Now(),
-		Content: msg,
-	})
+		Content: errorMsg,
+	}
+
+	handleLog(entry)
 }
 
 // CheckErrs 检查是否为需要重试的错误
