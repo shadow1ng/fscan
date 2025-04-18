@@ -1,0 +1,10 @@
+name: test2222
+rules:
+  - method: GET
+    path: /
+    expression: |
+      response.status == 200
+detail:
+  author: jinqi
+  links:
+    - https://www.t00ls.net/articles-54436.html
