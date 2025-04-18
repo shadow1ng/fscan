@@ -925,8 +925,9 @@ var (
 	// POC与漏洞利用配置
 	// =========================================================
 	// POC配置
-	PocPath string  // POC脚本路径
-	Pocinfo PocInfo // POC详细信息结构
+	PocPath        string  // POC脚本路径
+	Pocinfo        PocInfo // POC详细信息结构
+	DisablePocScan bool    //nopoc
 
 	// Redis利用
 	RedisFile         string // Redis利用目标文件
