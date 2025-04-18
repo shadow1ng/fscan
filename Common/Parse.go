@@ -88,6 +88,7 @@ func ParsePass(Info *HostInfo) error {
 				pwdList = append(pwdList, pass)
 			}
 		}
+		pwdList = append(pwdList, "")
 		Passwords = pwdList
 		LogBase(GetText("load_passwords_from_file", len(passes)))
 	}
