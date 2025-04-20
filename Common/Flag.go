@@ -116,7 +116,7 @@ func Flag(Info *HostInfo) {
 	flag.BoolVar(&PocFull, "full", false, GetText("flag_poc_full"))
 	flag.BoolVar(&DnsLog, "dns", false, GetText("flag_dns_log"))
 	flag.IntVar(&PocNum, "num", 20, GetText("flag_poc_num"))
-	flag.BoolVar(&DisablePocScan, "nopoc", false, GetText("flag_nopoc"))
+	flag.BoolVar(&DisablePocScan, "nopoc", false, GetText("flag_no_poc"))
 
 	// ═════════════════════════════════════════════════
 	// Redis利用参数

@@ -419,6 +419,13 @@ var i18nMap = map[string]map[string]string{
 		LangRU: "Чтение списка портов из файла",
 	},
 
+	"flag_exclude_ports": {
+		LangZH: "排除指定端口",
+		LangEN: "Exclude specified ports",
+		LangJA: "指定されたポートを除外する",
+		LangRU: "Исключить указанные порты",
+	},
+
 	"flag_target_url": {
 		LangZH: "指定目标URL",
 		LangEN: "Specify target URL",
@@ -501,6 +508,13 @@ var i18nMap = map[string]map[string]string{
 		LangEN: "Set POC scan concurrency",
 		LangJA: "POCスキャンの同時実行数を設定",
 		LangRU: "Установить параллельность POC-сканирования",
+	},
+
+	"flag_no_poc": {
+		LangZH: "禁用POC扫描",
+		LangEN: "Disable POC scanning",
+		LangJA: "POCスキャンを無効にする",
+		LangRU: "Отключить POC-сканирование",
 	},
 
 	// Redis配置相关
