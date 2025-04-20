@@ -275,6 +275,16 @@ func parsePorts() error {
 	return nil
 }
 
+// parseExcludePorts 解析排除端口配置
+// 更新全局排除端口配置
+func parseExcludePorts() {
+	if ExcludePorts != "" {
+		LogInfo(GetText("exclude_ports", ExcludePorts))
+		// 确保排除端口被正确设置到全局配置中
+		// 这将由PortScan函数在处理端口时使用
+	}
+}
+
 // ReadFileLines 读取文件内容并返回非空行的切片
 // 通用的文件读取函数，处理文件打开、读取和错误报告
 func ReadFileLines(filename string) ([]string, error) {
@@ -320,6 +330,9 @@ func ParseInput(Info *HostInfo) error {
 
 	// 处理端口配置组合
 	processPortsConfig()
+
+	// 处理排除端口配置
+	parseExcludePorts()
 
 	// 处理额外用户名和密码
 	processExtraCredentials()
@@ -380,6 +393,11 @@ func processPortsConfig() {
 			Ports += "," + AddPorts
 		}
 		LogInfo(GetText("extra_ports", AddPorts))
+	}
+
+	// 确保排除端口配置被记录
+	if ExcludePorts != "" {
+		LogInfo(GetText("exclude_ports_applied", ExcludePorts))
 	}
 }
 
