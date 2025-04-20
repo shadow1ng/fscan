@@ -3,8 +3,9 @@ package Common
 import (
 	"flag"
 	"fmt"
-	"github.com/fatih/color"
 	"strings"
+
+	"github.com/fatih/color"
 )
 
 func Banner() {
@@ -61,6 +62,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&Info.Host, "h", "", GetText("flag_host"))
 	flag.StringVar(&ExcludeHosts, "eh", "", GetText("flag_exclude_hosts"))
 	flag.StringVar(&Ports, "p", MainPorts, GetText("flag_ports"))
+	flag.StringVar(&ExcludePorts, "ep", "", GetText("flag_exclude_ports"))
 
 	// 认证配置
 	flag.StringVar(&AddUsers, "usera", "", GetText("flag_add_users"))
@@ -94,6 +96,7 @@ func Flag(Info *HostInfo) {
 	flag.Int64Var(&WebTimeout, "wt", 5, GetText("flag_web_timeout"))
 	flag.StringVar(&HttpProxy, "proxy", "", GetText("flag_http_proxy"))
 	flag.StringVar(&Socks5Proxy, "socks5", "", GetText("flag_socks5_proxy"))
+
 	// 本地扫描配置
 	flag.BoolVar(&LocalMode, "local", false, GetText("flag_local_mode"))
 
@@ -127,7 +130,7 @@ func Flag(Info *HostInfo) {
 	flag.BoolVar(&Silent, "silent", false, GetText("flag_silent_mode"))
 	flag.BoolVar(&NoColor, "nocolor", false, GetText("flag_no_color"))
 	flag.BoolVar(&JsonFormat, "json", false, GetText("flag_json_format"))
-	flag.StringVar(&LogLevel, "log", LogLevelBase, GetText("flag_log_level"))
+	flag.StringVar(&LogLevel, "log", LogLevelSuccess, GetText("flag_log_level"))
 	flag.BoolVar(&ShowProgress, "pg", false, GetText("flag_show_progress"))
 
 	flag.StringVar(&Language, "lang", "zh", GetText("flag_language"))
