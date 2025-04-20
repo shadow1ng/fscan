@@ -3,9 +3,10 @@ package Common
 import (
 	"flag"
 	"fmt"
-	"github.com/fatih/color"
 	"os"
 	"strings"
+
+	"github.com/fatih/color"
 )
 
 func Banner() {
@@ -65,6 +66,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&Info.Host, "h", "", GetText("flag_host"))
 	flag.StringVar(&ExcludeHosts, "eh", "", GetText("flag_exclude_hosts"))
 	flag.StringVar(&Ports, "p", MainPorts, GetText("flag_ports"))
+	flag.StringVar(&ExcludePorts, "ep", "", GetText("flag_exclude_ports"))
 	flag.StringVar(&HostsFile, "hf", "", GetText("flag_hosts_file"))
 	flag.StringVar(&PortsFile, "pf", "", GetText("flag_ports_file"))
 
