@@ -59,6 +59,8 @@ message TaskResultsResponse {
   string task_id = 1;
   repeated ScanResult results = 2;
   bool finished = 3;
+  int64 total = 4; // 总结果数
+  int64 end = 5;   // 结束结果数
 }
 
 // 扫描结果结构体

@@ -232,6 +232,8 @@ type TaskResultsResponse struct {
 	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	Results       []*ScanResult          `protobuf:"bytes,2,rep,name=results,proto3" json:"results,omitempty"`
 	Finished      bool                   `protobuf:"varint,3,opt,name=finished,proto3" json:"finished,omitempty"`
+	Total         int64                  `protobuf:"varint,4,opt,name=total,proto3" json:"total,omitempty"` // 总结果数
+	End           int64                  `protobuf:"varint,5,opt,name=end,proto3" json:"end,omitempty"`     // 结束结果数
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -285,6 +287,20 @@ func (x *TaskResultsResponse) GetFinished() bool {
 		return x.Finished
 	}
 	return false
+}
+
+func (x *TaskResultsResponse) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *TaskResultsResponse) GetEnd() int64 {
+	if x != nil {
+		return x.End
+	}
+	return 0
 }
 
 // 扫描结果结构体
@@ -380,11 +396,13 @@ const file_lib_rpc_proto_rawDesc = "" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1d\n" +
 	"\n" +
 	"Start_time\x18\x02 \x01(\tR\tStartTime\x12\x19\n" +
-	"\bEnd_time\x18\x03 \x01(\tR\aEndTime\"u\n" +
+	"\bEnd_time\x18\x03 \x01(\tR\aEndTime\"\x9d\x01\n" +
 	"\x13TaskResultsResponse\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12)\n" +
 	"\aresults\x18\x02 \x03(\v2\x0f.lib.ScanResultR\aresults\x12\x1a\n" +
-	"\bfinished\x18\x03 \x01(\bR\bfinished\"\xa0\x01\n" +
+	"\bfinished\x18\x03 \x01(\bR\bfinished\x12\x14\n" +
+	"\x05total\x18\x04 \x01(\x03R\x05total\x12\x10\n" +
+	"\x03end\x18\x05 \x01(\x03R\x03end\"\xa0\x01\n" +
 	"\n" +
 	"ScanResult\x12\x12\n" +
 	"\x04time\x18\x01 \x01(\tR\x04time\x12\x12\n" +

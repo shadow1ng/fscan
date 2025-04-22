@@ -66,21 +66,30 @@ func (s *FscanService) StartScan(ctx context.Context, req *pb.StartScanRequest) 
 }
 
 func (s *FscanService) GetScanResults(ctx context.Context, req *pb.TaskResultsRequest) (*pb.TaskResultsResponse, error) {
+	// 获取扫描结果
 	results, err := Common.GetResults()
 	if err != nil {
+		// 记录详细错误信息
+		Common.LogError(fmt.Sprintf("读取结果失败: %v", err))
 		return nil, fmt.Errorf("读取结果失败: %w", err)
 	}
 
+	// 创建一个用于存储转换后的pb扫描结果的切片
 	pbResults := make([]*pb.ScanResult, 0, len(results))
+
+	// 遍历每一项结果，进行转换
 	for _, r := range results {
+		// 尝试将详情转换为Struct
 		detailsStruct, err := structpb.NewStruct(r.Details)
 		if err != nil {
-			Common.LogError(fmt.Sprintf("转换为 Struct 失败: %v", err))
+			// 记录转换失败的详细信息，并跳过当前项
+			Common.LogError(fmt.Sprintf("转换为 Struct 失败 (Target: %s, Type: %s): %v", r.Target, r.Type, err))
 			continue
 		}
 
+		// 将转换后的结果添加到 pbResults
 		pbResults = append(pbResults, &pb.ScanResult{
-			Time:        r.Time.Format(time.RFC3339),
+			Time:        r.Time.Format(time.RFC3339), // 使用 RFC3339 格式化时间
 			Type:        string(r.Type),
 			Target:      r.Target,
 			Status:      r.Status,
@@ -88,10 +97,21 @@ func (s *FscanService) GetScanResults(ctx context.Context, req *pb.TaskResultsRe
 		})
 	}
 
+	// 通过原子操作判断扫描是否完成
 	finished := atomic.LoadInt32(&s.isScanning) == 0
+
+	// 如果任务未完成，计算 Total 和 End，仅在需要时计算
+	var total, end int64
+	if !finished {
+		total = Common.Num
+		end = Common.End
+	}
+
+	// 返回响应
 	return &pb.TaskResultsResponse{
-		TaskId:   req.Filter.TaskId,
 		Results:  pbResults,
 		Finished: finished,
+		Total:    total, // 返回 Total
+		End:      end,   // 返回 End
 	}, nil
 }
