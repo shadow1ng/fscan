@@ -36,7 +36,7 @@ func (s *FscanService) StartScan(ctx context.Context, req *pb.StartScanRequest) 
 		s.scanMutex.Lock()
 		defer s.scanMutex.Unlock()
 
-		Common.LogDebug("异步执行扫描请求，目标: " + req.Arg + ", " + req.Secret)
+		Common.LogDebug("异步执行扫描请求，目标: " + req.Arg)
 
 		var info Common.HostInfo
 		if err := Common.FlagFromRemote(&info, req.Arg); err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/shadow1ng/fscan/Common"
@@ -13,10 +14,15 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+var internalSecretKey string
+
 // 启动 gRPC + HTTP Gateway 服务（仅当设置了 API 地址时）
 func StartApiServer() error {
 	if Common.ApiAddr == "" {
 		return nil
+	}
+	if Common.SecretKey == "" {
+		internalSecretKey = time.Now().Format("20060102150405")
 	}
 
 	grpcAddr := "127.0.0.1:50051"
@@ -61,7 +67,8 @@ func runHTTPGateway(httpAddr, grpcAddr string) error {
 	// 使用中间件包装 mux
 	handler := applyMiddlewares(mux)
 
-	Common.LogSuccess("✅ HTTP Gateway 已启动，地址: " + httpAddr)
+	Common.LogSuccess("✅ HTTP Gateway 已启动，地址: http://" + httpAddr)
+	Common.LogSuccess("✅ API Secret: " + internalSecretKey)
 	return http.ListenAndServe(httpAddr, handler)
 }
 
@@ -74,6 +81,13 @@ func applyMiddlewares(handler http.Handler) http.Handler {
 
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		secret := r.Header.Get("Fscan-API-SECRET")
+		if secret == "" || secret != internalSecretKey {
+			http.Error(w, `无效的 API Secret，请通过请求头 Fscan-API-SECRET 提供正确的密钥。
+		如果你未手动配置 SecretKey，服务会在启动时自动生成一个随机密钥，并输出到日志中。`, http.StatusUnauthorized)
 			return
 		}
 

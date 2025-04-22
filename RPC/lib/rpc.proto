@@ -34,8 +34,7 @@ service FscanService {
 
 // 启动任务的请求
 message StartScanRequest {
-  string secret = 1;
-  string arg= 2;
+  string arg= 1;
 }
 
 // 启动任务的响应
@@ -46,8 +45,7 @@ message StartScanResponse {
 
 // 获取扫描结果的请求
 message TaskResultsRequest {
-  string secret = 1;   // 用于身份校验
-  Filter filter = 2;   // 筛选条件（如关键字、状态等）
+  Filter filter = 1;   // 筛选条件（如关键字、状态等）
 }
 
 message Filter {

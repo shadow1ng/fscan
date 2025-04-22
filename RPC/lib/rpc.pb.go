@@ -26,8 +26,7 @@ const (
 // 启动任务的请求
 type StartScanRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Secret        string                 `protobuf:"bytes,1,opt,name=secret,proto3" json:"secret,omitempty"`
-	Arg           string                 `protobuf:"bytes,2,opt,name=arg,proto3" json:"arg,omitempty"`
+	Arg           string                 `protobuf:"bytes,1,opt,name=arg,proto3" json:"arg,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -60,13 +59,6 @@ func (x *StartScanRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use StartScanRequest.ProtoReflect.Descriptor instead.
 func (*StartScanRequest) Descriptor() ([]byte, []int) {
 	return file_lib_rpc_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *StartScanRequest) GetSecret() string {
-	if x != nil {
-		return x.Secret
-	}
-	return ""
 }
 
 func (x *StartScanRequest) GetArg() string {
@@ -132,8 +124,7 @@ func (x *StartScanResponse) GetMessage() string {
 // 获取扫描结果的请求
 type TaskResultsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Secret        string                 `protobuf:"bytes,1,opt,name=secret,proto3" json:"secret,omitempty"` // 用于身份校验
-	Filter        *Filter                `protobuf:"bytes,2,opt,name=filter,proto3" json:"filter,omitempty"` // 筛选条件（如关键字、状态等）
+	Filter        *Filter                `protobuf:"bytes,1,opt,name=filter,proto3" json:"filter,omitempty"` // 筛选条件（如关键字、状态等）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -166,13 +157,6 @@ func (x *TaskResultsRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use TaskResultsRequest.ProtoReflect.Descriptor instead.
 func (*TaskResultsRequest) Descriptor() ([]byte, []int) {
 	return file_lib_rpc_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *TaskResultsRequest) GetSecret() string {
-	if x != nil {
-		return x.Secret
-	}
-	return ""
 }
 
 func (x *TaskResultsRequest) GetFilter() *Filter {
@@ -384,16 +368,14 @@ var File_lib_rpc_proto protoreflect.FileDescriptor
 
 const file_lib_rpc_proto_rawDesc = "" +
 	"\n" +
-	"\rlib/rpc.proto\x12\x03lib\x1a\x1cgoogle/api/annotations.proto\x1a\x1cgoogle/protobuf/struct.proto\"<\n" +
-	"\x10StartScanRequest\x12\x16\n" +
-	"\x06secret\x18\x01 \x01(\tR\x06secret\x12\x10\n" +
-	"\x03arg\x18\x02 \x01(\tR\x03arg\"F\n" +
+	"\rlib/rpc.proto\x12\x03lib\x1a\x1cgoogle/api/annotations.proto\x1a\x1cgoogle/protobuf/struct.proto\"$\n" +
+	"\x10StartScanRequest\x12\x10\n" +
+	"\x03arg\x18\x01 \x01(\tR\x03arg\"F\n" +
 	"\x11StartScanResponse\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"Q\n" +
-	"\x12TaskResultsRequest\x12\x16\n" +
-	"\x06secret\x18\x01 \x01(\tR\x06secret\x12#\n" +
-	"\x06filter\x18\x02 \x01(\v2\v.lib.FilterR\x06filter\"[\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"9\n" +
+	"\x12TaskResultsRequest\x12#\n" +
+	"\x06filter\x18\x01 \x01(\v2\v.lib.FilterR\x06filter\"[\n" +
 	"\x06Filter\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1d\n" +
 	"\n" +
