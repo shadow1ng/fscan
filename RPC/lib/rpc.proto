@@ -5,6 +5,7 @@ package lib;
 option go_package = "./;lib";
 
 import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
 
 service FscanService {
   // 启动扫描任务
@@ -23,12 +24,12 @@ service FscanService {
     };
   }
 
-  // 获取扫描结果（流式）
-  rpc StreamScanResults(TaskResultsRequest) returns (stream ScanResult) {
-    option (google.api.http) = {
-      get: "/v1/streamresults"
-    };
-  }
+  // TODO: 流式获取扫描结果
+  // rpc StreamScanResults(TaskResultsRequest) returns (stream ScanResult) {
+  //   option (google.api.http) = {
+  //     get: "/v1/streamresults"
+  //   };
+  // }
 }
 
 // 启动任务的请求
@@ -45,8 +46,14 @@ message StartScanResponse {
 
 // 获取扫描结果的请求
 message TaskResultsRequest {
-  string task_id = 1;
-  uint32 offset = 2;
+  string secret = 1;   // 用于身份校验
+  Filter filter = 2;   // 筛选条件（如关键字、状态等）
+}
+
+message Filter {
+  string task_id = 1; // 任务ID
+  string Start_time = 2; // 开始时间
+  string End_time = 3;   // 结束时间
 }
 
 // 获取扫描结果的响应
@@ -62,5 +69,5 @@ message ScanResult {
   string type = 2;
   string target = 3;
   string status = 4;
-  string details_json = 5;
+  google.protobuf.Struct details_json = 5;
 }

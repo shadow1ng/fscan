@@ -14,15 +14,12 @@ import (
 )
 
 // 启动 gRPC + HTTP Gateway 服务（仅当设置了 API 地址时）
-// 如果未设置 API 地址，直接返回 nil
-// 如果 HTTP 启动失败，则返回 error
 func StartApiServer() error {
 	if Common.ApiAddr == "" {
-		Common.LogDebug("未设置 API 地址，跳过 API 服务启动")
 		return nil
 	}
 
-	grpcAddr := ":50051"
+	grpcAddr := "127.0.0.1:50051"
 	httpAddr := validateHTTPAddr(Common.ApiAddr, ":8088")
 
 	go runGRPCServer(grpcAddr)
@@ -61,8 +58,16 @@ func runHTTPGateway(httpAddr, grpcAddr string) error {
 		return err
 	}
 
-	// 添加 CORS 支持
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// 使用中间件包装 mux
+	handler := applyMiddlewares(mux)
+
+	Common.LogSuccess("✅ HTTP Gateway 已启动，地址: " + httpAddr)
+	return http.ListenAndServe(httpAddr, handler)
+}
+
+// 注册 HTTP 中间件
+func applyMiddlewares(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -71,11 +76,9 @@ func runHTTPGateway(httpAddr, grpcAddr string) error {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-		mux.ServeHTTP(w, r)
-	})
 
-	Common.LogSuccess("✅ HTTP Gateway 已启动，地址: " + httpAddr)
-	return http.ListenAndServe(httpAddr, handler)
+		handler.ServeHTTP(w, r)
+	})
 }
 
 // 校验监听地址格式，格式非法使用默认

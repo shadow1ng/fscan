@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             (unknown)
-// source: proto/fscan.proto
+// source: lib/rpc.proto
 
 package lib
 
@@ -19,9 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	FscanService_StartScan_FullMethodName         = "/lib.FscanService/StartScan"
-	FscanService_GetScanResults_FullMethodName    = "/lib.FscanService/GetScanResults"
-	FscanService_StreamScanResults_FullMethodName = "/lib.FscanService/StreamScanResults"
+	FscanService_StartScan_FullMethodName      = "/lib.FscanService/StartScan"
+	FscanService_GetScanResults_FullMethodName = "/lib.FscanService/GetScanResults"
 )
 
 // FscanServiceClient is the client API for FscanService service.
@@ -32,8 +31,6 @@ type FscanServiceClient interface {
 	StartScan(ctx context.Context, in *StartScanRequest, opts ...grpc.CallOption) (*StartScanResponse, error)
 	// 获取扫描结果（非流式）
 	GetScanResults(ctx context.Context, in *TaskResultsRequest, opts ...grpc.CallOption) (*TaskResultsResponse, error)
-	// 获取扫描结果（流式）
-	StreamScanResults(ctx context.Context, in *TaskResultsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ScanResult], error)
 }
 
 type fscanServiceClient struct {
@@ -64,25 +61,6 @@ func (c *fscanServiceClient) GetScanResults(ctx context.Context, in *TaskResults
 	return out, nil
 }
 
-func (c *fscanServiceClient) StreamScanResults(ctx context.Context, in *TaskResultsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ScanResult], error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &FscanService_ServiceDesc.Streams[0], FscanService_StreamScanResults_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &grpc.GenericClientStream[TaskResultsRequest, ScanResult]{ClientStream: stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type FscanService_StreamScanResultsClient = grpc.ServerStreamingClient[ScanResult]
-
 // FscanServiceServer is the server API for FscanService service.
 // All implementations must embed UnimplementedFscanServiceServer
 // for forward compatibility.
@@ -91,8 +69,6 @@ type FscanServiceServer interface {
 	StartScan(context.Context, *StartScanRequest) (*StartScanResponse, error)
 	// 获取扫描结果（非流式）
 	GetScanResults(context.Context, *TaskResultsRequest) (*TaskResultsResponse, error)
-	// 获取扫描结果（流式）
-	StreamScanResults(*TaskResultsRequest, grpc.ServerStreamingServer[ScanResult]) error
 	mustEmbedUnimplementedFscanServiceServer()
 }
 
@@ -108,9 +84,6 @@ func (UnimplementedFscanServiceServer) StartScan(context.Context, *StartScanRequ
 }
 func (UnimplementedFscanServiceServer) GetScanResults(context.Context, *TaskResultsRequest) (*TaskResultsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetScanResults not implemented")
-}
-func (UnimplementedFscanServiceServer) StreamScanResults(*TaskResultsRequest, grpc.ServerStreamingServer[ScanResult]) error {
-	return status.Errorf(codes.Unimplemented, "method StreamScanResults not implemented")
 }
 func (UnimplementedFscanServiceServer) mustEmbedUnimplementedFscanServiceServer() {}
 func (UnimplementedFscanServiceServer) testEmbeddedByValue()                      {}
@@ -169,17 +142,6 @@ func _FscanService_GetScanResults_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _FscanService_StreamScanResults_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(TaskResultsRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(FscanServiceServer).StreamScanResults(m, &grpc.GenericServerStream[TaskResultsRequest, ScanResult]{ServerStream: stream})
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type FscanService_StreamScanResultsServer = grpc.ServerStreamingServer[ScanResult]
-
 // FscanService_ServiceDesc is the grpc.ServiceDesc for FscanService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -196,12 +158,6 @@ var FscanService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _FscanService_GetScanResults_Handler,
 		},
 	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "StreamScanResults",
-			Handler:       _FscanService_StreamScanResults_Handler,
-			ServerStreams: true,
-		},
-	},
-	Metadata: "proto/fscan.proto",
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "lib/rpc.proto",
 }

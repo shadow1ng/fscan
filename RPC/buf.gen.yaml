@@ -1,0 +1,13 @@
+version: v1
+plugins:
+  - plugin: go
+    out: lib
+    opt: paths=import
+
+  - plugin: go-grpc
+    out: lib
+    opt: paths=import
+
+  - plugin: grpc-gateway
+    out: lib
+    opt: paths=import

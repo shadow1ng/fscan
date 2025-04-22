@@ -67,6 +67,11 @@ func InitOutput() error {
 		return fmt.Errorf(GetText("output_create_dir_failed", err))
 	}
 
+	if ApiAddr != "" {
+		OutputFormat = "csv"
+		Outputfile = filepath.Join(dir, "fscanapi.csv")
+	}
+
 	manager := &OutputManager{
 		outputPath:   Outputfile,
 		outputFormat: OutputFormat,
@@ -135,6 +140,17 @@ func SaveResult(result *ScanResult) error {
 	LogDebug(GetText("output_saving_result", result.Type, result.Target))
 	return ResultOutput.saveResult(result)
 }
+func GetResults() ([]*ScanResult, error) {
+	if ResultOutput == nil {
+		return nil, fmt.Errorf(GetText("output_not_init"))
+	}
+
+	if ResultOutput.outputFormat == "csv" {
+		return ResultOutput.getResult()
+	}
+	// 其他格式尚未实现读取支持
+	return nil, fmt.Errorf(GetText("output_format_read_not_supported"))
+}
 
 func (om *OutputManager) saveResult(result *ScanResult) error {
 	om.mu.Lock()
@@ -164,6 +180,62 @@ func (om *OutputManager) saveResult(result *ScanResult) error {
 		LogDebug(GetText("output_save_success", result.Type, result.Target))
 	}
 	return err
+}
+func (om *OutputManager) getResult() ([]*ScanResult, error) {
+	om.mu.Lock()
+	defer om.mu.Unlock()
+
+	if !om.isInitialized {
+		LogDebug(GetText("output_not_init"))
+		return nil, fmt.Errorf(GetText("output_not_init"))
+	}
+
+	file, err := os.Open(om.outputPath)
+	if err != nil {
+		LogDebug(GetText("output_open_file_failed", err))
+		return nil, err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		LogDebug(GetText("output_read_csv_failed", err))
+		return nil, err
+	}
+
+	var results []*ScanResult
+	for i, row := range records {
+		// 跳过 CSV 头部
+		if i == 0 {
+			continue
+		}
+		if len(row) < 5 {
+			continue // 数据不完整
+		}
+
+		t, err := time.Parse("2006-01-02 15:04:05", row[0])
+		if err != nil {
+			continue
+		}
+
+		var details map[string]interface{}
+		if err := json.Unmarshal([]byte(row[4]), &details); err != nil {
+			details = make(map[string]interface{})
+		}
+
+		result := &ScanResult{
+			Time:    t,
+			Type:    ResultType(row[1]),
+			Target:  row[2],
+			Status:  row[3],
+			Details: details,
+		}
+		results = append(results, result)
+	}
+
+	LogDebug(GetText("output_read_csv_success", len(results)))
+	return results, nil
 }
 
 func (om *OutputManager) writeTxt(result *ScanResult) error {

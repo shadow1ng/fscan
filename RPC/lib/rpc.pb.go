@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.6
 // 	protoc        (unknown)
-// source: proto/fscan.proto
+// source: lib/rpc.proto
 
 package lib
 
@@ -10,6 +10,7 @@ import (
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -33,7 +34,7 @@ type StartScanRequest struct {
 
 func (x *StartScanRequest) Reset() {
 	*x = StartScanRequest{}
-	mi := &file_proto_fscan_proto_msgTypes[0]
+	mi := &file_lib_rpc_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -45,7 +46,7 @@ func (x *StartScanRequest) String() string {
 func (*StartScanRequest) ProtoMessage() {}
 
 func (x *StartScanRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fscan_proto_msgTypes[0]
+	mi := &file_lib_rpc_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -58,7 +59,7 @@ func (x *StartScanRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartScanRequest.ProtoReflect.Descriptor instead.
 func (*StartScanRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fscan_proto_rawDescGZIP(), []int{0}
+	return file_lib_rpc_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *StartScanRequest) GetSecret() string {
@@ -86,7 +87,7 @@ type StartScanResponse struct {
 
 func (x *StartScanResponse) Reset() {
 	*x = StartScanResponse{}
-	mi := &file_proto_fscan_proto_msgTypes[1]
+	mi := &file_lib_rpc_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -98,7 +99,7 @@ func (x *StartScanResponse) String() string {
 func (*StartScanResponse) ProtoMessage() {}
 
 func (x *StartScanResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fscan_proto_msgTypes[1]
+	mi := &file_lib_rpc_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -111,7 +112,7 @@ func (x *StartScanResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartScanResponse.ProtoReflect.Descriptor instead.
 func (*StartScanResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fscan_proto_rawDescGZIP(), []int{1}
+	return file_lib_rpc_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *StartScanResponse) GetTaskId() string {
@@ -131,15 +132,15 @@ func (x *StartScanResponse) GetMessage() string {
 // 获取扫描结果的请求
 type TaskResultsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	Offset        uint32                 `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`
+	Secret        string                 `protobuf:"bytes,1,opt,name=secret,proto3" json:"secret,omitempty"` // 用于身份校验
+	Filter        *Filter                `protobuf:"bytes,2,opt,name=filter,proto3" json:"filter,omitempty"` // 筛选条件（如关键字、状态等）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TaskResultsRequest) Reset() {
 	*x = TaskResultsRequest{}
-	mi := &file_proto_fscan_proto_msgTypes[2]
+	mi := &file_lib_rpc_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -151,7 +152,7 @@ func (x *TaskResultsRequest) String() string {
 func (*TaskResultsRequest) ProtoMessage() {}
 
 func (x *TaskResultsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fscan_proto_msgTypes[2]
+	mi := &file_lib_rpc_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -164,21 +165,81 @@ func (x *TaskResultsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskResultsRequest.ProtoReflect.Descriptor instead.
 func (*TaskResultsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fscan_proto_rawDescGZIP(), []int{2}
+	return file_lib_rpc_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *TaskResultsRequest) GetTaskId() string {
+func (x *TaskResultsRequest) GetSecret() string {
+	if x != nil {
+		return x.Secret
+	}
+	return ""
+}
+
+func (x *TaskResultsRequest) GetFilter() *Filter {
+	if x != nil {
+		return x.Filter
+	}
+	return nil
+}
+
+type Filter struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`          // 任务ID
+	StartTime     string                 `protobuf:"bytes,2,opt,name=Start_time,json=StartTime,proto3" json:"Start_time,omitempty"` // 开始时间
+	EndTime       string                 `protobuf:"bytes,3,opt,name=End_time,json=EndTime,proto3" json:"End_time,omitempty"`       // 结束时间
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Filter) Reset() {
+	*x = Filter{}
+	mi := &file_lib_rpc_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Filter) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Filter) ProtoMessage() {}
+
+func (x *Filter) ProtoReflect() protoreflect.Message {
+	mi := &file_lib_rpc_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Filter.ProtoReflect.Descriptor instead.
+func (*Filter) Descriptor() ([]byte, []int) {
+	return file_lib_rpc_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Filter) GetTaskId() string {
 	if x != nil {
 		return x.TaskId
 	}
 	return ""
 }
 
-func (x *TaskResultsRequest) GetOffset() uint32 {
+func (x *Filter) GetStartTime() string {
 	if x != nil {
-		return x.Offset
+		return x.StartTime
 	}
-	return 0
+	return ""
+}
+
+func (x *Filter) GetEndTime() string {
+	if x != nil {
+		return x.EndTime
+	}
+	return ""
 }
 
 // 获取扫描结果的响应
@@ -193,7 +254,7 @@ type TaskResultsResponse struct {
 
 func (x *TaskResultsResponse) Reset() {
 	*x = TaskResultsResponse{}
-	mi := &file_proto_fscan_proto_msgTypes[3]
+	mi := &file_lib_rpc_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -205,7 +266,7 @@ func (x *TaskResultsResponse) String() string {
 func (*TaskResultsResponse) ProtoMessage() {}
 
 func (x *TaskResultsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fscan_proto_msgTypes[3]
+	mi := &file_lib_rpc_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -218,7 +279,7 @@ func (x *TaskResultsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskResultsResponse.ProtoReflect.Descriptor instead.
 func (*TaskResultsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fscan_proto_rawDescGZIP(), []int{3}
+	return file_lib_rpc_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *TaskResultsResponse) GetTaskId() string {
@@ -249,14 +310,14 @@ type ScanResult struct {
 	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
 	Target        string                 `protobuf:"bytes,3,opt,name=target,proto3" json:"target,omitempty"`
 	Status        string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
-	DetailsJson   string                 `protobuf:"bytes,5,opt,name=details_json,json=detailsJson,proto3" json:"details_json,omitempty"`
+	DetailsJson   *structpb.Struct       `protobuf:"bytes,5,opt,name=details_json,json=detailsJson,proto3" json:"details_json,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ScanResult) Reset() {
 	*x = ScanResult{}
-	mi := &file_proto_fscan_proto_msgTypes[4]
+	mi := &file_lib_rpc_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -268,7 +329,7 @@ func (x *ScanResult) String() string {
 func (*ScanResult) ProtoMessage() {}
 
 func (x *ScanResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fscan_proto_msgTypes[4]
+	mi := &file_lib_rpc_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -281,7 +342,7 @@ func (x *ScanResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScanResult.ProtoReflect.Descriptor instead.
 func (*ScanResult) Descriptor() ([]byte, []int) {
-	return file_proto_fscan_proto_rawDescGZIP(), []int{4}
+	return file_lib_rpc_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ScanResult) GetTime() string {
@@ -312,98 +373,104 @@ func (x *ScanResult) GetStatus() string {
 	return ""
 }
 
-func (x *ScanResult) GetDetailsJson() string {
+func (x *ScanResult) GetDetailsJson() *structpb.Struct {
 	if x != nil {
 		return x.DetailsJson
 	}
-	return ""
+	return nil
 }
 
-var File_proto_fscan_proto protoreflect.FileDescriptor
+var File_lib_rpc_proto protoreflect.FileDescriptor
 
-const file_proto_fscan_proto_rawDesc = "" +
+const file_lib_rpc_proto_rawDesc = "" +
 	"\n" +
-	"\x11proto/fscan.proto\x12\x03lib\x1a\x1cgoogle/api/annotations.proto\"<\n" +
+	"\rlib/rpc.proto\x12\x03lib\x1a\x1cgoogle/api/annotations.proto\x1a\x1cgoogle/protobuf/struct.proto\"<\n" +
 	"\x10StartScanRequest\x12\x16\n" +
 	"\x06secret\x18\x01 \x01(\tR\x06secret\x12\x10\n" +
 	"\x03arg\x18\x02 \x01(\tR\x03arg\"F\n" +
 	"\x11StartScanResponse\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"E\n" +
-	"\x12TaskResultsRequest\x12\x17\n" +
-	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x16\n" +
-	"\x06offset\x18\x02 \x01(\rR\x06offset\"u\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"Q\n" +
+	"\x12TaskResultsRequest\x12\x16\n" +
+	"\x06secret\x18\x01 \x01(\tR\x06secret\x12#\n" +
+	"\x06filter\x18\x02 \x01(\v2\v.lib.FilterR\x06filter\"[\n" +
+	"\x06Filter\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1d\n" +
+	"\n" +
+	"Start_time\x18\x02 \x01(\tR\tStartTime\x12\x19\n" +
+	"\bEnd_time\x18\x03 \x01(\tR\aEndTime\"u\n" +
 	"\x13TaskResultsResponse\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12)\n" +
 	"\aresults\x18\x02 \x03(\v2\x0f.lib.ScanResultR\aresults\x12\x1a\n" +
-	"\bfinished\x18\x03 \x01(\bR\bfinished\"\x87\x01\n" +
+	"\bfinished\x18\x03 \x01(\bR\bfinished\"\xa0\x01\n" +
 	"\n" +
 	"ScanResult\x12\x12\n" +
 	"\x04time\x18\x01 \x01(\tR\x04time\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x16\n" +
 	"\x06target\x18\x03 \x01(\tR\x06target\x12\x16\n" +
-	"\x06status\x18\x04 \x01(\tR\x06status\x12!\n" +
-	"\fdetails_json\x18\x05 \x01(\tR\vdetailsJson2\xa0\x02\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12:\n" +
+	"\fdetails_json\x18\x05 \x01(\v2\x17.google.protobuf.StructR\vdetailsJson2\xc4\x01\n" +
 	"\fFscanService\x12T\n" +
 	"\tStartScan\x12\x15.lib.StartScanRequest\x1a\x16.lib.StartScanResponse\"\x18\x82\xd3\xe4\x93\x02\x12:\x01*\"\r/v1/startscan\x12^\n" +
-	"\x0eGetScanResults\x12\x17.lib.TaskResultsRequest\x1a\x18.lib.TaskResultsResponse\"\x19\x82\xd3\xe4\x93\x02\x13:\x01*\"\x0e/v1/getresults\x12Z\n" +
-	"\x11StreamScanResults\x12\x17.lib.TaskResultsRequest\x1a\x0f.lib.ScanResult\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/v1/streamresults0\x01B\x1eZ\x1cgithub.com/shadow1ng/RPC;libb\x06proto3"
+	"\x0eGetScanResults\x12\x17.lib.TaskResultsRequest\x1a\x18.lib.TaskResultsResponse\"\x19\x82\xd3\xe4\x93\x02\x13:\x01*\"\x0e/v1/getresultsB\bZ\x06./;libb\x06proto3"
 
 var (
-	file_proto_fscan_proto_rawDescOnce sync.Once
-	file_proto_fscan_proto_rawDescData []byte
+	file_lib_rpc_proto_rawDescOnce sync.Once
+	file_lib_rpc_proto_rawDescData []byte
 )
 
-func file_proto_fscan_proto_rawDescGZIP() []byte {
-	file_proto_fscan_proto_rawDescOnce.Do(func() {
-		file_proto_fscan_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_fscan_proto_rawDesc), len(file_proto_fscan_proto_rawDesc)))
+func file_lib_rpc_proto_rawDescGZIP() []byte {
+	file_lib_rpc_proto_rawDescOnce.Do(func() {
+		file_lib_rpc_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_lib_rpc_proto_rawDesc), len(file_lib_rpc_proto_rawDesc)))
 	})
-	return file_proto_fscan_proto_rawDescData
+	return file_lib_rpc_proto_rawDescData
 }
 
-var file_proto_fscan_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
-var file_proto_fscan_proto_goTypes = []any{
+var file_lib_rpc_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_lib_rpc_proto_goTypes = []any{
 	(*StartScanRequest)(nil),    // 0: lib.StartScanRequest
 	(*StartScanResponse)(nil),   // 1: lib.StartScanResponse
 	(*TaskResultsRequest)(nil),  // 2: lib.TaskResultsRequest
-	(*TaskResultsResponse)(nil), // 3: lib.TaskResultsResponse
-	(*ScanResult)(nil),          // 4: lib.ScanResult
+	(*Filter)(nil),              // 3: lib.Filter
+	(*TaskResultsResponse)(nil), // 4: lib.TaskResultsResponse
+	(*ScanResult)(nil),          // 5: lib.ScanResult
+	(*structpb.Struct)(nil),     // 6: google.protobuf.Struct
 }
-var file_proto_fscan_proto_depIdxs = []int32{
-	4, // 0: lib.TaskResultsResponse.results:type_name -> lib.ScanResult
-	0, // 1: lib.FscanService.StartScan:input_type -> lib.StartScanRequest
-	2, // 2: lib.FscanService.GetScanResults:input_type -> lib.TaskResultsRequest
-	2, // 3: lib.FscanService.StreamScanResults:input_type -> lib.TaskResultsRequest
-	1, // 4: lib.FscanService.StartScan:output_type -> lib.StartScanResponse
-	3, // 5: lib.FscanService.GetScanResults:output_type -> lib.TaskResultsResponse
-	4, // 6: lib.FscanService.StreamScanResults:output_type -> lib.ScanResult
-	4, // [4:7] is the sub-list for method output_type
-	1, // [1:4] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+var file_lib_rpc_proto_depIdxs = []int32{
+	3, // 0: lib.TaskResultsRequest.filter:type_name -> lib.Filter
+	5, // 1: lib.TaskResultsResponse.results:type_name -> lib.ScanResult
+	6, // 2: lib.ScanResult.details_json:type_name -> google.protobuf.Struct
+	0, // 3: lib.FscanService.StartScan:input_type -> lib.StartScanRequest
+	2, // 4: lib.FscanService.GetScanResults:input_type -> lib.TaskResultsRequest
+	1, // 5: lib.FscanService.StartScan:output_type -> lib.StartScanResponse
+	4, // 6: lib.FscanService.GetScanResults:output_type -> lib.TaskResultsResponse
+	5, // [5:7] is the sub-list for method output_type
+	3, // [3:5] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
-func init() { file_proto_fscan_proto_init() }
-func file_proto_fscan_proto_init() {
-	if File_proto_fscan_proto != nil {
+func init() { file_lib_rpc_proto_init() }
+func file_lib_rpc_proto_init() {
+	if File_lib_rpc_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_fscan_proto_rawDesc), len(file_proto_fscan_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_lib_rpc_proto_rawDesc), len(file_lib_rpc_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_proto_fscan_proto_goTypes,
-		DependencyIndexes: file_proto_fscan_proto_depIdxs,
-		MessageInfos:      file_proto_fscan_proto_msgTypes,
+		GoTypes:           file_lib_rpc_proto_goTypes,
+		DependencyIndexes: file_lib_rpc_proto_depIdxs,
+		MessageInfos:      file_lib_rpc_proto_msgTypes,
 	}.Build()
-	File_proto_fscan_proto = out.File
-	file_proto_fscan_proto_goTypes = nil
-	file_proto_fscan_proto_depIdxs = nil
+	File_lib_rpc_proto = out.File
+	file_lib_rpc_proto_goTypes = nil
+	file_lib_rpc_proto_depIdxs = nil
 }
