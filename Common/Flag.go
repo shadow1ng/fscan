@@ -66,6 +66,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&Info.Host, "h", "", GetText("flag_host"))
 	flag.StringVar(&ExcludeHosts, "eh", "", GetText("flag_exclude_hosts"))
 	flag.StringVar(&Ports, "p", MainPorts, GetText("flag_ports"))
+	flag.StringVar(&ExcludePorts, "ep", "", GetText("flag_exclude_ports"))
 	flag.StringVar(&HostsFile, "hf", "", GetText("flag_hosts_file"))
 	flag.StringVar(&PortsFile, "pf", "", GetText("flag_ports_file"))
 
@@ -115,7 +116,7 @@ func Flag(Info *HostInfo) {
 	flag.BoolVar(&PocFull, "full", false, GetText("flag_poc_full"))
 	flag.BoolVar(&DnsLog, "dns", false, GetText("flag_dns_log"))
 	flag.IntVar(&PocNum, "num", 20, GetText("flag_poc_num"))
-	flag.BoolVar(&DisablePocScan, "nopoc", false, GetText("flag_nopoc"))
+	flag.BoolVar(&DisablePocScan, "nopoc", false, GetText("flag_no_poc"))
 
 	// ═════════════════════════════════════════════════
 	// Redis利用参数
@@ -178,6 +179,7 @@ func FlagFromRemote(info *HostInfo, argString string) error {
 	fs.StringVar(&info.Host, "h", "", GetText("flag_host"))
 	fs.StringVar(&ExcludeHosts, "eh", "", GetText("flag_exclude_hosts"))
 	fs.StringVar(&Ports, "p", MainPorts, GetText("flag_ports"))
+	fs.StringVar(&ExcludePorts, "ep", "", GetText("flag_exclude_ports"))
 	fs.StringVar(&HostsFile, "hf", "", GetText("flag_hosts_file"))
 	fs.StringVar(&PortsFile, "pf", "", GetText("flag_ports_file"))
 
@@ -215,7 +217,7 @@ func FlagFromRemote(info *HostInfo, argString string) error {
 	fs.BoolVar(&PocFull, "full", false, GetText("flag_poc_full"))
 	fs.BoolVar(&DnsLog, "dns", false, GetText("flag_dns_log"))
 	fs.IntVar(&PocNum, "num", 20, GetText("flag_poc_num"))
-	fs.BoolVar(&DisablePocScan, "nopoc", false, GetText("flag_nopoc"))
+	fs.BoolVar(&DisablePocScan, "nopoc", false, GetText("flag_no_poc"))
 
 	fs.StringVar(&RedisFile, "rf", "", GetText("flag_redis_file"))
 	fs.StringVar(&RedisShell, "rs", "", GetText("flag_redis_shell"))
