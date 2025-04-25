@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package lib;
+
+option go_package = "./;lib";
+
+import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
+
+service FscanService {
+  // 启动扫描任务
+  rpc StartScan(StartScanRequest) returns (StartScanResponse) {
+    option (google.api.http) = {
+      post: "/v1/startscan"
+      body: "*"
+    };
+  }
+
+  // 获取扫描结果（非流式）
+  rpc GetScanResults(TaskResultsRequest) returns (TaskResultsResponse) {
+    option (google.api.http) = {
+      post: "/v1/getresults"
+      body: "*"
+    };
+  }
+
+  // TODO: 流式获取扫描结果
+  // rpc StreamScanResults(TaskResultsRequest) returns (stream ScanResult) {
+  //   option (google.api.http) = {
+  //     get: "/v1/streamresults"
+  //   };
+  // }
+}
+
+// 启动任务的请求
+message StartScanRequest {
+  string arg= 1;
+}
+
+// 启动任务的响应
+message StartScanResponse {
+  string task_id = 1;
+  string message = 2;
+}
+
+// 获取扫描结果的请求
+message TaskResultsRequest {
+  Filter filter = 1;   // 筛选条件（如关键字、状态等）
+}
+
+message Filter {
+  string task_id = 1; // 任务ID
+  string Start_time = 2; // 开始时间
+  string End_time = 3;   // 结束时间
+}
+
+// 获取扫描结果的响应
+message TaskResultsResponse {
+  string task_id = 1;
+  repeated ScanResult results = 2;
+  bool finished = 3;
+  int64 total = 4; // 总结果数
+  int64 end = 5;   // 结束结果数
+}
+
+// 扫描结果结构体
+message ScanResult {
+  string time = 1;
+  string type = 2;
+  string target = 3;
+  string status = 4;
+  google.protobuf.Struct details_json = 5;
+}
