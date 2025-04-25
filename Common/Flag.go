@@ -73,7 +73,7 @@ func Flag(Info *HostInfo) {
 	// ═════════════════════════════════════════════════
 	// 扫描控制参数
 	// ═════════════════════════════════════════════════
-	flag.StringVar(&ScanMode, "m", "All", GetText("flag_scan_mode"))
+	flag.StringVar(&ScanMode, "m", "all", GetText("flag_scan_mode"))
 	flag.IntVar(&ThreadNum, "t", 10, GetText("flag_thread_num"))
 	flag.Int64Var(&Timeout, "time", 3, GetText("flag_timeout"))
 	flag.IntVar(&ModuleThreadNum, "mt", 10, GetText("flag_module_thread_num"))
@@ -183,7 +183,7 @@ func FlagFromRemote(info *HostInfo, argString string) error {
 	fs.StringVar(&HostsFile, "hf", "", GetText("flag_hosts_file"))
 	fs.StringVar(&PortsFile, "pf", "", GetText("flag_ports_file"))
 
-	fs.StringVar(&ScanMode, "m", "All", GetText("flag_scan_mode"))
+	fs.StringVar(&ScanMode, "m", "all", GetText("flag_scan_mode"))
 	fs.IntVar(&ThreadNum, "t", 10, GetText("flag_thread_num"))
 	fs.Int64Var(&Timeout, "time", 3, GetText("flag_timeout"))
 	fs.IntVar(&ModuleThreadNum, "mt", 10, GetText("flag_module_thread_num"))

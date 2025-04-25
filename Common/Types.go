@@ -8,11 +8,30 @@ type HostInfo struct {
 	Infostr []string
 }
 
+// 在 Common/const.go 中添加
+// 插件类型常量
+const (
+	PluginTypeService = "service" // 服务类型插件
+	PluginTypeWeb     = "web"     // Web类型插件
+	PluginTypeLocal   = "local"   // 本地类型插件
+)
+
 // ScanPlugin 定义扫描插件的结构
 type ScanPlugin struct {
 	Name     string                // 插件名称
-	Ports    []int                 // 关联的端口列表，空切片表示特殊扫描类型
+	Ports    []int                 // 适用端口
+	Types    []string              // 插件类型标签，一个插件可以有多个类型
 	ScanFunc func(*HostInfo) error // 扫描函数
+}
+
+// 添加一个用于检查插件类型的辅助方法
+func (p ScanPlugin) HasType(typeName string) bool {
+	for _, t := range p.Types {
+		if t == typeName {
+			return true
+		}
+	}
+	return false
 }
 
 // HasPort 检查插件是否支持指定端口
