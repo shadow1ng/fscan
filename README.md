@@ -1,7 +1,7 @@
 # FScan
 
 <div align="center">   <img src="image/gpt-4o/final.png" alt="FScan Logo" width="300px"/>   <br><br>
-<img src="https://img.shields.io/badge/官方网站-FScan.club-blue?style=for-the-badge&logo=firefox&logoColor=white" alt="官方网站"></a><a href="#"><img src="https://img.shields.io/badge/语言-Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="语言"></a><a href="#"><img src="https://img.shields.io/badge/版本-2.0.0-red?style=for-the-badge" alt="版本"></a><img src="https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge&logo=github-actions" alt="Build"></a><a href="#"><img src="https://img.shields.io/badge/支持-Windows|Linux|MacOS-lightgrey?style=for-the-badge&logo=windows" alt="平台"></a></div>
+<img src="https://img.shields.io/badge/官方网站-FScan.club-blue?style=for-the-badge&logo=firefox&logoColor=white" alt="官方网站"></a><a href="#"><img src="https://img.shields.io/badge/语言-Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="语言"></a><a href="#"><img src="https://img.shields.io/badge/版本-2.0.1-red?style=for-the-badge" alt="版本"></a><img src="https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge&logo=github-actions" alt="Build"></a><a href="#"><img src="https://img.shields.io/badge/支持-Windows|Linux|MacOS-lightgrey?style=for-the-badge&logo=windows" alt="平台"></a></div>
 
 
 ## 简介
