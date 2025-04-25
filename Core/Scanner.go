@@ -15,9 +15,8 @@ import (
 
 // 全局状态
 var (
-	LocalScan bool            // 本地扫描模式标识
-	WebScan   bool            // Web扫描模式标识
-	Mutex     = &sync.Mutex{} // 用于保护共享资源
+	LocalScan bool // 本地扫描模式标识
+	WebScan   bool // Web扫描模式标识
 )
 
 // ScanTask 表示单个扫描任务

@@ -231,7 +231,7 @@ func CheckErrs(err error) error {
 	errLower := strings.ToLower(err.Error())
 	for _, key := range errs {
 		if strings.Contains(errLower, strings.ToLower(key)) {
-			time.Sleep(3 * time.Second)
+			time.Sleep(1 * time.Second)
 			return err
 		}
 	}
