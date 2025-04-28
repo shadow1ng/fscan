@@ -1,4 +1,4 @@
-package rpc
+package server
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/shadow1ng/fscan/Common"
-	pb "github.com/shadow1ng/fscan/RPC/lib"
-	"github.com/shadow1ng/fscan/RPC/service"
+	pb "github.com/shadow1ng/fscan/Remote/lib"
+	"github.com/shadow1ng/fscan/Remote/service"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -17,18 +17,15 @@ import (
 var internalSecretKey string
 
 // 启动 gRPC + HTTP Gateway 服务（仅当设置了 API 地址时）
-func StartApiServer() error {
-	if Common.ApiAddr == "" {
-		return nil
-	}
-	if Common.SecretKey != "" {
-		internalSecretKey = Common.SecretKey
+func StartApiServer(apiURL, sercetkey string) error {
+	if sercetkey != "" {
+		internalSecretKey = sercetkey
 	} else {
 		internalSecretKey = time.Now().Format("20060102150405")
 	}
 
 	grpcAddr := "127.0.0.1:50051"
-	httpAddr := validateHTTPAddr(Common.ApiAddr, ":8088")
+	httpAddr := validateHTTPAddr(apiURL, ":8088")
 
 	go runGRPCServer(grpcAddr)
 

@@ -9,7 +9,7 @@ import (
 
 	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/Core"
-	pb "github.com/shadow1ng/fscan/RPC/lib"
+	pb "github.com/shadow1ng/fscan/Remote/lib"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
