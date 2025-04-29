@@ -19,9 +19,9 @@ func main() {
 	flag.StringVar(&secret, "secret", "", "RPC调用使用的秘钥")
 	flag.StringVar(&transport, "transport", "stdio", "MCP传输协议：stdio 或 sse")
 	Common.Flag(&Info)
-
+	//模式参数，因为在initoutput中会使用，所以需要在这里设置
+	Common.ApiAddr = "remote"
 	if apiURL != "" {
-		Common.ApiAddr = apiURL
 		server.StartApiServer(apiURL, secret)
 	} else {
 		server.StartMcpServer(transport)
