@@ -92,7 +92,7 @@ func (s *ServiceScanStrategy) discoverAlivePorts(hosts []string) []string {
 
 	// 根据扫描模式选择端口扫描方式
 	if len(hosts) > 0 {
-		alivePorts = PortScan(hosts, Common.Ports, Common.Timeout)
+		alivePorts = EnhancedPortScan(hosts, Common.Ports, Common.Timeout)
 		Common.LogInfo(fmt.Sprintf("存活端口数量: %d", len(alivePorts)))
 	}
 

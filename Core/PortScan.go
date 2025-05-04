@@ -1,262 +1,151 @@
 package Core
 
 import (
+	"context"
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 	"net"
-	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
-// Addr 表示待扫描的地址
-type Addr struct {
-	ip   string // IP地址
-	port int    // 端口号
-}
-
-// ScanResult 扫描结果
-type ScanResult struct {
-	Address string       // IP地址
-	Port    int          // 端口号
-	Service *ServiceInfo // 服务信息
-}
-
-// PortScan 执行端口扫描
-// hostslist: 待扫描的主机列表
-// ports: 待扫描的端口范围
-// timeout: 超时时间(秒)
-// 返回活跃地址列表
-func PortScan(hostslist []string, ports string, timeout int64) []string {
-	var results []ScanResult
-	var aliveAddrs []string
-	var mu sync.Mutex
-
-	// 解析并验证端口列表
-	probePorts := Common.ParsePort(ports)
-	if len(probePorts) == 0 {
-		Common.LogError(fmt.Sprintf("端口格式错误: %s", ports))
-		return aliveAddrs
+// EnhancedPortScan 高性能端口扫描函数
+func EnhancedPortScan(hosts []string, ports string, timeout int64) []string {
+	// 解析端口和排除端口
+	portList := Common.ParsePort(ports)
+	if len(portList) == 0 {
+		Common.LogError("无效端口: " + ports)
+		return nil
 	}
 
-	// 排除指定端口
-	probePorts = excludeNoPorts(probePorts)
+	exclude := make(map[int]struct{})
+	for _, p := range Common.ParsePort(Common.ExcludePorts) {
+		exclude[p] = struct{}{}
+	}
 
 	// 初始化并发控制
-	workers := Common.ThreadNum
-	addrs := make(chan Addr, 100)             // 待扫描地址通道
-	scanResults := make(chan ScanResult, 100) // 扫描结果通道
-	var wg sync.WaitGroup
-	var workerWg sync.WaitGroup
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	to := time.Duration(timeout) * time.Second
+	sem := semaphore.NewWeighted(int64(Common.ThreadNum))
+	var count int64
+	var aliveMap sync.Map
+	g, ctx := errgroup.WithContext(ctx)
 
-	// 启动扫描工作协程
-	for i := 0; i < workers; i++ {
-		workerWg.Add(1)
-		go func() {
-			defer workerWg.Done()
-			for addr := range addrs {
-				PortConnect(addr, scanResults, timeout, &wg)
+	// 并发扫描所有目标
+	for _, host := range hosts {
+		for _, port := range portList {
+			if _, excluded := exclude[port]; excluded {
+				continue
 			}
-		}()
+
+			host, port := host, port // 捕获循环变量
+			addr := fmt.Sprintf("%s:%d", host, port)
+
+			if err := sem.Acquire(ctx, 1); err != nil {
+				break
+			}
+
+			g.Go(func() error {
+				defer sem.Release(1)
+
+				// 连接测试
+				conn, err := net.DialTimeout("tcp", addr, to)
+				if err != nil {
+					return nil
+				}
+				defer conn.Close()
+
+				// 记录开放端口
+				atomic.AddInt64(&count, 1)
+				aliveMap.Store(addr, struct{}{})
+				Common.LogSuccess("端口开放 " + addr)
+				Common.SaveResult(&Common.ScanResult{
+					Time: time.Now(), Type: Common.PORT, Target: host,
+					Status: "open", Details: map[string]interface{}{"port": port},
+				})
+
+				// 服务识别
+				if Common.EnableFingerprint {
+					if info, err := NewPortInfoScanner(host, port, conn, to).Identify(); err == nil {
+						// 构建结果详情
+						details := map[string]interface{}{"port": port, "service": info.Name}
+						if info.Version != "" {
+							details["version"] = info.Version
+						}
+
+						// 处理额外信息
+						for k, v := range info.Extras {
+							if v == "" {
+								continue
+							}
+							switch k {
+							case "vendor_product":
+								details["product"] = v
+							case "os", "info":
+								details[k] = v
+							}
+						}
+						if len(info.Banner) > 0 {
+							details["banner"] = strings.TrimSpace(info.Banner)
+						}
+
+						// 保存服务结果
+						Common.SaveResult(&Common.ScanResult{
+							Time: time.Now(), Type: Common.SERVICE, Target: host,
+							Status: "identified", Details: details,
+						})
+
+						// 记录服务信息
+						var sb strings.Builder
+						sb.WriteString("服务识别 " + addr + " => ")
+						if info.Name != "unknown" {
+							sb.WriteString("[" + info.Name + "]")
+						}
+						if info.Version != "" {
+							sb.WriteString(" 版本:" + info.Version)
+						}
+
+						for k, v := range info.Extras {
+							if v == "" {
+								continue
+							}
+							switch k {
+							case "vendor_product":
+								sb.WriteString(" 产品:" + v)
+							case "os":
+								sb.WriteString(" 系统:" + v)
+							case "info":
+								sb.WriteString(" 信息:" + v)
+							}
+						}
+
+						if len(info.Banner) > 0 && len(info.Banner) < 100 {
+							sb.WriteString(" Banner:[" + strings.TrimSpace(info.Banner) + "]")
+						}
+
+						Common.LogSuccess(sb.String())
+					}
+				}
+
+				return nil
+			})
+		}
 	}
 
-	// 启动结果处理协程
-	var resultWg sync.WaitGroup
-	resultWg.Add(1)
-	go func() {
-		defer resultWg.Done()
-		for result := range scanResults {
-			mu.Lock()
-			results = append(results, result)
-			aliveAddr := fmt.Sprintf("%s:%d", result.Address, result.Port)
-			aliveAddrs = append(aliveAddrs, aliveAddr)
-			mu.Unlock()
-		}
-	}()
+	_ = g.Wait()
 
-	// 分发扫描任务
-	for _, port := range probePorts {
-		for _, host := range hostslist {
-			wg.Add(1)
-			addrs <- Addr{host, port}
-		}
-	}
+	// 收集结果
+	var aliveAddrs []string
+	aliveMap.Range(func(key, _ interface{}) bool {
+		aliveAddrs = append(aliveAddrs, key.(string))
+		return true
+	})
 
-	// 等待所有任务完成
-	close(addrs)
-	workerWg.Wait()
-	wg.Wait()
-	close(scanResults)
-	resultWg.Wait()
-
+	Common.LogSuccess(fmt.Sprintf("扫描完成, 发现 %d 个开放端口", count))
 	return aliveAddrs
-}
-
-// PortConnect 执行单个端口连接检测
-// addr: 待检测的地址
-// results: 结果通道
-// timeout: 超时时间
-// wg: 等待组
-func PortConnect(addr Addr, results chan<- ScanResult, timeout int64, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	var isOpen bool
-	var err error
-	var conn net.Conn
-
-	// 尝试建立TCP连接
-	conn, err = Common.WrapperTcpWithTimeout("tcp4",
-		fmt.Sprintf("%s:%v", addr.ip, addr.port),
-		time.Duration(timeout)*time.Second)
-	if err == nil {
-		defer conn.Close()
-		isOpen = true
-	}
-
-	if err != nil || !isOpen {
-		return
-	}
-
-	// 记录开放端口
-	address := fmt.Sprintf("%s:%d", addr.ip, addr.port)
-	Common.LogSuccess(fmt.Sprintf("端口开放 %s", address))
-
-	// 保存端口扫描结果
-	portResult := &Common.ScanResult{
-		Time:   time.Now(),
-		Type:   Common.PORT,
-		Target: addr.ip,
-		Status: "open",
-		Details: map[string]interface{}{
-			"port": addr.port,
-		},
-	}
-	Common.SaveResult(portResult)
-
-	// 构造扫描结果
-	result := ScanResult{
-		Address: addr.ip,
-		Port:    addr.port,
-	}
-
-	// 执行服务识别
-	if Common.EnableFingerprint && conn != nil {
-		scanner := NewPortInfoScanner(addr.ip, addr.port, conn, time.Duration(timeout)*time.Second)
-		if serviceInfo, err := scanner.Identify(); err == nil {
-			result.Service = serviceInfo
-
-			// 构造服务识别日志
-			var logMsg strings.Builder
-			logMsg.WriteString(fmt.Sprintf("服务识别 %s => ", address))
-
-			if serviceInfo.Name != "unknown" {
-				logMsg.WriteString(fmt.Sprintf("[%s]", serviceInfo.Name))
-			}
-
-			if serviceInfo.Version != "" {
-				logMsg.WriteString(fmt.Sprintf(" 版本:%s", serviceInfo.Version))
-			}
-
-			// 收集服务详细信息
-			details := map[string]interface{}{
-				"port":    addr.port,
-				"service": serviceInfo.Name,
-			}
-
-			// 添加版本信息
-			if serviceInfo.Version != "" {
-				details["version"] = serviceInfo.Version
-			}
-
-			// 添加产品信息
-			if v, ok := serviceInfo.Extras["vendor_product"]; ok && v != "" {
-				details["product"] = v
-				logMsg.WriteString(fmt.Sprintf(" 产品:%s", v))
-			}
-
-			// 添加操作系统信息
-			if v, ok := serviceInfo.Extras["os"]; ok && v != "" {
-				details["os"] = v
-				logMsg.WriteString(fmt.Sprintf(" 系统:%s", v))
-			}
-
-			// 添加额外信息
-			if v, ok := serviceInfo.Extras["info"]; ok && v != "" {
-				details["info"] = v
-				logMsg.WriteString(fmt.Sprintf(" 信息:%s", v))
-			}
-
-			// 添加Banner信息
-			if len(serviceInfo.Banner) > 0 && len(serviceInfo.Banner) < 100 {
-				details["banner"] = strings.TrimSpace(serviceInfo.Banner)
-				logMsg.WriteString(fmt.Sprintf(" Banner:[%s]", strings.TrimSpace(serviceInfo.Banner)))
-			}
-
-			// 保存服务识别结果
-			serviceResult := &Common.ScanResult{
-				Time:    time.Now(),
-				Type:    Common.SERVICE,
-				Target:  addr.ip,
-				Status:  "identified",
-				Details: details,
-			}
-			Common.SaveResult(serviceResult)
-
-			Common.LogSuccess(logMsg.String())
-		}
-	}
-
-	results <- result
-}
-
-// NoPortScan 生成端口列表(不进行扫描)
-// hostslist: 主机列表
-// ports: 端口范围
-// 返回地址列表
-func NoPortScan(hostslist []string, ports string) []string {
-	var AliveAddress []string
-
-	// 解析并排除端口
-	probePorts := excludeNoPorts(Common.ParsePort(ports))
-
-	// 生成地址列表
-	for _, port := range probePorts {
-		for _, host := range hostslist {
-			address := fmt.Sprintf("%s:%d", host, port)
-			AliveAddress = append(AliveAddress, address)
-		}
-	}
-
-	return AliveAddress
-}
-
-// excludeNoPorts 排除指定的端口
-// ports: 原始端口列表
-// 返回过滤后的端口列表
-func excludeNoPorts(ports []int) []int {
-	noPorts := Common.ParsePort(Common.ExcludePorts)
-	if len(noPorts) == 0 {
-		return ports
-	}
-
-	// 使用map过滤端口
-	temp := make(map[int]struct{})
-	for _, port := range ports {
-		temp[port] = struct{}{}
-	}
-
-	// 移除需要排除的端口
-	for _, port := range noPorts {
-		delete(temp, port)
-	}
-
-	// 转换为有序切片
-	var newPorts []int
-	for port := range temp {
-		newPorts = append(newPorts, port)
-	}
-	sort.Ints(newPorts)
-
-	return newPorts
 }

@@ -8,9 +8,9 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -20,175 +20,203 @@ import (
 	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
+// 常量定义
+const (
+	maxTitleLength     = 100
+	defaultProtocol    = "http"
+	httpsProtocol      = "https"
+	httpProtocol       = "http"
+	printerFingerPrint = "打印机"
+	emptyTitle         = "\"\""
+	noTitleText        = "无标题"
+
+	// HTTP相关常量
+	httpPort        = "80"
+	httpsPort       = "443"
+	contentEncoding = "Content-Encoding"
+	gzipEncoding    = "gzip"
+	contentLength   = "Content-Length"
+)
+
+// 错误定义
+var (
+	ErrNoTitle        = fmt.Errorf("无法获取标题")
+	ErrHTTPClientInit = fmt.Errorf("HTTP客户端未初始化")
+	ErrReadRespBody   = fmt.Errorf("读取响应内容失败")
+)
+
+// 响应结果
+type WebResponse struct {
+	Url         string
+	StatusCode  int
+	Title       string
+	Length      string
+	Headers     map[string]string
+	RedirectUrl string
+	Body        []byte
+	Error       error
+}
+
+// 协议检测结果
+type ProtocolResult struct {
+	Protocol string
+	Success  bool
+}
+
 // WebTitle 获取Web标题和指纹信息
 func WebTitle(info *Common.HostInfo) error {
-	Common.LogDebug(fmt.Sprintf("开始获取Web标题，初始信息: %+v", info))
-
-	// 获取网站标题信息
-	err, CheckData := GOWebTitle(info)
-	Common.LogDebug(fmt.Sprintf("GOWebTitle执行完成 - 错误: %v, 检查数据长度: %d", err, len(CheckData)))
-
-	info.Infostr = WebScan.InfoCheck(info.Url, &CheckData)
-	Common.LogDebug(fmt.Sprintf("信息检查完成，获得信息: %v", info.Infostr))
-
-	// 检查是否为打印机，避免意外打印
-	for _, v := range info.Infostr {
-		if v == "打印机" {
-			Common.LogDebug("检测到打印机，停止扫描")
-			return nil
-		}
+	if info == nil {
+		return fmt.Errorf("主机信息为空")
 	}
 
-	// 输出错误信息（如果有）
+	// 初始化Url
+	if err := initializeUrl(info); err != nil {
+		Common.LogError(fmt.Sprintf("初始化Url失败: %v", err))
+		return err
+	}
+
+	// 获取网站标题信息
+	checkData, err := fetchWebInfo(info)
 	if err != nil {
-		errlog := fmt.Sprintf("网站标题 %v %v", info.Url, err)
-		Common.LogError(errlog)
+		// 记录错误但继续处理可能获取的数据
+		Common.LogError(fmt.Sprintf("获取网站信息失败: %s %v", info.Url, err))
+	}
+
+	// 分析指纹
+	if len(checkData) > 0 {
+		info.Infostr = WebScan.InfoCheck(info.Url, &checkData)
+
+		// 检查是否为打印机，避免意外打印
+		for _, v := range info.Infostr {
+			if v == printerFingerPrint {
+				Common.LogInfo("检测到打印机，停止扫描")
+				return nil
+			}
+		}
 	}
 
 	return err
 }
 
-// GOWebTitle 获取网站标题并处理URL，增强错误处理和协议切换
-func GOWebTitle(info *Common.HostInfo) (err error, CheckData []WebScan.CheckDatas) {
-	Common.LogDebug(fmt.Sprintf("开始处理URL: %s", info.Url))
-
-	// 如果URL未指定，根据端口生成URL
+// 初始化Url：根据主机和端口生成完整Url
+func initializeUrl(info *Common.HostInfo) error {
 	if info.Url == "" {
-		Common.LogDebug("URL为空，根据端口生成URL")
+		// 根据端口推断Url
 		switch info.Ports {
-		case "80":
-			info.Url = fmt.Sprintf("http://%s", info.Host)
-		case "443":
-			info.Url = fmt.Sprintf("https://%s", info.Host)
+		case httpPort:
+			info.Url = fmt.Sprintf("%s://%s", httpProtocol, info.Host)
+		case httpsPort:
+			info.Url = fmt.Sprintf("%s://%s", httpsProtocol, info.Host)
 		default:
 			host := fmt.Sprintf("%s:%s", info.Host, info.Ports)
-			Common.LogDebug(fmt.Sprintf("正在检测主机协议: %s", host))
-			protocol := GetProtocol(host, Common.Timeout)
-			Common.LogDebug(fmt.Sprintf("检测到协议: %s", protocol))
+			protocol, err := detectProtocol(host, Common.Timeout)
+			if err != nil {
+				return fmt.Errorf("协议检测失败: %w", err)
+			}
 			info.Url = fmt.Sprintf("%s://%s:%s", protocol, info.Host, info.Ports)
 		}
-	} else {
-		// 处理未指定协议的URL
-		if !strings.Contains(info.Url, "://") {
-			Common.LogDebug("URL未包含协议，开始检测")
-			host := strings.Split(info.Url, "/")[0]
-			protocol := GetProtocol(host, Common.Timeout)
-			Common.LogDebug(fmt.Sprintf("检测到协议: %s", protocol))
-			info.Url = fmt.Sprintf("%s://%s", protocol, info.Url)
-		}
-	}
-	Common.LogDebug(fmt.Sprintf("协议检测完成后的URL: %s", info.Url))
-
-	// 记录原始URL协议
-	originalProtocol := "http"
-	if strings.HasPrefix(info.Url, "https://") {
-		originalProtocol = "https"
-	}
-
-	// 第一次获取URL
-	Common.LogDebug("第一次尝试访问URL")
-	err, result, CheckData := geturl(info, 1, CheckData)
-	Common.LogDebug(fmt.Sprintf("第一次访问结果 - 错误: %v, 返回信息: %s", err, result))
-
-	// 如果访问失败并且使用的是HTTPS，尝试降级到HTTP
-	if err != nil && !strings.Contains(err.Error(), "EOF") {
-		if originalProtocol == "https" {
-			Common.LogDebug("HTTPS访问失败，尝试降级到HTTP")
-			// 替换协议部分
-			info.Url = strings.Replace(info.Url, "https://", "http://", 1)
-			Common.LogDebug(fmt.Sprintf("降级后的URL: %s", info.Url))
-			err, result, CheckData = geturl(info, 1, CheckData)
-			Common.LogDebug(fmt.Sprintf("HTTP降级访问结果 - 错误: %v, 返回信息: %s", err, result))
-
-			// 如果仍然失败，返回错误
-			if err != nil && !strings.Contains(err.Error(), "EOF") {
-				return
-			}
-		} else {
-			// 如果本来就是HTTP并且失败了，直接返回错误
-			return
-		}
-	}
-
-	// 处理URL跳转
-	if strings.Contains(result, "://") {
-		Common.LogDebug(fmt.Sprintf("检测到重定向到: %s", result))
-		info.Url = result
-		err, result, CheckData = geturl(info, 3, CheckData)
-		Common.LogDebug(fmt.Sprintf("重定向请求结果 - 错误: %v, 返回信息: %s", err, result))
+	} else if !strings.Contains(info.Url, "://") {
+		// 处理未指定协议的Url
+		host := strings.Split(info.Url, "/")[0]
+		protocol, err := detectProtocol(host, Common.Timeout)
 		if err != nil {
-			// 如果重定向跟踪失败，尝试降级协议
-			if strings.HasPrefix(info.Url, "https://") {
-				Common.LogDebug("重定向HTTPS访问失败，尝试降级到HTTP")
-				info.Url = strings.Replace(info.Url, "https://", "http://", 1)
-				err, result, CheckData = geturl(info, 3, CheckData)
-				Common.LogDebug(fmt.Sprintf("重定向降级访问结果 - 错误: %v, 返回信息: %s", err, result))
-			}
-
-			if err != nil {
-				return
-			}
+			return fmt.Errorf("协议检测失败: %w", err)
 		}
+		info.Url = fmt.Sprintf("%s://%s", protocol, info.Url)
 	}
 
-	// 处理HTTP到HTTPS的升级提示
-	if result == "https" && !strings.HasPrefix(info.Url, "https://") {
-		Common.LogDebug("正在升级到HTTPS")
-		info.Url = strings.Replace(info.Url, "http://", "https://", 1)
-		Common.LogDebug(fmt.Sprintf("升级后的URL: %s", info.Url))
-		err, result, CheckData = geturl(info, 1, CheckData)
-		Common.LogDebug(fmt.Sprintf("HTTPS升级访问结果 - 错误: %v, 返回信息: %s", err, result))
-
-		// 如果HTTPS升级后访问失败，回退到HTTP
-		if err != nil && !strings.Contains(err.Error(), "EOF") {
-			Common.LogDebug("HTTPS升级访问失败，回退到HTTP")
-			info.Url = strings.Replace(info.Url, "https://", "http://", 1)
-			err, result, CheckData = geturl(info, 1, CheckData)
-			Common.LogDebug(fmt.Sprintf("回退到HTTP访问结果 - 错误: %v, 返回信息: %s", err, result))
-		}
-
-		// 处理升级后的跳转
-		if strings.Contains(result, "://") {
-			Common.LogDebug(fmt.Sprintf("协议升级后发现重定向到: %s", result))
-			info.Url = result
-			err, _, CheckData = geturl(info, 3, CheckData)
-			if err != nil {
-				// 如果重定向跟踪失败，再次尝试降级
-				if strings.HasPrefix(info.Url, "https://") {
-					Common.LogDebug("升级后重定向HTTPS访问失败，尝试降级到HTTP")
-					info.Url = strings.Replace(info.Url, "https://", "http://", 1)
-					err, _, CheckData = geturl(info, 3, CheckData)
-				}
-			}
-		}
-	}
-
-	Common.LogDebug(fmt.Sprintf("GOWebTitle执行完成 - 错误: %v", err))
-	return
+	return nil
 }
 
-func geturl(info *Common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (error, string, []WebScan.CheckDatas) {
-	Common.LogDebug(fmt.Sprintf("geturl开始执行 - URL: %s, 标志位: %d", info.Url, flag))
+// 获取Web信息：标题、指纹等
+func fetchWebInfo(info *Common.HostInfo) ([]WebScan.CheckDatas, error) {
+	var checkData []WebScan.CheckDatas
 
-	// 处理目标URL
-	Url := info.Url
-	if flag == 2 {
-		Common.LogDebug("处理favicon.ico URL")
-		URL, err := url.Parse(Url)
-		if err == nil {
-			Url = fmt.Sprintf("%s://%s/favicon.ico", URL.Scheme, URL.Host)
+	// 记录原始Url协议
+	originalUrl := info.Url
+	isHTTPS := strings.HasPrefix(info.Url, "https://")
+
+	// 第一次尝试访问Url
+	resp, err := fetchUrlWithRetry(info, false, &checkData)
+
+	// 处理不同的错误情况
+	if err != nil {
+		// 如果是HTTPS并失败，尝试降级到HTTP
+		if isHTTPS {
+			info.Url = strings.Replace(info.Url, "https://", "http://", 1)
+			resp, err = fetchUrlWithRetry(info, false, &checkData)
+
+			// 如果HTTP也失败，恢复原始Url并返回错误
+			if err != nil {
+				info.Url = originalUrl
+				return checkData, err
+			}
 		} else {
-			Url += "/favicon.ico"
+			return checkData, err
 		}
-		Common.LogDebug(fmt.Sprintf("favicon URL: %s", Url))
 	}
 
-	// 创建HTTP请求
-	Common.LogDebug("开始创建HTTP请求")
-	req, err := http.NewRequest("GET", Url, nil)
+	// 处理重定向
+	if resp != nil && resp.RedirectUrl != "" {
+		info.Url = resp.RedirectUrl
+		resp, err = fetchUrlWithRetry(info, true, &checkData)
+
+		// 如果重定向后失败，尝试降级协议
+		if err != nil && strings.HasPrefix(info.Url, "https://") {
+			info.Url = strings.Replace(info.Url, "https://", "http://", 1)
+			resp, err = fetchUrlWithRetry(info, true, &checkData)
+		}
+	}
+
+	// 处理需要升级到HTTPS的情况
+	if resp != nil && resp.StatusCode == 400 && !strings.HasPrefix(info.Url, "https://") {
+		info.Url = strings.Replace(info.Url, "http://", "https://", 1)
+		resp, err = fetchUrlWithRetry(info, false, &checkData)
+
+		// 如果HTTPS升级失败，回退到HTTP
+		if err != nil {
+			info.Url = strings.Replace(info.Url, "https://", "http://", 1)
+			resp, err = fetchUrlWithRetry(info, false, &checkData)
+		}
+
+		// 处理升级后的重定向
+		if resp != nil && resp.RedirectUrl != "" {
+			info.Url = resp.RedirectUrl
+			resp, err = fetchUrlWithRetry(info, true, &checkData)
+		}
+	}
+
+	return checkData, err
+}
+
+// 尝试获取Url，支持重试
+func fetchUrlWithRetry(info *Common.HostInfo, followRedirect bool, checkData *[]WebScan.CheckDatas) (*WebResponse, error) {
+	// 获取页面内容
+	resp, err := fetchUrl(info.Url, followRedirect)
 	if err != nil {
-		Common.LogDebug(fmt.Sprintf("创建HTTP请求失败: %v", err))
-		return err, "", CheckData
+		return nil, err
+	}
+
+	// 保存检查数据
+	if resp.Body != nil && len(resp.Body) > 0 {
+		headers := fmt.Sprintf("%v", resp.Headers)
+		*checkData = append(*checkData, WebScan.CheckDatas{resp.Body, headers})
+	}
+
+	// 保存扫描结果
+	if resp.StatusCode > 0 {
+		saveWebResult(info, resp)
+	}
+
+	return resp, nil
+}
+
+// 抓取Url内容
+func fetchUrl(targetUrl string, followRedirect bool) (*WebResponse, error) {
+	// 创建HTTP请求
+	req, err := http.NewRequest("GET", targetUrl, nil)
+	if err != nil {
+		return nil, fmt.Errorf("创建HTTP请求失败: %w", err)
 	}
 
 	// 设置请求头
@@ -199,378 +227,327 @@ func geturl(info *Common.HostInfo, flag int, CheckData []WebScan.CheckDatas) (er
 		req.Header.Set("Cookie", Common.Cookie)
 	}
 	req.Header.Set("Connection", "close")
-	Common.LogDebug("已设置请求头")
 
 	// 选择HTTP客户端
 	var client *http.Client
-	if flag == 1 {
-		client = lib.ClientNoRedirect
-		Common.LogDebug("使用不跟随重定向的客户端")
-	} else {
+	if followRedirect {
 		client = lib.Client
-		Common.LogDebug("使用普通客户端")
+	} else {
+		client = lib.ClientNoRedirect
 	}
 
-	// 检查客户端是否为空
 	if client == nil {
-		Common.LogDebug("错误: HTTP客户端为空")
-		return fmt.Errorf("HTTP客户端未初始化"), "", CheckData
+		return nil, ErrHTTPClientInit
 	}
 
 	// 发送请求
-	Common.LogDebug("开始发送HTTP请求")
 	resp, err := client.Do(req)
 	if err != nil {
-		Common.LogDebug(fmt.Sprintf("HTTP请求失败: %v", err))
-		return err, "https", CheckData
+		// 特殊处理SSL/TLS相关错误
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "tls") || strings.Contains(errMsg, "ssl") ||
+			strings.Contains(errMsg, "handshake") || strings.Contains(errMsg, "certificate") {
+			return &WebResponse{Error: err}, nil
+		}
+		return nil, err
 	}
 	defer resp.Body.Close()
-	Common.LogDebug(fmt.Sprintf("收到HTTP响应，状态码: %d", resp.StatusCode))
+
+	// 准备响应结果
+	result := &WebResponse{
+		Url:        req.URL.String(),
+		StatusCode: resp.StatusCode,
+		Headers:    make(map[string]string),
+	}
+
+	// 提取响应头
+	for k, v := range resp.Header {
+		if len(v) > 0 {
+			result.Headers[k] = v[0]
+		}
+	}
+
+	// 获取内容长度
+	result.Length = resp.Header.Get(contentLength)
+
+	// 检查重定向
+	redirectUrl, err := resp.Location()
+	if err == nil {
+		result.RedirectUrl = redirectUrl.String()
+	}
 
 	// 读取响应内容
-	body, err := getRespBody(resp)
+	body, err := readResponseBody(resp)
 	if err != nil {
-		Common.LogDebug(fmt.Sprintf("读取响应内容失败: %v", err))
-		return err, "https", CheckData
+		return result, fmt.Errorf("读取响应内容失败: %w", err)
 	}
-	Common.LogDebug(fmt.Sprintf("成功读取响应内容，长度: %d", len(body)))
+	result.Body = body
 
-	// 保存检查数据
-	CheckData = append(CheckData, WebScan.CheckDatas{body, fmt.Sprintf("%s", resp.Header)})
-	Common.LogDebug("已保存检查数据")
+	// 提取标题
+	if !utf8.Valid(body) {
+		body, _ = simplifiedchinese.GBK.NewDecoder().Bytes(body)
+	}
+	result.Title = extractTitle(body)
 
-	// 处理非favicon请求
-	var reurl string
-	if flag != 2 {
-		// 处理编码
-		if !utf8.Valid(body) {
-			body, _ = simplifiedchinese.GBK.NewDecoder().Bytes(body)
-		}
-
-		// 获取页面信息
-		title := gettitle(body)
-		length := resp.Header.Get("Content-Length")
-		if length == "" {
-			length = fmt.Sprintf("%v", len(body))
-		}
-
-		// 收集服务器信息
-		serverInfo := make(map[string]interface{})
-		serverInfo["title"] = title
-		serverInfo["length"] = length
-		serverInfo["status_code"] = resp.StatusCode
-
-		// 收集响应头信息
-		for k, v := range resp.Header {
-			if len(v) > 0 {
-				serverInfo[strings.ToLower(k)] = v[0]
-			}
-		}
-
-		// 检查重定向
-		redirURL, err1 := resp.Location()
-		if err1 == nil {
-			reurl = redirURL.String()
-			serverInfo["redirect_url"] = reurl
-		}
-
-		// 处理指纹信息 - 添加调试日志
-		Common.LogDebug(fmt.Sprintf("保存结果前的指纹信息: %v", info.Infostr))
-
-		// 处理空指纹情况
-		fingerprints := info.Infostr
-		if len(fingerprints) == 1 && fingerprints[0] == "" {
-			// 如果是只包含空字符串的数组，替换为空数组
-			fingerprints = []string{}
-			Common.LogDebug("检测到空指纹，已转换为空数组")
-		}
-
-		// 保存扫描结果
-		result := &Common.ScanResult{
-			Time:   time.Now(),
-			Type:   Common.SERVICE,
-			Target: info.Host,
-			Status: "identified",
-			Details: map[string]interface{}{
-				"port":         info.Ports,
-				"service":      "http",
-				"title":        title,
-				"url":          resp.Request.URL.String(),
-				"status_code":  resp.StatusCode,
-				"length":       length,
-				"server_info":  serverInfo,
-				"fingerprints": fingerprints, // 使用处理过的指纹信息
-			},
-		}
-		Common.SaveResult(result)
-		Common.LogDebug(fmt.Sprintf("已保存结果，指纹信息: %v", fingerprints))
-
-		// 输出控制台日志
-		logMsg := fmt.Sprintf("网站标题 %-25v 状态码:%-3v 长度:%-6v 标题:%v",
-			resp.Request.URL, resp.StatusCode, length, title)
-		if reurl != "" {
-			logMsg += fmt.Sprintf(" 重定向地址: %s", reurl)
-		}
-		// 添加指纹信息到控制台日志
-		if len(fingerprints) > 0 {
-			logMsg += fmt.Sprintf(" 指纹:%v", fingerprints)
-		}
-		Common.LogSuccess(logMsg)
+	if result.Length == "" {
+		result.Length = fmt.Sprintf("%d", len(body))
 	}
 
-	// 返回结果
-	if reurl != "" {
-		Common.LogDebug(fmt.Sprintf("返回重定向URL: %s", reurl))
-		return nil, reurl, CheckData
-	}
-	if resp.StatusCode == 400 && !strings.HasPrefix(info.Url, "https") {
-		Common.LogDebug("返回HTTPS升级标志")
-		return nil, "https", CheckData
-	}
-	Common.LogDebug("geturl执行完成，无特殊返回")
-	return nil, "", CheckData
+	return result, nil
 }
 
-// getRespBody 读取HTTP响应体内容
-func getRespBody(oResp *http.Response) ([]byte, error) {
-	Common.LogDebug("开始读取响应体内容")
+// 读取HTTP响应体内容
+func readResponseBody(resp *http.Response) ([]byte, error) {
 	var body []byte
+	var reader io.Reader = resp.Body
 
 	// 处理gzip压缩的响应
-	if oResp.Header.Get("Content-Encoding") == "gzip" {
-		Common.LogDebug("检测到gzip压缩，开始解压")
-		gr, err := gzip.NewReader(oResp.Body)
+	if resp.Header.Get(contentEncoding) == gzipEncoding {
+		gr, err := gzip.NewReader(resp.Body)
 		if err != nil {
-			Common.LogDebug(fmt.Sprintf("创建gzip解压器失败: %v", err))
-			return nil, err
+			return nil, fmt.Errorf("创建gzip解压器失败: %w", err)
 		}
 		defer gr.Close()
-
-		// 循环读取解压内容
-		for {
-			buf := make([]byte, 1024)
-			n, err := gr.Read(buf)
-			if err != nil && err != io.EOF {
-				Common.LogDebug(fmt.Sprintf("读取压缩内容失败: %v", err))
-				return nil, err
-			}
-			if n == 0 {
-				break
-			}
-			body = append(body, buf...)
-		}
-		Common.LogDebug(fmt.Sprintf("gzip解压完成，内容长度: %d", len(body)))
-	} else {
-		// 直接读取未压缩的响应
-		Common.LogDebug("读取未压缩的响应内容")
-		raw, err := io.ReadAll(oResp.Body)
-		if err != nil {
-			Common.LogDebug(fmt.Sprintf("读取响应内容失败: %v", err))
-			return nil, err
-		}
-		body = raw
-		Common.LogDebug(fmt.Sprintf("读取完成，内容长度: %d", len(body)))
+		reader = gr
 	}
+
+	// 读取内容
+	body, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应内容失败: %w", err)
+	}
+
 	return body, nil
 }
 
-// gettitle 从HTML内容中提取网页标题
-func gettitle(body []byte) (title string) {
-	Common.LogDebug("开始提取网页标题")
-
+// 提取网页标题
+func extractTitle(body []byte) string {
 	// 使用正则表达式匹配title标签内容
 	re := regexp.MustCompile("(?ims)<title.*?>(.*?)</title>")
 	find := re.FindSubmatch(body)
 
 	if len(find) > 1 {
-		title = string(find[1])
-		Common.LogDebug(fmt.Sprintf("找到原始标题: %s", title))
+		title := string(find[1])
 
 		// 清理标题内容
-		title = strings.TrimSpace(title)                  // 去除首尾空格
-		title = strings.Replace(title, "\n", "", -1)      // 去除换行
-		title = strings.Replace(title, "\r", "", -1)      // 去除回车
-		title = strings.Replace(title, "&nbsp;", " ", -1) // 替换HTML空格
+		title = strings.TrimSpace(title)
+		title = strings.Replace(title, "\n", "", -1)
+		title = strings.Replace(title, "\r", "", -1)
+		title = strings.Replace(title, "&nbsp;", " ", -1)
 
 		// 截断过长的标题
-		if len(title) > 100 {
-			Common.LogDebug("标题超过100字符，进行截断")
-			title = title[:100]
+		if len(title) > maxTitleLength {
+			title = title[:maxTitleLength]
 		}
 
 		// 处理空标题
 		if title == "" {
-			Common.LogDebug("标题为空，使用双引号代替")
-			title = "\"\""
+			return emptyTitle
 		}
-	} else {
-		Common.LogDebug("未找到标题标签")
-		title = "无标题"
+
+		return title
 	}
-	Common.LogDebug(fmt.Sprintf("最终标题: %s", title))
-	return
+
+	return noTitleText
 }
 
-// GetProtocol 检测目标主机的协议类型(HTTP/HTTPS)，优先返回可用的协议
-func GetProtocol(host string, Timeout int64) (protocol string) {
-	Common.LogDebug(fmt.Sprintf("开始检测主机协议 - 主机: %s, 超时: %d秒", host, Timeout))
+// 保存Web扫描结果
+func saveWebResult(info *Common.HostInfo, resp *WebResponse) {
+	// 处理指纹信息
+	fingerprints := info.Infostr
+	if len(fingerprints) == 1 && fingerprints[0] == "" {
+		fingerprints = []string{}
+	}
 
-	// 默认使用http协议
-	protocol = "http"
+	// 准备服务器信息
+	serverInfo := make(map[string]interface{})
+	serverInfo["title"] = resp.Title
+	serverInfo["length"] = resp.Length
+	serverInfo["status_code"] = resp.StatusCode
 
-	timeoutDuration := time.Duration(Timeout) * time.Second
+	// 添加响应头信息
+	for k, v := range resp.Headers {
+		serverInfo[strings.ToLower(k)] = v
+	}
+
+	// 添加重定向信息
+	if resp.RedirectUrl != "" {
+		serverInfo["redirect_Url"] = resp.RedirectUrl
+	}
+
+	// 保存扫描结果
+	result := &Common.ScanResult{
+		Time:   time.Now(),
+		Type:   Common.SERVICE,
+		Target: info.Host,
+		Status: "identified",
+		Details: map[string]interface{}{
+			"port":         info.Ports,
+			"service":      "http",
+			"title":        resp.Title,
+			"Url":          resp.Url,
+			"status_code":  resp.StatusCode,
+			"length":       resp.Length,
+			"server_info":  serverInfo,
+			"fingerprints": fingerprints,
+		},
+	}
+	Common.SaveResult(result)
+
+	// 输出控制台日志
+	logMsg := fmt.Sprintf("网站标题 %-25v 状态码:%-3v 长度:%-6v 标题:%v",
+		resp.Url, resp.StatusCode, resp.Length, resp.Title)
+
+	if resp.RedirectUrl != "" {
+		logMsg += fmt.Sprintf(" 重定向地址: %s", resp.RedirectUrl)
+	}
+
+	if len(fingerprints) > 0 {
+		logMsg += fmt.Sprintf(" 指纹:%v", fingerprints)
+	}
+
+	Common.LogSuccess(logMsg)
+}
+
+// 检测目标主机的协议类型(HTTP/HTTPS)
+func detectProtocol(host string, timeout int64) (string, error) {
+	// 根据标准端口快速判断协议
+	if strings.HasSuffix(host, ":"+httpPort) {
+		return httpProtocol, nil
+	} else if strings.HasSuffix(host, ":"+httpsPort) {
+		return httpsProtocol, nil
+	}
+
+	timeoutDuration := time.Duration(timeout) * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
 	defer cancel()
 
-	// 1. 根据标准端口快速判断协议
-	if strings.HasSuffix(host, ":80") {
-		Common.LogDebug("检测到标准HTTP端口，使用HTTP协议")
-		return "http"
-	} else if strings.HasSuffix(host, ":443") {
-		Common.LogDebug("检测到标准HTTPS端口，使用HTTPS协议")
-		return "https"
-	}
-
-	// 2. 并发检测HTTP和HTTPS
-	type protocolResult struct {
-		name    string
-		success bool
-	}
-
-	resultChan := make(chan protocolResult, 2)
-	singleTimeout := timeoutDuration / 2 // 每个协议检测的超时时间减半
+	// 并发检测HTTP和HTTPS
+	resultChan := make(chan ProtocolResult, 2)
+	wg := sync.WaitGroup{}
+	wg.Add(2)
 
 	// 检测HTTPS
 	go func() {
-		Common.LogDebug("开始检测HTTPS协议")
-		tlsConfig := &tls.Config{
-			InsecureSkipVerify: true,
-			MinVersion:         tls.VersionTLS10,
+		defer wg.Done()
+		success := checkHTTPS(host, timeoutDuration/2)
+		select {
+		case resultChan <- ProtocolResult{httpsProtocol, success}:
+		case <-ctx.Done():
 		}
-
-		dialer := &net.Dialer{
-			Timeout: singleTimeout,
-		}
-
-		conn, err := tls.DialWithDialer(dialer, "tcp", host, tlsConfig)
-		if err == nil {
-			Common.LogDebug("HTTPS连接成功")
-			conn.Close()
-			resultChan <- protocolResult{"https", true}
-			return
-		}
-
-		// 分析TLS错误
-		if err != nil {
-			errMsg := strings.ToLower(err.Error())
-			// 这些错误可能表明服务器确实支持TLS，但有其他问题
-			if strings.Contains(errMsg, "handshake failure") ||
-				strings.Contains(errMsg, "certificate") ||
-				strings.Contains(errMsg, "tls") ||
-				strings.Contains(errMsg, "x509") ||
-				strings.Contains(errMsg, "secure") {
-				Common.LogDebug(fmt.Sprintf("TLS握手有错误但可能是HTTPS协议: %v", err))
-				resultChan <- protocolResult{"https", true}
-				return
-			}
-			Common.LogDebug(fmt.Sprintf("HTTPS连接失败: %v", err))
-		}
-		resultChan <- protocolResult{"https", false}
 	}()
 
 	// 检测HTTP
 	go func() {
-		Common.LogDebug("开始检测HTTP协议")
-		req, err := http.NewRequestWithContext(ctx, "HEAD", fmt.Sprintf("http://%s", host), nil)
-		if err != nil {
-			Common.LogDebug(fmt.Sprintf("创建HTTP请求失败: %v", err))
-			resultChan <- protocolResult{"http", false}
-			return
+		defer wg.Done()
+		success := checkHTTP(ctx, host, timeoutDuration/2)
+		select {
+		case resultChan <- ProtocolResult{httpProtocol, success}:
+		case <-ctx.Done():
 		}
-
-		client := &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-				DialContext: (&net.Dialer{
-					Timeout: singleTimeout,
-				}).DialContext,
-			},
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				return http.ErrUseLastResponse // 不跟随重定向
-			},
-			Timeout: singleTimeout,
-		}
-
-		resp, err := client.Do(req)
-		if err == nil {
-			resp.Body.Close()
-			Common.LogDebug(fmt.Sprintf("HTTP连接成功，状态码: %d", resp.StatusCode))
-			resultChan <- protocolResult{"http", true}
-			return
-		}
-
-		Common.LogDebug(fmt.Sprintf("标准HTTP请求失败: %v，尝试原始TCP连接", err))
-
-		// 尝试原始TCP连接和简单HTTP请求
-		netConn, err := net.DialTimeout("tcp", host, singleTimeout)
-		if err == nil {
-			defer netConn.Close()
-			netConn.SetDeadline(time.Now().Add(singleTimeout))
-
-			// 发送简单HTTP请求
-			_, err = netConn.Write([]byte("HEAD / HTTP/1.0\r\nHost: " + host + "\r\n\r\n"))
-			if err == nil {
-				// 读取响应
-				buf := make([]byte, 1024)
-				netConn.SetDeadline(time.Now().Add(singleTimeout))
-				n, err := netConn.Read(buf)
-				if err == nil && n > 0 {
-					response := string(buf[:n])
-					if strings.Contains(response, "HTTP/") {
-						Common.LogDebug("通过原始TCP连接确认HTTP协议")
-						resultChan <- protocolResult{"http", true}
-						return
-					}
-				}
-			}
-			Common.LogDebug("原始TCP连接成功但HTTP响应无效")
-		} else {
-			Common.LogDebug(fmt.Sprintf("原始TCP连接失败: %v", err))
-		}
-
-		resultChan <- protocolResult{"http", false}
 	}()
 
-	// 3. 收集结果并决定使用哪种协议
-	var httpsSuccess, httpSuccess bool
+	// 确保所有goroutine正常退出
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
 
-	// 等待两个goroutine返回结果或超时
-	for i := 0; i < 2; i++ {
-		select {
-		case result := <-resultChan:
-			if result.name == "https" {
-				httpsSuccess = result.success
-				Common.LogDebug(fmt.Sprintf("HTTPS检测结果: %v", httpsSuccess))
-			} else if result.name == "http" {
-				httpSuccess = result.success
-				Common.LogDebug(fmt.Sprintf("HTTP检测结果: %v", httpSuccess))
-			}
-		case <-ctx.Done():
-			Common.LogDebug("协议检测超时")
-			break
+	// 收集结果
+	var httpsResult, httpResult *ProtocolResult
+
+	for result := range resultChan {
+		if result.Protocol == httpsProtocol {
+			r := result
+			httpsResult = &r
+		} else if result.Protocol == httpProtocol {
+			r := result
+			httpResult = &r
 		}
 	}
 
-	// 4. 决定使用哪种协议 - 优先使用HTTPS，如果HTTPS不可用则使用HTTP
-	if httpsSuccess {
-		Common.LogDebug("选择使用HTTPS协议")
-		return "https"
-	} else if httpSuccess {
-		Common.LogDebug("选择使用HTTP协议")
-		return "http"
+	// 决定使用哪种协议 - 优先使用HTTPS
+	if httpsResult != nil && httpsResult.Success {
+		return httpsProtocol, nil
+	} else if httpResult != nil && httpResult.Success {
+		return httpProtocol, nil
 	}
 
-	// 5. 如果两种协议都无法确认，保持默认值
-	Common.LogDebug(fmt.Sprintf("无法确定协议，使用默认协议: %s", protocol))
-	return
+	// 默认使用HTTP
+	return defaultProtocol, nil
+}
+
+// 检测HTTPS协议
+func checkHTTPS(host string, timeout time.Duration) bool {
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
+		MinVersion:         tls.VersionTLS10,
+	}
+
+	dialer := &net.Dialer{
+		Timeout: timeout,
+	}
+
+	conn, err := tls.DialWithDialer(dialer, "tcp", host, tlsConfig)
+	if err == nil {
+		conn.Close()
+		return true
+	}
+
+	// 分析TLS错误，某些错误可能表明服务器支持TLS但有其他问题
+	errMsg := strings.ToLower(err.Error())
+	return strings.Contains(errMsg, "handshake failure") ||
+		strings.Contains(errMsg, "certificate") ||
+		strings.Contains(errMsg, "tls") ||
+		strings.Contains(errMsg, "x509") ||
+		strings.Contains(errMsg, "secure")
+}
+
+// 检测HTTP协议
+func checkHTTP(ctx context.Context, host string, timeout time.Duration) bool {
+	req, err := http.NewRequestWithContext(ctx, "HEAD", fmt.Sprintf("http://%s", host), nil)
+	if err != nil {
+		return false
+	}
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			DialContext: (&net.Dialer{
+				Timeout: timeout,
+			}).DialContext,
+		},
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse // 不跟随重定向
+		},
+		Timeout: timeout,
+	}
+
+	resp, err := client.Do(req)
+	if err == nil {
+		resp.Body.Close()
+		return true
+	}
+
+	// 尝试原始TCP连接和简单HTTP请求
+	netConn, err := net.DialTimeout("tcp", host, timeout)
+	if err == nil {
+		defer netConn.Close()
+		netConn.SetDeadline(time.Now().Add(timeout))
+
+		// 发送简单HTTP请求
+		_, err = netConn.Write([]byte("HEAD / HTTP/1.0\r\nHost: " + host + "\r\n\r\n"))
+		if err == nil {
+			// 读取响应
+			buf := make([]byte, 1024)
+			netConn.SetDeadline(time.Now().Add(timeout))
+			n, err := netConn.Read(buf)
+			if err == nil && n > 0 {
+				response := string(buf[:n])
+				return strings.Contains(response, "HTTP/")
+			}
+		}
+	}
+
+	return false
 }

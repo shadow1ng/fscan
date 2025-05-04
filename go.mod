@@ -27,6 +27,7 @@ require (
 	github.com/tomatome/grdp v0.0.0-20211231062539-be8adab7eaf3
 	golang.org/x/crypto v0.33.0
 	golang.org/x/net v0.35.0
+	golang.org/x/sync v0.11.0
 	golang.org/x/sys v0.30.0
 	golang.org/x/text v0.22.0
 	google.golang.org/genproto v0.0.0-20221027153422-115e99e71e1c
