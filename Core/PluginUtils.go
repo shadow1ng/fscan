@@ -3,7 +3,6 @@ package Core
 import (
 	"fmt"
 	"github.com/shadow1ng/fscan/Common"
-	"sort"
 	"strings"
 )
 
@@ -56,16 +55,4 @@ func validateScanPlugins() error {
 	}
 
 	return nil
-}
-
-// 根据类型获取插件列表
-func GetPluginsByType(typeName string) []string {
-	var result []string
-	for name, plugin := range Common.PluginManager {
-		if plugin.HasType(typeName) {
-			result = append(result, name)
-		}
-	}
-	sort.Strings(result)
-	return result
 }
