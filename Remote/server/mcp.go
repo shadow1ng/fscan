@@ -34,21 +34,22 @@ func NewFscanMCPServer() *server.MCPServer {
 		"1.0.0",
 	)
 	toolHandler := service.NewFscanMCPTool()
+	// 添加提示词
 
 	// 添加工具处理器
 	s.AddTool(
 		mcp.NewTool("StartScan",
-			mcp.WithDescription("开始扫描"),
+			mcp.WithDescription("启动端口和服务扫描任务，适用于安全评估或资产排查场景。"),
 			mcp.WithString("target",
 				mcp.Required(),
-				mcp.Description("扫描目标"),
+				mcp.Description("待扫描的目标地址，支持IP、域名或CIDR格式（如192.168.1.1、example.com、10.0.0.0/24）。"),
 			),
 		),
 		toolHandler.StartScan,
 	)
 	s.AddTool(
 		mcp.NewTool("GetScanResults",
-			mcp.WithDescription("获取扫描结果"),
+			mcp.WithDescription("获取当前扫描任务的执行进度和已完成部分的结果。若扫描尚未完成，也会返回当前阶段的中间结果，供用户分析或决策使用。"),
 		),
 		toolHandler.GetScanResults,
 	)
