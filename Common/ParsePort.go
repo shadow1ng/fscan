@@ -1,93 +1,99 @@
 package Common
 
 import (
+	"sort"
 	"strconv"
 	"strings"
-	"sort"
 )
 
 // ParsePort 解析端口配置字符串为端口号列表
+// 支持预定义端口组、单个端口和端口范围格式
+// 返回已排序且去重的有效端口号切片
 func ParsePort(ports string) []int {
-	// 预定义的端口组
-	portGroups := map[string]string{
-		"service": ServicePorts,
-		"db":      DbPorts,
-		"web":     WebPorts,
-		"all":     AllPorts,
-		"main":    MainPorts,
+	// 检查预定义的端口组
+	switch ports {
+	case "service":
+		ports = ServicePorts
+	case "db":
+		ports = DbPorts
+	case "web":
+		ports = WebPorts
+	case "all":
+		ports = AllPorts
+	case "main":
+		ports = MainPorts
 	}
 
-	// 检查是否匹配预定义组
-	if definedPorts, exists := portGroups[ports]; exists {
-		ports = definedPorts
-	}
-
+	// 空配置直接返回nil
 	if ports == "" {
 		return nil
 	}
 
-	var scanPorts []int
-	slices := strings.Split(ports, ",")
+	// 使用map来自动去重
+	portMap := make(map[int]struct{})
 
-	// 处理每个端口配置
-	for _, port := range slices {
-		port = strings.TrimSpace(port)
-		if port == "" {
+	// 处理端口配置
+	for _, portConfig := range strings.Split(ports, ",") {
+		portConfig = strings.TrimSpace(portConfig)
+		if portConfig == "" {
 			continue
 		}
 
-		// 处理端口范围
-		upper := port
-		if strings.Contains(port, "-") {
-			ranges := strings.Split(port, "-")
-			if len(ranges) < 2 {
-				LogError(GetText("port_range_format_error", port))
-				continue
-			}
+		// 默认为单端口配置
+		start, end := 0, 0
 
-			// 确保起始端口小于结束端口
-			startPort, _ := strconv.Atoi(ranges[0])
-			endPort, _ := strconv.Atoi(ranges[1])
-			if startPort < endPort {
-				port = ranges[0]
-				upper = ranges[1]
+		// 处理端口范围 (如 "80-100")
+		if strings.Contains(portConfig, "-") {
+			parts := strings.Split(portConfig, "-")
+			if len(parts) == 2 {
+				// 解析起始和结束端口
+				s, errStart := strconv.Atoi(parts[0])
+				e, errEnd := strconv.Atoi(parts[1])
+
+				if errStart == nil && errEnd == nil {
+					// 确保小端口在前，大端口在后
+					if s > e {
+						s, e = e, s
+					}
+					start, end = s, e
+				} else {
+					LogError(GetText("port_range_format_error", portConfig))
+					continue
+				}
 			} else {
-				port = ranges[1]
-				upper = ranges[0]
-			}
-		}
-
-		// 生成端口列表
-		start, _ := strconv.Atoi(port)
-		end, _ := strconv.Atoi(upper)
-		for i := start; i <= end; i++ {
-			if i > 65535 || i < 1 {
-				LogError(GetText("ignore_invalid_port", i))
+				LogError(GetText("port_range_format_error", portConfig))
 				continue
 			}
-			scanPorts = append(scanPorts, i)
+		} else {
+			// 单个端口的情况
+			p, err := strconv.Atoi(portConfig)
+			if err != nil {
+				LogError(GetText("port_format_error", portConfig))
+				continue
+			}
+			start, end = p, p
+		}
+
+		// 添加端口到映射表，自动去重
+		for port := start; port <= end; port++ {
+			// 验证端口有效性
+			if port < 1 || port > 65535 {
+				LogError(GetText("ignore_invalid_port", port))
+				continue
+			}
+			portMap[port] = struct{}{}
 		}
 	}
 
-	// 去重并排序
-	scanPorts = removeDuplicate(scanPorts)
-	sort.Ints(scanPorts)
-
-	LogInfo(GetText("valid_port_count", len(scanPorts)))
-	return scanPorts
-}
-
-// removeDuplicate 对整数切片进行去重
-func removeDuplicate(old []int) []int {
-	temp := make(map[int]struct{})
-	var result []int
-
-	for _, item := range old {
-		if _, exists := temp[item]; !exists {
-			temp[item] = struct{}{}
-			result = append(result, item)
-		}
+	// 将map转换回切片
+	result := make([]int, 0, len(portMap))
+	for port := range portMap {
+		result = append(result, port)
 	}
 
+	// 排序端口列表
+	sort.Ints(result)
+
+	LogInfo(GetText("valid_port_count", len(result)))
 	return result
 }

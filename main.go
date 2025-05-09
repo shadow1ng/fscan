@@ -13,7 +13,7 @@ func main() {
 	Common.InitLogger()
 
 	var Info Common.HostInfo
-	Common.Flag(&Info)
+	Common.ParseFlags(&Info)
 
 	// 启动 gRPC + HTTP Gateway 服务
 	if err := rpc.StartApiServer(); err != nil {

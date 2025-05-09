@@ -17,17 +17,18 @@ var ResultOutput *OutputManager
 // OutputManager 输出管理器结构体
 type OutputManager struct {
 	mu            sync.Mutex
-	outputPath    string
-	outputFormat  string
-	file          *os.File
-	csvWriter     *csv.Writer
-	jsonEncoder   *json.Encoder
-	isInitialized bool
+	outputPath    string        // 输出文件路径
+	outputFormat  string        // 输出格式(txt/json/csv)
+	file          *os.File      // 文件句柄
+	csvWriter     *csv.Writer   // CSV写入器
+	jsonEncoder   *json.Encoder // JSON编码器
+	isInitialized bool          // 是否已初始化
 }
 
-// ResultType 定义结果类型
+// ResultType 定义结果类型的枚举
 type ResultType string
 
+// 结果类型常量
 const (
 	HOST    ResultType = "HOST"    // 主机存活
 	PORT    ResultType = "PORT"    // 端口开放
@@ -44,141 +45,134 @@ type ScanResult struct {
 	Details map[string]interface{} `json:"details"` // 详细信息
 }
 
-// InitOutput 初始化输出系统
+// InitOutput 初始化输出系统，创建文件并设置相应格式的写入器
 func InitOutput() error {
 	LogDebug(GetText("output_init_start"))
 
 	// 验证输出格式
-	switch OutputFormat {
-	case "txt", "json", "csv":
-		// 有效的格式
-	default:
+	if OutputFormat != "txt" && OutputFormat != "json" && OutputFormat != "csv" {
 		return fmt.Errorf(GetText("output_format_invalid"), OutputFormat)
 	}
 
-	// 验证输出路径
+	// 验证并创建输出路径
 	if Outputfile == "" {
 		return fmt.Errorf(GetText("output_path_empty"))
 	}
 
-	dir := filepath.Dir(Outputfile)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	// 确保目录存在
+	if err := os.MkdirAll(filepath.Dir(Outputfile), 0755); err != nil {
 		LogDebug(GetText("output_create_dir_failed", err))
-		return fmt.Errorf(GetText("output_create_dir_failed", err))
+		return err
 	}
 
+	// API模式下特殊处理
 	if ApiAddr != "" {
 		OutputFormat = "csv"
-		Outputfile = filepath.Join(dir, "fscanapi.csv")
-		Num = 0
-		End = 0
+		Outputfile = filepath.Join(filepath.Dir(Outputfile), "fscanapi.csv")
+		Num, End = 0, 0
+		// 删除已存在的文件
 		if _, err := os.Stat(Outputfile); err == nil {
-			if err := os.Remove(Outputfile); err != nil {
-				return fmt.Errorf(GetText("output_file_remove_failed", err))
-			}
+			os.Remove(Outputfile)
 		}
 	}
 
-	manager := &OutputManager{
+	// 创建管理器
+	ResultOutput = &OutputManager{
 		outputPath:   Outputfile,
 		outputFormat: OutputFormat,
 	}
 
-	if err := manager.initialize(); err != nil {
-		LogDebug(GetText("output_init_failed", err))
-		return fmt.Errorf(GetText("output_init_failed", err))
+	// 创建并打开文件
+	file, err := os.OpenFile(Outputfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		LogDebug(GetText("output_open_file_failed", err))
+		return err
+	}
+	ResultOutput.file = file
+
+	// 根据格式初始化相应的写入器
+	switch OutputFormat {
+	case "csv":
+		ResultOutput.csvWriter = csv.NewWriter(file)
+		// 写入CSV头部
+		if err := ResultOutput.csvWriter.Write([]string{"Time", "Type", "Target", "Status", "Details"}); err != nil {
+			file.Close()
+			return err
+		}
+		ResultOutput.csvWriter.Flush()
+
+	case "json":
+		ResultOutput.jsonEncoder = json.NewEncoder(file)
+		ResultOutput.jsonEncoder.SetIndent("", "  ")
 	}
 
-	ResultOutput = manager
+	ResultOutput.isInitialized = true
 	LogDebug(GetText("output_init_success"))
 	return nil
 }
 
-func (om *OutputManager) initialize() error {
-	om.mu.Lock()
-	defer om.mu.Unlock()
-
-	if om.isInitialized {
-		LogDebug(GetText("output_already_init"))
-		return nil
-	}
-
-	LogDebug(GetText("output_opening_file", om.outputPath))
-	file, err := os.OpenFile(om.outputPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if err != nil {
-		LogDebug(GetText("output_open_file_failed", err))
-		return fmt.Errorf(GetText("output_open_file_failed", err))
-	}
-	om.file = file
-
-	switch om.outputFormat {
-	case "csv":
-		LogDebug(GetText("output_init_csv"))
-		om.csvWriter = csv.NewWriter(file)
-		headers := []string{"Time", "Type", "Target", "Status", "Details"}
-		if err := om.csvWriter.Write(headers); err != nil {
-			LogDebug(GetText("output_write_csv_header_failed", err))
-			file.Close()
-			return fmt.Errorf(GetText("output_write_csv_header_failed", err))
-		}
-		om.csvWriter.Flush()
-	case "json":
-		LogDebug(GetText("output_init_json"))
-		om.jsonEncoder = json.NewEncoder(file)
-		om.jsonEncoder.SetIndent("", "  ")
-	case "txt":
-		LogDebug(GetText("output_init_txt"))
-	default:
-		LogDebug(GetText("output_format_invalid", om.outputFormat))
-	}
-
-	om.isInitialized = true
-	LogDebug(GetText("output_init_complete"))
-	return nil
-}
-
-// SaveResult 保存扫描结果
+// SaveResult 保存扫描结果到文件
 func SaveResult(result *ScanResult) error {
-	if ResultOutput == nil {
+	// 验证输出管理器是否初始化
+	if ResultOutput == nil || !ResultOutput.isInitialized {
 		LogDebug(GetText("output_not_init"))
 		return fmt.Errorf(GetText("output_not_init"))
 	}
 
 	LogDebug(GetText("output_saving_result", result.Type, result.Target))
-	return ResultOutput.saveResult(result)
-}
-func GetResults() ([]*ScanResult, error) {
-	if ResultOutput == nil {
-		return nil, fmt.Errorf(GetText("output_not_init"))
-	}
 
-	if ResultOutput.outputFormat == "csv" {
-		return ResultOutput.getResult()
-	}
-	// 其他格式尚未实现读取支持
-	return nil, fmt.Errorf(GetText("output_format_read_not_supported"))
-}
-
-func (om *OutputManager) saveResult(result *ScanResult) error {
-	om.mu.Lock()
-	defer om.mu.Unlock()
-
-	if !om.isInitialized {
-		LogDebug(GetText("output_not_init"))
-		return fmt.Errorf(GetText("output_not_init"))
-	}
+	ResultOutput.mu.Lock()
+	defer ResultOutput.mu.Unlock()
 
 	var err error
-	switch om.outputFormat {
+
+	// 根据不同格式写入结果
+	switch ResultOutput.outputFormat {
 	case "txt":
-		err = om.writeTxt(result)
+		// 格式化详情为键值对字符串
+		var details string
+		if len(result.Details) > 0 {
+			pairs := make([]string, 0, len(result.Details))
+			for k, v := range result.Details {
+				pairs = append(pairs, fmt.Sprintf("%s=%v", k, v))
+			}
+			details = strings.Join(pairs, ", ")
+		}
+
+		// 写入文本格式
+		txt := GetText("output_txt_format",
+			result.Time.Format("2006-01-02 15:04:05"),
+			result.Type,
+			result.Target,
+			result.Status,
+			details,
+		) + "\n"
+		_, err = ResultOutput.file.WriteString(txt)
+
 	case "json":
-		err = om.writeJson(result)
+		// 写入JSON格式
+		err = ResultOutput.jsonEncoder.Encode(result)
+
 	case "csv":
-		err = om.writeCsv(result)
-	default:
-		LogDebug(GetText("output_format_invalid", om.outputFormat))
-		return fmt.Errorf(GetText("output_format_invalid", om.outputFormat))
+		// 将详情序列化为JSON字符串
+		details, jsonErr := json.Marshal(result.Details)
+		if jsonErr != nil {
+			details = []byte("{}")
+		}
+
+		// 写入CSV记录
+		record := []string{
+			result.Time.Format("2006-01-02 15:04:05"),
+			string(result.Type),
+			result.Target,
+			result.Status,
+			string(details),
+		}
+
+		if err = ResultOutput.csvWriter.Write(record); err == nil {
+			ResultOutput.csvWriter.Flush()
+			err = ResultOutput.csvWriter.Error()
+		}
 	}
 
 	if err != nil {
@@ -188,134 +182,93 @@ func (om *OutputManager) saveResult(result *ScanResult) error {
 	}
 	return err
 }
-func (om *OutputManager) getResult() ([]*ScanResult, error) {
-	om.mu.Lock()
-	defer om.mu.Unlock()
 
-	if !om.isInitialized {
-		LogDebug(GetText("output_not_init"))
+// GetResults 从CSV文件中读取已保存的结果
+func GetResults() ([]*ScanResult, error) {
+	// 验证输出管理器是否初始化且为CSV格式
+	if ResultOutput == nil || !ResultOutput.isInitialized {
 		return nil, fmt.Errorf(GetText("output_not_init"))
 	}
 
-	file, err := os.Open(om.outputPath)
+	if ResultOutput.outputFormat != "csv" {
+		return nil, fmt.Errorf(GetText("output_format_read_not_supported"))
+	}
+
+	ResultOutput.mu.Lock()
+	defer ResultOutput.mu.Unlock()
+
+	// 打开文件进行读取
+	file, err := os.Open(ResultOutput.outputPath)
 	if err != nil {
 		LogDebug(GetText("output_open_file_failed", err))
 		return nil, err
 	}
 	defer file.Close()
 
-	reader := csv.NewReader(file)
-	records, err := reader.ReadAll()
+	// 读取CSV记录
+	records, err := csv.NewReader(file).ReadAll()
 	if err != nil {
 		LogDebug(GetText("output_read_csv_failed", err))
 		return nil, err
 	}
 
+	// 解析记录到结构体
 	var results []*ScanResult
 	for i, row := range records {
-		// 跳过 CSV 头部
-		if i == 0 {
+		// 跳过CSV头部和不完整记录
+		if i == 0 || len(row) < 5 {
 			continue
 		}
-		if len(row) < 5 {
-			continue // 数据不完整
-		}
 
+		// 解析时间
 		t, err := time.Parse("2006-01-02 15:04:05", row[0])
 		if err != nil {
 			continue
 		}
 
+		// 解析详情JSON
 		var details map[string]interface{}
 		if err := json.Unmarshal([]byte(row[4]), &details); err != nil {
 			details = make(map[string]interface{})
 		}
 
-		result := &ScanResult{
+		// 创建结果对象
+		results = append(results, &ScanResult{
 			Time:    t,
 			Type:    ResultType(row[1]),
 			Target:  row[2],
 			Status:  row[3],
 			Details: details,
-		}
-		results = append(results, result)
+		})
 	}
 
 	LogDebug(GetText("output_read_csv_success", len(results)))
 	return results, nil
 }
 
-func (om *OutputManager) writeTxt(result *ScanResult) error {
-	// 格式化 Details 为键值对字符串
-	var details string
-	if len(result.Details) > 0 {
-		pairs := make([]string, 0, len(result.Details))
-		for k, v := range result.Details {
-			pairs = append(pairs, fmt.Sprintf("%s=%v", k, v))
-		}
-		details = strings.Join(pairs, ", ")
-	}
-
-	txt := GetText("output_txt_format",
-		result.Time.Format("2006-01-02 15:04:05"),
-		result.Type,
-		result.Target,
-		result.Status,
-		details,
-	) + "\n"
-	_, err := om.file.WriteString(txt)
-	return err
-}
-
-func (om *OutputManager) writeJson(result *ScanResult) error {
-	return om.jsonEncoder.Encode(result)
-}
-
-func (om *OutputManager) writeCsv(result *ScanResult) error {
-	details, err := json.Marshal(result.Details)
-	if err != nil {
-		details = []byte("{}")
-	}
-
-	record := []string{
-		result.Time.Format("2006-01-02 15:04:05"),
-		string(result.Type),
-		result.Target,
-		result.Status,
-		string(details),
-	}
-
-	if err := om.csvWriter.Write(record); err != nil {
-		return err
-	}
-	om.csvWriter.Flush()
-	return om.csvWriter.Error()
-}
-
 // CloseOutput 关闭输出系统
 func CloseOutput() error {
-	if ResultOutput == nil {
+	// 验证是否需要关闭
+	if ResultOutput == nil || !ResultOutput.isInitialized {
 		LogDebug(GetText("output_no_need_close"))
 		return nil
 	}
 
 	LogDebug(GetText("output_closing"))
+
 	ResultOutput.mu.Lock()
 	defer ResultOutput.mu.Unlock()
 
-	if !ResultOutput.isInitialized {
-		LogDebug(GetText("output_no_need_close"))
-		return nil
-	}
-
+	// CSV格式需要刷新缓冲
 	if ResultOutput.csvWriter != nil {
-		LogDebug(GetText("output_flush_csv"))
 		ResultOutput.csvWriter.Flush()
 	}
 
-	if err := ResultOutput.file.Close(); err != nil {
+	// 关闭文件
+	err := ResultOutput.file.Close()
+	if err != nil {
 		LogDebug(GetText("output_close_failed", err))
-		return fmt.Errorf(GetText("output_close_failed", err))
+		return err
 	}
 
 	ResultOutput.isInitialized = false

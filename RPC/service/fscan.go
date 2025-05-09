@@ -39,7 +39,7 @@ func (s *FscanService) StartScan(ctx context.Context, req *pb.StartScanRequest) 
 		Common.LogDebug("异步执行扫描请求，目标: " + req.Arg)
 
 		var info Common.HostInfo
-		if err := Common.FlagFromRemote(&info, req.Arg); err != nil {
+		if err := Common.ParseFlags(&info, req.Arg); err != nil {
 			return
 		}
 		if err := Common.Parse(&info); err != nil {

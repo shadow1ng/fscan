@@ -15,87 +15,70 @@ import (
 
 // 全局变量定义
 var (
-	// 扫描状态管理器，记录最近一次成功和错误的时间
-	status = &ScanStatus{lastSuccess: time.Now(), lastError: time.Now()}
-
-	// Num 表示待处理的总任务数量
-	Num int64
-	// End 表示已经完成的任务数量
-	End int64
+	status = &ScanStatus{lastSuccess: time.Now(), lastError: time.Now()} // 扫描状态管理器
+	Num    int64                                                         // 待处理的总任务数量
+	End    int64                                                         // 已完成的任务数量
 )
 
 // ScanStatus 用于记录和管理扫描状态的结构体
 type ScanStatus struct {
-	mu          sync.RWMutex // 读写互斥锁，用于保护并发访问
+	mu          sync.RWMutex // 读写互斥锁
 	total       int64        // 总任务数
 	completed   int64        // 已完成任务数
 	lastSuccess time.Time    // 最近一次成功的时间
 	lastError   time.Time    // 最近一次错误的时间
 }
 
-// LogEntry 定义单条日志的结构
-type LogEntry struct {
-	Level   string    // 日志级别: ERROR/INFO/SUCCESS/DEBUG
-	Time    time.Time // 日志时间
-	Content string    // 日志内容
-}
-
-// 定义系统支持的日志级别常量
+// 日志级别常量
 const (
-	LogLevelAll     = "ALL"     // 显示所有级别日志
-	LogLevelError   = "ERROR"   // 仅显示错误日志
-	LogLevelInfo    = "INFO"    // 仅显示信息日志
-	LogLevelSuccess = "SUCCESS" // 仅显示成功日志
-	LogLevelDebug   = "DEBUG"   // 仅显示调试日志
+	LogLevelAll     = "ALL"     // 显示所有级别
+	LogLevelError   = "ERROR"   // 错误级别
+	LogLevelInfo    = "INFO"    // 信息级别
+	LogLevelSuccess = "SUCCESS" // 成功级别
+	LogLevelDebug   = "DEBUG"   // 调试级别
 )
 
-// 日志级别对应的显示颜色映射
+// 日志级别对应的颜色映射
 var logColors = map[string]color.Attribute{
-	LogLevelError:   color.FgRed,    // 错误日志显示红色
-	LogLevelInfo:    color.FgYellow, // 信息日志显示黄色
-	LogLevelSuccess: color.FgGreen,  // 成功日志显示绿色
-	LogLevelDebug:   color.FgBlue,   // 调试日志显示蓝色
+	LogLevelError:   color.FgRed,
+	LogLevelInfo:    color.FgYellow,
+	LogLevelSuccess: color.FgGreen,
+	LogLevelDebug:   color.FgBlue,
 }
 
 // InitLogger 初始化日志系统
 func InitLogger() {
-	// 禁用标准日志输出
-	log.SetOutput(io.Discard)
+	log.SetOutput(io.Discard) // 禁用标准日志输出
 }
 
-// formatLogMessage 格式化日志消息为标准格式
-// 返回格式：[时间] [级别] 内容
-func formatLogMessage(entry *LogEntry) string {
-	timeStr := entry.Time.Format("2006-01-02 15:04:05")
-	return fmt.Sprintf("[%s] [%s] %s", timeStr, entry.Level, entry.Content)
-}
+// Log 统一日志处理核心函数，处理所有级别的日志
+func Log(level, msg string) {
+	now := time.Now()
 
-// printLog 根据日志级别打印日志
-func printLog(entry *LogEntry) {
-	// 根据当前设置的日志级别过滤日志
+	// 更新状态时间戳
+	if level == LogLevelSuccess {
+		status.mu.Lock()
+		status.lastSuccess = now
+		status.mu.Unlock()
+	} else if level == LogLevelError {
+		status.mu.Lock()
+		status.lastError = now
+		status.mu.Unlock()
+	}
+
+	// 根据日志级别判断是否应该显示
 	shouldPrint := false
 	switch LogLevel {
-	case LogLevelDebug:
-		// DEBUG级别显示所有日志
-		shouldPrint = true
+	case LogLevelAll, LogLevelDebug:
+		shouldPrint = true // 显示所有日志
 	case LogLevelError:
-		// ERROR级别显示 ERROR、SUCCESS、INFO
-		shouldPrint = entry.Level == LogLevelError ||
-			entry.Level == LogLevelSuccess ||
-			entry.Level == LogLevelInfo
+		shouldPrint = level != LogLevelDebug // 除DEBUG外都显示
 	case LogLevelSuccess:
-		// SUCCESS级别显示 SUCCESS、INFO
-		shouldPrint = entry.Level == LogLevelSuccess ||
-			entry.Level == LogLevelInfo
+		shouldPrint = level == LogLevelSuccess || level == LogLevelInfo // 显示SUCCESS和INFO
 	case LogLevelInfo:
-		// INFO级别只显示 INFO
-		shouldPrint = entry.Level == LogLevelInfo
-	case LogLevelAll:
-		// ALL显示所有日志
-		shouldPrint = true
+		shouldPrint = level == LogLevelInfo // 只显示INFO
 	default:
-		// 默认只显示 INFO
-		shouldPrint = entry.Level == LogLevelInfo
+		shouldPrint = level == LogLevelInfo // 默认显示INFO
 	}
 
 	if !shouldPrint {
@@ -105,108 +88,59 @@ func printLog(entry *LogEntry) {
 	OutputMutex.Lock()
 	defer OutputMutex.Unlock()
 
-	// 处理进度条
-	clearAndWaitProgress()
-
-	// 打印日志消息
-	logMsg := formatLogMessage(entry)
-	if !NoColor {
-		// 使用彩色输出
-		if colorAttr, ok := logColors[entry.Level]; ok {
-			color.New(colorAttr).Println(logMsg)
-		} else {
-			fmt.Println(logMsg)
-		}
-	} else {
-		// 普通输出
-		fmt.Println(logMsg)
-	}
-
-	// 根据慢速输出设置决定是否添加延迟
-	if SlowLogOutput {
-		time.Sleep(50 * time.Millisecond)
-	}
-
-	// 重新显示进度条
-	if ProgressBar != nil {
-		ProgressBar.RenderBlank()
-	}
-}
-
-// clearAndWaitProgress 清除进度条并等待
-func clearAndWaitProgress() {
+	// 清除进度条以便输出日志
 	if ProgressBar != nil {
 		ProgressBar.Clear()
 		time.Sleep(10 * time.Millisecond)
 	}
-}
 
-// LogError 记录错误日志，自动包含文件名和行号信息
-func LogError(errMsg string) {
-	// 获取调用者的文件名和行号
-	_, file, line, ok := runtime.Caller(1)
-	if !ok {
-		file = "unknown"
-		line = 0
-	}
-	file = filepath.Base(file)
+	// 格式化日志消息
+	logMsg := fmt.Sprintf("[%s] [%s] %s", now.Format("2006-01-02 15:04:05"), level, msg)
 
-	errorMsg := fmt.Sprintf("%s:%d - %s", file, line, errMsg)
-
-	entry := &LogEntry{
-		Level:   LogLevelError,
-		Time:    time.Now(),
-		Content: errorMsg,
+	// 根据设置选择彩色或普通输出
+	if !NoColor {
+		if attr, ok := logColors[level]; ok {
+			color.New(attr).Println(logMsg)
+		} else {
+			fmt.Println(logMsg)
+		}
+	} else {
+		fmt.Println(logMsg)
 	}
 
-	handleLog(entry)
-}
-
-// handleLog 统一处理日志的输出
-func handleLog(entry *LogEntry) {
-	if ProgressBar != nil {
-		ProgressBar.Clear()
+	// 慢速输出模式下增加延迟
+	if SlowLogOutput {
+		time.Sleep(50 * time.Millisecond)
 	}
 
-	printLog(entry)
-
+	// 恢复进度条显示
 	if ProgressBar != nil {
 		ProgressBar.RenderBlank()
 	}
 }
 
-// LogInfo 记录信息日志
-func LogInfo(msg string) {
-	handleLog(&LogEntry{
-		Level:   LogLevelInfo,
-		Time:    time.Now(),
-		Content: msg,
-	})
+// LogError 记录错误日志，自动包含文件名和行号
+func LogError(errMsg string) {
+	_, file, line, ok := runtime.Caller(1)
+	if ok {
+		errMsg = fmt.Sprintf("%s:%d - %s", filepath.Base(file), line, errMsg)
+	}
+	Log(LogLevelError, errMsg)
 }
 
-// LogSuccess 记录成功日志，并更新最后成功时间
-func LogSuccess(result string) {
-	entry := &LogEntry{
-		Level:   LogLevelSuccess,
-		Time:    time.Now(),
-		Content: result,
-	}
+// LogInfo 记录信息日志
+func LogInfo(msg string) {
+	Log(LogLevelInfo, msg)
+}
 
-	handleLog(entry)
-
-	// 更新最后成功时间
-	status.mu.Lock()
-	status.lastSuccess = time.Now()
-	status.mu.Unlock()
+// LogSuccess 记录成功日志
+func LogSuccess(msg string) {
+	Log(LogLevelSuccess, msg)
 }
 
 // LogDebug 记录调试日志
 func LogDebug(msg string) {
-	handleLog(&LogEntry{
-		Level:   LogLevelDebug,
-		Time:    time.Now(),
-		Content: msg,
-	})
+	Log(LogLevelDebug, msg)
 }
 
 // CheckErrs 检查是否为需要重试的错误
@@ -215,23 +149,20 @@ func CheckErrs(err error) error {
 		return nil
 	}
 
-	// 已知需要重试的错误列表
-	errs := []string{
-		"closed by the remote host", "too many connections",
-		"EOF", "A connection attempt failed",
-		"established connection failed", "connection attempt failed",
-		"Unable to read", "is not allowed to connect to this",
-		"no pg_hba.conf entry",
-		"No connection could be made",
-		"invalid packet size",
-		"bad connection",
+	// 需要重试的错误关键词列表
+	retryErrors := []string{
+		"closed by the remote host", "too many connections", "EOF",
+		"A connection attempt failed", "established connection failed",
+		"connection attempt failed", "Unable to read",
+		"is not allowed to connect to this", "no pg_hba.conf entry",
+		"No connection could be made", "invalid packet size", "bad connection",
 	}
 
-	// 检查错误是否匹配
+	// 检查错误是否匹配任一关键词
 	errLower := strings.ToLower(err.Error())
-	for _, key := range errs {
+	for _, key := range retryErrors {
 		if strings.Contains(errLower, strings.ToLower(key)) {
-			time.Sleep(1 * time.Second)
+			time.Sleep(1 * time.Second) // 遇到需要重试的错误，等待1秒
 			return err
 		}
 	}
