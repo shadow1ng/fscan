@@ -6,7 +6,6 @@ import (
 
 	"github.com/shadow1ng/fscan/Common"
 	"github.com/shadow1ng/fscan/Core"
-	rpc "github.com/shadow1ng/fscan/RPC"
 )
 
 func main() {
@@ -15,10 +14,6 @@ func main() {
 	var Info Common.HostInfo
 	Common.Flag(&Info)
 
-	// 启动 gRPC + HTTP Gateway 服务
-	if err := rpc.StartApiServer(); err != nil {
-		os.Exit(1)
-	}
 	// 解析 CLI 参数
 	if err := Common.Parse(&Info); err != nil {
 		os.Exit(1)
