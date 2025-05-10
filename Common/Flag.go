@@ -74,7 +74,7 @@ func Flag(Info *HostInfo) {
 	// 扫描控制参数
 	// ═════════════════════════════════════════════════
 	flag.StringVar(&ScanMode, "m", "all", GetText("flag_scan_mode"))
-	flag.IntVar(&ThreadNum, "t", 10, GetText("flag_thread_num"))
+	flag.IntVar(&ThreadNum, "t", 600, GetText("flag_thread_num"))
 	flag.Int64Var(&Timeout, "time", 3, GetText("flag_timeout"))
 	flag.IntVar(&ModuleThreadNum, "mt", 10, GetText("flag_module_thread_num"))
 	flag.Int64Var(&GlobalTimeout, "gt", 180, GetText("flag_global_timeout"))
