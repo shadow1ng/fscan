@@ -537,9 +537,9 @@ func (c *TelnetClient) Login() error {
 	case UnauthorizedAccess:
 		return nil
 	case OnlyPassword:
-		return c.loginForOnlyPassword()
+		return c.LogBaserOnlyPassword()
 	case UsernameAndPassword:
-		return c.loginForUsernameAndPassword()
+		return c.LogBaserUsernameAndPassword()
 	default:
 		return errors.New("unknown server type")
 	}
@@ -605,8 +605,8 @@ func isNoAuthRequired(line string) bool {
 	return false
 }
 
-// loginForOnlyPassword 处理只需密码的登录
-func (c *TelnetClient) loginForOnlyPassword() error {
+// LogBaserOnlyPassword 处理只需密码的登录
+func (c *TelnetClient) LogBaserOnlyPassword() error {
 	c.Clear() // 清空之前的响应
 
 	// 发送密码并等待响应
@@ -625,8 +625,8 @@ func (c *TelnetClient) loginForOnlyPassword() error {
 	return errors.New("login failed")
 }
 
-// loginForUsernameAndPassword 处理需要用户名和密码的登录
-func (c *TelnetClient) loginForUsernameAndPassword() error {
+// LogBaserUsernameAndPassword 处理需要用户名和密码的登录
+func (c *TelnetClient) LogBaserUsernameAndPassword() error {
 	// 发送用户名
 	c.WriteContext(c.UserName)
 	time.Sleep(time.Second * 2)

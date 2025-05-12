@@ -46,7 +46,7 @@ func (s *ServiceScanStrategy) Execute(info Common.HostInfo, ch *chan struct{}, w
 		return
 	}
 
-	Common.LogInfo("开始主机扫描")
+	Common.LogBase("开始主机扫描")
 
 	// 输出插件信息
 	s.LogPluginInfo()
@@ -64,7 +64,7 @@ func (s *ServiceScanStrategy) performHostScan(hosts []string, info Common.HostIn
 		// 主机存活检测
 		if s.shouldPerformLivenessCheck(hosts) {
 			hosts = CheckLive(hosts, Common.UsePing)
-			Common.LogInfo(fmt.Sprintf("存活主机数量: %d", len(hosts)))
+			Common.LogBase(fmt.Sprintf("存活主机数量: %d", len(hosts)))
 		}
 
 		// 端口扫描
@@ -76,7 +76,7 @@ func (s *ServiceScanStrategy) performHostScan(hosts []string, info Common.HostIn
 
 	// 执行漏洞扫描
 	if len(targetInfos) > 0 {
-		Common.LogInfo("开始漏洞扫描")
+		Common.LogBase("开始漏洞扫描")
 		ExecuteScanTasks(targetInfos, s, ch, wg)
 	}
 }
@@ -93,7 +93,7 @@ func (s *ServiceScanStrategy) discoverAlivePorts(hosts []string) []string {
 	// 根据扫描模式选择端口扫描方式
 	if len(hosts) > 0 {
 		alivePorts = EnhancedPortScan(hosts, Common.Ports, Common.Timeout)
-		Common.LogInfo(fmt.Sprintf("存活端口数量: %d", len(alivePorts)))
+		Common.LogBase(fmt.Sprintf("存活端口数量: %d", len(alivePorts)))
 	}
 
 	// 合并额外指定的端口
@@ -101,7 +101,7 @@ func (s *ServiceScanStrategy) discoverAlivePorts(hosts []string) []string {
 		alivePorts = append(alivePorts, Common.HostPort...)
 		alivePorts = Common.RemoveDuplicate(alivePorts)
 		Common.HostPort = nil
-		Common.LogInfo(fmt.Sprintf("存活端口数量: %d", len(alivePorts)))
+		Common.LogBase(fmt.Sprintf("存活端口数量: %d", len(alivePorts)))
 	}
 
 	return alivePorts
@@ -176,7 +176,7 @@ func (s *ServiceScanStrategy) LogPluginInfo() {
 
 	// 如果是自定义模式，直接显示用户指定的插件
 	if isCustomMode {
-		Common.LogInfo(fmt.Sprintf("使用指定插件: %s", strings.Join(allPlugins, ", ")))
+		Common.LogBase(fmt.Sprintf("使用指定插件: %s", strings.Join(allPlugins, ", ")))
 		return
 	}
 
@@ -190,9 +190,9 @@ func (s *ServiceScanStrategy) LogPluginInfo() {
 	}
 
 	if len(applicablePlugins) > 0 {
-		Common.LogInfo(fmt.Sprintf("使用服务插件: %s", strings.Join(applicablePlugins, ", ")))
+		Common.LogBase(fmt.Sprintf("使用服务插件: %s", strings.Join(applicablePlugins, ", ")))
 	} else {
-		Common.LogInfo("未找到可用的服务插件")
+		Common.LogBase("未找到可用的服务插件")
 	}
 }
 

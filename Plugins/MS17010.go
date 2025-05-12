@@ -267,7 +267,7 @@ func MS17010Scan(info *Common.HostInfo) error {
 			defer MS17010EXP(info)
 		}
 	} else if os != "" {
-		Common.LogInfo(fmt.Sprintf("系统信息 %s [%s]", ip, os))
+		Common.LogBase(fmt.Sprintf("系统信息 %s [%s]", ip, os))
 
 		// 保存系统信息
 		sysResult := &Common.ScanResult{

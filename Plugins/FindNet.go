@@ -224,6 +224,6 @@ func read(text []byte, host string) error {
 		}
 	}
 
-	Common.LogSuccess(output.String())
+	Common.LogInfo(output.String())
 	return nil
 }

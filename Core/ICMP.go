@@ -80,7 +80,7 @@ func handleAliveHosts(chanHosts chan string, hostslist []string, isPing bool) {
 
 			// 保留原有的控制台输出
 			if !Common.Silent {
-				Common.LogSuccess(Common.GetText("target_alive", ip, protocol))
+				Common.LogInfo(Common.GetText("target_alive", ip, protocol))
 			}
 		}
 		livewg.Done()
@@ -107,7 +107,7 @@ func probeWithICMP(hostslist []string, chanHosts chan string) {
 		return
 	}
 
-	Common.LogError(Common.GetText("icmp_connect_failed", err))
+	Common.LogBase(Common.GetText("icmp_connect_failed", err))
 	Common.LogBase(Common.GetText("insufficient_privileges"))
 	Common.LogBase(Common.GetText("switching_to_ping"))
 
@@ -121,7 +121,7 @@ func printAliveStats(hostslist []string) {
 	if len(hostslist) > 1000 {
 		arrTop, arrLen := ArrayCountValueTop(AliveHosts, Common.LiveTop, true)
 		for i := 0; i < len(arrTop); i++ {
-			Common.LogSuccess(Common.GetText("subnet_16_alive", arrTop[i], arrLen[i]))
+			Common.LogInfo(Common.GetText("subnet_16_alive", arrTop[i], arrLen[i]))
 		}
 	}
 
@@ -129,7 +129,7 @@ func printAliveStats(hostslist []string) {
 	if len(hostslist) > 256 {
 		arrTop, arrLen := ArrayCountValueTop(AliveHosts, Common.LiveTop, false)
 		for i := 0; i < len(arrTop); i++ {
-			Common.LogSuccess(Common.GetText("subnet_24_alive", arrTop[i], arrLen[i]))
+			Common.LogInfo(Common.GetText("subnet_24_alive", arrTop[i], arrLen[i]))
 		}
 	}
 }

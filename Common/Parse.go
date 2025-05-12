@@ -43,7 +43,7 @@ func ParseUser() error {
 	// 处理命令行参数指定的用户名列表
 	if Username != "" {
 		usernames = strings.Split(Username, ",")
-		LogInfo(GetText("no_username_specified", len(usernames)))
+		LogBase(GetText("no_username_specified", len(usernames)))
 	}
 
 	// 从文件加载用户名列表
@@ -59,12 +59,12 @@ func ParseUser() error {
 				usernames = append(usernames, user)
 			}
 		}
-		LogInfo(GetText("load_usernames_from_file", len(fileUsers)))
+		LogBase(GetText("load_usernames_from_file", len(fileUsers)))
 	}
 
 	// 去重处理
 	usernames = RemoveDuplicate(usernames)
-	LogInfo(GetText("total_usernames", len(usernames)))
+	LogBase(GetText("total_usernames", len(usernames)))
 
 	// 更新所有字典的用户名列表
 	for name := range Userdict {
@@ -113,7 +113,7 @@ func parsePasswords() {
 			}
 		}
 		Passwords = pwdList
-		LogInfo(GetText("load_passwords", len(pwdList)))
+		LogBase(GetText("load_passwords", len(pwdList)))
 	}
 
 	// 从文件加载密码列表
@@ -130,7 +130,7 @@ func parsePasswords() {
 			}
 		}
 		Passwords = pwdList
-		LogInfo(GetText("load_passwords_from_file", len(passes)))
+		LogBase(GetText("load_passwords_from_file", len(passes)))
 	}
 }
 
@@ -161,7 +161,7 @@ func parseHashes() {
 			LogError(GetText("invalid_hash", line))
 		}
 	}
-	LogInfo(GetText("load_valid_hashes", validCount))
+	LogBase(GetText("load_valid_hashes", validCount))
 }
 
 // parseURLs 解析URL目标配置
@@ -201,7 +201,7 @@ func parseURLs() {
 	}
 
 	if len(URLs) > 0 {
-		LogInfo(GetText("load_urls", len(URLs)))
+		LogBase(GetText("load_urls", len(URLs)))
 	}
 }
 
@@ -240,7 +240,7 @@ func parseHosts(Info *HostInfo) error {
 			Info.Host += "," + hostStr
 		}
 
-		LogInfo(GetText("load_hosts_from_file", len(hosts)))
+		LogBase(GetText("load_hosts_from_file", len(hosts)))
 	}
 
 	return nil
@@ -270,7 +270,7 @@ func parsePorts() error {
 
 	// 更新全局端口配置
 	Ports = portBuilder.String()
-	LogInfo(GetText("load_ports_from_file"))
+	LogBase(GetText("load_ports_from_file"))
 
 	return nil
 }
@@ -279,7 +279,7 @@ func parsePorts() error {
 // 更新全局排除端口配置
 func parseExcludePorts() {
 	if ExcludePorts != "" {
-		LogInfo(GetText("exclude_ports", ExcludePorts))
+		LogBase(GetText("exclude_ports", ExcludePorts))
 		// 确保排除端口被正确设置到全局配置中
 		// 这将由PortScan函数在处理端口时使用
 	}
@@ -316,7 +316,7 @@ func ReadFileLines(filename string) ([]string, error) {
 		return nil, err
 	}
 
-	LogInfo(GetText("read_file_success", filename, lineCount))
+	LogBase(GetText("read_file_success", filename, lineCount))
 	return content, nil
 }
 
@@ -392,12 +392,12 @@ func processPortsConfig() {
 		} else {
 			Ports += "," + AddPorts
 		}
-		LogInfo(GetText("extra_ports", AddPorts))
+		LogBase(GetText("extra_ports", AddPorts))
 	}
 
 	// 确保排除端口配置被记录
 	if ExcludePorts != "" {
-		LogInfo(GetText("exclude_ports_applied", ExcludePorts))
+		LogBase(GetText("exclude_ports_applied", ExcludePorts))
 	}
 }
 
@@ -411,7 +411,7 @@ func processExtraCredentials() {
 			Userdict[dict] = append(Userdict[dict], users...)
 			Userdict[dict] = RemoveDuplicate(Userdict[dict])
 		}
-		LogInfo(GetText("extra_usernames", AddUsers))
+		LogBase(GetText("extra_usernames", AddUsers))
 	}
 
 	// 处理额外密码
@@ -419,7 +419,7 @@ func processExtraCredentials() {
 		passes := strings.Split(AddPasswords, ",")
 		Passwords = append(Passwords, passes...)
 		Passwords = RemoveDuplicate(Passwords)
-		LogInfo(GetText("extra_passwords", AddPasswords))
+		LogBase(GetText("extra_passwords", AddPasswords))
 	}
 }
 
@@ -465,7 +465,7 @@ func setupSocks5Proxy() error {
 
 	// 使用Socks5代理时禁用Ping(无法通过代理进行ICMP)
 	DisablePing = true
-	LogInfo(GetText("socks5_proxy", Socks5Proxy))
+	LogBase(GetText("socks5_proxy", Socks5Proxy))
 
 	return nil
 }
@@ -499,7 +499,7 @@ func setupHttpProxy() error {
 		return fmt.Errorf(GetText("proxy_format_error", err))
 	}
 
-	LogInfo(GetText("http_proxy", HttpProxy))
+	LogBase(GetText("http_proxy", HttpProxy))
 
 	return nil
 }

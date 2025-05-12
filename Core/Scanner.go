@@ -53,19 +53,19 @@ func (s *Scanner) selectStrategy(info Common.HostInfo) {
 	switch {
 	case Common.LocalMode:
 		s.strategy = NewLocalScanStrategy()
-		Common.LogInfo("已选择本地扫描模式")
+		Common.LogBase("已选择本地扫描模式")
 	case len(Common.URLs) > 0:
 		s.strategy = NewWebScanStrategy()
-		Common.LogInfo("已选择Web扫描模式")
+		Common.LogBase("已选择Web扫描模式")
 	default:
 		s.strategy = NewServiceScanStrategy()
-		Common.LogInfo("已选择服务扫描模式")
+		Common.LogBase("已选择服务扫描模式")
 	}
 }
 
 // Scan 执行整体扫描流程
 func (s *Scanner) Scan(info Common.HostInfo) {
-	Common.LogInfo("开始信息扫描")
+	Common.LogBase("开始信息扫描")
 	lib.Inithttp()
 
 	// 并发控制初始化
@@ -86,7 +86,7 @@ func (s *Scanner) finishScan() {
 		Common.ProgressBar.Finish()
 		fmt.Println()
 	}
-	Common.LogSuccess(fmt.Sprintf("扫描已完成: %v/%v", Common.End, Common.Num))
+	Common.LogBase(fmt.Sprintf("扫描已完成: %v/%v", Common.End, Common.Num))
 }
 
 // 任务执行通用框架
@@ -158,7 +158,7 @@ func logScanPlan(tasks []ScanTask) {
 		planInfo.WriteString(fmt.Sprintf("  - %s: %d 个目标\n", plugin, count))
 	}
 
-	Common.LogInfo(planInfo.String())
+	Common.LogBase(planInfo.String())
 }
 
 // 初始化进度条
@@ -199,7 +199,7 @@ func scheduleScanTask(pluginName string, target Common.HostInfo, ch *chan struct
 			// 完成任务，释放资源
 			duration := time.Since(startTime)
 			if Common.ShowScanPlan {
-				Common.LogInfo(fmt.Sprintf("完成 %s 扫描 %s:%s (耗时: %.2fs)",
+				Common.LogBase(fmt.Sprintf("完成 %s 扫描 %s:%s (耗时: %.2fs)",
 					pluginName, target.Host, target.Ports, duration.Seconds()))
 			}
 
@@ -217,7 +217,7 @@ func scheduleScanTask(pluginName string, target Common.HostInfo, ch *chan struct
 func executeSingleScan(pluginName string, info Common.HostInfo) {
 	plugin, exists := Common.PluginManager[pluginName]
 	if !exists {
-		Common.LogInfo(fmt.Sprintf("扫描类型 %v 无对应插件，已跳过", pluginName))
+		Common.LogBase(fmt.Sprintf("扫描类型 %v 无对应插件，已跳过", pluginName))
 		return
 	}
 

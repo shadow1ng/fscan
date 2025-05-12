@@ -287,7 +287,7 @@ func loadPocsConcurrently(pocFiles []string, isEmbedded bool, pocPath string) {
 	}
 
 	wg.Wait()
-	Common.LogSuccess(fmt.Sprintf("POC加载完成: 总共%d个，成功%d个，失败%d个",
+	Common.LogBase(fmt.Sprintf("POC加载完成: 总共%d个，成功%d个，失败%d个",
 		pocCount, successCount, failCount))
 }
 

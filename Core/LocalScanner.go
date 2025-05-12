@@ -27,7 +27,7 @@ func (s *LocalScanStrategy) Description() string {
 
 // Execute 执行本地扫描策略
 func (s *LocalScanStrategy) Execute(info Common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup) {
-	Common.LogInfo("执行本地信息收集")
+	Common.LogBase("执行本地信息收集")
 
 	// 验证插件配置
 	if err := validateScanPlugins(); err != nil {
@@ -81,7 +81,7 @@ func (s *LocalScanStrategy) LogPluginInfo() {
 
 	// 如果是自定义模式，直接显示用户指定的插件
 	if isCustomMode {
-		Common.LogInfo(fmt.Sprintf("本地模式: 使用指定插件: %s", strings.Join(allPlugins, ", ")))
+		Common.LogBase(fmt.Sprintf("本地模式: 使用指定插件: %s", strings.Join(allPlugins, ", ")))
 		return
 	}
 
@@ -95,9 +95,9 @@ func (s *LocalScanStrategy) LogPluginInfo() {
 	}
 
 	if len(applicablePlugins) > 0 {
-		Common.LogInfo(fmt.Sprintf("本地模式: 使用本地插件: %s", strings.Join(applicablePlugins, ", ")))
+		Common.LogBase(fmt.Sprintf("本地模式: 使用本地插件: %s", strings.Join(applicablePlugins, ", ")))
 	} else {
-		Common.LogInfo("本地模式: 未找到可用的本地插件")
+		Common.LogBase("本地模式: 未找到可用的本地插件")
 	}
 }
 

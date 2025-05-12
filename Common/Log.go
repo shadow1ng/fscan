@@ -108,7 +108,7 @@ func formatLogMessage(entry *LogEntry) string {
 
 // printLog 根据日志级别打印日志
 func printLog(entry *LogEntry) {
-	if LogLevel != "debug" && entry.Level == LogLevelDebug {
+	if LogLevel != "debug" && (entry.Level == LogLevelDebug || entry.Level == LogLevelError) {
 		return
 	}
 
@@ -173,7 +173,7 @@ func LogDebug(msg string) {
 	})
 }
 
-// LogInfo 记录进度信息
+// LogBase 记录进度信息
 func LogBase(msg string) {
 	handleLog(&LogEntry{
 		Level:   LogLevelBase,
@@ -183,6 +183,7 @@ func LogBase(msg string) {
 }
 
 // LogInfo 记录信息日志
+// [*]
 func LogInfo(msg string) {
 	handleLog(&LogEntry{
 		Level:   LogLevelInfo,
@@ -192,6 +193,7 @@ func LogInfo(msg string) {
 }
 
 // LogSuccess 记录成功日志，并更新最后成功时间
+// [+]
 func LogSuccess(result string) {
 	entry := &LogEntry{
 		Level:   LogLevelSuccess,

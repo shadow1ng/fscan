@@ -27,7 +27,7 @@ func (s *WebScanStrategy) Description() string {
 
 // Execute 执行Web扫描策略
 func (s *WebScanStrategy) Execute(info Common.HostInfo, ch *chan struct{}, wg *sync.WaitGroup) {
-	Common.LogInfo("开始Web扫描")
+	Common.LogBase("开始Web扫描")
 
 	// 验证插件配置
 	if err := validateScanPlugins(); err != nil {
@@ -94,7 +94,7 @@ func (s *WebScanStrategy) LogPluginInfo() {
 
 	// 如果是自定义模式，直接显示用户指定的插件
 	if isCustomMode {
-		Common.LogInfo(fmt.Sprintf("Web扫描模式: 使用指定插件: %s", strings.Join(allPlugins, ", ")))
+		Common.LogBase(fmt.Sprintf("Web扫描模式: 使用指定插件: %s", strings.Join(allPlugins, ", ")))
 		return
 	}
 
@@ -108,9 +108,9 @@ func (s *WebScanStrategy) LogPluginInfo() {
 	}
 
 	if len(applicablePlugins) > 0 {
-		Common.LogInfo(fmt.Sprintf("Web扫描模式: 使用Web插件: %s", strings.Join(applicablePlugins, ", ")))
+		Common.LogBase(fmt.Sprintf("Web扫描模式: 使用Web插件: %s", strings.Join(applicablePlugins, ", ")))
 	} else {
-		Common.LogInfo("Web扫描模式: 未找到可用的Web插件")
+		Common.LogBase("Web扫描模式: 未找到可用的Web插件")
 	}
 }
 

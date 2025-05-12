@@ -488,5 +488,5 @@ func logShareInfo(info *Common.HostInfo, user string, pass string, hash []byte, 
 		msg += fmt.Sprintf(" Pass:%s", pass)
 	}
 	msg += fmt.Sprintf(" 共享:%v", shares)
-	Common.LogInfo(msg)
+	Common.LogBase(msg)
 }

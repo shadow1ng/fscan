@@ -35,7 +35,7 @@ func ParseIP(host string, filename string, nohosts ...string) (hosts []string, e
 			host = hostport[0]
 			hosts = parseIPList(host)
 			Ports = hostport[1]
-			LogInfo(GetText("host_port_parsed", Ports))
+			LogBase(GetText("host_port_parsed", Ports))
 		}
 	} else {
 		// 解析主机地址
@@ -48,7 +48,7 @@ func ParseIP(host string, filename string, nohosts ...string) (hosts []string, e
 				LogError(GetText("read_host_file_failed", err))
 			} else {
 				hosts = append(hosts, fileHosts...)
-				LogInfo(GetText("extra_hosts_loaded", len(fileHosts)))
+				LogBase(GetText("extra_hosts_loaded", len(fileHosts)))
 			}
 		}
 	}
@@ -58,7 +58,7 @@ func ParseIP(host string, filename string, nohosts ...string) (hosts []string, e
 
 	// 去重并排序
 	hosts = removeDuplicateIPs(hosts)
-	LogInfo(GetText("final_valid_hosts", len(hosts)))
+	LogBase(GetText("final_valid_hosts", len(hosts)))
 
 	// 检查解析结果
 	if len(hosts) == 0 && len(HostPort) == 0 && (host != "" || filename != "") {
@@ -160,7 +160,7 @@ func parseCIDR(cidr string) []string {
 	// 转换为IP范围
 	ipRange := calculateIPRange(ipNet)
 	hosts := parseIPRange(ipRange)
-	LogInfo(GetText("parse_cidr_to_range", cidr, ipRange))
+	LogBase(GetText("parse_cidr_to_range", cidr, ipRange))
 	return hosts
 }
 
@@ -188,7 +188,7 @@ func calculateIPRange(cidr *net.IPNet) string {
 	end := bcst.String()
 
 	result := fmt.Sprintf("%s-%s", start, end)
-	LogInfo(GetText("cidr_range", result))
+	LogBase(GetText("cidr_range", result))
 	return result
 }
 
@@ -264,7 +264,7 @@ func parseShortIPRange(startIP, endSuffix string) []string {
 		allIP = append(allIP, fmt.Sprintf("%s.%d", prefixIP, i))
 	}
 
-	LogInfo(GetText("generate_ip_range", prefixIP, startNum, prefixIP, endNum))
+	LogBase(GetText("generate_ip_range", prefixIP, startNum, prefixIP, endNum))
 	return allIP
 }
 
@@ -333,7 +333,7 @@ func parseFullIPRange(startIP, endIP string) []string {
 		allIP = append(allIP, ip)
 	}
 
-	LogInfo(GetText("generate_ip_range_full", startIP, endIP, len(allIP)))
+	LogBase(GetText("generate_ip_range_full", startIP, endIP, len(allIP)))
 	return allIP
 }
 
@@ -356,7 +356,7 @@ func parseSubnet8(subnet string) []string {
 	firstOctet := strings.Split(baseIP, ".")[0]
 	var sampleIPs []string
 
-	LogInfo(GetText("parse_subnet", firstOctet))
+	LogBase(GetText("parse_subnet", firstOctet))
 
 	// 预分配足够的容量以提高性能
 	// 每个二级网段10个IP，共256*256个二级网段
@@ -388,7 +388,7 @@ func parseSubnet8(subnet string) []string {
 		}
 	}
 
-	LogInfo(GetText("sample_ip_generated", len(sampleIPs)))
+	LogBase(GetText("sample_ip_generated", len(sampleIPs)))
 	return sampleIPs
 }
 
@@ -445,7 +445,7 @@ func readIPFile(filename string) ([]string, error) {
 				for _, host := range hosts {
 					HostPort = append(HostPort, fmt.Sprintf("%s:%s", host, portPart))
 				}
-				LogInfo(GetText("parse_ip_port", line))
+				LogBase(GetText("parse_ip_port", line))
 			} else {
 				LogError(GetText("invalid_ip_port_format", line))
 			}
@@ -453,7 +453,7 @@ func readIPFile(filename string) ([]string, error) {
 			// 处理纯IP格式
 			hosts := parseIPList(line)
 			ipList = append(ipList, hosts...)
-			LogInfo(GetText("parse_ip_address", line))
+			LogBase(GetText("parse_ip_address", line))
 		}
 	}
 
@@ -463,7 +463,7 @@ func readIPFile(filename string) ([]string, error) {
 		return ipList, err
 	}
 
-	LogInfo(GetText("file_parse_complete", len(ipList)))
+	LogBase(GetText("file_parse_complete", len(ipList)))
 	return ipList, nil
 }
 
@@ -505,7 +505,7 @@ func excludeHosts(hosts []string, nohosts []string) []string {
 
 	// 排序以保持结果的稳定性
 	sort.Strings(result)
-	LogInfo(GetText("hosts_excluded", len(excludeList)))
+	LogBase(GetText("hosts_excluded", len(excludeList)))
 
 	return result
 }

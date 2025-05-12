@@ -89,7 +89,7 @@ func WebTitle(info *Common.HostInfo) error {
 		// 检查是否为打印机，避免意外打印
 		for _, v := range info.Infostr {
 			if v == printerFingerPrint {
-				Common.LogInfo("检测到打印机，停止扫描")
+				Common.LogBase("检测到打印机，停止扫描")
 				return nil
 			}
 		}
@@ -406,7 +406,7 @@ func saveWebResult(info *Common.HostInfo, resp *WebResponse) {
 		logMsg += fmt.Sprintf(" 指纹:%v", fingerprints)
 	}
 
-	Common.LogSuccess(logMsg)
+	Common.LogInfo(logMsg)
 }
 
 // 检测目标主机的协议类型(HTTP/HTTPS)
