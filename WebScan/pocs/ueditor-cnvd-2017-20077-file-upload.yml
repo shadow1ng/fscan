@@ -1,7 +1,32 @@
 name: poc-yaml-ueditor-cnvd-2017-20077-file-upload
+sets:
+  uri:
+    - /
+    - /content/
+    - /Content/plugins/
+    - /Content/js/
+    - /Utility/
+    - /js/
+    - /plugins/
+    - /scripts/
+    - /Scripts/
+    - /WebComm/CommScripts/
+    - /static/
+  edit:
+    - ueditor
+    - Ueditor
+    - editor
+    - ueditor1_4_3_3
+    - ueditor1_4_3_3-utf8-net/utf8-net
+  net:
+    - /net/
+    - /
+  controller:
+    - controller.ashx?
+    - "?"
 rules:
   - method: GET
-    path: /ueditor/net/controller.ashx?action=catchimage&encode=utf-8
+    path: "{{uri}}{{edit}}{{net}}{{controller}}ccc=test&action=catchimage&encode=utf-8"
     headers:
       Accept-Encoding: 'deflate'
     follow_redirects: false
@@ -13,5 +38,6 @@ detail:
   links:
     - https://zhuanlan.zhihu.com/p/85265552
     - https://www.freebuf.com/vuls/181814.html
+    - http://123.57.69.82:20000/Utility/UEditor/net?action=catchimage
   exploit: >-
     http://localhost/ueditor/net/controller.ashx?action=catchimage&encode=utf-8

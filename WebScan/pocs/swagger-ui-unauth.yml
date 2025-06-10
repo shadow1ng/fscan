@@ -10,6 +10,13 @@ sets:
     - actuator/swagger-ui.html
     - libs/swagger-ui.html
     - template/swagger-ui.html
+    - v2/api-docs
+    - v3/api-docs
+    - prod-api/v2/api-docs
+    - prod-api/v3/api-docs
+    - swagger/docs/v1
+    - swagger-resources
+    - prod-api/swagger-resources
     - api_docs
     - api/docs/
     - api/index.html
@@ -23,8 +30,10 @@ rules:
   - method: GET
     path: /{{path}}
     expression: |
-      response.status == 200 && (response.body.bcontains(b"Swagger UI") || response.body.bcontains(b"swagger-ui.min.js")|| response.body.bcontains(b'swagger:') || response.body.bcontains(b'swagger:') || response.body.bcontains(b'Swagger 2.0') ||  response.body.bcontains(b"\"swagger\":") )
+      response.status == 200 && (response.body.bcontains(b"Swagger UI") || response.body.bcontains(b"swagger-ui.min.js")|| response.body.bcontains(b'swagger:') || response.body.bcontains(b'swagger:') || response.body.bcontains(b'Swagger 2.0') ||  response.body.bcontains(b"\"openapi\":") ||  response.body.bcontains(b"\"swagger\":")  ||  response.body.bcontains(b"\"swaggerVersion\":"))
 detail:
   author: AgeloVito
   links:
     - https://blog.csdn.net/u012206617/article/details/109107210
+    - https://aqsys.tapig.com/stage-api/swagger-resources
+    - http://39.98.195.144:8043/swagger/ui/index(http://39.98.195.144:8043/swagger/docs/v1)
