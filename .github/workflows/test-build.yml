@@ -54,7 +54,7 @@ jobs:
       - name: 🐹 设置 Go 环境
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.20'
           cache: true
 
       - name: 📦 下载依赖
@@ -114,96 +114,6 @@ jobs:
           retention-days: 7
         continue-on-error: true
 
-      - name: 🧪 测试生成的二进制文件
-        id: binary_test
-        run: |
-          echo "## 🧪 测试二进制文件" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          binary_count=0
-          tested_count=0
-          passed_count=0
-          failed_count=0
-          
-          if [ -d "dist" ]; then
-            echo "| 平台 | 架构 | 文件大小 | 压缩 | 运行测试 | 版本信息 |" >> $GITHUB_STEP_SUMMARY
-            echo "|------|------|----------|------|----------|----------|" >> $GITHUB_STEP_SUMMARY
-          
-            for binary in dist/*; do
-              if [[ -f "$binary" && -x "$binary" ]]; then
-                binary_count=$((binary_count + 1))
-          
-                # 获取文件信息
-                file_size=$(du -h "$binary" | cut -f1)
-                file_info=$(file "$binary")
-          
-                # 提取平台和架构信息
-                platform="Unknown"
-                arch="Unknown"
-                if [[ "$binary" == *"linux"* ]]; then
-                  platform="Linux"
-                elif [[ "$binary" == *"darwin"* ]]; then
-                  platform="macOS"
-                elif [[ "$binary" == *"windows"* ]]; then
-                  platform="Windows"
-                fi
-          
-                if [[ "$binary" == *"amd64"* ]]; then
-                  arch="AMD64"
-                elif [[ "$binary" == *"arm64"* ]]; then
-                  arch="ARM64"
-                elif [[ "$binary" == *"386"* ]]; then
-                  arch="i386"
-                fi
-          
-                # 检查是否使用了UPX压缩
-                compressed="❌"
-                if [[ "$file_info" == *"UPX"* ]]; then
-                  compressed="✅"
-                fi
-          
-                # 测试运行（仅对当前平台的二进制文件）
-                run_test="⏭️"
-                version_info="N/A"
-          
-                if [[ "$binary" == *"linux"* && "$binary" == *"amd64"* ]]; then
-                  tested_count=$((tested_count + 1))
-                  if timeout 10s "$binary" --version > version_output.txt 2>&1; then
-                    run_test="✅"
-                    passed_count=$((passed_count + 1))
-                    version_info=$(head -n1 version_output.txt | cut -c1-20)
-                  elif timeout 10s "$binary" --help > /dev/null 2>&1; then
-                    run_test="✅"
-                    passed_count=$((passed_count + 1))
-                    version_info="Help OK"
-                  else
-                    run_test="❌"
-                    failed_count=$((failed_count + 1))
-                    version_info="Error"
-                  fi
-                fi
-          
-                echo "| $platform | $arch | $file_size | $compressed | $run_test | $version_info |" >> $GITHUB_STEP_SUMMARY
-              fi
-            done
-          
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**统计信息:**" >> $GITHUB_STEP_SUMMARY
-            echo "- 总二进制文件数: $binary_count" >> $GITHUB_STEP_SUMMARY
-            echo "- 测试文件数: $tested_count" >> $GITHUB_STEP_SUMMARY
-            echo "- 测试通过数: $passed_count" >> $GITHUB_STEP_SUMMARY
-            echo "- 测试失败数: $failed_count" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ 未找到构建产物" >> $GITHUB_STEP_SUMMARY
-            binary_count=0
-          fi
-          
-          echo "binary_count=$binary_count" >> $GITHUB_OUTPUT
-          echo "tested_count=$tested_count" >> $GITHUB_OUTPUT
-          echo "passed_count=$passed_count" >> $GITHUB_OUTPUT
-          echo "failed_count=$failed_count" >> $GITHUB_OUTPUT
-        continue-on-error: true
-
       - name: 📊 生成测试报告
         if: always()
         run: |
@@ -211,10 +121,6 @@ jobs:
           build_end_time=$(date +%s)
           build_duration=$((build_end_time - ${{ steps.project.outputs.build_timestamp }}))
           build_duration_formatted=$(printf "%02d:%02d" $((build_duration / 60)) $((build_duration % 60)))
-          
-          # 生成报告头部
-          echo "# 🎯 构建报告" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           
           # 构建状态徽章
           if [[ "${{ steps.build_step.outcome }}" == "success" ]]; then
