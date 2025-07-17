@@ -17,10 +17,6 @@ on:
         description: '测试分支'
         required: false
         default: 'dev'
-      skip_tests:
-        description: '跳过测试'
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -58,7 +54,7 @@ jobs:
       - name: 🐹 设置 Go 环境
         uses: actions/setup-go@v5
         with:
-          go-version: '1.20'
+          go-version: '1.21'
           cache: true
 
       - name: 📦 下载依赖
@@ -82,50 +78,6 @@ jobs:
           echo "- GITHUB_OWNER: $GITHUB_OWNER"
           echo "- GITHUB_REPO: $GITHUB_REPO"
           echo "- PROJECT_NAME: $PROJECT_NAME"
-
-      - name: 🧪 运行测试
-        id: test_step
-        if: ${{ !inputs.skip_tests }}
-        run: |
-          echo "test_skipped=false" >> $GITHUB_OUTPUT
-          echo "构建开始时间: $(date)" > test_results.txt
-          
-          # 运行测试并记录结果
-          if go test -v ./... 2>&1 | tee test_output.txt; then
-            echo "test_passed=true" >> $GITHUB_OUTPUT
-            echo "测试状态: ✅ 通过" >> test_results.txt
-          else
-            echo "test_passed=false" >> $GITHUB_OUTPUT
-            echo "测试状态: ❌ 失败" >> test_results.txt
-          fi
-          
-          # 统计测试信息
-          if [ -f test_output.txt ]; then
-            test_count=$(grep -c "=== RUN" test_output.txt || echo "0")
-            pass_count=$(grep -c "--- PASS:" test_output.txt || echo "0")
-            fail_count=$(grep -c "--- FAIL:" test_output.txt || echo "0")
-          
-            echo "test_count=$test_count" >> $GITHUB_OUTPUT
-            echo "pass_count=$pass_count" >> $GITHUB_OUTPUT
-            echo "fail_count=$fail_count" >> $GITHUB_OUTPUT
-          
-            echo "测试总数: $test_count" >> test_results.txt
-            echo "通过测试: $pass_count" >> test_results.txt
-            echo "失败测试: $fail_count" >> test_results.txt
-          fi
-        continue-on-error: true
-
-      - name: 📝 记录跳过测试状态
-        if: ${{ inputs.skip_tests }}
-        run: |
-          echo "test_skipped=true" >> $GITHUB_OUTPUT
-          echo "test_passed=true" >> $GITHUB_OUTPUT
-          echo "test_count=0" >> $GITHUB_OUTPUT
-          echo "pass_count=0" >> $GITHUB_OUTPUT
-          echo "fail_count=0" >> $GITHUB_OUTPUT
-          echo "测试状态: ⏭️ 跳过" > test_results.txt
-        env:
-          GITHUB_OUTPUT: ${{ steps.test_step.outputs.GITHUB_OUTPUT }}
 
       - name: 🔍 验证 GoReleaser 配置
         id: config_check
@@ -159,8 +111,6 @@ jobs:
           name: 测试构建-${{ steps.project.outputs.branch }}-${{ steps.project.outputs.short_sha }}
           path: |
             dist/
-            test_results.txt
-            test_output.txt
           retention-days: 7
         continue-on-error: true
 
@@ -263,7 +213,7 @@ jobs:
           build_duration_formatted=$(printf "%02d:%02d" $((build_duration / 60)) $((build_duration % 60)))
           
           # 生成报告头部
-          echo "# 🎯 测试构建报告" >> $GITHUB_STEP_SUMMARY
+          echo "# 🎯 构建报告" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # 构建状态徽章
@@ -273,15 +223,7 @@ jobs:
             build_status="![构建状态](https://img.shields.io/badge/构建-失败-red)"
           fi
           
-          if [[ "${{ steps.test_step.outputs.test_skipped }}" == "true" ]]; then
-            test_status="![测试状态](https://img.shields.io/badge/测试-跳过-yellow)"
-          elif [[ "${{ steps.test_step.outputs.test_passed }}" == "true" ]]; then
-            test_status="![测试状态](https://img.shields.io/badge/测试-通过-brightgreen)"
-          else
-            test_status="![测试状态](https://img.shields.io/badge/测试-失败-red)"
-          fi
-          
-          echo "$build_status $test_status" >> $GITHUB_STEP_SUMMARY
+          echo "$build_status" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # 基本信息表格
@@ -297,30 +239,6 @@ jobs:
           echo "| 🏃 **运行环境** | Ubuntu Latest |" >> $GITHUB_STEP_SUMMARY
           echo "| 🐹 **Go 版本** | $(go version | cut -d' ' -f3) |" >> $GITHUB_STEP_SUMMARY
           echo "| 🗜️ **UPX 版本** | $(upx --version | head -n1 | cut -d' ' -f2) |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # 测试结果
-          echo "## 🧪 测试结果" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          if [[ "${{ steps.test_step.outputs.test_skipped }}" == "true" ]]; then
-            echo "⏭️ **测试已跳过**" >> $GITHUB_STEP_SUMMARY
-          else
-            test_count="${{ steps.test_step.outputs.test_count }}"
-            pass_count="${{ steps.test_step.outputs.pass_count }}"
-            fail_count="${{ steps.test_step.outputs.fail_count }}"
-          
-            echo "| 测试项 | 数量 | 状态 |" >> $GITHUB_STEP_SUMMARY
-            echo "|--------|------|------|" >> $GITHUB_STEP_SUMMARY
-            echo "| 📊 **总测试数** | $test_count | - |" >> $GITHUB_STEP_SUMMARY
-            echo "| ✅ **通过测试** | $pass_count | $(if [ "$pass_count" -gt 0 ]; then echo "✅"; else echo "➖"; fi) |" >> $GITHUB_STEP_SUMMARY
-            echo "| ❌ **失败测试** | $fail_count | $(if [ "$fail_count" -gt 0 ]; then echo "❌"; else echo "➖"; fi) |" >> $GITHUB_STEP_SUMMARY
-          
-            if [ "$fail_count" -gt 0 ]; then
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "⚠️ **发现测试失败，请检查测试输出**" >> $GITHUB_STEP_SUMMARY
-            fi
-          fi
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # 构建结果
@@ -362,7 +280,10 @@ jobs:
             echo "**📊 总体统计:**" >> $GITHUB_STEP_SUMMARY
             echo "- 📁 总文件数: $file_count" >> $GITHUB_STEP_SUMMARY
             echo "- 📏 总大小: $total_size" >> $GITHUB_STEP_SUMMARY
-            echo "- 🗜️ 平均大小: $(echo "scale=2; $(du -s dist/ | cut -f1) / $file_count" | bc 2>/dev/null || echo "N/A") KB" >> $GITHUB_STEP_SUMMARY
+            if [ "$file_count" -gt 0 ]; then
+              avg_size=$(echo "scale=2; $(du -sk dist/ | cut -f1) / $file_count" | bc 2>/dev/null || echo "N/A")
+              echo "- 🗜️ 平均大小: ${avg_size} KB" >> $GITHUB_STEP_SUMMARY
+            fi
             echo "" >> $GITHUB_STEP_SUMMARY
           
             echo "<details>" >> $GITHUB_STEP_SUMMARY
@@ -384,6 +305,18 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
           
+          # 依赖信息
+          echo "## 📚 依赖信息" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "<details>" >> $GITHUB_STEP_SUMMARY
+          echo "<summary>📦 Go 模块依赖</summary>" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          go list -m all | head -20 >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "</details>" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
           # 环境信息
           echo "## 🔧 环境信息" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -395,6 +328,7 @@ jobs:
           echo "CPU信息: $(nproc) cores" >> $GITHUB_STEP_SUMMARY
           echo "内存信息: $(free -h | grep Mem | awk '{print $2}') total" >> $GITHUB_STEP_SUMMARY
           echo "磁盘空间: $(df -h / | tail -1 | awk '{print $4}') available" >> $GITHUB_STEP_SUMMARY
+          echo "时区: $(date +%Z)" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "</details>" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -404,27 +338,15 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # 确定整体状态
-          overall_status="success"
-          if [[ "${{ steps.build_step.outcome }}" != "success" ]]; then
-            overall_status="failure"
-          elif [[ "${{ steps.test_step.outputs.test_passed }}" == "false" ]]; then
-            overall_status="warning"
+          if [[ "${{ steps.build_step.outcome }}" == "success" ]]; then
+            echo "🎉 **构建成功！** 所有步骤都已完成，构建产物已生成并可供使用。" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **构建失败！** 请检查构建日志以了解失败原因。" >> $GITHUB_STEP_SUMMARY
           fi
-          
-          case $overall_status in
-            "success")
-              echo "🎉 **构建成功！** 所有步骤都已完成，构建产物已生成并可供使用。" >> $GITHUB_STEP_SUMMARY
-              ;;
-            "warning")
-              echo "⚠️ **构建完成但有警告！** 构建产物已生成，但测试存在问题，请检查测试结果。" >> $GITHUB_STEP_SUMMARY
-              ;;
-            "failure")
-              echo "❌ **构建失败！** 请检查构建日志以了解失败原因。" >> $GITHUB_STEP_SUMMARY
-              ;;
-          esac
           
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📎 **产物下载:** 构建产物已上传为 Artifact，可在 Actions 页面下载。" >> $GITHUB_STEP_SUMMARY
           echo "🔗 **提交链接:** https://github.com/${{ steps.project.outputs.owner }}/${{ steps.project.outputs.repo }}/commit/${{ steps.project.outputs.full_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "⏰ **构建完成时间:** $(date '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
