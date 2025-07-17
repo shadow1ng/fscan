@@ -1,46 +1,56 @@
-name: 发布构建
+name: 测试构建
 
 on:
   push:
-    tags:
-      - 'v*'  # 只响应以 v 开头的标签，如 v1.0.0
-  workflow_dispatch:  # 支持手动触发
+    branches:
+      - dev
+      - develop
+      - feature/*
+  pull_request:
+    branches:
+      - main
+      - master
+      - dev
+  workflow_dispatch:
     inputs:
-      tag:
-        description: '发布标签'
-        required: true
-        default: 'v1.0.0'
+      branch:
+        description: '测试分支'
+        required: false
+        default: 'dev'
+      skip_tests:
+        description: '跳过测试'
+        type: boolean
+        default: false
 
 permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+  contents: read
 
 jobs:
-  goreleaser:
-    name: 构建和发布
+  test-build:
+    name: 测试构建
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
 
     steps:
       - name: 📥 检出代码
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 获取完整的 git 历史，用于生成变更日志
-          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.branch || github.ref }}
 
       - name: 🔍 获取项目信息
         id: project
         run: |
           echo "owner=${GITHUB_REPOSITORY_OWNER}" >> $GITHUB_OUTPUT
           echo "repo=${GITHUB_REPOSITORY#*/}" >> $GITHUB_OUTPUT
-          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "branch=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+          echo "short_sha=${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
 
       - name: 🐹 设置 Go 环境
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'  # 使用更新的 Go 版本
-          cache: true  # 启用 Go 模块缓存
+          go-version: '1.21'
+          cache: true
 
       - name: 📦 下载依赖
         run: |
@@ -56,10 +66,12 @@ jobs:
         run: |
           echo "Go 版本: $(go version)"
           echo "UPX 版本: $(upx --version)"
-          echo "Git 标签: ${{ steps.project.outputs.version }}"
+          echo "分支: ${{ steps.project.outputs.branch }}"
+          echo "提交: ${{ steps.project.outputs.short_sha }}"
           echo "仓库: ${{ steps.project.outputs.owner }}/${{ steps.project.outputs.repo }}"
 
       - name: 🧪 运行测试
+        if: ${{ !inputs.skip_tests }}
         run: |
           go test -v ./...
 
@@ -70,12 +82,12 @@ jobs:
           version: latest
           args: check -f .github/conf/.goreleaser.yml
 
-      - name: 🚀 构建和发布
+      - name: 🚀 测试构建 (Snapshot 模式)
         uses: goreleaser/goreleaser-action@v5
         with:
           distribution: goreleaser
           version: latest
-          args: release --clean -f .github/conf/.goreleaser.yml
+          args: release --snapshot --clean -f .github/conf/.goreleaser.yml
           workdir: .
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -83,89 +95,89 @@ jobs:
           GITHUB_REPO: ${{ steps.project.outputs.repo }}
           PROJECT_NAME: ${{ steps.project.outputs.repo }}
 
-      - name: 📋 上传构建产物
+      - name: 📋 上传测试产物
         uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: 构建产物-${{ steps.project.outputs.version }}
+          name: 测试构建-${{ steps.project.outputs.branch }}-${{ steps.project.outputs.short_sha }}
           path: |
             dist/
-            !dist/*.txt
-          retention-days: 30
+          retention-days: 7
 
-      - name: 📊 生成构建报告
+      - name: 🧪 测试生成的二进制文件
+        run: |
+          echo "## 🧪 测试二进制文件" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          for binary in dist/*linux*amd64*; do
+            if [[ -f "$binary" && -x "$binary" ]]; then
+              echo "测试文件: $binary"
+              file_info=$(file "$binary")
+              echo "- **文件信息**: $file_info" >> $GITHUB_STEP_SUMMARY
+          
+              # 测试运行
+              if timeout 10s "$binary" --help > /dev/null 2>&1; then
+                echo "- **运行测试**: ✅ 通过" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "- **运行测试**: ❌ 失败" >> $GITHUB_STEP_SUMMARY
+              fi
+              break
+            fi
+          done
+
+      - name: 📊 生成测试报告
         if: always()
         run: |
-          echo "## 🎉 构建完成报告" >> $GITHUB_STEP_SUMMARY
+          echo "## 🎯 测试构建报告" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **版本**: ${{ steps.project.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **仓库**: ${{ steps.project.outputs.owner }}/${{ steps.project.outputs.repo }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Go 版本**: $(go version | cut -d' ' -f3)" >> $GITHUB_STEP_SUMMARY
+          echo "- **分支**: ${{ steps.project.outputs.branch }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **提交**: ${{ steps.project.outputs.short_sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **构建时间**: $(date)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ -d "dist" ]; then
             echo "### 📦 生成的文件:" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            ls -la dist/ >> $GITHUB_STEP_SUMMARY
+            ls -la dist/ | head -20 >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          
+            echo "### 📏 文件大小统计:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            du -h dist/* | sort -h | tail -10 >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           fi
 
-  # 可选：发布到 Docker Hub
-  docker:
-    name: 构建 Docker 镜像
+  # 可选：代码质量检查
+  quality:
+    name: 代码质量检查
     runs-on: ubuntu-latest
-    needs: goreleaser
-    if: success()
 
     steps:
       - name: 📥 检出代码
         uses: actions/checkout@v4
 
-      - name: 🔍 获取元数据
-        id: meta
-        uses: docker/metadata-action@v5
+      - name: 🐹 设置 Go 环境
+        uses: actions/setup-go@v5
         with:
-          images: |
-            ${{ github.repository }}
-          tags: |
-            type=ref,event=tag
-            type=raw,value=latest,enable={{is_default_branch}}
+          go-version: '1.21'
+          cache: true
 
-      - name: 🐳 设置 Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: 🔐 登录 Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: 🚀 构建并推送 Docker 镜像
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-  # 可选：通知步骤
-  notify:
-    name: 发送通知
-    runs-on: ubuntu-latest
-    needs: [goreleaser]
-    if: always()
-
-    steps:
-      - name: 📧 发送成功通知
-        if: needs.goreleaser.result == 'success'
+      - name: 🔍 代码格式检查
         run: |
-          echo "✅ 发布成功完成！"
-          echo "版本: ${GITHUB_REF#refs/tags/}"
-          echo "查看发布: https://github.com/${{ github.repository }}/releases"
+          if [ "$(gofmt -l . | wc -l)" -gt 0 ]; then
+            echo "❌ 代码格式不符合标准"
+            gofmt -l .
+            exit 1
+          fi
+          echo "✅ 代码格式检查通过"
 
-      - name: ⚠️ 发送失败通知
-        if: needs.goreleaser.result == 'failure'
+      - name: 🧹 代码静态分析
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          args: --timeout=5m
+
+      - name: 🔒 安全检查
         run: |
-          echo "❌ 发布失败！"
-          echo "请检查构建日志: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+          gosec ./...
+        continue-on-error: true
