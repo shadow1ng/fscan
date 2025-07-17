@@ -1,5 +1,4 @@
-# GoReleaser v2 配置文件
-version: 2
+# 项目名称 - 直接使用环境变量
 project_name: "{{ .Env.PROJECT_NAME }}"
 
 # 构建前钩子
@@ -38,22 +37,21 @@ builds:
       - -X main.date={{ .Date }}
       - -X main.builtBy=goreleaser
     mod_timestamp: "{{ .CommitTimestamp }}"
-    hooks:
-      post:
-        - cmd: upx --best --lzma {{ .Path }}
-          filter:
-            and:
-              - or:
-                  - goos: windows
-                  - goos: linux
-              - or:
-                  - goarch: amd64
-                  - goarch: "386"
 
-# 归档配置 (移除弃用的format配置)
+# UPX 压缩
+upx:
+  - ids: [default]
+    enabled: true
+    goos: ["windows", "linux"]
+    goarch: ["amd64", "386"]
+    compress: best
+    brute: false
+    lzma: false
+
+# 归档配置
 archives:
   - id: default
-    # 移除了 format: binary (已弃用)
+    format: binary
     allow_different_binary_count: true
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_
@@ -73,6 +71,7 @@ checksum:
 # 变更日志
 changelog:
   sort: asc
+  use: github
   filters:
     exclude:
       - "^docs:"
@@ -117,6 +116,10 @@ release:
     
     如有问题请提交 [Issue](https://github.com/{{ .Env.GITHUB_OWNER }}/{{ .Env.GITHUB_REPO }}/issues) 💬
 
-# 快照版本配置 (已正确使用version_template)
+# 快照版本
 snapshot:
-  version_template: "{{ incpatch .Version }}-dev-{{ .ShortCommit }}"
+  name_template: "{{ incpatch .Version }}-dev-{{ .ShortCommit }}"
+
+# 元数据
+metadata:
+  mod_timestamp: "{{ .CommitTimestamp }}"
