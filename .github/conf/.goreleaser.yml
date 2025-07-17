@@ -6,7 +6,6 @@ before:
   hooks:
     - go mod tidy
     - go mod download
-    - go generate ./...
 
 # 构建配置
 builds:
