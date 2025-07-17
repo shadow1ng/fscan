@@ -232,20 +232,27 @@ jobs:
             echo "## 📦 构建产物详情" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           
-            # 文件列表
+            # 修复文件列表显示问题
             echo "### 📄 文件列表" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "| 文件名 | 大小 | 修改时间 | 权限 |" >> $GITHUB_STEP_SUMMARY
             echo "|--------|------|----------|------|" >> $GITHUB_STEP_SUMMARY
           
+            # 使用更稳定的方法获取文件信息
             cd dist
-            find . -type f -exec ls -lh {} \; | head -20 | while read line; do
-              permissions=$(echo "$line" | awk '{print $1}')
-              size=$(echo "$line" | awk '{print $5}')
-              date=$(echo "$line" | awk '{print $6" "$7" "$8}')
-              filename=$(echo "$line" | awk '{print $NF}')
-              echo "| \`$filename\` | $size | $date | \`$permissions\` |" >> $GITHUB_STEP_SUMMARY
-            done
+            find . -type f -printf "%M %10s %TY-%Tm-%Td %TH:%TM %p\n" 2>/dev/null | head -20 | while IFS=' ' read -r permissions size date time filepath; do
+              filename=$(basename "$filepath")
+              readable_size=$(numfmt --to=iec-i --suffix=B $size 2>/dev/null || echo "${size}B")
+              echo "| \`$filename\` | $readable_size | $date $time | \`$permissions\` |" >> $GITHUB_STEP_SUMMARY
+            done 2>/dev/null || {
+              # 备用方法：如果find不支持-printf，使用ls
+              ls -la | tail -n +2 | head -20 | while read -r permissions links owner group size month day timeOrYear name; do
+                # 跳过目录
+                if [[ "$permissions" != d* ]]; then
+                  echo "| \`$name\` | $size | $month $day $timeOrYear | \`$permissions\` |" >> $GITHUB_STEP_SUMMARY
+                fi
+              done
+            }
             cd ..
             echo "" >> $GITHUB_STEP_SUMMARY
           
@@ -255,9 +262,10 @@ jobs:
             echo "| 文件 | 大小 | 类型 |" >> $GITHUB_STEP_SUMMARY
             echo "|------|------|------|" >> $GITHUB_STEP_SUMMARY
           
-            du -h dist/* | sort -h | tail -10 | while read size file; do
-              filename=$(basename "$file")
-              filetype=$(file "$file" | cut -d':' -f2 | cut -d',' -f1 | xargs)
+            # 使用更安全的方法获取文件大小
+            find dist -type f -exec du -h {} + | sort -h | tail -10 | while read -r size filepath; do
+              filename=$(basename "$filepath")
+              filetype=$(file "$filepath" 2>/dev/null | cut -d':' -f2- | sed 's/^[[:space:]]*//' | cut -d',' -f1 || echo "unknown")
               echo "| \`$filename\` | **$size** | $filetype |" >> $GITHUB_STEP_SUMMARY
             done
             echo "" >> $GITHUB_STEP_SUMMARY
@@ -266,7 +274,11 @@ jobs:
             echo "### 🗂️ 目录结构" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            tree dist/ 2>/dev/null || find dist/ -type d | head -20 | sort >> $GITHUB_STEP_SUMMARY
+            if command -v tree >/dev/null 2>&1; then
+              tree dist/ -L 3 2>/dev/null || find dist/ -type d | sort | head -20
+            else
+              find dist/ -type d | sort | head -20
+            fi >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           
@@ -287,6 +299,26 @@ jobs:
             echo "| 🍎 **macOS** | $darwin_count |" >> $GITHUB_STEP_SUMMARY
             echo "| 💻 **AMD64** | $amd64_count |" >> $GITHUB_STEP_SUMMARY
             echo "| 📱 **ARM64** | $arm64_count |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          
+            # 文件类型统计
+            echo "### 📊 文件类型统计" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| 文件类型 | 数量 | 总大小 |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+            # 统计不同类型文件
+            binary_files=$(find dist/ -type f -executable | wc -l)
+            config_files=$(find dist/ -name "*.json" -o -name "*.yaml" -o -name "*.yml" -o -name "*.txt" | wc -l)
+            archive_files=$(find dist/ -name "*.tar.gz" -o -name "*.zip" | wc -l)
+          
+            binary_size=$(find dist/ -type f -executable -exec du -c {} + 2>/dev/null | tail -1 | cut -f1 | numfmt --to=iec-i --suffix=B 2>/dev/null || echo "0B")
+            config_size=$(find dist/ -name "*.json" -o -name "*.yaml" -o -name "*.yml" -o -name "*.txt" -exec du -c {} + 2>/dev/null | tail -1 | cut -f1 | numfmt --to=iec-i --suffix=B 2>/dev/null || echo "0B")
+            archive_size=$(find dist/ -name "*.tar.gz" -o -name "*.zip" -exec du -c {} + 2>/dev/null | tail -1 | cut -f1 | numfmt --to=iec-i --suffix=B 2>/dev/null || echo "0B")
+          
+            echo "| 🔧 **可执行文件** | $binary_files | $binary_size |" >> $GITHUB_STEP_SUMMARY
+            echo "| 📄 **配置文件** | $config_files | $config_size |" >> $GITHUB_STEP_SUMMARY
+            echo "| 📦 **压缩包** | $archive_files | $archive_size |" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
           
