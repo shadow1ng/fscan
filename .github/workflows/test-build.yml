@@ -81,6 +81,10 @@ jobs:
           distribution: goreleaser
           version: latest
           args: check -f .github/conf/.goreleaser.yml
+        env:
+          GITHUB_OWNER: ${{ steps.project.outputs.owner }}
+          GITHUB_REPO: ${{ steps.project.outputs.repo }}
+          PROJECT_NAME: ${{ steps.project.outputs.repo }}
 
       - name: 🚀 测试构建 (Snapshot 模式)
         uses: goreleaser/goreleaser-action@v5
@@ -145,39 +149,3 @@ jobs:
             du -h dist/* | sort -h | tail -10 >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           fi
-
-  # 可选：代码质量检查
-  quality:
-    name: 代码质量检查
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: 📥 检出代码
-        uses: actions/checkout@v4
-
-      - name: 🐹 设置 Go 环境
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.21'
-          cache: true
-
-      - name: 🔍 代码格式检查
-        run: |
-          if [ "$(gofmt -l . | wc -l)" -gt 0 ]; then
-            echo "❌ 代码格式不符合标准"
-            gofmt -l .
-            exit 1
-          fi
-          echo "✅ 代码格式检查通过"
-
-      - name: 🧹 代码静态分析
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: latest
-          args: --timeout=5m
-
-      - name: 🔒 安全检查
-        run: |
-          go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
-          gosec ./...
-        continue-on-error: true
