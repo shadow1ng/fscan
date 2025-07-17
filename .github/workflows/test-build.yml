@@ -232,42 +232,63 @@ jobs:
             echo "## 📦 构建产物详情" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           
-            # 修复文件列表显示问题
+            # 简化的文件列表 - 使用代码块格式
             echo "### 📄 文件列表" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "| 文件名 | 大小 | 修改时间 | 权限 |" >> $GITHUB_STEP_SUMMARY
-            echo "|--------|------|----------|------|" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "文件名                           大小      修改时间            权限" >> $GITHUB_STEP_SUMMARY
+            echo "================================================================" >> $GITHUB_STEP_SUMMARY
           
-            # 使用更稳定的方法获取文件信息
             cd dist
-            find . -type f -printf "%M %10s %TY-%Tm-%Td %TH:%TM %p\n" 2>/dev/null | head -20 | while IFS=' ' read -r permissions size date time filepath; do
-              filename=$(basename "$filepath")
-              readable_size=$(numfmt --to=iec-i --suffix=B $size 2>/dev/null || echo "${size}B")
-              echo "| \`$filename\` | $readable_size | $date $time | \`$permissions\` |" >> $GITHUB_STEP_SUMMARY
-            done 2>/dev/null || {
-              # 备用方法：如果find不支持-printf，使用ls
-              ls -la | tail -n +2 | head -20 | while read -r permissions links owner group size month day timeOrYear name; do
-                # 跳过目录
-                if [[ "$permissions" != d* ]]; then
-                  echo "| \`$name\` | $size | $month $day $timeOrYear | \`$permissions\` |" >> $GITHUB_STEP_SUMMARY
-                fi
-              done
-            }
+            # 使用ls -la并格式化输出
+            ls -la | grep -v "^d" | grep -v "^total" | head -20 | while read -r line; do
+              # 解析ls -la的输出
+              permissions=$(echo "$line" | awk '{print $1}')
+              size=$(echo "$line" | awk '{print $5}')
+              month=$(echo "$line" | awk '{print $6}')
+              day=$(echo "$line" | awk '{print $7}')
+              time=$(echo "$line" | awk '{print $8}')
+              filename=$(echo "$line" | awk '{print $9}')
+          
+              # 格式化大小
+              if [ "$size" -gt 1048576 ]; then
+                size_formatted=$(echo "scale=1; $size/1048576" | bc)M
+              elif [ "$size" -gt 1024 ]; then
+                size_formatted=$(echo "scale=1; $size/1024" | bc)K
+              else
+                size_formatted="${size}B"
+              fi
+          
+              # 格式化输出
+              printf "%-32s %-8s %s %s %-8s %-12s\n" "$filename" "$size_formatted" "$month" "$day" "$time" "$permissions"
+            done >> $GITHUB_STEP_SUMMARY
             cd ..
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           
-            # 文件大小统计
-            echo "### 📏 文件大小统计" >> $GITHUB_STEP_SUMMARY
+            # 简化的文件大小统计
+            echo "### 📏 文件大小统计 (前10个最大文件)" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "| 文件 | 大小 | 类型 |" >> $GITHUB_STEP_SUMMARY
-            echo "|------|------|------|" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "大小     文件名                           类型" >> $GITHUB_STEP_SUMMARY
+            echo "=================================================" >> $GITHUB_STEP_SUMMARY
           
-            # 使用更安全的方法获取文件大小
             find dist -type f -exec du -h {} + | sort -h | tail -10 | while read -r size filepath; do
               filename=$(basename "$filepath")
-              filetype=$(file "$filepath" 2>/dev/null | cut -d':' -f2- | sed 's/^[[:space:]]*//' | cut -d',' -f1 || echo "unknown")
-              echo "| \`$filename\` | **$size** | $filetype |" >> $GITHUB_STEP_SUMMARY
-            done
+              # 限制文件名长度
+              if [ ${#filename} -gt 32 ]; then
+                filename="${filename:0:29}..."
+              fi
+          
+              # 获取文件类型
+              filetype=$(file "$filepath" 2>/dev/null | cut -d':' -f2 | sed 's/^[[:space:]]*//' | cut -d',' -f1)
+              if [ ${#filetype} -gt 25 ]; then
+                filetype="${filetype:0:22}..."
+              fi
+          
+              printf "%-8s %-32s %s\n" "$size" "$filename" "$filetype"
+            done >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           
             # 目录结构
@@ -275,9 +296,9 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
             if command -v tree >/dev/null 2>&1; then
-              tree dist/ -L 3 2>/dev/null || find dist/ -type d | sort | head -20
+              tree dist/ -L 3 2>/dev/null
             else
-              find dist/ -type d | sort | head -20
+              find dist/ -type d | sort | sed 's|dist/||' | sed 's|^|  |'
             fi >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
@@ -312,13 +333,31 @@ jobs:
             config_files=$(find dist/ -name "*.json" -o -name "*.yaml" -o -name "*.yml" -o -name "*.txt" | wc -l)
             archive_files=$(find dist/ -name "*.tar.gz" -o -name "*.zip" | wc -l)
           
-            binary_size=$(find dist/ -type f -executable -exec du -c {} + 2>/dev/null | tail -1 | cut -f1 | numfmt --to=iec-i --suffix=B 2>/dev/null || echo "0B")
-            config_size=$(find dist/ -name "*.json" -o -name "*.yaml" -o -name "*.yml" -o -name "*.txt" -exec du -c {} + 2>/dev/null | tail -1 | cut -f1 | numfmt --to=iec-i --suffix=B 2>/dev/null || echo "0B")
-            archive_size=$(find dist/ -name "*.tar.gz" -o -name "*.zip" -exec du -c {} + 2>/dev/null | tail -1 | cut -f1 | numfmt --to=iec-i --suffix=B 2>/dev/null || echo "0B")
+            # 计算大小（使用更简单的方法）
+            if [ "$binary_files" -gt 0 ]; then
+              binary_size=$(find dist/ -type f -executable -exec ls -la {} + | awk '{sum += $5} END {print sum}')
+              binary_size_readable=$(echo "scale=1; $binary_size/1048576" | bc 2>/dev/null || echo "0")M
+            else
+              binary_size_readable="0B"
+            fi
           
-            echo "| 🔧 **可执行文件** | $binary_files | $binary_size |" >> $GITHUB_STEP_SUMMARY
-            echo "| 📄 **配置文件** | $config_files | $config_size |" >> $GITHUB_STEP_SUMMARY
-            echo "| 📦 **压缩包** | $archive_files | $archive_size |" >> $GITHUB_STEP_SUMMARY
+            if [ "$config_files" -gt 0 ]; then
+              config_size=$(find dist/ \( -name "*.json" -o -name "*.yaml" -o -name "*.yml" -o -name "*.txt" \) -exec ls -la {} + | awk '{sum += $5} END {print sum}')
+              config_size_readable=$(echo "scale=1; $config_size/1024" | bc 2>/dev/null || echo "0")K
+            else
+              config_size_readable="0B"
+            fi
+          
+            if [ "$archive_files" -gt 0 ]; then
+              archive_size=$(find dist/ \( -name "*.tar.gz" -o -name "*.zip" \) -exec ls -la {} + | awk '{sum += $5} END {print sum}')
+              archive_size_readable=$(echo "scale=1; $archive_size/1048576" | bc 2>/dev/null || echo "0")M
+            else
+              archive_size_readable="0B"
+            fi
+          
+            echo "| 🔧 **可执行文件** | $binary_files | $binary_size_readable |" >> $GITHUB_STEP_SUMMARY
+            echo "| 📄 **配置文件** | $config_files | $config_size_readable |" >> $GITHUB_STEP_SUMMARY
+            echo "| 📦 **压缩包** | $archive_files | $archive_size_readable |" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
           
