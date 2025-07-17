@@ -1,0 +1,183 @@
+name: 测试构建
+
+on:
+  push:
+    branches:
+      - dev
+      - develop
+      - feature/*
+  pull_request:
+    branches:
+      - main
+      - master
+      - dev
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: '测试分支'
+        required: false
+        default: 'dev'
+      skip_tests:
+        description: '跳过测试'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  test-build:
+    name: 测试构建
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: 📥 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - name: 🔍 获取项目信息
+        id: project
+        run: |
+          echo "owner=${GITHUB_REPOSITORY_OWNER}" >> $GITHUB_OUTPUT
+          echo "repo=${GITHUB_REPOSITORY#*/}" >> $GITHUB_OUTPUT
+          echo "branch=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+          echo "short_sha=${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
+
+      - name: 🐹 设置 Go 环境
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: 📦 下载依赖
+        run: |
+          go mod download
+          go mod verify
+
+      - name: 🗜️ 安装 UPX 压缩工具
+        uses: crazy-max/ghaction-upx@v3
+        with:
+          install-only: true
+
+      - name: ℹ️ 显示构建环境信息
+        run: |
+          echo "Go 版本: $(go version)"
+          echo "UPX 版本: $(upx --version)"
+          echo "分支: ${{ steps.project.outputs.branch }}"
+          echo "提交: ${{ steps.project.outputs.short_sha }}"
+          echo "仓库: ${{ steps.project.outputs.owner }}/${{ steps.project.outputs.repo }}"
+
+      - name: 🧪 运行测试
+        if: ${{ !inputs.skip_tests }}
+        run: |
+          go test -v ./...
+
+      - name: 🔍 验证 GoReleaser 配置
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          distribution: goreleaser
+          version: latest
+          args: check -f .github/conf/.goreleaser.yml
+
+      - name: 🚀 测试构建 (Snapshot 模式)
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --snapshot --clean -f .github/conf/.goreleaser.yml
+          workdir: .
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_OWNER: ${{ steps.project.outputs.owner }}
+          GITHUB_REPO: ${{ steps.project.outputs.repo }}
+          PROJECT_NAME: ${{ steps.project.outputs.repo }}
+
+      - name: 📋 上传测试产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: 测试构建-${{ steps.project.outputs.branch }}-${{ steps.project.outputs.short_sha }}
+          path: |
+            dist/
+          retention-days: 7
+
+      - name: 🧪 测试生成的二进制文件
+        run: |
+          echo "## 🧪 测试二进制文件" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          for binary in dist/*linux*amd64*; do
+            if [[ -f "$binary" && -x "$binary" ]]; then
+              echo "测试文件: $binary"
+              file_info=$(file "$binary")
+              echo "- **文件信息**: $file_info" >> $GITHUB_STEP_SUMMARY
+          
+              # 测试运行
+              if timeout 10s "$binary" --help > /dev/null 2>&1; then
+                echo "- **运行测试**: ✅ 通过" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "- **运行测试**: ❌ 失败" >> $GITHUB_STEP_SUMMARY
+              fi
+              break
+            fi
+          done
+
+      - name: 📊 生成测试报告
+        if: always()
+        run: |
+          echo "## 🎯 测试构建报告" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **分支**: ${{ steps.project.outputs.branch }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **提交**: ${{ steps.project.outputs.short_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **构建时间**: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -d "dist" ]; then
+            echo "### 📦 生成的文件:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            ls -la dist/ | head -20 >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          
+            echo "### 📏 文件大小统计:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            du -h dist/* | sort -h | tail -10 >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # 可选：代码质量检查
+  quality:
+    name: 代码质量检查
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 检出代码
+        uses: actions/checkout@v4
+
+      - name: 🐹 设置 Go 环境
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: 🔍 代码格式检查
+        run: |
+          if [ "$(gofmt -l . | wc -l)" -gt 0 ]; then
+            echo "❌ 代码格式不符合标准"
+            gofmt -l .
+            exit 1
+          fi
+          echo "✅ 代码格式检查通过"
+
+      - name: 🧹 代码静态分析
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          args: --timeout=5m
+
+      - name: 🔒 安全检查
+        uses: securecodewarrior/github-action-add-sarif@v1
+        with:
+          sarif-file: 'gosec.sarif'
+        continue-on-error: true

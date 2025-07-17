@@ -1,64 +1,148 @@
-before:
-  hooks:
-    - go mod tidy
-builds:
-  -
-    id: default
-    env:
-      - CGO_ENABLED=0
-    goos:
-      - windows
-      - linux
-      - darwin
-      - freebsd
-      - solaris
-    goarch:
-      - amd64
-      - "386"
-      - arm
-      - arm64
-#      - mips
-#      - mipsle
-#      - mips64
-    goarm:
-      - "6"
-      - "7"
-    flags:
-      - -trimpath
-    ldflags:
-      - -s -w
-upx:
-  -
-    ids: [ default ]
-    enabled: true
-    goos: ["windows", "linux"]
-    goarch: ["amd64", "386"]
-    compress: best
-#    lzma: true
-#    brute: true
-archives:
-  -
-    format: binary
-    allow_different_binary_count: true
-    name_template: >-
-      {{- .ProjectName }}
-      {{- if eq .Os "darwin"}}_mac
-      {{- else if eq .Os "linux"}}
-      {{- else if eq .Os "windows"}}
-      {{- else }}_{{ .Os }}{{ end }}
-      {{- if eq .Arch "amd64" }}
-      {{- else if eq .Arch "386" }}32
-      {{- else }}_{{ .Arch }}{{ end }}
-      {{- if .Arm }}v{{ .Arm }}{{ end -}}
-checksum:
-  name_template: 'checksums.txt'
-snapshot:
-  name_template: "{{ incpatch .Version }}-next"
-changelog:
-  sort: asc
-  filters:
-    exclude:
-      - '^docs:'
-      - '^test:'
-      - "^*.md"
-      - "^*.ya?ml"
+name: 发布构建
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - dev  # 添加 dev 分支支持
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '发布标签'
+        required: false
+        default: 'v1.0.0'
+      test_mode:
+        description: '测试模式 (不会发布)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  goreleaser:
+    name: 构建和发布
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    steps:
+      - name: 📥 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🔍 判断运行模式
+        id: mode
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "mode=release" >> $GITHUB_OUTPUT
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event.inputs.test_mode }}" == "true" ]]; then
+            echo "mode=test" >> $GITHUB_OUTPUT
+            echo "version=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "mode=snapshot" >> $GITHUB_OUTPUT
+            echo "version=dev-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "owner=${GITHUB_REPOSITORY_OWNER}" >> $GITHUB_OUTPUT
+          echo "repo=${GITHUB_REPOSITORY#*/}" >> $GITHUB_OUTPUT
+
+      - name: 🐹 设置 Go 环境
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: 📦 下载依赖
+        run: |
+          go mod download
+          go mod verify
+
+      - name: 🗜️ 安装 UPX 压缩工具
+        uses: crazy-max/ghaction-upx@v3
+        with:
+          install-only: true
+
+      - name: ℹ️ 显示构建环境信息
+        run: |
+          echo "Go 版本: $(go version)"
+          echo "UPX 版本: $(upx --version)"
+          echo "运行模式: ${{ steps.mode.outputs.mode }}"
+          echo "版本: ${{ steps.mode.outputs.version }}"
+          echo "仓库: ${{ steps.mode.outputs.owner }}/${{ steps.mode.outputs.repo }}"
+
+      - name: 🧪 运行测试
+        run: |
+          go test -v ./...
+
+      - name: 🔍 验证 GoReleaser 配置
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          distribution: goreleaser
+          version: latest
+          args: check -f .github/conf/.goreleaser.yml
+
+      - name: 🚀 正式发布
+        if: steps.mode.outputs.mode == 'release'
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean -f .github/conf/.goreleaser.yml
+          workdir: .
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_OWNER: ${{ steps.mode.outputs.owner }}
+          GITHUB_REPO: ${{ steps.mode.outputs.repo }}
+          PROJECT_NAME: ${{ steps.mode.outputs.repo }}
+
+      - name: 🧪 测试构建 (Snapshot 模式)
+        if: steps.mode.outputs.mode != 'release'
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --snapshot --clean -f .github/conf/.goreleaser.yml
+          workdir: .
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_OWNER: ${{ steps.mode.outputs.owner }}
+          GITHUB_REPO: ${{ steps.mode.outputs.repo }}
+          PROJECT_NAME: ${{ steps.mode.outputs.repo }}
+
+      - name: 📋 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: |
+            ${{ steps.mode.outputs.mode == 'release' && '正式发布' || '测试构建' }}-${{ steps.mode.outputs.version }}
+          path: |
+            dist/
+          retention-days: ${{ steps.mode.outputs.mode == 'release' && 90 || 7 }}
+
+      - name: 📊 生成构建报告
+        if: always()
+        run: |
+          mode_emoji="${{ steps.mode.outputs.mode == 'release' && '🎉' || '🧪' }}"
+          echo "## ${mode_emoji} 构建完成报告" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **模式**: ${{ steps.mode.outputs.mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **版本**: ${{ steps.mode.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **仓库**: ${{ steps.mode.outputs.owner }}/${{ steps.mode.outputs.repo }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **构建时间**: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -d "dist" ]; then
+            echo "### 📦 生成的文件:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            ls -la dist/ >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
