@@ -1,6 +1,5 @@
 # GoReleaser v2 配置文件
 version: 2
-
 project_name: "{{ .Env.PROJECT_NAME }}"
 
 # 构建前钩子
@@ -51,10 +50,10 @@ builds:
                   - goarch: amd64
                   - goarch: "386"
 
-# 归档配置
+# 归档配置 (移除弃用的format配置)
 archives:
   - id: default
-    format: binary
+    # 移除了 format: binary (已弃用)
     allow_different_binary_count: true
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_
@@ -118,6 +117,6 @@ release:
     
     如有问题请提交 [Issue](https://github.com/{{ .Env.GITHUB_OWNER }}/{{ .Env.GITHUB_REPO }}/issues) 💬
 
-# 快照版本配置 (修复弃用的name_template)
+# 快照版本配置 (已正确使用version_template)
 snapshot:
   version_template: "{{ incpatch .Version }}-dev-{{ .ShortCommit }}"
