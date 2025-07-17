@@ -82,7 +82,7 @@ jobs:
             -e GITHUB_REPO="${{ github.event.repository.name }}" \
             -e GITHUB_OWNER="${{ github.repository_owner }}" \
             -e PROJECT_NAME="${{ github.event.repository.name }}" \
-            goreleaser/goreleaser:latest check -f .github/conf/.goreleaser.yml; then
+            goreleaser/goreleaser:v2-pro check -f .github/conf/.goreleaser.yml; then
             echo "config_valid=true" >> $GITHUB_OUTPUT
           else
             echo "config_valid=false" >> $GITHUB_OUTPUT
@@ -91,10 +91,10 @@ jobs:
 
       - name: 🚀 测试构建 (Snapshot 模式)
         id: build_step
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: latest
+          version: '~> v2'  # 修复：指定使用 v2 版本
           args: release --snapshot --clean -f .github/conf/.goreleaser.yml
           workdir: .
         env:
@@ -184,7 +184,7 @@ jobs:
             echo "<summary>📋 详细文件列表</summary>" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            ls -lah dist/ >> $GITHUB_STEP_SUMMARY
+            find dist/ -type f -exec ls -lah {} \; | sort >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
             echo "</details>" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
