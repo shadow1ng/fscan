@@ -1,4 +1,6 @@
-# GoReleaser v1 配置文件
+# GoReleaser v2 配置文件
+version: 2
+
 project_name: "{{ .Env.PROJECT_NAME }}"
 
 # 构建前钩子
@@ -37,6 +39,17 @@ builds:
       - -X main.date={{ .Date }}
       - -X main.builtBy=goreleaser
     mod_timestamp: "{{ .CommitTimestamp }}"
+    hooks:
+      post:
+        - cmd: upx --best --lzma {{ .Path }}
+          filter:
+            and:
+              - or:
+                  - goos: windows
+                  - goos: linux
+              - or:
+                  - goarch: amd64
+                  - goarch: "386"
 
 # 归档配置
 archives:
@@ -105,6 +118,6 @@ release:
     
     如有问题请提交 [Issue](https://github.com/{{ .Env.GITHUB_OWNER }}/{{ .Env.GITHUB_REPO }}/issues) 💬
 
-# 快照版本
+# 快照版本配置 (修复弃用的name_template)
 snapshot:
-  name_template: "{{ incpatch .Version }}-dev-{{ .ShortCommit }}"
+  version_template: "{{ incpatch .Version }}-dev-{{ .ShortCommit }}"
