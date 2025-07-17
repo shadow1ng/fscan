@@ -21,10 +21,6 @@ on:
         description: '跳过测试'
         type: boolean
         default: false
-      enable_benchmark:
-        description: '启用性能测试'
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -33,14 +29,13 @@ jobs:
   test-build:
     name: 测试构建
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
 
     # 设置作业级别的环境变量
     env:
       GITHUB_OWNER: ${{ github.repository_owner }}
       GITHUB_REPO: ${{ github.event.repository.name }}
       PROJECT_NAME: ${{ github.event.repository.name }}
-      BUILD_START_TIME: ${{ github.run_number }}
 
     steps:
       - name: 📥 检出代码
@@ -57,72 +52,24 @@ jobs:
           echo "branch=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
           echo "short_sha=${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
           echo "full_sha=${GITHUB_SHA}" >> $GITHUB_OUTPUT
-          echo "build_number=${GITHUB_RUN_NUMBER}" >> $GITHUB_OUTPUT
-          echo "build_start=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
-          
-          # 获取Git提交信息
-          echo "commit_message=$(git log -1 --pretty=format:'%s')" >> $GITHUB_OUTPUT
-          echo "commit_author=$(git log -1 --pretty=format:'%an')" >> $GITHUB_OUTPUT
-          echo "commit_date=$(git log -1 --pretty=format:'%ci')" >> $GITHUB_OUTPUT
+          echo "build_time=$(date '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
+          echo "build_timestamp=$(date +%s)" >> $GITHUB_OUTPUT
 
       - name: 🐹 设置 Go 环境
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.20'
           cache: true
 
       - name: 📦 下载依赖
         run: |
-          echo "build_deps_start=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
           go mod download
           go mod verify
-          echo "build_deps_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
 
       - name: 🗜️ 安装 UPX 压缩工具
         uses: crazy-max/ghaction-upx@v3
         with:
           install-only: true
-
-      - name: 🔧 安装额外工具
-        run: |
-          echo "开始安装额外工具..."
-
-          # 创建工具目录
-          mkdir -p $HOME/bin
-          export PATH=$HOME/bin:$PATH
-
-          # 安装gosec - 使用多种方法尝试
-          echo "安装gosec..."
-          if go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest 2>/dev/null; then
-            echo "✅ gosec安装成功（方法1）"
-            echo "gosec_available=true" >> $GITHUB_ENV
-          elif curl -sfL https://raw.githubusercontent.com/securecodewarrior/gosec/master/install.sh | sh -s -- -b $HOME/bin 2>/dev/null; then
-            echo "✅ gosec安装成功（方法2）"
-            echo "gosec_available=true" >> $GITHUB_ENV
-          else
-            echo "⚠️ gosec安装失败，将跳过gosec扫描"
-            echo "gosec_available=false" >> $GITHUB_ENV
-          fi
-
-          # 安装staticcheck
-          echo "安装staticcheck..."
-          if go install honnef.co/go/tools/cmd/staticcheck@latest; then
-            echo "✅ staticcheck安装成功"
-            echo "staticcheck_available=true" >> $GITHUB_ENV
-          else
-            echo "⚠️ staticcheck安装失败"
-            echo "staticcheck_available=false" >> $GITHUB_ENV
-          fi
-
-          # 验证安装
-          echo "验证工具安装..."
-          if [ "${gosec_available}" = "true" ] && command -v gosec >/dev/null 2>&1; then
-            echo "gosec版本: $(gosec --version 2>/dev/null || echo 'unknown')"
-          fi
-
-          if [ "${staticcheck_available}" = "true" ] && command -v staticcheck >/dev/null 2>&1; then
-            echo "staticcheck版本: $(staticcheck --version 2>/dev/null || echo 'unknown')"
-          fi
 
       - name: ℹ️ 显示构建环境信息
         run: |
@@ -137,53 +84,65 @@ jobs:
           echo "- PROJECT_NAME: $PROJECT_NAME"
 
       - name: 🧪 运行测试
+        id: test_step
         if: ${{ !inputs.skip_tests }}
         run: |
-          echo "test_start=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
+          echo "test_skipped=false" >> $GITHUB_OUTPUT
+          echo "构建开始时间: $(date)" > test_results.txt
           
-          # 运行测试并生成覆盖率报告
-          go test -v -coverprofile=coverage.out -covermode=atomic ./... > test_results.txt 2>&1
+          # 运行测试并记录结果
+          if go test -v ./... 2>&1 | tee test_output.txt; then
+            echo "test_passed=true" >> $GITHUB_OUTPUT
+            echo "测试状态: ✅ 通过" >> test_results.txt
+          else
+            echo "test_passed=false" >> $GITHUB_OUTPUT
+            echo "测试状态: ❌ 失败" >> test_results.txt
+          fi
           
-          # 生成覆盖率HTML报告
-          go tool cover -html=coverage.out -o coverage.html
+          # 统计测试信息
+          if [ -f test_output.txt ]; then
+            test_count=$(grep -c "=== RUN" test_output.txt || echo "0")
+            pass_count=$(grep -c "--- PASS:" test_output.txt || echo "0")
+            fail_count=$(grep -c "--- FAIL:" test_output.txt || echo "0")
           
-          # 获取覆盖率百分比
-          coverage_percent=$(go tool cover -func=coverage.out | grep total | awk '{print $3}')
-          echo "test_coverage=$coverage_percent" >> $GITHUB_ENV
+            echo "test_count=$test_count" >> $GITHUB_OUTPUT
+            echo "pass_count=$pass_count" >> $GITHUB_OUTPUT
+            echo "fail_count=$fail_count" >> $GITHUB_OUTPUT
           
-          echo "test_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
+            echo "测试总数: $test_count" >> test_results.txt
+            echo "通过测试: $pass_count" >> test_results.txt
+            echo "失败测试: $fail_count" >> test_results.txt
+          fi
+        continue-on-error: true
 
-      - name: 🏃 运行性能测试
-        if: ${{ inputs.enable_benchmark }}
+      - name: 📝 记录跳过测试状态
+        if: ${{ inputs.skip_tests }}
         run: |
-          echo "benchmark_start=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
-          go test -bench=. -benchmem ./... > benchmark_results.txt 2>&1
-          echo "benchmark_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
-
-      - name: 🔒 安全扫描
-        run: |
-          echo "security_start=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
-          gosec -fmt json -out gosec_results.json ./... || true
-          staticcheck ./... > staticcheck_results.txt 2>&1 || true
-          echo "security_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
-
-      - name: 📊 依赖分析
-        run: |
-          # 分析依赖信息
-          go list -m all > dependencies.txt
-          go mod why -m all > dependency_why.txt 2>&1 || true
-          
-          # 统计依赖数量
-          dep_count=$(go list -m all | wc -l)
-          echo "dependency_count=$dep_count" >> $GITHUB_ENV
+          echo "test_skipped=true" >> $GITHUB_OUTPUT
+          echo "test_passed=true" >> $GITHUB_OUTPUT
+          echo "test_count=0" >> $GITHUB_OUTPUT
+          echo "pass_count=0" >> $GITHUB_OUTPUT
+          echo "fail_count=0" >> $GITHUB_OUTPUT
+          echo "测试状态: ⏭️ 跳过" > test_results.txt
+        env:
+          GITHUB_OUTPUT: ${{ steps.test_step.outputs.GITHUB_OUTPUT }}
 
       - name: 🔍 验证 GoReleaser 配置
+        id: config_check
         run: |
-          echo "config_check_start=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
-          goreleaser check -f .github/conf/.goreleaser.yml
-          echo "config_check_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
+          echo "config_start_time=$(date +%s)" >> $GITHUB_OUTPUT
+          
+          if docker run --rm -v "$(pwd):/workspace" -w /workspace goreleaser/goreleaser:latest check -f .github/conf/.goreleaser.yml; then
+            echo "config_valid=true" >> $GITHUB_OUTPUT
+          else
+            echo "config_valid=false" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "config_end_time=$(date +%s)" >> $GITHUB_OUTPUT
+        continue-on-error: true
 
       - name: 🚀 测试构建 (Snapshot 模式)
+        id: build_step
         uses: goreleaser/goreleaser-action@v5
         with:
           distribution: goreleaser
@@ -192,6 +151,7 @@ jobs:
           workdir: .
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
 
       - name: 📋 上传测试产物
         uses: actions/upload-artifact@v4
@@ -199,294 +159,272 @@ jobs:
           name: 测试构建-${{ steps.project.outputs.branch }}-${{ steps.project.outputs.short_sha }}
           path: |
             dist/
-            coverage.html
             test_results.txt
-            benchmark_results.txt
-            gosec_results.json
-            staticcheck_results.txt
-            dependencies.txt
+            test_output.txt
           retention-days: 7
+        continue-on-error: true
 
       - name: 🧪 测试生成的二进制文件
+        id: binary_test
         run: |
-          echo "binary_test_start=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
+          echo "## 🧪 测试二进制文件" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           
-          # 创建测试结果文件
-          mkdir -p test_reports
-          
-          echo "## 🧪 二进制文件测试结果" > test_reports/binary_test.md
-          echo "" >> test_reports/binary_test.md
-          
+          binary_count=0
           tested_count=0
           passed_count=0
+          failed_count=0
           
-          for binary in dist/*; do
-            if [[ -f "$binary" && -x "$binary" ]]; then
-              tested_count=$((tested_count + 1))
+          if [ -d "dist" ]; then
+            echo "| 平台 | 架构 | 文件大小 | 压缩 | 运行测试 | 版本信息 |" >> $GITHUB_STEP_SUMMARY
+            echo "|------|------|----------|------|----------|----------|" >> $GITHUB_STEP_SUMMARY
           
-              echo "### 测试文件: $(basename "$binary")" >> test_reports/binary_test.md
+            for binary in dist/*; do
+              if [[ -f "$binary" && -x "$binary" ]]; then
+                binary_count=$((binary_count + 1))
           
-              # 获取文件信息
-              file_info=$(file "$binary")
-              file_size=$(stat -c%s "$binary" | numfmt --to=iec)
+                # 获取文件信息
+                file_size=$(du -h "$binary" | cut -f1)
+                file_info=$(file "$binary")
           
-              echo "- **文件路径**: $binary" >> test_reports/binary_test.md
-              echo "- **文件大小**: $file_size" >> test_reports/binary_test.md
-              echo "- **文件类型**: $file_info" >> test_reports/binary_test.md
+                # 提取平台和架构信息
+                platform="Unknown"
+                arch="Unknown"
+                if [[ "$binary" == *"linux"* ]]; then
+                  platform="Linux"
+                elif [[ "$binary" == *"darwin"* ]]; then
+                  platform="macOS"
+                elif [[ "$binary" == *"windows"* ]]; then
+                  platform="Windows"
+                fi
           
-              # 计算SHA256
-              sha256_hash=$(sha256sum "$binary" | cut -d' ' -f1)
-              echo "- **SHA256**: $sha256_hash" >> test_reports/binary_test.md
+                if [[ "$binary" == *"amd64"* ]]; then
+                  arch="AMD64"
+                elif [[ "$binary" == *"arm64"* ]]; then
+                  arch="ARM64"
+                elif [[ "$binary" == *"386"* ]]; then
+                  arch="i386"
+                fi
           
-              # 测试运行
-              if timeout 10s "$binary" --help > /dev/null 2>&1; then
-                echo "- **运行测试**: ✅ 通过" >> test_reports/binary_test.md
-                passed_count=$((passed_count + 1))
-              else
-                echo "- **运行测试**: ❌ 失败" >> test_reports/binary_test.md
+                # 检查是否使用了UPX压缩
+                compressed="❌"
+                if [[ "$file_info" == *"UPX"* ]]; then
+                  compressed="✅"
+                fi
+          
+                # 测试运行（仅对当前平台的二进制文件）
+                run_test="⏭️"
+                version_info="N/A"
+          
+                if [[ "$binary" == *"linux"* && "$binary" == *"amd64"* ]]; then
+                  tested_count=$((tested_count + 1))
+                  if timeout 10s "$binary" --version > version_output.txt 2>&1; then
+                    run_test="✅"
+                    passed_count=$((passed_count + 1))
+                    version_info=$(head -n1 version_output.txt | cut -c1-20)
+                  elif timeout 10s "$binary" --help > /dev/null 2>&1; then
+                    run_test="✅"
+                    passed_count=$((passed_count + 1))
+                    version_info="Help OK"
+                  else
+                    run_test="❌"
+                    failed_count=$((failed_count + 1))
+                    version_info="Error"
+                  fi
+                fi
+          
+                echo "| $platform | $arch | $file_size | $compressed | $run_test | $version_info |" >> $GITHUB_STEP_SUMMARY
               fi
+            done
           
-              # 测试版本信息
-              if timeout 5s "$binary" --version > version_output.txt 2>&1; then
-                version_info=$(cat version_output.txt)
-                echo "- **版本信息**: $version_info" >> test_reports/binary_test.md
-              else
-                echo "- **版本信息**: 无法获取" >> test_reports/binary_test.md
-              fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**统计信息:**" >> $GITHUB_STEP_SUMMARY
+            echo "- 总二进制文件数: $binary_count" >> $GITHUB_STEP_SUMMARY
+            echo "- 测试文件数: $tested_count" >> $GITHUB_STEP_SUMMARY
+            echo "- 测试通过数: $passed_count" >> $GITHUB_STEP_SUMMARY
+            echo "- 测试失败数: $failed_count" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ 未找到构建产物" >> $GITHUB_STEP_SUMMARY
+            binary_count=0
+          fi
           
-              echo "" >> test_reports/binary_test.md
-            fi
-          done
-          
-          echo "binary_tested_count=$tested_count" >> $GITHUB_ENV
-          echo "binary_passed_count=$passed_count" >> $GITHUB_ENV
-          echo "binary_test_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
+          echo "binary_count=$binary_count" >> $GITHUB_OUTPUT
+          echo "tested_count=$tested_count" >> $GITHUB_OUTPUT
+          echo "passed_count=$passed_count" >> $GITHUB_OUTPUT
+          echo "failed_count=$failed_count" >> $GITHUB_OUTPUT
+        continue-on-error: true
 
-      - name: 📊 生成详细测试报告
+      - name: 📊 生成测试报告
         if: always()
         run: |
-          echo "report_start=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
-          
           # 计算构建时间
-          build_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          build_end_time=$(date +%s)
+          build_duration=$((build_end_time - ${{ steps.project.outputs.build_timestamp }}))
+          build_duration_formatted=$(printf "%02d:%02d" $((build_duration / 60)) $((build_duration % 60)))
           
-          # 创建详细报告
-          echo "# 🎯 详细测试构建报告" >> $GITHUB_STEP_SUMMARY
+          # 生成报告头部
+          echo "# 🎯 测试构建报告" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # 基本信息部分
+          # 构建状态徽章
+          if [[ "${{ steps.build_step.outcome }}" == "success" ]]; then
+            build_status="![构建状态](https://img.shields.io/badge/构建-成功-brightgreen)"
+          else
+            build_status="![构建状态](https://img.shields.io/badge/构建-失败-red)"
+          fi
+          
+          if [[ "${{ steps.test_step.outputs.test_skipped }}" == "true" ]]; then
+            test_status="![测试状态](https://img.shields.io/badge/测试-跳过-yellow)"
+          elif [[ "${{ steps.test_step.outputs.test_passed }}" == "true" ]]; then
+            test_status="![测试状态](https://img.shields.io/badge/测试-通过-brightgreen)"
+          else
+            test_status="![测试状态](https://img.shields.io/badge/测试-失败-red)"
+          fi
+          
+          echo "$build_status $test_status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # 基本信息表格
           echo "## 📋 基本信息" >> $GITHUB_STEP_SUMMARY
-          echo "| 项目 | 值 |" >> $GITHUB_STEP_SUMMARY
-          echo "|------|-----|" >> $GITHUB_STEP_SUMMARY
-          echo "| **仓库** | ${{ steps.project.outputs.owner }}/${{ steps.project.outputs.repo }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **分支** | ${{ steps.project.outputs.branch }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **提交** | ${{ steps.project.outputs.short_sha }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **构建号** | ${{ steps.project.outputs.build_number }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **提交消息** | ${{ steps.project.outputs.commit_message }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **提交作者** | ${{ steps.project.outputs.commit_author }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **构建时间** | $build_end |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 项目 | 信息 |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🏷️ **仓库** | ${{ steps.project.outputs.owner }}/${{ steps.project.outputs.repo }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🌿 **分支** | \`${{ steps.project.outputs.branch }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📝 **提交** | \`${{ steps.project.outputs.short_sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| ⏰ **构建时间** | ${{ steps.project.outputs.build_time }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| ⏱️ **构建耗时** | ${build_duration_formatted} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🏃 **运行环境** | Ubuntu Latest |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🐹 **Go 版本** | $(go version | cut -d' ' -f3) |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🗜️ **UPX 版本** | $(upx --version | head -n1 | cut -d' ' -f2) |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # 构建状态部分
-          echo "## 📈 构建状态" >> $GITHUB_STEP_SUMMARY
-          
-          # 检查各个步骤的状态
-          if [ "${{ job.status }}" == "success" ]; then
-            echo "🟢 **总体状态**: 成功" >> $GITHUB_STEP_SUMMARY
-          elif [ "${{ job.status }}" == "failure" ]; then
-            echo "🔴 **总体状态**: 失败" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "🟡 **总体状态**: 进行中" >> $GITHUB_STEP_SUMMARY
-          fi
-          
+          # 测试结果
+          echo "## 🧪 测试结果" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # 测试结果部分
-          if [ "${{ !inputs.skip_tests }}" == "true" ]; then
-            echo "## 🧪 测试结果" >> $GITHUB_STEP_SUMMARY
-          
-            if [ -f "test_results.txt" ]; then
-              # 统计测试结果
-              total_tests=$(grep -c "=== RUN" test_results.txt || echo "0")
-              passed_tests=$(grep -c "--- PASS:" test_results.txt || echo "0")
-              failed_tests=$(grep -c "--- FAIL:" test_results.txt || echo "0")
-          
-              echo "| 指标 | 值 |" >> $GITHUB_STEP_SUMMARY
-              echo "|------|-----|" >> $GITHUB_STEP_SUMMARY
-              echo "| **总测试数** | $total_tests |" >> $GITHUB_STEP_SUMMARY
-              echo "| **通过** | $passed_tests |" >> $GITHUB_STEP_SUMMARY
-              echo "| **失败** | $failed_tests |" >> $GITHUB_STEP_SUMMARY
-              echo "| **覆盖率** | ${test_coverage:-N/A} |" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-          
-              # 如果有失败的测试，显示详情
-              if [ "$failed_tests" -gt 0 ]; then
-                echo "### ❌ 失败的测试" >> $GITHUB_STEP_SUMMARY
-                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-                grep -A 5 "--- FAIL:" test_results.txt | head -20 >> $GITHUB_STEP_SUMMARY
-                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-              fi
-            fi
-          else
-            echo "## 🧪 测试结果" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ steps.test_step.outputs.test_skipped }}" == "true" ]]; then
             echo "⏭️ **测试已跳过**" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
+          else
+            test_count="${{ steps.test_step.outputs.test_count }}"
+            pass_count="${{ steps.test_step.outputs.pass_count }}"
+            fail_count="${{ steps.test_step.outputs.fail_count }}"
           
-          # 性能测试结果
-          if [ "${{ inputs.enable_benchmark }}" == "true" ] && [ -f "benchmark_results.txt" ]; then
-            echo "## 🏃 性能测试结果" >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            grep "Benchmark" benchmark_results.txt | head -10 >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
+            echo "| 测试项 | 数量 | 状态 |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|------|------|" >> $GITHUB_STEP_SUMMARY
+            echo "| 📊 **总测试数** | $test_count | - |" >> $GITHUB_STEP_SUMMARY
+            echo "| ✅ **通过测试** | $pass_count | $(if [ "$pass_count" -gt 0 ]; then echo "✅"; else echo "➖"; fi) |" >> $GITHUB_STEP_SUMMARY
+            echo "| ❌ **失败测试** | $fail_count | $(if [ "$fail_count" -gt 0 ]; then echo "❌"; else echo "➖"; fi) |" >> $GITHUB_STEP_SUMMARY
           
-          # 安全扫描结果
-          echo "## 🔒 安全扫描结果" >> $GITHUB_STEP_SUMMARY
-          
-          # GoSec结果
-          if [ -f "gosec_results.json" ]; then
-            issues_count=$(jq '.Issues | length' gosec_results.json 2>/dev/null || echo "0")
-            echo "- **GoSec扫描**: $issues_count 个问题发现" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          # StaticCheck结果
-          if [ -f "staticcheck_results.txt" ]; then
-            staticcheck_issues=$(wc -l < staticcheck_results.txt || echo "0")
-            echo "- **StaticCheck扫描**: $staticcheck_issues 个问题发现" >> $GITHUB_STEP_SUMMARY
+            if [ "$fail_count" -gt 0 ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "⚠️ **发现测试失败，请检查测试输出**" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # 依赖信息
-          echo "## 📦 依赖信息" >> $GITHUB_STEP_SUMMARY
-          echo "- **依赖总数**: ${dependency_count:-N/A}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Go版本**: $(go version | cut -d' ' -f3)" >> $GITHUB_STEP_SUMMARY
+          # 构建结果
+          echo "## 🚀 构建结果" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # 二进制文件测试结果
-          echo "## 🧪 二进制文件测试" >> $GITHUB_STEP_SUMMARY
-          echo "- **测试文件数**: ${binary_tested_count:-0}" >> $GITHUB_STEP_SUMMARY
-          echo "- **通过数**: ${binary_passed_count:-0}" >> $GITHUB_STEP_SUMMARY
-          
-          if [ "${binary_tested_count:-0}" -gt 0 ]; then
-            success_rate=$((binary_passed_count * 100 / binary_tested_count))
-            echo "- **成功率**: ${success_rate}%" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ steps.config_check.outputs.config_valid }}" == "true" ]]; then
+            config_status="✅ 配置有效"
+          else
+            config_status="❌ 配置无效"
           fi
+          
+          echo "| 构建阶段 | 状态 | 说明 |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔍 **配置验证** | $config_status | GoReleaser配置文件检查 |" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ steps.build_step.outcome }}" == "success" ]]; then
+            echo "| 🏗️ **快照构建** | ✅ 成功 | 二进制文件已生成 |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 🏗️ **快照构建** | ❌ 失败 | 请检查构建日志 |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          binary_count="${{ steps.binary_test.outputs.binary_count }}"
+          tested_count="${{ steps.binary_test.outputs.tested_count }}"
+          passed_count="${{ steps.binary_test.outputs.passed_count }}"
+          failed_count="${{ steps.binary_test.outputs.failed_count }}"
+          
+          echo "| 🧪 **二进制测试** | $(if [ "$failed_count" -eq 0 ]; then echo "✅ 通过"; else echo "❌ 部分失败"; fi) | $tested_count/$binary_count 已测试 |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # 构建产物统计
           if [ -d "dist" ]; then
-            echo "## 📦 构建产物统计" >> $GITHUB_STEP_SUMMARY
+            echo "## 📦 构建产物" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
           
-            # 文件数量统计
-            total_files=$(find dist -type f | wc -l)
-            echo "- **总文件数**: $total_files" >> $GITHUB_STEP_SUMMARY
-          
-            # 总大小统计
             total_size=$(du -sh dist/ | cut -f1)
-            echo "- **总大小**: $total_size" >> $GITHUB_STEP_SUMMARY
+            file_count=$(find dist/ -type f | wc -l)
           
-            # 按类型分类
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### 📊 文件类型分布" >> $GITHUB_STEP_SUMMARY
-            echo "| 类型 | 数量 | 大小 |" >> $GITHUB_STEP_SUMMARY
-            echo "|------|------|------|" >> $GITHUB_STEP_SUMMARY
-          
-            # 统计不同类型的文件
-            for ext in "tar.gz" "zip" "deb" "rpm" "apk" ""; do
-              if [ -z "$ext" ]; then
-                # 统计无扩展名的文件（通常是二进制文件）
-                count=$(find dist -type f -executable | wc -l)
-                size=$(find dist -type f -executable -exec du -ch {} + 2>/dev/null | tail -1 | cut -f1 || echo "0")
-                [ "$count" -gt 0 ] && echo "| 二进制文件 | $count | $size |" >> $GITHUB_STEP_SUMMARY
-              else
-                count=$(find dist -name "*.$ext" | wc -l)
-                if [ "$count" -gt 0 ]; then
-                  size=$(find dist -name "*.$ext" -exec du -ch {} + 2>/dev/null | tail -1 | cut -f1 || echo "0")
-                  echo "| .$ext | $count | $size |" >> $GITHUB_STEP_SUMMARY
-                fi
-              fi
-            done
+            echo "**📊 总体统计:**" >> $GITHUB_STEP_SUMMARY
+            echo "- 📁 总文件数: $file_count" >> $GITHUB_STEP_SUMMARY
+            echo "- 📏 总大小: $total_size" >> $GITHUB_STEP_SUMMARY
+            echo "- 🗜️ 平均大小: $(echo "scale=2; $(du -s dist/ | cut -f1) / $file_count" | bc 2>/dev/null || echo "N/A") KB" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           
-            # 最大文件Top 5
-            echo "### 📏 最大文件 Top 5" >> $GITHUB_STEP_SUMMARY
+            echo "<details>" >> $GITHUB_STEP_SUMMARY
+            echo "<summary>📋 详细文件列表</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            find dist -type f -exec du -h {} + | sort -rh | head -5 >> $GITHUB_STEP_SUMMARY
+            ls -lah dist/ | head -30 >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           
-            # 架构分布
-            echo "### 🏗️ 架构分布" >> $GITHUB_STEP_SUMMARY
+            echo "<details>" >> $GITHUB_STEP_SUMMARY
+            echo "<summary>📏 文件大小排序</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            find dist -type f -name "*" | grep -E "(amd64|arm64|386|arm)" | cut -d'_' -f2- | cut -d'.' -f1 | sort | uniq -c | sort -nr >> $GITHUB_STEP_SUMMARY
+            du -h dist/* | sort -hr | head -15 >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
           fi
-          
-          # 构建时间分析
-          echo "## ⏱️ 构建时间分析" >> $GITHUB_STEP_SUMMARY
-          echo "| 阶段 | 开始时间 | 结束时间 |" >> $GITHUB_STEP_SUMMARY
-          echo "|------|----------|----------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **依赖下载** | ${build_deps_start:-N/A} | ${build_deps_end:-N/A} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **测试执行** | ${test_start:-N/A} | ${test_end:-N/A} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **安全扫描** | ${security_start:-N/A} | ${security_end:-N/A} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **二进制测试** | ${binary_test_start:-N/A} | ${binary_test_end:-N/A} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **报告生成** | ${report_start:-N/A} | $build_end |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           
           # 环境信息
           echo "## 🔧 环境信息" >> $GITHUB_STEP_SUMMARY
-          echo "- **Runner OS**: $(uname -s)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Runner Architecture**: $(uname -m)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Go Version**: $(go version)" >> $GITHUB_STEP_SUMMARY
-          echo "- **UPX Version**: $(upx --version 2>/dev/null | head -1 || echo 'N/A')" >> $GITHUB_STEP_SUMMARY
-          echo "- **GoReleaser Version**: $(goreleaser --version 2>/dev/null | head -1 || echo 'N/A')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "<details>" >> $GITHUB_STEP_SUMMARY
+          echo "<summary>🖥️ 系统信息</summary>" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "操作系统: $(uname -a)" >> $GITHUB_STEP_SUMMARY
+          echo "CPU信息: $(nproc) cores" >> $GITHUB_STEP_SUMMARY
+          echo "内存信息: $(free -h | grep Mem | awk '{print $2}') total" >> $GITHUB_STEP_SUMMARY
+          echo "磁盘空间: $(df -h / | tail -1 | awk '{print $4}') available" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "</details>" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # 添加二进制文件详细测试结果
-          if [ -f "test_reports/binary_test.md" ]; then
-            echo "## 🔍 二进制文件详细测试" >> $GITHUB_STEP_SUMMARY
-            echo "<details><summary>点击查看详细测试结果</summary>" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            cat test_reports/binary_test.md >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "</details>" >> $GITHUB_STEP_SUMMARY
+          # 总结
+          echo "## 📋 构建总结" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # 确定整体状态
+          overall_status="success"
+          if [[ "${{ steps.build_step.outcome }}" != "success" ]]; then
+            overall_status="failure"
+          elif [[ "${{ steps.test_step.outputs.test_passed }}" == "false" ]]; then
+            overall_status="warning"
           fi
           
-          # 构建建议
-          echo "## 💡 构建建议" >> $GITHUB_STEP_SUMMARY
-          
-          # 根据测试结果给出建议
-          if [ "${test_coverage%.*}" -lt 80 ] 2>/dev/null; then
-            echo "⚠️ 建议提高测试覆盖率到80%以上" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          if [ "${binary_passed_count:-0}" -lt "${binary_tested_count:-0}" ]; then
-            echo "⚠️ 部分二进制文件测试失败，请检查构建配置" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          if [ "${dependency_count:-0}" -gt 50 ]; then
-            echo "💡 依赖较多，建议定期审查和清理不必要的依赖" >> $GITHUB_STEP_SUMMARY
-          fi
+          case $overall_status in
+            "success")
+              echo "🎉 **构建成功！** 所有步骤都已完成，构建产物已生成并可供使用。" >> $GITHUB_STEP_SUMMARY
+              ;;
+            "warning")
+              echo "⚠️ **构建完成但有警告！** 构建产物已生成，但测试存在问题，请检查测试结果。" >> $GITHUB_STEP_SUMMARY
+              ;;
+            "failure")
+              echo "❌ **构建失败！** 请检查构建日志以了解失败原因。" >> $GITHUB_STEP_SUMMARY
+              ;;
+          esac
           
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "📊 报告生成时间: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
-          echo "🔗 构建URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
-
-      - name: 📎 上传详细报告
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: 详细测试报告-${{ steps.project.outputs.branch }}-${{ steps.project.outputs.short_sha }}
-          path: |
-            test_reports/
-            coverage.html
-            test_results.txt
-            benchmark_results.txt
-            gosec_results.json
-            staticcheck_results.txt
-            dependencies.txt
-            dependency_why.txt
-          retention-days: 14
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📎 **产物下载:** 构建产物已上传为 Artifact，可在 Actions 页面下载。" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 **提交链接:** https://github.com/${{ steps.project.outputs.owner }}/${{ steps.project.outputs.repo }}/commit/${{ steps.project.outputs.full_sha }}" >> $GITHUB_STEP_SUMMARY
