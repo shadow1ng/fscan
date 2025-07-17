@@ -31,6 +31,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    # 设置作业级别的环境变量
+    env:
+      GITHUB_OWNER: ${{ github.repository_owner }}
+      GITHUB_REPO: ${{ github.event.repository.name }}
+      PROJECT_NAME: ${{ github.event.repository.name }}
+
     steps:
       - name: 📥 检出代码
         uses: actions/checkout@v4
@@ -69,6 +75,10 @@ jobs:
           echo "分支: ${{ steps.project.outputs.branch }}"
           echo "提交: ${{ steps.project.outputs.short_sha }}"
           echo "仓库: ${{ steps.project.outputs.owner }}/${{ steps.project.outputs.repo }}"
+          echo "环境变量:"
+          echo "- GITHUB_OWNER: $GITHUB_OWNER"
+          echo "- GITHUB_REPO: $GITHUB_REPO"
+          echo "- PROJECT_NAME: $PROJECT_NAME"
 
       - name: 🧪 运行测试
         if: ${{ !inputs.skip_tests }}
@@ -81,10 +91,6 @@ jobs:
           distribution: goreleaser
           version: latest
           args: check -f .github/conf/.goreleaser.yml
-        env:
-          GITHUB_OWNER: ${{ steps.project.outputs.owner }}
-          GITHUB_REPO: ${{ steps.project.outputs.repo }}
-          PROJECT_NAME: ${{ steps.project.outputs.repo }}
 
       - name: 🚀 测试构建 (Snapshot 模式)
         uses: goreleaser/goreleaser-action@v5
@@ -95,9 +101,6 @@ jobs:
           workdir: .
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_OWNER: ${{ steps.project.outputs.owner }}
-          GITHUB_REPO: ${{ steps.project.outputs.repo }}
-          PROJECT_NAME: ${{ steps.project.outputs.repo }}
 
       - name: 📋 上传测试产物
         uses: actions/upload-artifact@v4

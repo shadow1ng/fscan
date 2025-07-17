@@ -1,5 +1,5 @@
-# 项目名称 - 使用默认值或环境变量
-project_name: "{{ .Env.PROJECT_NAME | default .ProjectName }}"
+# 项目名称 - 直接使用环境变量
+project_name: "{{ .Env.PROJECT_NAME }}"
 
 # 构建前钩子
 before:
@@ -97,8 +97,8 @@ changelog:
 # 发布配置
 release:
   github:
-    owner: "{{ .Env.GITHUB_OWNER | default .GitHubOwner }}"
-    name: "{{ .Env.GITHUB_REPO | default .ProjectName }}"
+    owner: "{{ .Env.GITHUB_OWNER }}"
+    name: "{{ .Env.GITHUB_REPO }}"
   draft: false
   prerelease: auto
   mode: replace
@@ -111,11 +111,11 @@ release:
     
     下载对应平台的二进制文件即可使用。
     
-    **完整更新日志**: https://github.com/{{ .Env.GITHUB_OWNER | default .GitHubOwner }}/{{ .Env.GITHUB_REPO | default .ProjectName }}/compare/{{ .PreviousTag }}...{{ .Tag }}
+    **完整更新日志**: https://github.com/{{ .Env.GITHUB_OWNER }}/{{ .Env.GITHUB_REPO }}/compare/{{ .PreviousTag }}...{{ .Tag }}
     
     ---
     
-    如有问题请提交 [Issue](https://github.com/{{ .Env.GITHUB_OWNER | default .GitHubOwner }}/{{ .Env.GITHUB_REPO | default .ProjectName }}/issues) 💬
+    如有问题请提交 [Issue](https://github.com/{{ .Env.GITHUB_OWNER }}/{{ .Env.GITHUB_REPO }}/issues) 💬
 
 # 快照版本
 snapshot:
