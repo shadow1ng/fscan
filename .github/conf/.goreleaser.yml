@@ -1,7 +1,4 @@
-# GoReleaser v2 配置文件
-version: 2
-
-# 项目名称 - 直接使用环境变量
+# GoReleaser v1 配置文件
 project_name: "{{ .Env.PROJECT_NAME }}"
 
 # 构建前钩子
@@ -41,16 +38,6 @@ builds:
       - -X main.builtBy=goreleaser
     mod_timestamp: "{{ .CommitTimestamp }}"
 
-# UPX 压缩配置
-upx:
-  - ids: [default]
-    enabled: true
-    goos: ["windows", "linux"]
-    goarch: ["amd64", "386"]
-    compress: best
-    brute: false
-    lzma: true
-
 # 归档配置
 archives:
   - id: default
@@ -74,7 +61,6 @@ checksum:
 # 变更日志
 changelog:
   sort: asc
-  use: github
   filters:
     exclude:
       - "^docs:"
@@ -119,32 +105,6 @@ release:
     
     如有问题请提交 [Issue](https://github.com/{{ .Env.GITHUB_OWNER }}/{{ .Env.GITHUB_REPO }}/issues) 💬
 
-# 快照版本配置
+# 快照版本
 snapshot:
   name_template: "{{ incpatch .Version }}-dev-{{ .ShortCommit }}"
-
-# 元数据
-metadata:
-  mod_timestamp: "{{ .CommitTimestamp }}"
-
-# 通用配置
-env:
-  - GOPROXY=https://proxy.golang.org,direct
-  - GOSUMDB=sum.golang.org
-  - GOPRIVATE=
-
-# 构建钩子
-hooks:
-  pre:
-    - go test ./...
-  post:
-    - echo "构建完成"
-
-# 全局标志
-flags:
-  - -trimpath
-
-# 全局环境变量
-global_env:
-  - GO111MODULE=on
-  - CGO_ENABLED=0
