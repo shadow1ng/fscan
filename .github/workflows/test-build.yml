@@ -85,9 +85,44 @@ jobs:
 
       - name: 🔧 安装额外工具
         run: |
-          # 安装用于生成更详细报告的工具
-          go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
-          go install honnef.co/go/tools/cmd/staticcheck@latest
+          echo "开始安装额外工具..."
+
+          # 创建工具目录
+          mkdir -p $HOME/bin
+          export PATH=$HOME/bin:$PATH
+
+          # 安装gosec - 使用多种方法尝试
+          echo "安装gosec..."
+          if go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest 2>/dev/null; then
+            echo "✅ gosec安装成功（方法1）"
+            echo "gosec_available=true" >> $GITHUB_ENV
+          elif curl -sfL https://raw.githubusercontent.com/securecodewarrior/gosec/master/install.sh | sh -s -- -b $HOME/bin 2>/dev/null; then
+            echo "✅ gosec安装成功（方法2）"
+            echo "gosec_available=true" >> $GITHUB_ENV
+          else
+            echo "⚠️ gosec安装失败，将跳过gosec扫描"
+            echo "gosec_available=false" >> $GITHUB_ENV
+          fi
+
+          # 安装staticcheck
+          echo "安装staticcheck..."
+          if go install honnef.co/go/tools/cmd/staticcheck@latest; then
+            echo "✅ staticcheck安装成功"
+            echo "staticcheck_available=true" >> $GITHUB_ENV
+          else
+            echo "⚠️ staticcheck安装失败"
+            echo "staticcheck_available=false" >> $GITHUB_ENV
+          fi
+
+          # 验证安装
+          echo "验证工具安装..."
+          if [ "${gosec_available}" = "true" ] && command -v gosec >/dev/null 2>&1; then
+            echo "gosec版本: $(gosec --version 2>/dev/null || echo 'unknown')"
+          fi
+
+          if [ "${staticcheck_available}" = "true" ] && command -v staticcheck >/dev/null 2>&1; then
+            echo "staticcheck版本: $(staticcheck --version 2>/dev/null || echo 'unknown')"
+          fi
 
       - name: ℹ️ 显示构建环境信息
         run: |
