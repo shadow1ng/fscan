@@ -313,7 +313,7 @@ func readResponseBody(resp *http.Response) ([]byte, error) {
 
 	// 读取内容
 	body, err := io.ReadAll(reader)
-	if err != nil {
+	if len(body) <= 0 && err != nil {
 		return nil, fmt.Errorf("读取响应内容失败: %w", err)
 	}
 
