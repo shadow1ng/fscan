@@ -620,7 +620,7 @@ func reverseCheck(r *Reverse, timeout int64) bool {
 	isOK := bytes.Contains(resp.Body, []byte(`"message": "OK"`))
 
 	if hasData && isOK {
-		fmt.Println(apiURL)
+		Common.LogDebug(apiURL)
 		return true
 	}
 	return false

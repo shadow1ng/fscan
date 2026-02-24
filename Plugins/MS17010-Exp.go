@@ -70,7 +70,7 @@ func MS17010EXP(info *Common.HostInfo) {
 
 	// 验证shellcode有效性
 	if len(sc) < 20 {
-		fmt.Println("无效的Shellcode")
+		Common.LogError("无效的Shellcode")
 		return
 	}
 
