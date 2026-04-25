@@ -8,44 +8,114 @@ before:
     - bash .github/scripts/build-lite.sh {{ .Version }}
 
 builds:
-  # 标准版 - 全部插件
+  # 标准版 - 全部插件（全架构）
   - id: fscan
     binary: fscan
     main: .
     env:
       - CGO_ENABLED=0
-    goos: [windows, linux, darwin]
-    goarch: [amd64, arm64, "386"]
-    goarm: ["7"]
+    goos: [windows, linux, darwin, freebsd, solaris]
+    goarch: [amd64, arm64, "386", arm, mips, mips64, mipsle]
+    goarm: ["6", "7"]
+    gomips: [softfloat]
     ignore:
       - goos: darwin
         goarch: "386"
+      - goos: darwin
+        goarch: arm
+      - goos: darwin
+        goarch: mips
+      - goos: darwin
+        goarch: mips64
+      - goos: darwin
+        goarch: mipsle
       - goos: windows
         goarch: arm64
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: mips
+      - goos: windows
+        goarch: mips64
+      - goos: windows
+        goarch: mipsle
+      - goos: freebsd
+        goarch: mips
+      - goos: freebsd
+        goarch: mips64
+      - goos: freebsd
+        goarch: mipsle
+      - goos: solaris
+        goarch: "386"
+      - goos: solaris
+        goarch: arm
+      - goos: solaris
+        goarch: arm64
+      - goos: solaris
+        goarch: mips
+      - goos: solaris
+        goarch: mips64
+      - goos: solaris
+        goarch: mipsle
     flags: [-trimpath]
     ldflags: -s -w -X github.com/shadow1ng/fscan/common.version={{ .Version }} -X github.com/shadow1ng/fscan/common.commit={{ .ShortCommit }} -X github.com/shadow1ng/fscan/common.date={{ .Date }}
     mod_timestamp: "{{ .CommitTimestamp }}"
 
-  # 无本地插件版 - 排除本地模块
+  # 无本地插件版 - 排除本地模块（全架构）
   - id: fscan-nolocal
     binary: fscan
     main: .
     env:
       - CGO_ENABLED=0
-    goos: [windows, linux, darwin]
-    goarch: [amd64, arm64, "386"]
-    goarm: ["7"]
+    goos: [windows, linux, darwin, freebsd, solaris]
+    goarch: [amd64, arm64, "386", arm, mips, mips64, mipsle]
+    goarm: ["6", "7"]
+    gomips: [softfloat]
     ignore:
       - goos: darwin
         goarch: "386"
+      - goos: darwin
+        goarch: arm
+      - goos: darwin
+        goarch: mips
+      - goos: darwin
+        goarch: mips64
+      - goos: darwin
+        goarch: mipsle
       - goos: windows
         goarch: arm64
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: mips
+      - goos: windows
+        goarch: mips64
+      - goos: windows
+        goarch: mipsle
+      - goos: freebsd
+        goarch: mips
+      - goos: freebsd
+        goarch: mips64
+      - goos: freebsd
+        goarch: mipsle
+      - goos: solaris
+        goarch: "386"
+      - goos: solaris
+        goarch: arm
+      - goos: solaris
+        goarch: arm64
+      - goos: solaris
+        goarch: mips
+      - goos: solaris
+        goarch: mips64
+      - goos: solaris
+        goarch: mipsle
     flags: [-trimpath]
     tags: [no_local]
     ldflags: -s -w -X github.com/shadow1ng/fscan/common.version={{ .Version }} -X github.com/shadow1ng/fscan/common.commit={{ .ShortCommit }} -X github.com/shadow1ng/fscan/common.date={{ .Date }}
     mod_timestamp: "{{ .CommitTimestamp }}"
 
-  # WebUI版 - 带Web管理界面
+  # WebUI版 - 主流平台即可
   - id: fscan-web
     binary: fscan
     main: .
@@ -155,15 +225,17 @@ release:
     |------|------|
     | **fscan** | 标准版，包含全部插件（推荐） |
     | **fscan-nolocal** | 精简版，不含本地模块（体积更小） |
-    | **fscan-web** | WebUI版，带Web管理界面 |
+    | **fscan-web** | WebUI版，带Web管理界面（主流平台） |
 
     ### 平台支持
 
     | 平台 | 架构 |
     |------|------|
-    | Linux | x64, x32, arm64 |
+    | Linux | x64, x32, arm64, armv6, armv7, mips, mips64, mipsle |
     | Windows | x64, x32 |
     | macOS | x64, arm64 |
+    | FreeBSD | x64, x32, arm64, armv6, armv7 |
+    | Solaris | x64 |
   footer: |
     **完整更新日志**: https://github.com/{{ .Env.GITHUB_OWNER }}/{{ .Env.GITHUB_REPO }}/compare/{{ .PreviousTag }}...{{ .Tag }}
   extra_files:
