@@ -23,7 +23,7 @@ builds:
       - goos: windows
         goarch: arm64
     flags: [-trimpath]
-    ldflags: -s -w -X main.version={{ .Version }} -X main.commit={{ .ShortCommit }} -X main.date={{ .Date }} -X main.builtBy=goreleaser
+    ldflags: -s -w -X github.com/shadow1ng/fscan/common.version={{ .Version }} -X github.com/shadow1ng/fscan/common.commit={{ .ShortCommit }} -X github.com/shadow1ng/fscan/common.date={{ .Date }}
     mod_timestamp: "{{ .CommitTimestamp }}"
 
   # 无本地插件版 - 排除本地模块
@@ -42,7 +42,7 @@ builds:
         goarch: arm64
     flags: [-trimpath]
     tags: [no_local]
-    ldflags: -s -w -X main.version={{ .Version }} -X main.commit={{ .ShortCommit }} -X main.date={{ .Date }} -X main.builtBy=goreleaser
+    ldflags: -s -w -X github.com/shadow1ng/fscan/common.version={{ .Version }} -X github.com/shadow1ng/fscan/common.commit={{ .ShortCommit }} -X github.com/shadow1ng/fscan/common.date={{ .Date }}
     mod_timestamp: "{{ .CommitTimestamp }}"
 
   # WebUI版 - 带Web管理界面
@@ -61,7 +61,7 @@ builds:
         goarch: arm64
     flags: [-trimpath]
     tags: [web]
-    ldflags: -s -w -X main.version={{ .Version }} -X main.commit={{ .ShortCommit }} -X main.date={{ .Date }} -X main.builtBy=goreleaser
+    ldflags: -s -w -X github.com/shadow1ng/fscan/common.version={{ .Version }} -X github.com/shadow1ng/fscan/common.commit={{ .ShortCommit }} -X github.com/shadow1ng/fscan/common.date={{ .Date }}
     mod_timestamp: "{{ .CommitTimestamp }}"
 
 upx:

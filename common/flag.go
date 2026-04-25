@@ -69,12 +69,15 @@ func Banner() {
 	fmt.Println(bottomBorder)
 
 	// 打印版本信息
+	versionStr := fmt.Sprintf("      Fscan %s (%s %s)", version, commit, date)
+	if commit == "unknown" {
+		versionStr = fmt.Sprintf("      Fscan %s", version)
+	}
 	if flagVars.NoColor {
-		// 无色彩模式下使用普通文本
-		fmt.Printf("      Fscan Version: %s\n\n", version)
+		fmt.Printf("%s\n\n", versionStr)
 	} else {
 		c := color.New(colors[1])
-		_, _ = c.Printf("      Fscan Version: %s\n\n", version)
+		_, _ = c.Printf("%s\n\n", versionStr)
 	}
 }
 

@@ -60,7 +60,12 @@ const (
 	LogLevelBaseInfoSuccess = "base,info,success"
 )
 
-const version = "2.1.1"
+// 版本信息，通过 ldflags 注入
+var (
+	version = "2.1.1"
+	commit  = "unknown"
+	date    = "unknown"
+)
 
 // 运行时数据已迁移到Config对象中，使用GetGlobalConfig()访问
 
