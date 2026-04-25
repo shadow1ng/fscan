@@ -328,7 +328,7 @@ func LoadMultiPoc(Pocs embed.FS, pocname string) []*Poc {
 		if p, err := LoadPoc(f, Pocs); err == nil {
 			pocs = append(pocs, p)
 		} else {
-			fmt.Printf("POC加载失败 %s: %v\n", f, err)
+			common.LogError(fmt.Sprintf("POC加载失败 %s: %v", f, err))
 		}
 	}
 	return pocs
@@ -367,7 +367,7 @@ func LoadPoc(fileName string, Pocs embed.FS) (*Poc, error) {
 func SelectPoc(Pocs embed.FS, pocname string) []string {
 	entries, err := Pocs.ReadDir("pocs")
 	if err != nil {
-		fmt.Printf("读取POC目录失败: %v\n", err)
+		common.LogError(fmt.Sprintf("读取POC目录失败: %v", err))
 	}
 
 	var foundFiles []string
