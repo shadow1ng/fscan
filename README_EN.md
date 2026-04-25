@@ -4,7 +4,7 @@
 
 Comprehensive intranet scanning tool for automated vulnerability assessment.
 
-**Version**: 2.1.1 | **Website**: https://fscan.club/
+**Version**: 2.1.1
 
 ## Features
 

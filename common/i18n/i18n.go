@@ -83,10 +83,6 @@ func Tr(key string, args ...interface{}) string {
 		TemplateData: data,
 	})
 	if err != nil || msg == "" {
-		// 回退：尝试用fmt.Sprintf格式化key本身
-		if len(args) > 0 {
-			return fmt.Sprintf(key, args...)
-		}
 		return key
 	}
 	return msg
