@@ -87,7 +87,6 @@ archives:
       {{- else if eq .Arch "386" }}x32
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-      {{- if eq .Os "windows" }}.exe{{ end }}
 
   # 无本地插件版归档
   - id: fscan-nolocal
@@ -102,7 +101,6 @@ archives:
       {{- else if eq .Arch "386" }}x32
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-      {{- if eq .Os "windows" }}.exe{{ end }}
 
   # WebUI版归档
   - id: fscan-web
@@ -117,7 +115,6 @@ archives:
       {{- else if eq .Arch "386" }}x32
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-      {{- if eq .Os "windows" }}.exe{{ end }}
 
 checksum:
   name_template: 'checksums.txt'
