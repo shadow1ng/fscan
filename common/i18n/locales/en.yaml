@@ -426,6 +426,8 @@ telnet_unauth_rce:
   other: "Telnet {{.Arg1}} unauthorized RCE [{{.Arg2}}] {{.Arg3}}"
 telnet_credential_rce:
   other: "Telnet {{.Arg1}} {{.Arg2}}:{{.Arg3}} RCE verified [{{.Arg4}}] {{.Arg5}}"
+telnet_cve202624061:
+  other: "Telnet {{.Arg1}} CVE-2026-24061 Telnetd Authentication Bypass (user: {{.Arg2}}) {{.Arg3}}"
 cassandra_credential:
   other: "Cassandra {{.Arg1}} {{.Arg2}}:{{.Arg3}}"
 cassandra_service:
