@@ -426,6 +426,8 @@ telnet_unauth_rce:
   other: "Telnet {{.Arg1}} 未授权访问且可执行命令 [{{.Arg2}}] {{.Arg3}}"
 telnet_credential_rce:
   other: "Telnet {{.Arg1}} {{.Arg2}}:{{.Arg3}} 命令执行验证成功 [{{.Arg4}}] {{.Arg5}}"
+telnet_cve202624061:
+  other: "Telnet {{.Arg1}} CVE-2026-24061 Telnet认证绕过 (用户: {{.Arg2}}) {{.Arg3}}"
 cassandra_credential:
   other: "Cassandra {{.Arg1}} {{.Arg2}}:{{.Arg3}}"
 cassandra_service:
