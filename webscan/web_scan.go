@@ -40,21 +40,25 @@ var (
 //go:embed pocs
 var pocsFS embed.FS
 var (
-	once       sync.Once
-	allPocs    []*lib.Poc
-	cachedPocPath string // 缓存POC路径，用于initPocs
+	pocMu         sync.Mutex
+	pocLoaded     bool
+	allPocs       []*lib.Poc
+	cachedPocPath string
 )
 
 // WebScan 执行Web漏洞扫描
-func WebScan(info *common.HostInfo, cfg *common.Config) {
+func WebScan(ctx context.Context, info *common.HostInfo, cfg *common.Config) {
 	// 初始化POC配置（用于CEL回调函数）
 	lib.InitPOCConfig(cfg.DNSLog)
 
-	// 缓存POC路径供initPocs使用
-	cachedPocPath = cfg.POC.PocPath
-
-	// 初始化POC
-	once.Do(initPocs)
+	// 加载POC（互斥保护，避免并发 race）
+	pocMu.Lock()
+	if !pocLoaded {
+		cachedPocPath = cfg.POC.PocPath
+		initPocs()
+		pocLoaded = true
+	}
+	pocMu.Unlock()
 
 	// 验证输入
 	if info == nil {
@@ -74,9 +78,12 @@ func WebScan(info *common.HostInfo, cfg *common.Config) {
 		return
 	}
 
-	// 使用带超时的上下文
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
+	// 超时兜底：如果调用方 ctx 没有 deadline，加一个默认超时
+	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, defaultTimeout)
+		defer cancel()
+	}
 
 	// 根据扫描策略执行POC
 	if cfg.POC.PocName == "" && len(info.Info) == 0 {

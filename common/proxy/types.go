@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -95,9 +96,10 @@ type ProxyManager interface {
 //
 //nolint:revive // 保持与现有代码的向后兼容性
 type ProxyStats struct {
-	TotalConnections   int64         `json:"total_connections"`
-	ActiveConnections  int64         `json:"active_connections"`
-	FailedConnections  int64         `json:"failed_connections"`
+	TotalConnections   int64  `json:"total_connections"`
+	ActiveConnections  int64  `json:"active_connections"`
+	FailedConnections  int64  `json:"failed_connections"`
+	mu                 sync.Mutex    `json:"-"`
 	AverageConnectTime time.Duration `json:"average_connect_time"`
 	LastConnectTime    time.Time     `json:"last_connect_time"`
 	LastError          string        `json:"last_error,omitempty"`

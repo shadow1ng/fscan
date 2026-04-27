@@ -159,7 +159,7 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 	}
 
 	// 执行指纹识别（合并原始响应和跳转后响应的指纹）
-	fingerprints := p.identifyFingerprintsMulti(info, baseURL, checkDataList, config)
+	fingerprints := p.identifyFingerprintsMulti(ctx, info, baseURL, checkDataList, config)
 
 	return title, statusCode, contentLen, server, fingerprints, displayURL, nil
 }
@@ -188,20 +188,20 @@ func (p *WebTitlePlugin) resolveRedirectURL(baseURL, location string) string {
 }
 
 // identifyFingerprintsMulti 识别多个响应的指纹并合并
-func (p *WebTitlePlugin) identifyFingerprintsMulti(info *common.HostInfo, baseURL string, checkDataList []WebScan.CheckDatas, config *common.Config) []string {
+func (p *WebTitlePlugin) identifyFingerprintsMulti(ctx context.Context, info *common.HostInfo, baseURL string, checkDataList []WebScan.CheckDatas, config *common.Config) []string {
 	// 调用指纹识别
 	fingerprints := WebScan.InfoCheck(baseURL, &checkDataList)
 
 	// 非全量模式下，基于指纹触发POC扫描
 	if !config.POC.Full && !config.POC.Disabled {
-		p.triggerPocScan(info, fingerprints, config)
+		p.triggerPocScan(ctx, info, fingerprints, config)
 	}
 
 	return fingerprints
 }
 
 // triggerPocScan 基于指纹触发POC扫描
-func (p *WebTitlePlugin) triggerPocScan(info *common.HostInfo, fingerprints []string, config *common.Config) {
+func (p *WebTitlePlugin) triggerPocScan(ctx context.Context, info *common.HostInfo, fingerprints []string, config *common.Config) {
 	target := info.Target()
 
 	// 无指纹，跳过
@@ -219,7 +219,7 @@ func (p *WebTitlePlugin) triggerPocScan(info *common.HostInfo, fingerprints []st
 	// 基于指纹执行POC扫描
 	common.LogDebug(fmt.Sprintf("WebTitle %s 触发指纹POC扫描: %v", target, fingerprints))
 	info.Info = fingerprints
-	WebScan.WebScan(info, config)
+	WebScan.WebScan(ctx, info, config)
 }
 
 // formatHeaders 将 HTTP Header 格式化为字符串

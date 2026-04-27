@@ -264,11 +264,16 @@ func (d *directDialer) DialContext(ctx context.Context, network, address string)
 	conn, err := dialer.DialContext(ctx, network, address)
 
 	duration := time.Since(start)
+
+	d.stats.mu.Lock()
 	d.stats.LastConnectTime = start
+	d.stats.mu.Unlock()
 
 	if err != nil {
 		atomic.AddInt64(&d.stats.FailedConnections, 1)
+		d.stats.mu.Lock()
 		d.stats.LastError = err.Error()
+		d.stats.mu.Unlock()
 		return nil, NewProxyError(ErrTypeConnection, ErrMsgDirectConnFailed, ErrCodeDirectConnFailed, err)
 	}
 
@@ -323,15 +328,22 @@ func (s *socks5Dialer) DialContext(ctx context.Context, network, address string)
 	select {
 	case <-dialCtx.Done():
 		atomic.AddInt64(&s.stats.FailedConnections, 1)
+		s.stats.mu.Lock()
 		s.stats.LastError = dialCtx.Err().Error()
+		s.stats.mu.Unlock()
 		return nil, NewProxyError(ErrTypeTimeout, ErrMsgSOCKS5ConnTimeout, ErrCodeSOCKS5ConnTimeout, dialCtx.Err())
 	case result := <-connChan:
 		duration := time.Since(start)
+
+		s.stats.mu.Lock()
 		s.stats.LastConnectTime = start
+		s.stats.mu.Unlock()
 
 		if result.err != nil {
 			atomic.AddInt64(&s.stats.FailedConnections, 1)
+			s.stats.mu.Lock()
 			s.stats.LastError = result.err.Error()
+			s.stats.mu.Unlock()
 			return nil, NewProxyError(ErrTypeConnection, ErrMsgSOCKS5ConnFailed, ErrCodeSOCKS5ConnFailed, result.err)
 		}
 
@@ -347,7 +359,8 @@ func (s *socks5Dialer) DialContext(ctx context.Context, network, address string)
 
 // updateAverageConnectTime 更新平均连接时间
 func (d *directDialer) updateAverageConnectTime(duration time.Duration) {
-	// 简单的移动平均
+	d.stats.mu.Lock()
+	defer d.stats.mu.Unlock()
 	if d.stats.AverageConnectTime == 0 {
 		d.stats.AverageConnectTime = duration
 	} else {
@@ -356,7 +369,8 @@ func (d *directDialer) updateAverageConnectTime(duration time.Duration) {
 }
 
 func (s *socks5Dialer) updateAverageConnectTime(duration time.Duration) {
-	// 简单的移动平均
+	s.stats.mu.Lock()
+	defer s.stats.mu.Unlock()
 	if s.stats.AverageConnectTime == 0 {
 		s.stats.AverageConnectTime = duration
 	} else {
