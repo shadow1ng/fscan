@@ -36,12 +36,11 @@ func NewSSHPlugin() *SSHPlugin {
 // Scan 执行SSH扫描
 func (p *SSHPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
-	state := session.State
 	target := info.Target()
 
 	// 如果指定了SSH密钥，优先使用密钥认证
 	if config.Credentials.SSHKeyPath != "" {
-		if result := p.scanWithKey(ctx, info, config, state); result != nil && result.Success {
+		if result := p.scanWithKey(ctx, info, session); result != nil && result.Success {
 			common.LogVuln(i18n.Tr("ssh_key_auth_success", target, result.Username)) //nolint:govet
 			return result
 		}
@@ -49,7 +48,7 @@ func (p *SSHPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 
 	// 如果禁用暴力破解，只做服务识别
 	if config.DisableBrute {
-		return p.identifyService(info, config, state)
+		return p.identifyService(ctx, info, session)
 	}
 
 	// 生成测试凭据
@@ -65,7 +64,7 @@ func (p *SSHPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	}
 
 	// 使用公共框架进行并发凭据测试
-	authFn := p.createAuthFunc(info, config, state)
+	authFn := p.createAuthFunc(info, session)
 	testConfig := DefaultConcurrentTestConfig(config)
 
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "ssh", testConfig)
@@ -79,14 +78,15 @@ func (p *SSHPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 }
 
 // createAuthFunc 创建SSH认证函数
-func (p *SSHPlugin) createAuthFunc(info *common.HostInfo, config *common.Config, state *common.State) AuthFunc {
+func (p *SSHPlugin) createAuthFunc(info *common.HostInfo, session *common.ScanSession) AuthFunc {
 	return func(ctx context.Context, cred Credential) *AuthResult {
-		return p.doSSHAuth(ctx, info, cred, config, state)
+		return p.doSSHAuth(ctx, info, cred, session)
 	}
 }
 
 // doSSHAuth 执行SSH认证
-func (p *SSHPlugin) doSSHAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
+func (p *SSHPlugin) doSSHAuth(ctx context.Context, info *common.HostInfo, cred Credential, session *common.ScanSession) *AuthResult {
+	config := session.Config
 	target := info.Target()
 
 	// 创建SSH配置
@@ -113,9 +113,8 @@ func (p *SSHPlugin) doSSHAuth(ctx context.Context, info *common.HostInfo, cred C
 	}
 
 	// 建立TCP连接
-	conn, err := common.WrapperTcpWithTimeout("tcp", target, config.Timeout)
+	conn, err := session.DialTCP(ctx, "tcp", target, config.Timeout)
 	if err != nil {
-		state.IncrementTCPFailedPacketCount()
 		return &AuthResult{
 			Success:   false,
 			ErrorType: classifySSHErrorType(err),
@@ -127,7 +126,6 @@ func (p *SSHPlugin) doSSHAuth(ctx context.Context, info *common.HostInfo, cred C
 	sshConn, chans, reqs, err := ssh.NewClientConn(conn, target, sshConfig)
 	if err != nil {
 		_ = conn.Close()
-		state.IncrementTCPFailedPacketCount()
 		return &AuthResult{
 			Success:   false,
 			ErrorType: classifySSHErrorType(err),
@@ -138,7 +136,6 @@ func (p *SSHPlugin) doSSHAuth(ctx context.Context, info *common.HostInfo, cred C
 	// 创建SSH客户端
 	client := ssh.NewClient(sshConn, chans, reqs)
 
-	state.IncrementTCPSuccessPacketCount()
 	return &AuthResult{
 		Success:   true,
 		Conn:      &sshClientWrapper{client},
@@ -181,7 +178,8 @@ func classifySSHErrorType(err error) ErrorType {
 }
 
 // scanWithKey 使用SSH私钥扫描
-func (p *SSHPlugin) scanWithKey(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *SSHPlugin) scanWithKey(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
 	keyData, err := os.ReadFile(config.Credentials.SSHKeyPath)
 	if err != nil {
 		common.LogError(i18n.Tr("ssh_key_read_failed", err)) //nolint:govet
@@ -206,7 +204,7 @@ func (p *SSHPlugin) scanWithKey(ctx context.Context, info *common.HostInfo, conf
 			KeyData:  keyData,
 		}
 
-		result := p.doSSHAuth(ctx, info, cred, config, state)
+		result := p.doSSHAuth(ctx, info, cred, session)
 		if result.Success {
 			if result.Conn != nil {
 				_ = result.Conn.Close()
@@ -224,12 +222,11 @@ func (p *SSHPlugin) scanWithKey(ctx context.Context, info *common.HostInfo, conf
 }
 
 // identifyService 服务识别
-func (p *SSHPlugin) identifyService(info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *SSHPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
-	conn, err := common.SafeTCPDial(target, config.Timeout)
+	conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
 	if err != nil {
-		state.IncrementTCPFailedPacketCount()
 		return &ScanResult{
 			Success: false,
 			Service: "ssh",
@@ -238,8 +235,7 @@ func (p *SSHPlugin) identifyService(info *common.HostInfo, config *common.Config
 	}
 	defer func() { _ = conn.Close() }()
 
-	if banner := p.readSSHBanner(conn, config); banner != "" {
-		state.IncrementTCPSuccessPacketCount()
+	if banner := p.readSSHBanner(conn, session.Config); banner != "" {
 		common.LogSuccess(i18n.Tr("ssh_service_identified", target, banner)) //nolint:govet
 		return &ScanResult{
 			Type:    plugins.ResultTypeService,
@@ -249,7 +245,6 @@ func (p *SSHPlugin) identifyService(info *common.HostInfo, config *common.Config
 		}
 	}
 
-	state.IncrementTCPFailedPacketCount()
 	return &ScanResult{
 		Success: false,
 		Service: "ssh",

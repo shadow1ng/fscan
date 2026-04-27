@@ -62,14 +62,14 @@ func (s *AliveScanStrategy) Execute(_ context.Context, session *common.ScanSessi
 	}
 
 	// 执行存活探测
-	s.performAliveScan(info, session.Config, session.State)
+	s.performAliveScan(info, session)
 
 	// 输出统计信息
 	s.outputStats()
 }
 
 // performAliveScan 执行存活探测
-func (s *AliveScanStrategy) performAliveScan(info common.HostInfo, config *common.Config, state *common.State) {
+func (s *AliveScanStrategy) performAliveScan(info common.HostInfo, session *common.ScanSession) {
 	// 解析目标主机
 	fv := common.GetFlagVars()
 	hosts, err := parsers.ParseIP(info.Host, fv.HostsFile, fv.ExcludeHosts)
@@ -90,7 +90,7 @@ func (s *AliveScanStrategy) performAliveScan(info common.HostInfo, config *commo
 
 
 	// 执行存活检测
-	aliveList := CheckLive(hosts, false, config, state) // 使用ICMP探测
+	aliveList := CheckLive(hosts, false, session) // 使用ICMP探测
 
 	// 更新统计信息
 	s.stats.AliveHosts = len(aliveList)

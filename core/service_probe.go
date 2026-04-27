@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -70,13 +71,14 @@ type Service struct {
 
 // Info 定义单个端口探测的上下文信息
 type Info struct {
-	Address       string         // 目标IP地址
-	Port          int            // 目标端口
-	Conn          net.Conn       // 网络连接
-	Result        Result         // 探测结果
-	Found         bool           // 是否成功识别服务
-	config        *common.Config // 配置引用
-	readTimeoutMS int            // 当前读取超时时间（毫秒）
+	Address       string              // 目标IP地址
+	Port          int                 // 目标端口
+	Conn          net.Conn            // 网络连接
+	Result        Result              // 探测结果
+	Found         bool                // 是否成功识别服务
+	config        *common.Config      // 配置引用
+	session       *common.ScanSession // 会话引用
+	readTimeoutMS int                 // 当前读取超时时间（毫秒）
 }
 
 // SmartPortInfoScanner 智能服务识别器：保持nmap准确性，优化网络交互
@@ -86,24 +88,27 @@ type SmartPortInfoScanner struct {
 	Conn    net.Conn
 	Timeout time.Duration
 	info    *Info
-	config  *common.Config // 配置引用
+	config  *common.Config      // 配置引用
+	session *common.ScanSession // 会话引用
 }
 
 // 预定义的基础探测器已在PortFinger.go中定义，这里不再重复定义
 
 // NewSmartPortInfoScanner 创建智能服务识别器
-func NewSmartPortInfoScanner(addr string, port int, conn net.Conn, timeout time.Duration, config *common.Config) *SmartPortInfoScanner {
+func NewSmartPortInfoScanner(addr string, port int, conn net.Conn, timeout time.Duration, config *common.Config, session *common.ScanSession) *SmartPortInfoScanner {
 	return &SmartPortInfoScanner{
 		Address: addr,
 		Port:    port,
 		Conn:    conn,
 		Timeout: timeout,
 		config:  config,
+		session: session,
 		info: &Info{
 			Address: addr,
 			Port:    port,
 			Conn:    conn,
 			config:  config,
+			session: session,
 			Result: Result{
 				Service: Service{},
 			},
@@ -251,7 +256,7 @@ func (s *SmartPortInfoScanner) reconnectIfNeeded() {
 	}
 
 	// 重新建立连接
-	newConn, err := common.WrapperTcpWithTimeout("tcp", fmt.Sprintf("%s:%d", s.Address, s.Port), s.Timeout)
+	newConn, err := s.session.DialTCP(context.Background(), "tcp", fmt.Sprintf("%s:%d", s.Address, s.Port), s.Timeout)
 	if err != nil {
 		return
 	}
@@ -511,7 +516,7 @@ func (i *Info) Write(msg []byte) error {
 		_ = oldConn.Close()
 
 		// 尝试重新连接 - 支持SOCKS5代理
-		newConn, retryErr := common.WrapperTcpWithTimeout("tcp", fmt.Sprintf("%s:%d", i.Address, i.Port), time.Duration(6)*time.Second)
+		newConn, retryErr := i.session.DialTCP(context.Background(), "tcp", fmt.Sprintf("%s:%d", i.Address, i.Port), time.Duration(6)*time.Second)
 		if retryErr != nil {
 			return retryErr
 		}

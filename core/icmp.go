@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -39,7 +40,9 @@ var pingErrorKeywords = []string{
 
 // CheckLive 检测主机存活状态
 // 支持 ICMP/Ping 探测，并在响应率过低时自动启用 TCP 补充探测
-func CheckLive(hostslist []string, Ping bool, config *common.Config, state *common.State) []string {
+func CheckLive(hostslist []string, Ping bool, session *common.ScanSession) []string {
+	config := session.Config
+	state := session.State
 	// 创建局部WaitGroup
 	var livewg sync.WaitGroup
 
@@ -68,7 +71,7 @@ func CheckLive(hostslist []string, Ping bool, config *common.Config, state *comm
 
 	// TCP 补充探测：当 ICMP/Ping 响应率过低时自动启用
 	// 这对防火墙过滤 ICMP 的环境特别有用
-	aliveHosts = tcpSupplementaryProbe(hostslist, aliveHosts, config)
+	aliveHosts = tcpSupplementaryProbe(hostslist, aliveHosts, session)
 
 	// 输出存活统计信息
 	printAliveStats(aliveHosts, hostslist)
@@ -78,7 +81,7 @@ func CheckLive(hostslist []string, Ping bool, config *common.Config, state *comm
 
 // tcpSupplementaryProbe TCP 补充探测
 // 当 ICMP 响应率过低时（<10%），对未响应主机进行 TCP 探测
-func tcpSupplementaryProbe(allHosts []string, aliveHosts []string, config *common.Config) []string {
+func tcpSupplementaryProbe(allHosts []string, aliveHosts []string, session *common.ScanSession) []string {
 	totalHosts := len(allHosts)
 	if totalHosts == 0 {
 		return aliveHosts
@@ -102,7 +105,7 @@ func tcpSupplementaryProbe(allHosts []string, aliveHosts []string, config *commo
 	common.LogInfo(i18n.Tr("tcp_probe_low_icmp_rate", fmt.Sprintf("%.1f%%", responseRate*100), len(unrespondedHosts)))
 
 	// 执行 TCP 补充探测
-	tcpAliveHosts := runTcpProbeForHosts(unrespondedHosts, config)
+	tcpAliveHosts := runTcpProbeForHosts(unrespondedHosts, session)
 
 	// 合并结果
 	if len(tcpAliveHosts) > 0 {
@@ -682,10 +685,10 @@ const tcpProbeThreshold = 0.1 // 10%
 
 // tcpProbeAlive 使用 TCP 探测主机是否存活
 // 尝试连接常用端口，任一端口响应即认为存活
-func tcpProbeAlive(host string) bool {
+func tcpProbeAlive(session *common.ScanSession, host string) bool {
 	for _, port := range tcpProbeCommonPorts {
 		addr := fmt.Sprintf("%s:%d", host, port)
-		conn, err := common.WrapperTcpWithTimeout("tcp", addr, tcpProbeTimeout)
+		conn, err := session.DialTCP(context.Background(), "tcp", addr, tcpProbeTimeout)
 		if err == nil {
 			_ = conn.Close()
 			return true
@@ -696,7 +699,8 @@ func tcpProbeAlive(host string) bool {
 
 // runTcpProbeForHosts 对指定主机列表进行 TCP 补充探测
 // 返回存活的主机列表
-func runTcpProbeForHosts(hosts []string, config *common.Config) []string {
+func runTcpProbeForHosts(hosts []string, session *common.ScanSession) []string {
+	config := session.Config
 	if len(hosts) == 0 {
 		return nil
 	}
@@ -722,7 +726,7 @@ func runTcpProbeForHosts(hosts []string, config *common.Config) []string {
 				wg.Done()
 			}()
 
-			if tcpProbeAlive(h) {
+			if tcpProbeAlive(session, h) {
 				mu.Lock()
 				aliveHosts = append(aliveHosts, h)
 				mu.Unlock()

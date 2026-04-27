@@ -36,7 +36,6 @@ func NewMS17010Plugin() *MS17010Plugin {
 // Scan 执行MS17-010扫描
 func (p *MS17010Plugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
-	state := session.State
 	// 如果禁用暴力破解，也禁用漏洞检测
 	if config.DisableBrute {
 		return &ScanResult{
@@ -58,7 +57,7 @@ func (p *MS17010Plugin) Scan(ctx context.Context, info *common.HostInfo, session
 	}
 
 	// 执行MS17010漏洞检测
-	vulnerable, osVersion, err := p.checkMS17010Vulnerability(info.Host, config, state)
+	vulnerable, osVersion, err := p.checkMS17010Vulnerability(ctx, info.Host, session)
 	if err != nil {
 		return &ScanResult{
 			Success: false,
@@ -90,7 +89,8 @@ func (p *MS17010Plugin) Scan(ctx context.Context, info *common.HostInfo, session
 }
 
 // Exploit 执行MS17-010漏洞利用
-func (p *MS17010Plugin) Exploit(ctx context.Context, info *common.HostInfo, creds Credential, config *common.Config) *ExploitResult {
+func (p *MS17010Plugin) Exploit(ctx context.Context, info *common.HostInfo, creds Credential, session *common.ScanSession) *ExploitResult {
+	config := session.Config
 	target := info.Target()
 	common.LogSuccess(i18n.Tr("ms17010_start", target))
 
@@ -98,7 +98,7 @@ func (p *MS17010Plugin) Exploit(ctx context.Context, info *common.HostInfo, cred
 	output.WriteString(fmt.Sprintf("=== MS17-010漏洞利用结果 - %s ===\n", target))
 
 	// 首先确认漏洞存在
-	vulnerable, osVersion, err := p.checkMS17010Vulnerability(info.Host, config, nil)
+	vulnerable, osVersion, err := p.checkMS17010Vulnerability(ctx, info.Host, session)
 	if err != nil {
 		output.WriteString(fmt.Sprintf("\n[漏洞检测失败] %v\n", err))
 		return &ExploitResult{
@@ -123,7 +123,7 @@ func (p *MS17010Plugin) Exploit(ctx context.Context, info *common.HostInfo, cred
 	}
 
 	// 检测DOUBLEPULSAR后门
-	hasBackdoor := p.checkDoublePulsar(info.Host, config)
+	hasBackdoor := p.checkDoublePulsar(ctx, info.Host, session)
 	if hasBackdoor {
 		output.WriteString("\n[后门检测] ⚠️  发现DOUBLEPULSAR后门\n")
 	} else {
@@ -136,7 +136,7 @@ func (p *MS17010Plugin) Exploit(ctx context.Context, info *common.HostInfo, cred
 		output.WriteString("[利用状态] 开始执行EternalBlue攻击...\n")
 
 		// 执行实际的MS17010利用
-		err = p.executeMS17010Exploit(info, config)
+		err = p.executeMS17010Exploit(info, session)
 		if err != nil {
 			output.WriteString(fmt.Sprintf("[利用结果] ❌ 利用失败: %v\n", err))
 			return &ExploitResult{
@@ -284,18 +284,14 @@ func init() {
 }
 
 // checkMS17010Vulnerability 检测MS17-010漏洞 (从原始MS17010.go复制和适配)
-func (p *MS17010Plugin) checkMS17010Vulnerability(ip string, config *common.Config, state *common.State) (bool, string, error) {
-	// 使用统一TCP包装器，支持代理和限流
-	conn, err := common.WrapperTcpWithTimeout("tcp", ip+":445", config.Timeout)
+func (p *MS17010Plugin) checkMS17010Vulnerability(ctx context.Context, ip string, session *common.ScanSession) (bool, string, error) {
+	conn, err := session.DialTCP(ctx, "tcp", ip+":445", session.Config.Timeout)
 	if err != nil {
-		if state != nil {
-			state.IncrementTCPFailedPacketCount()
-		}
 		return false, "", fmt.Errorf("连接错误: %w", err)
 	}
 	defer func() { _ = conn.Close() }()
 
-	if err = conn.SetDeadline(time.Now().Add(config.Timeout)); err != nil {
+	if err = conn.SetDeadline(time.Now().Add(session.Config.Timeout)); err != nil {
 		return false, "", fmt.Errorf("设置超时错误: %w", err)
 	}
 
@@ -383,29 +379,22 @@ func (p *MS17010Plugin) checkMS17010Vulnerability(ip string, config *common.Conf
 
 	// 漏洞检测 - 关键检查点
 	if reply[9] == 0x05 && reply[10] == 0x02 && reply[11] == 0x00 && reply[12] == 0xc0 {
-		if state != nil {
-			state.IncrementTCPSuccessPacketCount()
-		}
 		return true, osVersion, nil
 	}
 
-	if state != nil {
-		state.IncrementTCPSuccessPacketCount()
-	}
 	return false, osVersion, nil
 }
 
 // checkDoublePulsar 检测DOUBLEPULSAR后门
-func (p *MS17010Plugin) checkDoublePulsar(ip string, config *common.Config) bool {
-	// 使用统一TCP包装器，支持代理和限流
-	conn, err := common.WrapperTcpWithTimeout("tcp", ip+":445", config.Timeout)
+func (p *MS17010Plugin) checkDoublePulsar(ctx context.Context, ip string, session *common.ScanSession) bool {
+	conn, err := session.DialTCP(ctx, "tcp", ip+":445", session.Config.Timeout)
 	if err != nil {
 		return false
 	}
 	defer func() { _ = conn.Close() }()
 
 	// 简化的后门检测逻辑
-	vulnerable, _, err := p.checkMS17010Vulnerability(ip, config, nil)
+	vulnerable, _, err := p.checkMS17010Vulnerability(ctx, ip, session)
 	if err != nil || !vulnerable {
 		return false
 	}
@@ -416,8 +405,8 @@ func (p *MS17010Plugin) checkDoublePulsar(ip string, config *common.Config) bool
 }
 
 // executeMS17010Exploit 执行MS17010漏洞利用 (简化版，保留接口)
-func (p *MS17010Plugin) executeMS17010Exploit(info *common.HostInfo, config *common.Config) error {
-	// address := info.Host + ":445" // 暂时不使用，为了保持原始复杂度
+func (p *MS17010Plugin) executeMS17010Exploit(info *common.HostInfo, session *common.ScanSession) error {
+	config := session.Config
 	var sc string
 
 	// 根据不同类型选择shellcode (从MS17010-Exp.go复制)

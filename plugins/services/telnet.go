@@ -56,14 +56,14 @@ func (p *TelnetPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 	target := info.Target()
 
 	if config.DisableBrute {
-		return p.identifyService(ctx, info, config, state)
+		return p.identifyService(ctx, info, session)
 	}
 
 	// 检测未授权访问
-	if result := p.testUnauthAccess(ctx, info, config, state); result != nil && result.Success {
+	if result := p.testUnauthAccess(ctx, info, session); result != nil && result.Success {
 		common.LogVuln(i18n.Tr("telnet_service", target, result.Banner))
 		// 验证命令执行能力
-		if ok, osType, evidence := p.verifyCommandExecution(ctx, info, "", "", config, state); ok {
+		if ok, osType, evidence := p.verifyCommandExecution(ctx, info, "", "", session); ok {
 			common.LogVuln(i18n.Tr("telnet_unauth_rce", target, osType, evidence))
 		}
 		return result
@@ -103,7 +103,7 @@ func (p *TelnetPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 	}
 
 	// 使用公共框架进行并发凭据测试
-	authFn := p.createAuthFunc(info, config, state)
+	authFn := p.createAuthFunc(info, session)
 	testConfig := DefaultConcurrentTestConfig(config)
 
 	result := TestCredentialsConcurrently(ctx, creds, authFn, "telnet", testConfig)
@@ -111,7 +111,7 @@ func (p *TelnetPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 	if result.Success {
 		common.LogVuln(i18n.Tr("telnet_credential", target, result.Username, result.Password))
 		// 验证命令执行能力
-		if ok, osType, evidence := p.verifyCommandExecution(ctx, info, result.Username, result.Password, config, state); ok {
+		if ok, osType, evidence := p.verifyCommandExecution(ctx, info, result.Username, result.Password, session); ok {
 			common.LogVuln(i18n.Tr("telnet_credential_rce", target, result.Username, result.Password, osType, evidence))
 		}
 	}
@@ -120,22 +120,21 @@ func (p *TelnetPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 }
 
 // createAuthFunc 创建Telnet认证函数
-func (p *TelnetPlugin) createAuthFunc(info *common.HostInfo, config *common.Config, state *common.State) AuthFunc {
+func (p *TelnetPlugin) createAuthFunc(info *common.HostInfo, session *common.ScanSession) AuthFunc {
 	return func(ctx context.Context, cred Credential) *AuthResult {
-		return p.doTelnetAuth(ctx, info, cred, config, state)
+		return p.doTelnetAuth(ctx, info, cred, session)
 	}
 }
 
 // doTelnetAuth 执行Telnet认证
-func (p *TelnetPlugin) doTelnetAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
+func (p *TelnetPlugin) doTelnetAuth(ctx context.Context, info *common.HostInfo, cred Credential, session *common.ScanSession) *AuthResult {
 	target := info.Target()
 
 	resultChan := make(chan *AuthResult, 1)
 
 	go func() {
-		conn, err := common.WrapperTcpWithTimeout("tcp", target, config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
 		if err != nil {
-			state.IncrementTCPFailedPacketCount()
 			resultChan <- &AuthResult{
 				Success:   false,
 				ErrorType: classifyTelnetErrorType(err),
@@ -144,10 +143,9 @@ func (p *TelnetPlugin) doTelnetAuth(ctx context.Context, info *common.HostInfo, 
 			return
 		}
 
-		_ = conn.SetDeadline(time.Now().Add(config.Timeout))
+		_ = conn.SetDeadline(time.Now().Add(session.Config.Timeout))
 
 		if p.performTelnetAuth(conn, cred.Username, cred.Password) {
-			state.IncrementTCPSuccessPacketCount()
 			resultChan <- &AuthResult{
 				Success:   true,
 				Conn:      &telnetConnWrapper{conn},
@@ -156,7 +154,6 @@ func (p *TelnetPlugin) doTelnetAuth(ctx context.Context, info *common.HostInfo, 
 			}
 		} else {
 			_ = conn.Close()
-			state.IncrementTCPFailedPacketCount()
 			resultChan <- &AuthResult{
 				Success:   false,
 				ErrorType: ErrorTypeAuth,
@@ -224,21 +221,20 @@ func classifyTelnetErrorType(err error) ErrorType {
 }
 
 // testUnauthAccess 测试Telnet未授权访问
-func (p *TelnetPlugin) testUnauthAccess(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *TelnetPlugin) testUnauthAccess(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
 	resultChan := make(chan *ScanResult, 1)
 
 	go func() {
-		conn, err := common.WrapperTcpWithTimeout("tcp", target, config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
 		if err != nil {
-			state.IncrementTCPFailedPacketCount()
 			resultChan <- nil
 			return
 		}
 		defer func() { _ = conn.Close() }()
 
-		_ = conn.SetDeadline(time.Now().Add(config.Timeout))
+		_ = conn.SetDeadline(time.Now().Add(session.Config.Timeout))
 
 		buffer := make([]byte, 1024)
 		attempts := 0
@@ -261,7 +257,6 @@ func (p *TelnetPlugin) testUnauthAccess(ctx context.Context, info *common.HostIn
 			p.handleIACNegotiation(conn, buffer[:n])
 
 			if p.isShellPrompt(cleaned) {
-				state.IncrementTCPSuccessPacketCount()
 				resultChan <- &ScanResult{
 					Success: true,
 					Type:    plugins.ResultTypeVuln,
@@ -521,15 +516,14 @@ func (p *TelnetPlugin) isLoginFailed(data string) bool {
 }
 
 // identifyService Telnet服务识别
-func (p *TelnetPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *TelnetPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
 	resultChan := make(chan *ScanResult, 1)
 
 	go func() {
-		conn, err := common.WrapperTcpWithTimeout("tcp", target, config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
 		if err != nil {
-			state.IncrementTCPFailedPacketCount()
 			resultChan <- &ScanResult{
 				Success: false,
 				Service: "telnet",
@@ -539,12 +533,11 @@ func (p *TelnetPlugin) identifyService(ctx context.Context, info *common.HostInf
 		}
 		defer func() { _ = conn.Close() }()
 
-		_ = conn.SetDeadline(time.Now().Add(config.Timeout))
+		_ = conn.SetDeadline(time.Now().Add(session.Config.Timeout))
 
 		buffer := make([]byte, 2048)
 		n, err := conn.Read(buffer)
 		if err != nil {
-			state.IncrementTCPFailedPacketCount()
 			resultChan <- &ScanResult{
 				Success: false,
 				Service: "telnet",
@@ -552,8 +545,6 @@ func (p *TelnetPlugin) identifyService(ctx context.Context, info *common.HostInf
 			}
 			return
 		}
-
-		state.IncrementTCPSuccessPacketCount()
 
 		p.handleIACNegotiation(conn, buffer[:n])
 		cleaned := p.cleanResponse(string(buffer[:n]))
@@ -606,7 +597,7 @@ func (p *TelnetPlugin) identifyService(ctx context.Context, info *common.HostInf
 }
 
 // verifyCommandExecution 验证Telnet命令执行能力（RCE检测）
-func (p *TelnetPlugin) verifyCommandExecution(ctx context.Context, info *common.HostInfo, username, password string, config *common.Config, state *common.State) (bool, string, string) {
+func (p *TelnetPlugin) verifyCommandExecution(ctx context.Context, info *common.HostInfo, username, password string, session *common.ScanSession) (bool, string, string) {
 	target := info.Target()
 
 	type rceResult struct {
@@ -618,14 +609,14 @@ func (p *TelnetPlugin) verifyCommandExecution(ctx context.Context, info *common.
 	resultChan := make(chan rceResult, 1)
 
 	go func() {
-		conn, err := common.WrapperTcpWithTimeout("tcp", target, config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
 		if err != nil {
 			resultChan <- rceResult{}
 			return
 		}
 		defer func() { _ = conn.Close() }()
 
-		_ = conn.SetDeadline(time.Now().Add(config.Timeout + telnetRCEExtraTimeout))
+		_ = conn.SetDeadline(time.Now().Add(session.Config.Timeout + telnetRCEExtraTimeout))
 
 		// 需要认证时先登录
 		if username != "" || password != "" {

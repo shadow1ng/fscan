@@ -26,15 +26,14 @@ func NewMemcachedPlugin() *MemcachedPlugin {
 
 func (p *MemcachedPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
-	state := session.State
 	target := info.Target()
 
 	if config.DisableBrute {
-		return p.identifyService(ctx, info, config, state)
+		return p.identifyService(ctx, info, session)
 	}
 
 	// 检测未授权访问
-	if result := p.testUnauthorizedAccess(ctx, info, config, state); result != nil && result.Success {
+	if result := p.testUnauthorizedAccess(ctx, info, session); result != nil && result.Success {
 		common.LogVuln(i18n.Tr("memcached_unauth", target))
 		return result
 	}
@@ -48,14 +47,14 @@ func (p *MemcachedPlugin) Scan(ctx context.Context, info *common.HostInfo, sessi
 }
 
 // testUnauthorizedAccess 测试Memcached未授权访问
-func (p *MemcachedPlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
-	conn := p.connectToMemcached(ctx, info, config, state)
+func (p *MemcachedPlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	conn := p.connectToMemcached(ctx, info, session)
 	if conn == nil {
 		return nil
 	}
 	defer func() { _ = conn.Close() }()
 
-	if p.testBasicCommand(conn, config) {
+	if p.testBasicCommand(conn, session.Config) {
 		return &ScanResult{
 			Type:    plugins.ResultTypeVuln,
 			Success: true,
@@ -67,20 +66,19 @@ func (p *MemcachedPlugin) testUnauthorizedAccess(ctx context.Context, info *comm
 	return nil
 }
 
-func (p *MemcachedPlugin) connectToMemcached(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) net.Conn {
+func (p *MemcachedPlugin) connectToMemcached(ctx context.Context, info *common.HostInfo, session *common.ScanSession) net.Conn {
 	target := info.Target()
+	timeout := session.Config.Timeout
 
 	connChan := make(chan net.Conn, 1)
 
 	go func() {
-		conn, err := common.WrapperTcpWithTimeout("tcp", target, config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, timeout)
 		if err != nil {
-			state.IncrementTCPFailedPacketCount()
 			connChan <- nil
 			return
 		}
-		state.IncrementTCPSuccessPacketCount()
-		_ = conn.SetDeadline(time.Now().Add(config.Timeout))
+		_ = conn.SetDeadline(time.Now().Add(timeout))
 		connChan <- conn
 	}()
 
@@ -88,7 +86,6 @@ func (p *MemcachedPlugin) connectToMemcached(ctx context.Context, info *common.H
 	case conn := <-connChan:
 		return conn
 	case <-ctx.Done():
-		// context 被取消，启动清理协程等待并关闭可能创建的连接
 		go func() {
 			conn := <-connChan
 			if conn != nil {
@@ -116,10 +113,10 @@ func (p *MemcachedPlugin) testBasicCommand(conn net.Conn, config *common.Config)
 	return common.ContainsAny(responseStr, "VERSION", "memcached")
 }
 
-func (p *MemcachedPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *MemcachedPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
-	conn := p.connectToMemcached(ctx, info, config, state)
+	conn := p.connectToMemcached(ctx, info, session)
 	if conn == nil {
 		return &ScanResult{
 			Success: false,
@@ -129,7 +126,7 @@ func (p *MemcachedPlugin) identifyService(ctx context.Context, info *common.Host
 	}
 	defer func() { _ = conn.Close() }()
 
-	if p.testBasicCommand(conn, config) {
+	if p.testBasicCommand(conn, session.Config) {
 		banner := "Memcached"
 		common.LogSuccess(i18n.Tr("memcached_service", target, banner))
 		return &ScanResult{

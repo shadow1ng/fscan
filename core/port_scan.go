@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
@@ -110,7 +111,9 @@ func (f *failedPortCollector) Count() int {
 
 // EnhancedPortScan 高性能端口扫描函数
 // 使用滑动窗口调度 + 自适应线程池 + 流式迭代器
-func EnhancedPortScan(hosts []string, ports string, timeout int64, config *common.Config, state *common.State) []string {
+func EnhancedPortScan(hosts []string, ports string, timeout int64, session *common.ScanSession) []string {
+	config := session.Config
+	state := session.State
 	common.LogDebug(fmt.Sprintf("[PortScan] 开始: %d个主机, 线程数=%d", len(hosts), config.ThreadNum))
 
 	// 解析端口和排除端口
@@ -179,7 +182,7 @@ func EnhancedPortScan(hosts []string, ports string, timeout int64, config *commo
 		}()
 
 		addr := fmt.Sprintf("%s:%d", taskInfo.host, taskInfo.port)
-		scanSinglePort(taskInfo.host, taskInfo.port, addr, to, &count, collector, failedCollector, config, state)
+		scanSinglePort(taskInfo.host, taskInfo.port, addr, to, &count, collector, failedCollector, session)
 		common.UpdateProgressBar(1)
 	}, state)
 	if err != nil {
@@ -263,11 +266,11 @@ func slidingWindowSchedule(iter *SocketIterator, pool *AdaptivePool, wg *sync.Wa
 }
 
 // connectWithRetry 带重试的TCP连接 - 只对资源耗尽错误重试
-func connectWithRetry(addr string, timeout time.Duration, maxRetries int, state *common.State) (net.Conn, error) {
+func connectWithRetry(ctx context.Context, session *common.ScanSession, addr string, timeout time.Duration, maxRetries int) (net.Conn, error) {
 	var lastErr error
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
-		conn, err := common.WrapperTcpWithTimeout("tcp", addr, timeout)
+		conn, err := session.DialTCP(ctx, "tcp", addr, timeout)
 
 		if err == nil {
 			return conn, nil
@@ -281,7 +284,7 @@ func connectWithRetry(addr string, timeout time.Duration, maxRetries int, state 
 		}
 
 		// 记录资源耗尽错误
-		state.IncrementResourceExhaustedCount()
+		session.State.IncrementResourceExhaustedCount()
 
 		// 指数退避：第1次等50ms，第2次等150ms
 		if attempt < maxRetries-1 {
@@ -344,9 +347,10 @@ func buildServiceLogMessage(addr string, serviceInfo *ServiceInfo, isWeb bool) s
 }
 
 // scanSinglePort 扫描单个端口并进行服务识别（重构后的简洁版本）
-func scanSinglePort(host string, port int, addr string, timeout time.Duration, count *int64, collector *resultCollector, failedCollector *failedPortCollector, config *common.Config, state *common.State) {
+func scanSinglePort(host string, port int, addr string, timeout time.Duration, count *int64, collector *resultCollector, failedCollector *failedPortCollector, session *common.ScanSession) {
+	config := session.Config
 	// 步骤1：建立连接
-	conn, err := connectWithRetry(addr, timeout, 3, state)
+	conn, err := connectWithRetry(context.Background(), session, addr, timeout, 3)
 	if err != nil {
 		handleConnectionFailure(err, host, port, addr, failedCollector)
 		return
@@ -365,7 +369,7 @@ func scanSinglePort(host string, port int, addr string, timeout time.Duration, c
 	if common.IsProxyEnabled() && verifyMethod != "direct" {
 		_ = conn.Close()
 		// 重新建立干净的连接用于服务识别
-		conn, err = connectWithRetry(addr, timeout, 3, state)
+		conn, err = connectWithRetry(context.Background(), session, addr, timeout, 3)
 		if err != nil {
 			handleConnectionFailure(err, host, port, addr, failedCollector)
 			return
@@ -378,7 +382,7 @@ func scanSinglePort(host string, port int, addr string, timeout time.Duration, c
 	saveOpenPort(host, port)
 
 	// 步骤3：服务识别（Scanner负责关闭连接，包括探测中可能创建的新连接）
-	scanner := NewSmartPortInfoScanner(host, port, conn, timeout, config)
+	scanner := NewSmartPortInfoScanner(host, port, conn, timeout, config, session)
 	defer scanner.Close()
 	serviceInfo, _ := scanner.SmartIdentify()
 

@@ -26,11 +26,10 @@ func NewVNCPlugin() *VNCPlugin {
 
 func (p *VNCPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
-	state := session.State
 	target := info.Target()
 
 	// 检查未授权访问
-	if result := p.testUnauthAccess(ctx, info, config, state); result != nil && result.Success {
+	if result := p.testUnauthAccess(ctx, info, session); result != nil && result.Success {
 		common.LogVuln(i18n.Tr("vnc_unauth", target))
 		return result
 	}
@@ -49,7 +48,7 @@ func (p *VNCPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	}
 
 	// 使用公共框架进行并发凭据测试
-	authFn := p.createAuthFunc(info, config, state)
+	authFn := p.createAuthFunc(info, session)
 	testConfig := DefaultConcurrentTestConfig(config)
 
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "vnc", testConfig)
@@ -62,22 +61,21 @@ func (p *VNCPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 }
 
 // createAuthFunc 创建VNC认证函数
-func (p *VNCPlugin) createAuthFunc(info *common.HostInfo, config *common.Config, state *common.State) AuthFunc {
+func (p *VNCPlugin) createAuthFunc(info *common.HostInfo, session *common.ScanSession) AuthFunc {
 	return func(ctx context.Context, cred Credential) *AuthResult {
-		return p.doVNCAuth(ctx, info, cred, config, state)
+		return p.doVNCAuth(ctx, info, cred, session)
 	}
 }
 
 // doVNCAuth 执行VNC认证
-func (p *VNCPlugin) doVNCAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
+func (p *VNCPlugin) doVNCAuth(ctx context.Context, info *common.HostInfo, cred Credential, session *common.ScanSession) *AuthResult {
 	target := info.Target()
 
 	resultChan := make(chan *AuthResult, 1)
 
 	go func() {
-		conn, err := common.WrapperTcpWithTimeout("tcp", target, config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
 		if err != nil {
-			state.IncrementTCPFailedPacketCount()
 			resultChan <- &AuthResult{
 				Success:   false,
 				ErrorType: classifyVNCErrorType(err),
@@ -86,7 +84,7 @@ func (p *VNCPlugin) doVNCAuth(ctx context.Context, info *common.HostInfo, cred C
 			return
 		}
 
-		_ = conn.SetDeadline(time.Now().Add(config.Timeout))
+		_ = conn.SetDeadline(time.Now().Add(session.Config.Timeout))
 
 		vncConfig := &vnc.ClientConfig{
 			Auth: []vnc.ClientAuth{
@@ -97,7 +95,6 @@ func (p *VNCPlugin) doVNCAuth(ctx context.Context, info *common.HostInfo, cred C
 		client, err := vnc.Client(conn, vncConfig)
 		if err != nil {
 			_ = conn.Close()
-			state.IncrementTCPFailedPacketCount()
 			resultChan <- &AuthResult{
 				Success:   false,
 				ErrorType: classifyVNCErrorType(err),
@@ -105,8 +102,6 @@ func (p *VNCPlugin) doVNCAuth(ctx context.Context, info *common.HostInfo, cred C
 			}
 			return
 		}
-
-		state.IncrementTCPSuccessPacketCount()
 
 		resultChan <- &AuthResult{
 			Success:   true,
@@ -175,9 +170,9 @@ func classifyVNCErrorType(err error) ErrorType {
 	return ClassifyError(err, nil, CommonNetworkErrors)
 }
 
-func (p *VNCPlugin) testUnauthAccess(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *VNCPlugin) testUnauthAccess(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	cred := Credential{Username: "", Password: ""}
-	result := p.doVNCAuth(ctx, info, cred, config, state)
+	result := p.doVNCAuth(ctx, info, cred, session)
 
 	if result.Success {
 		if result.Conn != nil {

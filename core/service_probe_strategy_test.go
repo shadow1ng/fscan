@@ -155,7 +155,7 @@ func TestSmartPortInfoScanner_Creation(t *testing.T) {
 	}
 
 	// 使用 nil 连接（实际测试中会使用真实连接）
-	scanner := NewSmartPortInfoScanner("127.0.0.1", 80, nil, 3*time.Second, config)
+	scanner := NewSmartPortInfoScanner("127.0.0.1", 80, nil, 3*time.Second, config, nil)
 
 	if scanner == nil {
 		t.Fatal("Scanner 创建失败")

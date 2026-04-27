@@ -32,7 +32,7 @@ func (p *RabbitMQPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	target := info.Target()
 
 	if config.DisableBrute {
-		return p.identifyService(ctx, info, config, state)
+		return p.identifyService(ctx, info, session)
 	}
 
 	// 先检测未授权访问
@@ -211,16 +211,16 @@ func (p *RabbitMQPlugin) testUnauthorizedAccess(ctx context.Context, info *commo
 }
 
 // testAMQPProtocol 检测AMQP协议
-func (p *RabbitMQPlugin) testAMQPProtocol(ctx context.Context, info *common.HostInfo, config *common.Config) *ScanResult {
+func (p *RabbitMQPlugin) testAMQPProtocol(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
-	conn, err := common.WrapperTcpWithTimeout("tcp", target, config.Timeout)
+	conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
 	if err != nil {
 		return nil
 	}
 	defer func() { _ = conn.Close() }()
 
-	_ = conn.SetDeadline(time.Now().Add(config.Timeout))
+	_ = conn.SetDeadline(time.Now().Add(session.Config.Timeout))
 
 	// 发送AMQP协议头
 	amqpHeader := []byte{0x41, 0x4d, 0x51, 0x50, 0x00, 0x00, 0x09, 0x01}
@@ -249,19 +249,21 @@ func (p *RabbitMQPlugin) testAMQPProtocol(ctx context.Context, info *common.Host
 	return nil
 }
 
-func (p *RabbitMQPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *RabbitMQPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	// 对于AMQP端口，检测AMQP协议
 	if info.Port == 5672 || info.Port == 5671 {
-		if result := p.testAMQPProtocol(ctx, info, config); result != nil && result.Success {
+		if result := p.testAMQPProtocol(ctx, info, session); result != nil && result.Success {
 			return result
 		}
 	}
 
 	// 检测HTTP管理界面
-	return p.testManagementInterface(ctx, info, config, state)
+	return p.testManagementInterface(ctx, info, session)
 }
 
-func (p *RabbitMQPlugin) testManagementInterface(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *RabbitMQPlugin) testManagementInterface(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 	baseURL := fmt.Sprintf("http://%s:%d", info.Host, info.Port)
 

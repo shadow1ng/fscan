@@ -30,17 +30,16 @@ func NewRsyncPlugin() *RsyncPlugin {
 
 func (p *RsyncPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
-	state := session.State
 	target := info.Target()
 
 	if config.DisableBrute {
-		return p.identifyService(ctx, info, config, state)
+		return p.identifyService(ctx, info, session)
 	}
 
 	var findings []string
 
 	// 检测未授权访问
-	if result := p.testUnauthorizedAccess(ctx, info, config, state); result != nil && result.Success {
+	if result := p.testUnauthorizedAccess(ctx, info, session); result != nil && result.Success {
 		common.LogSuccess(i18n.Tr("rsync_service", target, result.Banner))
 		findings = append(findings, result.Banner)
 	}
@@ -70,7 +69,7 @@ func (p *RsyncPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 	}
 
 	// 使用公共框架进行并发凭据测试
-	authFn := p.createAuthFunc(info, config, state)
+	authFn := p.createAuthFunc(info, session)
 	testConfig := DefaultConcurrentTestConfig(config)
 
 	result := TestCredentialsConcurrently(ctx, creds, authFn, "rsync", testConfig)
@@ -97,16 +96,16 @@ func (p *RsyncPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 }
 
 // createAuthFunc 创建Rsync认证函数
-func (p *RsyncPlugin) createAuthFunc(info *common.HostInfo, config *common.Config, state *common.State) AuthFunc {
+func (p *RsyncPlugin) createAuthFunc(info *common.HostInfo, session *common.ScanSession) AuthFunc {
 	return func(ctx context.Context, cred Credential) *AuthResult {
-		return p.doRsyncAuth(ctx, info, cred, config, state)
+		return p.doRsyncAuth(ctx, info, cred, session)
 	}
 }
 
 // doRsyncAuth 执行Rsync认证
-func (p *RsyncPlugin) doRsyncAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
+func (p *RsyncPlugin) doRsyncAuth(ctx context.Context, info *common.HostInfo, cred Credential, session *common.ScanSession) *AuthResult {
 	// 先获取可用模块列表
-	conn := p.connectToRsync(ctx, info, config, state)
+	conn := p.connectToRsync(ctx, info, session)
 	if conn == nil {
 		return &AuthResult{
 			Success:   false,
@@ -114,7 +113,7 @@ func (p *RsyncPlugin) doRsyncAuth(ctx context.Context, info *common.HostInfo, cr
 			Error:     fmt.Errorf("无法连接到Rsync服务"),
 		}
 	}
-	modules := p.getModules(conn, config)
+	modules := p.getModules(conn, session.Config)
 	_ = conn.Close()
 
 	if len(modules) == 0 {
@@ -142,7 +141,6 @@ func (p *RsyncPlugin) doRsyncAuth(ctx context.Context, info *common.HostInfo, cr
 	)
 
 	if err != nil {
-		state.IncrementTCPFailedPacketCount()
 		errMsg := err.Error()
 		if common.ContainsAny(errMsg, "auth", "password") {
 			return &AuthResult{
@@ -158,7 +156,6 @@ func (p *RsyncPlugin) doRsyncAuth(ctx context.Context, info *common.HostInfo, cr
 		}
 	}
 
-	state.IncrementTCPSuccessPacketCount()
 	return &AuthResult{
 		Success:   true,
 		Conn:      &rsyncConnWrapper{},
@@ -208,14 +205,14 @@ func classifyRsyncErrorType(err error) ErrorType {
 }
 
 // testUnauthorizedAccess 测试未授权访问
-func (p *RsyncPlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
-	conn := p.connectToRsync(ctx, info, config, state)
+func (p *RsyncPlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	conn := p.connectToRsync(ctx, info, session)
 	if conn == nil {
 		return nil
 	}
 	defer func() { _ = conn.Close() }()
 
-	modules := p.getModules(conn, config)
+	modules := p.getModules(conn, session.Config)
 
 	if len(modules) > 0 {
 		banner := fmt.Sprintf("未授权访问 - 可用模块: %s", strings.Join(modules, ", "))
@@ -231,22 +228,18 @@ func (p *RsyncPlugin) testUnauthorizedAccess(ctx context.Context, info *common.H
 }
 
 // connectToRsync 连接到Rsync服务
-func (p *RsyncPlugin) connectToRsync(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) net.Conn {
+func (p *RsyncPlugin) connectToRsync(ctx context.Context, info *common.HostInfo, session *common.ScanSession) net.Conn {
 	target := info.Target()
+	timeout := session.Config.Timeout
 
 	connChan := make(chan net.Conn, 1)
 
 	go func() {
-		timeout := config.Timeout
-
-		conn, err := common.WrapperTcpWithTimeout("tcp", target, timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, timeout)
 		if err != nil {
-			state.IncrementTCPFailedPacketCount()
 			connChan <- nil
 			return
 		}
-
-		state.IncrementTCPSuccessPacketCount()
 		_ = conn.SetDeadline(time.Now().Add(timeout))
 		connChan <- conn
 	}()
@@ -255,7 +248,6 @@ func (p *RsyncPlugin) connectToRsync(ctx context.Context, info *common.HostInfo,
 	case conn := <-connChan:
 		return conn
 	case <-ctx.Done():
-		// context 被取消，启动清理协程等待并关闭可能创建的连接
 		go func() {
 			conn := <-connChan
 			if conn != nil {
@@ -328,10 +320,10 @@ func (p *RsyncPlugin) getModules(conn net.Conn, config *common.Config) []string 
 }
 
 // identifyService Rsync服务识别
-func (p *RsyncPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *RsyncPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
-	conn := p.connectToRsync(ctx, info, config, state)
+	conn := p.connectToRsync(ctx, info, session)
 	if conn == nil {
 		return &ScanResult{
 			Success: false,
@@ -341,7 +333,7 @@ func (p *RsyncPlugin) identifyService(ctx context.Context, info *common.HostInfo
 	}
 	defer func() { _ = conn.Close() }()
 
-	timeout := config.Timeout
+	timeout := session.Config.Timeout
 
 	_ = conn.SetWriteDeadline(time.Now().Add(timeout))
 	if _, err := conn.Write([]byte("\n")); err != nil {

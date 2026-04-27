@@ -25,16 +25,15 @@ func NewLDAPPlugin() *LDAPPlugin {
 
 func (p *LDAPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
-	state := session.State
 	if config.DisableBrute {
-		return p.identifyService(ctx, info, config, state)
+		return p.identifyService(ctx, info, session)
 	}
 
 	target := info.Target()
 
 	// Hash 认证优先：检查是否配置了 Hash 和 Domain
 	if len(config.Credentials.HashValues) > 0 && config.Credentials.Domain != "" {
-		result := p.tryHashAuth(ctx, info, config, state)
+		result := p.tryHashAuth(ctx, info, session)
 		if result != nil && result.Success {
 			return result
 		}
@@ -50,7 +49,7 @@ func (p *LDAPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 	}
 
 	// 使用公共框架进行并发凭据测试
-	authFn := p.createAuthFunc(info, config, state)
+	authFn := p.createAuthFunc(info, session)
 	testConfig := DefaultConcurrentTestConfig(config)
 
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "ldap", testConfig)
@@ -63,24 +62,22 @@ func (p *LDAPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 }
 
 // createAuthFunc 创建LDAP认证函数
-func (p *LDAPPlugin) createAuthFunc(info *common.HostInfo, config *common.Config, state *common.State) AuthFunc {
+func (p *LDAPPlugin) createAuthFunc(info *common.HostInfo, session *common.ScanSession) AuthFunc {
 	return func(ctx context.Context, cred Credential) *AuthResult {
-		return p.doLDAPAuth(ctx, info, cred, config, state)
+		return p.doLDAPAuth(ctx, info, cred, session)
 	}
 }
 
 // doLDAPAuth 执行LDAP认证
-func (p *LDAPPlugin) doLDAPAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
-	conn, err := p.connectLDAP(ctx, info, config)
+func (p *LDAPPlugin) doLDAPAuth(ctx context.Context, info *common.HostInfo, cred Credential, session *common.ScanSession) *AuthResult {
+	conn, err := p.connectLDAP(ctx, info, session)
 	if err != nil {
-		state.IncrementTCPFailedPacketCount()
 		return &AuthResult{
 			Success:   false,
 			ErrorType: classifyLDAPErrorType(err),
 			Error:     err,
 		}
 	}
-	state.IncrementTCPSuccessPacketCount()
 
 	// 尝试多种DN格式进行绑定测试
 	dnFormats := []string{
@@ -119,7 +116,8 @@ func (w *ldapConnWrapper) Close() error {
 }
 
 // tryHashAuth 尝试 NTLM Hash 认证
-func (p *LDAPPlugin) tryHashAuth(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *LDAPPlugin) tryHashAuth(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
 	target := info.Target()
 	domain := config.Credentials.Domain
 	users := config.Credentials.Userdict["ldap"]
@@ -141,7 +139,7 @@ func (p *LDAPPlugin) tryHashAuth(ctx context.Context, info *common.HostInfo, con
 			default:
 			}
 
-			result := p.doNTLMHashAuth(ctx, info, domain, user, hash, config, state)
+			result := p.doNTLMHashAuth(ctx, info, domain, user, hash, session)
 			if result.Success {
 				// 截断 hash 用于显示
 				displayHash := hash
@@ -164,17 +162,15 @@ func (p *LDAPPlugin) tryHashAuth(ctx context.Context, info *common.HostInfo, con
 }
 
 // doNTLMHashAuth 执行单次 NTLM Hash 认证
-func (p *LDAPPlugin) doNTLMHashAuth(ctx context.Context, info *common.HostInfo, domain, username, hash string, config *common.Config, state *common.State) *AuthResult {
-	conn, err := p.connectLDAP(ctx, info, config)
+func (p *LDAPPlugin) doNTLMHashAuth(ctx context.Context, info *common.HostInfo, domain, username, hash string, session *common.ScanSession) *AuthResult {
+	conn, err := p.connectLDAP(ctx, info, session)
 	if err != nil {
-		state.IncrementTCPFailedPacketCount()
 		return &AuthResult{
 			Success:   false,
 			ErrorType: classifyLDAPErrorType(err),
 			Error:     err,
 		}
 	}
-	state.IncrementTCPSuccessPacketCount()
 
 	if err := conn.NTLMBindWithHash(domain, username, hash); err == nil {
 		return &AuthResult{
@@ -194,7 +190,7 @@ func (p *LDAPPlugin) doNTLMHashAuth(ctx context.Context, info *common.HostInfo, 
 }
 
 // connectLDAP 连接LDAP服务器
-func (p *LDAPPlugin) connectLDAP(ctx context.Context, info *common.HostInfo, config *common.Config) (*ldaplib.Conn, error) {
+func (p *LDAPPlugin) connectLDAP(ctx context.Context, info *common.HostInfo, session *common.ScanSession) (*ldaplib.Conn, error) {
 	target := info.Target()
 
 	type result struct {
@@ -204,7 +200,7 @@ func (p *LDAPPlugin) connectLDAP(ctx context.Context, info *common.HostInfo, con
 	resultChan := make(chan result, 1)
 
 	go func() {
-		tcpConn, err := common.WrapperTcpWithTimeout("tcp", target, config.Timeout)
+		tcpConn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
 		if err != nil {
 			resultChan <- result{nil, err}
 			return
@@ -225,7 +221,6 @@ func (p *LDAPPlugin) connectLDAP(ctx context.Context, info *common.HostInfo, con
 	case res := <-resultChan:
 		return res.conn, res.err
 	case <-ctx.Done():
-		// context 被取消，启动清理协程等待并关闭可能创建的连接
 		go func() {
 			res := <-resultChan
 			if res.conn != nil {
@@ -259,19 +254,17 @@ func classifyLDAPErrorType(err error) ErrorType {
 	return ClassifyError(err, ldapAuthErrors, ldapNetworkErrors)
 }
 
-func (p *LDAPPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *LDAPPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
-	conn, err := p.connectLDAP(ctx, info, config)
+	conn, err := p.connectLDAP(ctx, info, session)
 	if err != nil {
-		state.IncrementTCPFailedPacketCount()
 		return &ScanResult{
 			Success: false,
 			Service: "ldap",
 			Error:   err,
 		}
 	}
-	state.IncrementTCPSuccessPacketCount()
 	defer func() { _ = conn.Close() }()
 
 	banner := "LDAP"

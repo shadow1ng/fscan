@@ -141,7 +141,7 @@ func (s *ServiceScanStrategy) Execute(ctx context.Context, session *common.ScanS
 // performHostScan 执行主机扫描的完整流程
 func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *common.ScanSession, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
 	// 发现目标主机和端口
-	targetInfos, err := s.discoverTargets(info.Host, info, session.Config, session.State)
+	targetInfos, err := s.discoverTargets(info.Host, info, session)
 	if err != nil {
 		common.LogError(err.Error())
 		return
@@ -154,9 +154,9 @@ func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *comm
 }
 
 // PrepareTargets 准备目标信息
-func (s *ServiceScanStrategy) PrepareTargets(info common.HostInfo, config *common.Config, state *common.State) []common.HostInfo {
+func (s *ServiceScanStrategy) PrepareTargets(info common.HostInfo, session *common.ScanSession) []common.HostInfo {
 	// 发现目标主机和端口
-	targetInfos, err := s.discoverTargets(info.Host, info, config, state)
+	targetInfos, err := s.discoverTargets(info.Host, info, session)
 	if err != nil {
 		common.LogError(err.Error())
 		return nil
@@ -215,7 +215,9 @@ func (s *ServiceScanStrategy) LogVulnerabilityPluginInfo(targets []common.HostIn
 // =============================================================================
 
 // discoverTargets 发现目标主机和端口
-func (s *ServiceScanStrategy) discoverTargets(hostInput string, baseInfo common.HostInfo, config *common.Config, state *common.State) ([]common.HostInfo, error) {
+func (s *ServiceScanStrategy) discoverTargets(hostInput string, baseInfo common.HostInfo, session *common.ScanSession) ([]common.HostInfo, error) {
+	config := session.Config
+	state := session.State
 	// 标准流程：解析目标主机
 	fv := common.GetFlagVars()
 	hosts, err := parsers.ParseIP(hostInput, fv.HostsFile, fv.ExcludeHosts)
@@ -229,12 +231,12 @@ func (s *ServiceScanStrategy) discoverTargets(hostInput string, baseInfo common.
 	if len(hosts) > 0 || len(state.GetHostPorts()) > 0 {
 		// 主机存活检测
 		if s.shouldPerformLivenessCheck(hosts, config) {
-			hosts = CheckLive(hosts, false, config, state)
+			hosts = CheckLive(hosts, false, session)
 			common.LogInfo(i18n.Tr("alive_hosts_count_info", len(hosts)))
 		}
 
 		// 端口扫描
-		alivePorts := s.discoverAlivePorts(hosts, config, state)
+		alivePorts := s.discoverAlivePorts(hosts, session)
 		if len(alivePorts) > 0 {
 			targetInfos = s.convertToTargetInfos(alivePorts, baseInfo)
 		}
@@ -249,7 +251,9 @@ func (s *ServiceScanStrategy) shouldPerformLivenessCheck(hosts []string, config 
 }
 
 // discoverAlivePorts 发现存活的端口
-func (s *ServiceScanStrategy) discoverAlivePorts(hosts []string, config *common.Config, state *common.State) []string {
+func (s *ServiceScanStrategy) discoverAlivePorts(hosts []string, session *common.ScanSession) []string {
+	config := session.Config
+	state := session.State
 	var alivePorts []string
 
 	// 如果已经有明确指定的host:port，直接使用（让后续SmartIdentify统一验证和识别）
@@ -263,7 +267,7 @@ func (s *ServiceScanStrategy) discoverAlivePorts(hosts []string, config *common.
 
 	// 根据扫描模式选择端口扫描方式
 	if len(hosts) > 0 {
-		alivePorts = EnhancedPortScan(hosts, config.Target.Ports, int64(config.Timeout.Seconds()), config, state)
+		alivePorts = EnhancedPortScan(hosts, config.Target.Ports, int64(config.Timeout.Seconds()), session)
 	}
 
 	return alivePorts

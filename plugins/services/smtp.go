@@ -27,15 +27,14 @@ func NewSMTPPlugin() *SMTPPlugin {
 
 func (p *SMTPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
-	state := session.State
 	target := info.Target()
 
 	if config.DisableBrute {
-		return p.identifyService(ctx, info, config, state)
+		return p.identifyService(ctx, info, session)
 	}
 
 	// 检测未授权访问
-	if result := p.testUnauthorizedAccess(ctx, info, config, state); result != nil && result.Success {
+	if result := p.testUnauthorizedAccess(ctx, info, session); result != nil && result.Success {
 		common.LogSuccess(i18n.Tr("smtp_service", target, result.Banner))
 		return result
 	}
@@ -57,7 +56,7 @@ func (p *SMTPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 	}
 
 	// 使用公共框架进行并发凭据测试
-	authFn := p.createAuthFunc(info, config, state)
+	authFn := p.createAuthFunc(info, session)
 	testConfig := DefaultConcurrentTestConfig(config)
 
 	result := TestCredentialsConcurrently(ctx, creds, authFn, "smtp", testConfig)
@@ -70,23 +69,22 @@ func (p *SMTPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 }
 
 // createAuthFunc 创建SMTP认证函数
-func (p *SMTPPlugin) createAuthFunc(info *common.HostInfo, config *common.Config, state *common.State) AuthFunc {
+func (p *SMTPPlugin) createAuthFunc(info *common.HostInfo, session *common.ScanSession) AuthFunc {
 	return func(ctx context.Context, cred Credential) *AuthResult {
-		return p.doSMTPAuth(ctx, info, cred, config, state)
+		return p.doSMTPAuth(ctx, info, cred, session)
 	}
 }
 
 // doSMTPAuth 执行SMTP认证
-func (p *SMTPPlugin) doSMTPAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
+func (p *SMTPPlugin) doSMTPAuth(ctx context.Context, info *common.HostInfo, cred Credential, session *common.ScanSession) *AuthResult {
 	target := info.Target()
-	timeout := config.Timeout
+	timeout := session.Config.Timeout
 
 	resultChan := make(chan *AuthResult, 1)
 
 	go func() {
-		conn, err := common.WrapperTcpWithTimeout("tcp", target, timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, timeout)
 		if err != nil {
-			state.IncrementTCPFailedPacketCount()
 			resultChan <- &AuthResult{
 				Success:   false,
 				ErrorType: classifySMTPErrorType(err),
@@ -100,7 +98,6 @@ func (p *SMTPPlugin) doSMTPAuth(ctx context.Context, info *common.HostInfo, cred
 		client, err := smtp.NewClient(conn, info.Host)
 		if err != nil {
 			_ = conn.Close()
-			state.IncrementTCPFailedPacketCount()
 			resultChan <- &AuthResult{
 				Success:   false,
 				ErrorType: classifySMTPErrorType(err),
@@ -113,7 +110,6 @@ func (p *SMTPPlugin) doSMTPAuth(ctx context.Context, info *common.HostInfo, cred
 			auth := smtp.PlainAuth("", cred.Username, cred.Password, info.Host)
 			if err := client.Auth(auth); err != nil {
 				_ = client.Close()
-				state.IncrementTCPFailedPacketCount()
 				resultChan <- &AuthResult{
 					Success:   false,
 					ErrorType: classifySMTPErrorType(err),
@@ -125,7 +121,6 @@ func (p *SMTPPlugin) doSMTPAuth(ctx context.Context, info *common.HostInfo, cred
 
 		if err := client.Mail("test@test.com"); err != nil {
 			_ = client.Close()
-			state.IncrementTCPFailedPacketCount()
 			resultChan <- &AuthResult{
 				Success:   false,
 				ErrorType: classifySMTPErrorType(err),
@@ -134,7 +129,6 @@ func (p *SMTPPlugin) doSMTPAuth(ctx context.Context, info *common.HostInfo, cred
 			return
 		}
 
-		state.IncrementTCPSuccessPacketCount()
 		resultChan <- &AuthResult{
 			Success:   true,
 			Conn:      &smtpClientWrapper{client},
@@ -211,24 +205,24 @@ func classifySMTPErrorType(err error) ErrorType {
 }
 
 // testUnauthorizedAccess 测试SMTP未授权访问
-func (p *SMTPPlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *SMTPPlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	// 测试匿名访问
-	if result := p.testAnonymousAccess(ctx, info, config, state); result != nil {
+	if result := p.testAnonymousAccess(ctx, info, session); result != nil {
 		return result
 	}
 
 	// 测试开放中继
-	if result := p.testOpenRelay(ctx, info, config, state); result != nil {
+	if result := p.testOpenRelay(ctx, info, session); result != nil {
 		return result
 	}
 
 	// 测试VRFY命令
-	if result := p.testVRFYCommand(ctx, info, config, state); result != nil {
+	if result := p.testVRFYCommand(ctx, info, session); result != nil {
 		return result
 	}
 
 	// 测试EXPN命令
-	if result := p.testEXPNCommand(ctx, info, config, state); result != nil {
+	if result := p.testEXPNCommand(ctx, info, session); result != nil {
 		return result
 	}
 
@@ -236,15 +230,14 @@ func (p *SMTPPlugin) testUnauthorizedAccess(ctx context.Context, info *common.Ho
 }
 
 // testAnonymousAccess 测试匿名邮件发送
-func (p *SMTPPlugin) testAnonymousAccess(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *SMTPPlugin) testAnonymousAccess(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
 	resultChan := make(chan *ScanResult, 1)
 
 	go func() {
-		conn, err := common.WrapperTcpWithTimeout("tcp", target, config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
 		if err != nil {
-			state.IncrementTCPFailedPacketCount()
 			resultChan <- nil
 			return
 		}
@@ -272,7 +265,6 @@ func (p *SMTPPlugin) testAnonymousAccess(ctx context.Context, info *common.HostI
 			return
 		}
 
-		state.IncrementTCPSuccessPacketCount()
 		resultChan <- &ScanResult{
 			Success: true,
 			Type:    plugins.ResultTypeVuln,
@@ -290,15 +282,14 @@ func (p *SMTPPlugin) testAnonymousAccess(ctx context.Context, info *common.HostI
 }
 
 // testOpenRelay 测试开放中继
-func (p *SMTPPlugin) testOpenRelay(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *SMTPPlugin) testOpenRelay(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
 	resultChan := make(chan *ScanResult, 1)
 
 	go func() {
-		conn, err := common.WrapperTcpWithTimeout("tcp", target, config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
 		if err != nil {
-			state.IncrementTCPFailedPacketCount()
 			resultChan <- nil
 			return
 		}
@@ -326,7 +317,6 @@ func (p *SMTPPlugin) testOpenRelay(ctx context.Context, info *common.HostInfo, c
 			return
 		}
 
-		state.IncrementTCPSuccessPacketCount()
 		resultChan <- &ScanResult{
 			Success: true,
 			Type:    plugins.ResultTypeVuln,
@@ -344,21 +334,20 @@ func (p *SMTPPlugin) testOpenRelay(ctx context.Context, info *common.HostInfo, c
 }
 
 // testVRFYCommand 测试VRFY命令用户枚举
-func (p *SMTPPlugin) testVRFYCommand(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *SMTPPlugin) testVRFYCommand(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
 	resultChan := make(chan *ScanResult, 1)
 
 	go func() {
-		conn, err := common.WrapperTcpWithTimeout("tcp", target, config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
 		if err != nil {
-			state.IncrementTCPFailedPacketCount()
 			resultChan <- nil
 			return
 		}
 		defer func() { _ = conn.Close() }()
 
-		_ = conn.SetDeadline(time.Now().Add(config.Timeout))
+		_ = conn.SetDeadline(time.Now().Add(session.Config.Timeout))
 
 		if _, heloWriteErr := fmt.Fprintf(conn, "HELO fscan.test\r\n"); heloWriteErr != nil {
 			resultChan <- nil
@@ -393,7 +382,6 @@ func (p *SMTPPlugin) testVRFYCommand(ctx context.Context, info *common.HostInfo,
 			vrfyResponse := strings.TrimSpace(string(buffer[:n]))
 
 			if strings.HasPrefix(vrfyResponse, "250") {
-				state.IncrementTCPSuccessPacketCount()
 				resultChan <- &ScanResult{
 					Success: true,
 					Type:    plugins.ResultTypeVuln,
@@ -416,21 +404,20 @@ func (p *SMTPPlugin) testVRFYCommand(ctx context.Context, info *common.HostInfo,
 }
 
 // testEXPNCommand 测试EXPN命令邮件列表枚举
-func (p *SMTPPlugin) testEXPNCommand(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *SMTPPlugin) testEXPNCommand(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
 	resultChan := make(chan *ScanResult, 1)
 
 	go func() {
-		conn, err := common.WrapperTcpWithTimeout("tcp", target, config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
 		if err != nil {
-			state.IncrementTCPFailedPacketCount()
 			resultChan <- nil
 			return
 		}
 		defer func() { _ = conn.Close() }()
 
-		_ = conn.SetDeadline(time.Now().Add(config.Timeout))
+		_ = conn.SetDeadline(time.Now().Add(session.Config.Timeout))
 
 		if _, heloWriteErr := fmt.Fprintf(conn, "HELO fscan.test\r\n"); heloWriteErr != nil {
 			resultChan <- nil
@@ -465,7 +452,6 @@ func (p *SMTPPlugin) testEXPNCommand(ctx context.Context, info *common.HostInfo,
 			expnResponse := strings.TrimSpace(string(buffer[:n]))
 
 			if strings.HasPrefix(expnResponse, "250") {
-				state.IncrementTCPSuccessPacketCount()
 				resultChan <- &ScanResult{
 					Success: true,
 					Type:    plugins.ResultTypeVuln,
@@ -488,21 +474,20 @@ func (p *SMTPPlugin) testEXPNCommand(ctx context.Context, info *common.HostInfo,
 }
 
 // getServerInfo 获取SMTP服务器信息
-func (p *SMTPPlugin) getServerInfo(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) string {
+func (p *SMTPPlugin) getServerInfo(ctx context.Context, info *common.HostInfo, session *common.ScanSession) string {
 	target := info.Target()
 
 	resultChan := make(chan string, 1)
 
 	go func() {
-		conn, err := common.SafeTCPDial(target, config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
 		if err != nil {
-			state.IncrementTCPFailedPacketCount()
 			resultChan <- ""
 			return
 		}
 		defer func() { _ = conn.Close() }()
 
-		_ = conn.SetReadDeadline(time.Now().Add(config.Timeout))
+		_ = conn.SetReadDeadline(time.Now().Add(session.Config.Timeout))
 		buffer := make([]byte, 1024)
 		n, err := conn.Read(buffer)
 		if err != nil {
@@ -510,7 +495,6 @@ func (p *SMTPPlugin) getServerInfo(ctx context.Context, info *common.HostInfo, c
 			return
 		}
 
-		state.IncrementTCPSuccessPacketCount()
 		welcome := strings.TrimSpace(string(buffer[:n]))
 
 		if strings.HasPrefix(welcome, "220") {
@@ -531,18 +515,17 @@ func (p *SMTPPlugin) getServerInfo(ctx context.Context, info *common.HostInfo, c
 }
 
 // identifyService SMTP服务识别
-func (p *SMTPPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *SMTPPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
-	serverInfo := p.getServerInfo(ctx, info, config, state)
+	serverInfo := p.getServerInfo(ctx, info, session)
 	var banner string
 
 	if serverInfo != "" {
 		banner = fmt.Sprintf("SMTP邮件服务 (%s)", serverInfo)
 	} else {
-		conn, err := common.SafeTCPDial(target, config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
 		if err != nil {
-			state.IncrementTCPFailedPacketCount()
 			return &ScanResult{
 				Success: false,
 				Service: "smtp",
@@ -550,7 +533,6 @@ func (p *SMTPPlugin) identifyService(ctx context.Context, info *common.HostInfo,
 			}
 		}
 		defer func() { _ = conn.Close() }()
-		state.IncrementTCPSuccessPacketCount()
 		banner = "SMTP邮件服务"
 	}
 

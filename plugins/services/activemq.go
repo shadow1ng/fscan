@@ -27,11 +27,10 @@ func NewActiveMQPlugin() *ActiveMQPlugin {
 
 func (p *ActiveMQPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
-	state := session.State
 	target := info.Target()
 
 	if config.DisableBrute {
-		return p.identifyService(ctx, info, config, state)
+		return p.identifyService(ctx, info, session)
 	}
 
 	// 生成测试凭据
@@ -50,7 +49,7 @@ func (p *ActiveMQPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	}
 
 	// 使用公共框架进行并发凭据测试
-	authFn := p.createAuthFunc(info, config, state)
+	authFn := p.createAuthFunc(info, session)
 	testConfig := DefaultConcurrentTestConfig(config)
 
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "activemq", testConfig)
@@ -63,23 +62,23 @@ func (p *ActiveMQPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 }
 
 // createAuthFunc 创建ActiveMQ认证函数
-func (p *ActiveMQPlugin) createAuthFunc(info *common.HostInfo, config *common.Config, state *common.State) AuthFunc {
+func (p *ActiveMQPlugin) createAuthFunc(info *common.HostInfo, session *common.ScanSession) AuthFunc {
 	return func(ctx context.Context, cred Credential) *AuthResult {
-		return p.doActiveMQAuth(ctx, info, cred, config, state)
+		return p.doActiveMQAuth(ctx, info, cred, session)
 	}
 }
 
 // doActiveMQAuth 执行ActiveMQ认证
-func (p *ActiveMQPlugin) doActiveMQAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
+func (p *ActiveMQPlugin) doActiveMQAuth(ctx context.Context, info *common.HostInfo, cred Credential, session *common.ScanSession) *AuthResult {
 	target := info.Target()
+	config := session.Config
 	timeout := config.Timeout
 
 	resultChan := make(chan *AuthResult, 1)
 
 	go func() {
-		conn, err := common.WrapperTcpWithTimeout("tcp", target, timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, timeout)
 		if err != nil {
-			state.IncrementTCPFailedPacketCount()
 			resultChan <- &AuthResult{
 				Success:   false,
 				ErrorType: classifyActiveMQErrorType(err),
@@ -90,7 +89,6 @@ func (p *ActiveMQPlugin) doActiveMQAuth(ctx context.Context, info *common.HostIn
 
 		success, err := p.authenticateSTOMP(conn, cred.Username, cred.Password, config)
 		if success {
-			state.IncrementTCPSuccessPacketCount()
 			resultChan <- &AuthResult{
 				Success:   true,
 				Conn:      &activeMQConnWrapper{conn},
@@ -101,7 +99,6 @@ func (p *ActiveMQPlugin) doActiveMQAuth(ctx context.Context, info *common.HostIn
 		}
 
 		_ = conn.Close()
-		state.IncrementTCPFailedPacketCount()
 		resultChan <- &AuthResult{
 			Success:   false,
 			ErrorType: classifyActiveMQErrorType(err),
@@ -113,7 +110,6 @@ func (p *ActiveMQPlugin) doActiveMQAuth(ctx context.Context, info *common.HostIn
 	case result := <-resultChan:
 		return result
 	case <-ctx.Done():
-		// context 被取消，启动清理协程等待并关闭可能创建的连接
 		go func() {
 			result := <-resultChan
 			if result != nil && result.Conn != nil {
@@ -201,13 +197,12 @@ func (p *ActiveMQPlugin) authenticateSTOMP(conn net.Conn, username, password str
 }
 
 // identifyService ActiveMQ服务识别
-func (p *ActiveMQPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *ActiveMQPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
-	timeout := config.Timeout
+	timeout := session.Config.Timeout
 
-	conn, err := common.WrapperTcpWithTimeout("tcp", target, timeout)
+	conn, err := session.DialTCP(ctx, "tcp", target, timeout)
 	if err != nil {
-		state.IncrementTCPFailedPacketCount()
 		return &ScanResult{
 			Success: false,
 			Service: "activemq",
@@ -220,7 +215,6 @@ func (p *ActiveMQPlugin) identifyService(ctx context.Context, info *common.HostI
 
 	_ = conn.SetWriteDeadline(time.Now().Add(timeout))
 	if _, writeErr := conn.Write([]byte(stompConnect)); writeErr != nil {
-		state.IncrementTCPFailedPacketCount()
 		return &ScanResult{
 			Success: false,
 			Service: "activemq",
@@ -232,7 +226,6 @@ func (p *ActiveMQPlugin) identifyService(ctx context.Context, info *common.HostI
 	response := make([]byte, 512)
 	n, err := conn.Read(response)
 	if err != nil {
-		state.IncrementTCPFailedPacketCount()
 		return &ScanResult{
 			Success: false,
 			Service: "activemq",
@@ -247,7 +240,6 @@ func (p *ActiveMQPlugin) identifyService(ctx context.Context, info *common.HostI
 		}
 	}
 
-	state.IncrementTCPSuccessPacketCount()
 	responseStr := string(response[:n])
 
 	if common.ContainsAny(responseStr, "CONNECTED", "ERROR") {

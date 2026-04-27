@@ -40,7 +40,7 @@ func (p *MySQLPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 	config := session.Config
 	state := session.State
 	if config.DisableBrute {
-		return p.identifyService(info, config)
+		return p.identifyService(ctx, info, session)
 	}
 
 	credentials := GenerateCredentials("mysql", config)
@@ -139,10 +139,10 @@ func classifyMySQLErrorType(err error) ErrorType {
 	return ClassifyError(err, mysqlAuthErrors, mysqlNetworkErrors)
 }
 
-func (p *MySQLPlugin) identifyService(info *common.HostInfo, config *common.Config) *ScanResult {
+func (p *MySQLPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
-	conn, err := common.SafeTCPDial(target, config.Timeout)
+	conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
 	if err != nil {
 		return &ScanResult{
 			Success: false,
@@ -152,7 +152,7 @@ func (p *MySQLPlugin) identifyService(info *common.HostInfo, config *common.Conf
 	}
 	defer func() { _ = conn.Close() }()
 
-	if banner := p.readMySQLBanner(conn, config); banner != "" {
+	if banner := p.readMySQLBanner(conn, session.Config); banner != "" {
 		common.LogSuccess(i18n.Tr("mysql_service", target, banner))
 		return &ScanResult{
 			Type:    plugins.ResultTypeService,

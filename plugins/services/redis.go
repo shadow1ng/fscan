@@ -33,21 +33,20 @@ func NewRedisPlugin() *RedisPlugin {
 // Scan 执行Redis扫描
 func (p *RedisPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
-	state := session.State
 	target := info.Target()
 
 	// 如果禁用暴力破解，只做服务识别
 	if config.DisableBrute {
-		return p.identifyService(ctx, info, config, state)
+		return p.identifyService(ctx, info, session)
 	}
 
 	// 首先检查未授权访问
-	if result := p.testUnauthorizedAccess(ctx, info, config, state); result != nil && result.Success {
+	if result := p.testUnauthorizedAccess(ctx, info, session); result != nil && result.Success {
 		common.LogVuln(i18n.Tr("redis_unauth_success", target)) //nolint:govet
 
 		// 如果需要利用，重新建立连接执行
 		if p.shouldExploit(config) {
-			p.exploitWithPassword(ctx, info, "", config)
+			p.exploitWithPassword(ctx, info, "", session)
 		}
 		return result
 	}
@@ -56,7 +55,7 @@ func (p *RedisPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 	credentials := GenerateCredentials("redis", config)
 
 	// 使用公共框架进行并发凭据测试
-	authFn := p.createAuthFunc(info, config, state)
+	authFn := p.createAuthFunc(info, session)
 	testConfig := DefaultConcurrentTestConfig(config)
 	testConfig.Concurrency = 20 // Redis 默认并发度更高
 
@@ -68,7 +67,7 @@ func (p *RedisPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 
 		// 如果需要利用，重新建立连接执行
 		if p.shouldExploit(config) {
-			p.exploitWithPassword(ctx, info, result.Password, config)
+			p.exploitWithPassword(ctx, info, result.Password, session)
 		}
 	}
 
@@ -76,21 +75,20 @@ func (p *RedisPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 }
 
 // createAuthFunc 创建Redis认证函数
-func (p *RedisPlugin) createAuthFunc(info *common.HostInfo, config *common.Config, state *common.State) AuthFunc {
+func (p *RedisPlugin) createAuthFunc(info *common.HostInfo, session *common.ScanSession) AuthFunc {
 	return func(ctx context.Context, cred Credential) *AuthResult {
-		return p.doRedisAuth(ctx, info, cred, config, state)
+		return p.doRedisAuth(ctx, info, cred, session)
 	}
 }
 
 // doRedisAuth 执行Redis认证
-func (p *RedisPlugin) doRedisAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
+func (p *RedisPlugin) doRedisAuth(ctx context.Context, info *common.HostInfo, cred Credential, session *common.ScanSession) *AuthResult {
 	target := info.Target()
-	timeout := config.Timeout
+	timeout := session.Config.Timeout
 
 	// 建立TCP连接
-	conn, err := common.WrapperTcpWithTimeout("tcp", target, timeout)
+	conn, err := session.DialTCP(ctx, "tcp", target, timeout)
 	if err != nil {
-		state.IncrementTCPFailedPacketCount()
 		return &AuthResult{
 			Success:   false,
 			ErrorType: classifyRedisErrorType(err),
@@ -169,7 +167,6 @@ func (p *RedisPlugin) doRedisAuth(ctx context.Context, info *common.HostInfo, cr
 	responseStr := string(response[:n])
 	if !strings.Contains(responseStr, "PONG") {
 		_ = conn.Close()
-		state.IncrementTCPFailedPacketCount()
 		return &AuthResult{
 			Success:   false,
 			ErrorType: ErrorTypeUnknown,
@@ -177,7 +174,6 @@ func (p *RedisPlugin) doRedisAuth(ctx context.Context, info *common.HostInfo, cr
 		}
 	}
 
-	state.IncrementTCPSuccessPacketCount()
 	return &AuthResult{
 		Success:   true,
 		Conn:      conn,
@@ -204,10 +200,10 @@ func classifyRedisErrorType(err error) ErrorType {
 }
 
 // testUnauthorizedAccess 测试未授权访问
-func (p *RedisPlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *RedisPlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	emptyCred := Credential{Username: "", Password: ""}
 
-	result := p.doRedisAuth(ctx, info, emptyCred, config, state)
+	result := p.doRedisAuth(ctx, info, emptyCred, session)
 	if result.Success {
 		if result.Conn != nil {
 			_ = result.Conn.Close()
@@ -224,10 +220,10 @@ func (p *RedisPlugin) testUnauthorizedAccess(ctx context.Context, info *common.H
 }
 
 // exploitWithPassword 使用指定密码建立连接并执行利用
-func (p *RedisPlugin) exploitWithPassword(ctx context.Context, info *common.HostInfo, password string, config *common.Config) {
+func (p *RedisPlugin) exploitWithPassword(ctx context.Context, info *common.HostInfo, password string, session *common.ScanSession) {
 	target := info.Target()
 
-	conn, err := common.WrapperTcpWithTimeout("tcp", target, config.Timeout)
+	conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
 	if err != nil {
 		common.LogError(i18n.Tr("redis_reconnect_failed", err))
 		return
@@ -237,28 +233,27 @@ func (p *RedisPlugin) exploitWithPassword(ctx context.Context, info *common.Host
 	// 如果有密码，先认证
 	if password != "" {
 		authCmd := fmt.Sprintf("AUTH %s\r\n", password)
-		_ = conn.SetWriteDeadline(time.Now().Add(config.Timeout))
+		_ = conn.SetWriteDeadline(time.Now().Add(session.Config.Timeout))
 		if _, writeErr := conn.Write([]byte(authCmd)); writeErr != nil {
 			return
 		}
-		_ = conn.SetReadDeadline(time.Now().Add(config.Timeout))
+		_ = conn.SetReadDeadline(time.Now().Add(session.Config.Timeout))
 		response := make([]byte, 512)
 		if _, readErr := conn.Read(response); readErr != nil {
 			return
 		}
 	}
 
-	p.exploit(ctx, info, conn, password, config)
+	p.exploit(ctx, info, conn, password, session.Config)
 }
 
 // identifyService 服务识别
-func (p *RedisPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *RedisPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
-	timeout := config.Timeout
+	timeout := session.Config.Timeout
 
-	conn, err := common.WrapperTcpWithTimeout("tcp", target, timeout)
+	conn, err := session.DialTCP(ctx, "tcp", target, timeout)
 	if err != nil {
-		state.IncrementTCPFailedPacketCount()
 		return &ScanResult{
 			Success: false,
 			Service: "redis",
@@ -302,7 +297,6 @@ func (p *RedisPlugin) identifyService(ctx context.Context, info *common.HostInfo
 		banner = "Redis服务"
 	}
 
-	state.IncrementTCPSuccessPacketCount()
 	common.LogSuccess(i18n.Tr("redis_service_identified", target, banner)) //nolint:govet
 
 	return &ScanResult{

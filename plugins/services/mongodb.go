@@ -34,11 +34,11 @@ func (p *MongoDBPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 	target := info.Target()
 
 	if config.DisableBrute {
-		return p.identifyService(ctx, info, config)
+		return p.identifyService(ctx, info, session)
 	}
 
 	// 首先检测未授权访问
-	isUnauth, err := p.mongodbUnauth(ctx, info, config)
+	isUnauth, err := p.mongodbUnauth(ctx, info, session)
 	if err != nil {
 		return &ScanResult{
 			Success: false,
@@ -184,10 +184,10 @@ func classifyMongoDBErrorType(err error) ErrorType {
 	return ClassifyError(err, mongoAuthErrors, mongoNetworkErrors)
 }
 
-func (p *MongoDBPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config) *ScanResult {
+func (p *MongoDBPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
-	isUnauth, err := p.mongodbUnauth(ctx, info, config)
+	isUnauth, err := p.mongodbUnauth(ctx, info, session)
 	if err != nil {
 		return &ScanResult{
 			Success: false,
@@ -216,14 +216,14 @@ func (p *MongoDBPlugin) identifyService(ctx context.Context, info *common.HostIn
 }
 
 // mongodbUnauth 检测MongoDB未授权访问
-func (p *MongoDBPlugin) mongodbUnauth(ctx context.Context, info *common.HostInfo, config *common.Config) (bool, error) {
+func (p *MongoDBPlugin) mongodbUnauth(ctx context.Context, info *common.HostInfo, session *common.ScanSession) (bool, error) {
 	msgPacket := p.createOpMsgPacket()
 	queryPacket := p.createOpQueryPacket()
 	realhost := fmt.Sprintf("%s:%d", info.Host, info.Port)
 
-	reply, err := p.checkMongoAuth(ctx, realhost, msgPacket, config)
+	reply, err := p.checkMongoAuth(ctx, realhost, msgPacket, session)
 	if err != nil {
-		reply, err = p.checkMongoAuth(ctx, realhost, queryPacket, config)
+		reply, err = p.checkMongoAuth(ctx, realhost, queryPacket, session)
 		if err != nil {
 			return false, err
 		}
@@ -241,8 +241,8 @@ func (p *MongoDBPlugin) mongodbUnauth(ctx context.Context, info *common.HostInfo
 }
 
 // checkMongoAuth 检查MongoDB认证状态
-func (p *MongoDBPlugin) checkMongoAuth(ctx context.Context, address string, packet []byte, config *common.Config) (string, error) {
-	conn, err := common.WrapperTcpWithTimeout("tcp", address, config.Timeout)
+func (p *MongoDBPlugin) checkMongoAuth(ctx context.Context, address string, packet []byte, session *common.ScanSession) (string, error) {
+	conn, err := session.DialTCP(ctx, "tcp", address, session.Config.Timeout)
 	if err != nil {
 		return "", fmt.Errorf("连接失败: %w", err)
 	}
@@ -254,7 +254,7 @@ func (p *MongoDBPlugin) checkMongoAuth(ctx context.Context, address string, pack
 	default:
 	}
 
-	if deadlineErr := conn.SetDeadline(time.Now().Add(config.Timeout)); deadlineErr != nil {
+	if deadlineErr := conn.SetDeadline(time.Now().Add(session.Config.Timeout)); deadlineErr != nil {
 		return "", fmt.Errorf("设置超时失败: %w", deadlineErr)
 	}
 
