@@ -3,6 +3,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"sync"
@@ -73,7 +74,7 @@ type ScanHandler struct {
 	hub       *ws.Hub
 	state     int32
 	startTime time.Time
-	stopChan  chan struct{}
+	cancelFn  context.CancelFunc
 	mu        sync.RWMutex
 	results   *ResultStore
 }
@@ -122,7 +123,6 @@ func (h *ScanHandler) Start(w http.ResponseWriter, r *http.Request) {
 
 	h.mu.Lock()
 	h.startTime = time.Now()
-	h.stopChan = make(chan struct{})
 	h.mu.Unlock()
 
 	// 清空旧结果
@@ -145,8 +145,18 @@ func (h *ScanHandler) Start(w http.ResponseWriter, r *http.Request) {
 
 // runScan 执行扫描
 func (h *ScanHandler) runScan(req ScanRequest) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	h.mu.Lock()
+	h.cancelFn = cancel
+	h.mu.Unlock()
+
 	defer func() {
-		common.ClearResultCallback() // 清除回调
+		cancel()
+		h.mu.Lock()
+		h.cancelFn = nil
+		h.mu.Unlock()
+		common.ClearResultCallback()
 		atomic.StoreInt32(&h.state, int32(ScanStateIdle))
 		h.hub.Broadcast(ws.MsgScanCompleted, map[string]interface{}{
 			"duration": time.Since(h.startTime).Seconds(),
@@ -209,7 +219,7 @@ func (h *ScanHandler) runScan(req ScanRequest) {
 	})
 
 	// 执行扫描
-	core.RunScan(info, config, state)
+	core.RunScan(ctx, info, config, state)
 }
 
 // Stop 停止扫描
@@ -229,8 +239,8 @@ func (h *ScanHandler) Stop(w http.ResponseWriter, r *http.Request) {
 	atomic.StoreInt32(&h.state, int32(ScanStateStopping))
 
 	h.mu.Lock()
-	if h.stopChan != nil {
-		close(h.stopChan)
+	if h.cancelFn != nil {
+		h.cancelFn()
 	}
 	h.mu.Unlock()
 

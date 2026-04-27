@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -112,7 +113,7 @@ func (s *ServiceScanStrategy) Description() string {
 }
 
 // Execute 执行服务扫描策略
-func (s *ServiceScanStrategy) Execute(config *common.Config, state *common.State, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
+func (s *ServiceScanStrategy) Execute(ctx context.Context, config *common.Config, state *common.State, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
 	// 验证扫描目标（需要同时检查 -h 和 -hf 参数）
 	fv := common.GetFlagVars()
 	if info.Host == "" && fv.HostsFile == "" {
@@ -133,11 +134,11 @@ func (s *ServiceScanStrategy) Execute(config *common.Config, state *common.State
 	s.LogPluginInfo(config)
 
 	// 执行主机扫描流程
-	s.performHostScan(config, state, info, ch, wg)
+	s.performHostScan(ctx, config, state, info, ch, wg)
 }
 
 // performHostScan 执行主机扫描的完整流程
-func (s *ServiceScanStrategy) performHostScan(config *common.Config, state *common.State, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
+func (s *ServiceScanStrategy) performHostScan(ctx context.Context, config *common.Config, state *common.State, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
 	// 发现目标主机和端口
 	targetInfos, err := s.discoverTargets(info.Host, info, config, state)
 	if err != nil {
@@ -147,7 +148,7 @@ func (s *ServiceScanStrategy) performHostScan(config *common.Config, state *comm
 
 	// 执行漏洞扫描
 	if len(targetInfos) > 0 {
-		ExecuteScanTasks(config, state, targetInfos, s, ch, wg)
+		ExecuteScanTasks(ctx, config, state, targetInfos, s, ch, wg)
 	}
 }
 

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -53,7 +54,7 @@ func (s *AliveScanStrategy) Description() string {
 }
 
 // Execute 执行存活探测扫描策略
-func (s *AliveScanStrategy) Execute(config *common.Config, state *common.State, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
+func (s *AliveScanStrategy) Execute(_ context.Context, config *common.Config, state *common.State, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
 	// 验证扫描目标（需要同时检查 -h 和 -hf 参数）
 	fv := common.GetFlagVars()
 	if info.Host == "" && fv.HostsFile == "" {

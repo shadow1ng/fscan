@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/signal"
 	"syscall"
@@ -66,5 +67,5 @@ func main() {
 	defer func() { _ = common.Cleanup() }()
 
 	// 执行扫描
-	core.RunScan(*result.Info, result.Config, result.State)
+	core.RunScan(context.Background(), *result.Info, result.Config, result.State)
 }

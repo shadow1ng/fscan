@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -214,7 +215,7 @@ type mockStrategy struct {
 	applicablePlugins map[string]bool // pluginName -> isApplicable
 }
 
-func (m *mockStrategy) Execute(config *common.Config, state *common.State, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
+func (m *mockStrategy) Execute(_ context.Context, config *common.Config, state *common.State, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
 }
 
 func (m *mockStrategy) GetPlugins() ([]string, bool) {
