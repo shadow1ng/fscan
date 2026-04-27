@@ -67,5 +67,5 @@ func main() {
 	defer func() { _ = common.Cleanup() }()
 
 	// 执行扫描
-	core.RunScan(context.Background(), *result.Info, result.Config, result.State)
+	core.RunScan(context.Background(), *result.Info, result.Session)
 }

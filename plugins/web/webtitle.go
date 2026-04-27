@@ -39,7 +39,8 @@ func NewWebTitlePlugin() *WebTitlePlugin {
 }
 
 // Scan 执行WebTitle扫描
-func (p *WebTitlePlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *WebScanResult {
+func (p *WebTitlePlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *WebScanResult {
+	config := session.Config
 	title, status, length, server, fingerprints, url, err := p.getWebTitle(ctx, info, config)
 	if err != nil {
 		return &WebScanResult{

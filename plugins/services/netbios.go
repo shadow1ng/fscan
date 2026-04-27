@@ -29,7 +29,9 @@ func NewNetBIOSPlugin() *NetBIOSPlugin {
 // GetPorts 实现Plugin接口
 
 // Scan 执行NetBIOS扫描 - 收集Windows主机和域信息
-func (p *NetBIOSPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *NetBIOSPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 
 	// 检查端口类型

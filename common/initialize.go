@@ -13,9 +13,10 @@ initialize.go - 统一初始化入口
 
 // InitResult 初始化结果
 type InitResult struct {
-	Config *Config
-	State  *State
-	Info   *HostInfo
+	Config  *Config
+	State   *State
+	Info    *HostInfo
+	Session *ScanSession
 }
 
 // Initialize 统一初始化函数
@@ -39,10 +40,13 @@ func Initialize(info *HostInfo) (*InitResult, error) {
 		return nil, fmt.Errorf("输出初始化失败: %w", err)
 	}
 
+	session := NewScanSession(cfg, state, GetFlagVars())
+
 	return &InitResult{
-		Config: cfg,
-		State:  state,
-		Info:   info,
+		Config:  cfg,
+		State:   state,
+		Info:    info,
+		Session: session,
 	}, nil
 }
 

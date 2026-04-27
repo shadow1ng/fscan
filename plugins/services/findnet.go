@@ -36,7 +36,9 @@ func NewFindNetPlugin() *FindNetPlugin {
 // GetPorts 实现Plugin接口
 
 // Scan 执行FindNet扫描 - Windows网络信息收集
-func (p *FindNetPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *FindNetPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 
 	// 检查是否为RPC端口

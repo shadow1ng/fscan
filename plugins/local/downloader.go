@@ -35,7 +35,8 @@ func NewDownloaderPlugin() *DownloaderPlugin {
 }
 
 // Scan 执行文件下载任务 - 直接实现
-func (p *DownloaderPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *plugins.Result {
+func (p *DownloaderPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
+	config := session.Config
 	var output strings.Builder
 
 	// 从config获取配置

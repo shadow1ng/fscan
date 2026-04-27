@@ -28,7 +28,9 @@ func NewRDPPlugin() *RDPPlugin {
 }
 
 // Scan 执行RDP扫描 - 系统指纹识别 + 真实暴力破解
-func (p *RDPPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *RDPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 
 	// 配置grdp日志级别

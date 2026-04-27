@@ -37,7 +37,9 @@ func NewForwardShellPlugin() *ForwardShellPlugin {
 }
 
 // Scan 执行正向Shell服务 - 直接实现
-func (p *ForwardShellPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *plugins.Result {
+func (p *ForwardShellPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
+	config := session.Config
+	state := session.State
 	var output strings.Builder
 
 	// 从config获取配置

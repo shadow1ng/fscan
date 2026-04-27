@@ -32,7 +32,7 @@ func NewCleanerPlugin() *CleanerPlugin {
 }
 
 // Scan 执行系统痕迹清理 - 直接、简单
-func (p *CleanerPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *plugins.Result {
+func (p *CleanerPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
 	var output strings.Builder
 	var filesCleared, dirsCleared, sysCleared int
 

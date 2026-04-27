@@ -53,7 +53,7 @@ func NewAVDetectPlugin() *AVDetectPlugin {
 }
 
 // Scan 执行AV/EDR检测 - 直接、有效
-func (p *AVDetectPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *plugins.Result {
+func (p *AVDetectPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
 	var output strings.Builder
 	var detectedAVs []string
 

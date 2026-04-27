@@ -33,7 +33,7 @@ func NewSystemInfoPlugin() *SystemInfoPlugin {
 }
 
 // Scan 执行系统信息收集 - 直接、简单、有效
-func (p *SystemInfoPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *plugins.Result {
+func (p *SystemInfoPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
 	var output strings.Builder
 
 	output.WriteString("=== 系统信息收集 ===\n")

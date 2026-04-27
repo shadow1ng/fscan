@@ -31,7 +31,9 @@ func NewRedisPlugin() *RedisPlugin {
 }
 
 // Scan 执行Redis扫描
-func (p *RedisPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *RedisPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 
 	// 如果禁用暴力破解，只做服务识别

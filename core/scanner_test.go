@@ -215,7 +215,7 @@ type mockStrategy struct {
 	applicablePlugins map[string]bool // pluginName -> isApplicable
 }
 
-func (m *mockStrategy) Execute(_ context.Context, config *common.Config, state *common.State, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
+func (m *mockStrategy) Execute(_ context.Context, session *common.ScanSession, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
 }
 
 func (m *mockStrategy) GetPlugins() ([]string, bool) {

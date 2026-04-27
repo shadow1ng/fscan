@@ -87,7 +87,8 @@ func NewWebPocPlugin() *WebPocPlugin {
 // Scan 执行Web POC扫描
 // 注意：非全量模式下，POC扫描由webtitle插件在指纹识别后触发，此插件不执行
 // 全量模式(-full)下，此插件独立执行全量POC扫描
-func (p *WebPocPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *WebScanResult {
+func (p *WebPocPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *WebScanResult {
+	config := session.Config
 	if config.POC.Disabled {
 		return &WebScanResult{
 			Success: false,

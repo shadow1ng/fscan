@@ -34,7 +34,9 @@ func NewSSHPlugin() *SSHPlugin {
 }
 
 // Scan 执行SSH扫描
-func (p *SSHPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *SSHPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 
 	// 如果指定了SSH密钥，优先使用密钥认证

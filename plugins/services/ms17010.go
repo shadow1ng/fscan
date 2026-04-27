@@ -34,7 +34,9 @@ func NewMS17010Plugin() *MS17010Plugin {
 // GetPorts 实现Plugin接口
 
 // Scan 执行MS17-010扫描
-func (p *MS17010Plugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *MS17010Plugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	// 如果禁用暴力破解，也禁用漏洞检测
 	if config.DisableBrute {
 		return &ScanResult{

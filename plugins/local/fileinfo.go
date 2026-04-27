@@ -33,7 +33,7 @@ func NewFileInfoPlugin() *FileInfoPlugin {
 }
 
 // Scan 执行本地文件扫描 - 直接、简单、有效
-func (p *FileInfoPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *plugins.Result {
+func (p *FileInfoPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
 	var foundFiles []string
 
 	// 扫描关键敏感文件位置 - 删除复杂的配置系统

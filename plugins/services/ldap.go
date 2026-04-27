@@ -23,7 +23,9 @@ func NewLDAPPlugin() *LDAPPlugin {
 	}
 }
 
-func (p *LDAPPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *LDAPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	if config.DisableBrute {
 		return p.identifyService(ctx, info, config, state)
 	}

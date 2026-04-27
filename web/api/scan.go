@@ -206,9 +206,12 @@ func (h *ScanHandler) runScan(req ScanRequest) {
 	fv.DisableSave = true // Web模式不保存到文件
 	fv.Silent = true      // 静默模式
 
-	// 构建Config，同步到全局实例供 network/限速等模块使用
+	// 构建Config和Session
 	config := common.BuildConfigFromFlags(fv)
 	state := common.NewState()
+	session := common.NewScanSession(config, state, fv)
+
+	// 过渡桥：全局状态同步（待 Phase 5 移除）
 	common.SetGlobalConfig(config)
 	common.SetGlobalState(state)
 
@@ -221,7 +224,7 @@ func (h *ScanHandler) runScan(req ScanRequest) {
 	})
 
 	// 执行扫描
-	core.RunScan(ctx, info, config, state)
+	core.RunScan(ctx, info, session)
 }
 
 // Stop 停止扫描

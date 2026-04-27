@@ -24,7 +24,9 @@ func NewVNCPlugin() *VNCPlugin {
 	}
 }
 
-func (p *VNCPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *VNCPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 
 	// 检查未授权访问

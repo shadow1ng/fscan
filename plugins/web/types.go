@@ -10,7 +10,7 @@ import (
 // WebPlugin Web插件接口 - 使用智能HTTP检测，不需要预定义端口
 type WebPlugin interface {
 	Name() string
-	Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *WebScanResult
+	Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *WebScanResult
 }
 
 // WebScanResult Web扫描结果类型别名

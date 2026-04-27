@@ -30,7 +30,7 @@ func NewEnvInfoPlugin() *EnvInfoPlugin {
 }
 
 // Scan 执行环境变量收集 - 直接、有效
-func (p *EnvInfoPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *plugins.Result {
+func (p *EnvInfoPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
 	var output strings.Builder
 	var sensitiveVars []string
 

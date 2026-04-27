@@ -24,7 +24,9 @@ func NewOraclePlugin() *OraclePlugin {
 	}
 }
 
-func (p *OraclePlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *OraclePlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 
 	if config.DisableBrute {

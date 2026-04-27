@@ -33,7 +33,8 @@ func NewShellEnvPlugin() *ShellEnvPlugin {
 }
 
 // Scan 执行Shell环境变量持久化 - 直接实现
-func (p *ShellEnvPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *plugins.Result {
+func (p *ShellEnvPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
+	config := session.Config
 	var output strings.Builder
 
 	if runtime.GOOS != "linux" {

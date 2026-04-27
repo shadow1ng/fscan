@@ -18,7 +18,7 @@ import (
 
 // ScanStrategy 定义扫描策略接口
 type ScanStrategy interface {
-	Execute(ctx context.Context, config *common.Config, state *common.State, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup)
+	Execute(ctx context.Context, session *common.ScanSession, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup)
 	GetPlugins(config *common.Config) ([]string, bool)
 	IsPluginApplicableByName(pluginName string, targetHost string, targetPort int, isCustomMode bool, config *common.Config) bool
 }
@@ -73,9 +73,12 @@ func selectStrategy(config *common.Config, state *common.State, info common.Host
 }
 
 // RunScan 执行整体扫描流程
-func RunScan(ctx context.Context, info common.HostInfo, config *common.Config, state *common.State) {
+func RunScan(ctx context.Context, info common.HostInfo, session *common.ScanSession) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	config := session.Config
+	state := session.State
 
 	// 初始化HTTP客户端（静默，无需日志）
 	if err := lib.Inithttp(config); err != nil {
@@ -91,7 +94,7 @@ func RunScan(ctx context.Context, info common.HostInfo, config *common.Config, s
 	wg := sync.WaitGroup{}
 
 	// 执行策略
-	strategy.Execute(ctx, config, state, info, ch, &wg)
+	strategy.Execute(ctx, session, info, ch, &wg)
 
 	// 等待所有扫描完成
 	wg.Wait()
@@ -142,7 +145,9 @@ func finishScan(config *common.Config, state *common.State) {
 }
 
 // ExecuteScanTasks 任务执行通用框架
-func ExecuteScanTasks(ctx context.Context, config *common.Config, state *common.State, targets []common.HostInfo, strategy ScanStrategy, ch chan struct{}, wg *sync.WaitGroup) {
+func ExecuteScanTasks(ctx context.Context, session *common.ScanSession, targets []common.HostInfo, strategy ScanStrategy, ch chan struct{}, wg *sync.WaitGroup) {
+	config := session.Config
+
 	// 获取要执行的插件
 	pluginsToRun, isCustomMode := strategy.GetPlugins(config)
 
@@ -174,7 +179,7 @@ func ExecuteScanTasks(ctx context.Context, config *common.Config, state *common.
 
 			// 检查插件是否适用于当前目标
 			if strategy.IsPluginApplicableByName(pluginName, target.Host, targetPort, isCustomMode, config) {
-				executeScanTask(ctx, config, state, pluginName, target, ch, wg)
+				executeScanTask(ctx, session, pluginName, target, ch, wg)
 			}
 		}
 	}
@@ -205,7 +210,9 @@ var longRunningPlugins = map[string]bool{
 }
 
 // executeScanTask 执行单个扫描任务
-func executeScanTask(ctx context.Context, config *common.Config, state *common.State, pluginName string, target common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
+func executeScanTask(ctx context.Context, session *common.ScanSession, pluginName string, target common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
+	state := session.State
+
 	// 检查取消
 	select {
 	case <-ctx.Done():
@@ -218,7 +225,7 @@ func executeScanTask(ctx context.Context, config *common.Config, state *common.S
 		go func() {
 			plugin := plugins.Get(pluginName)
 			if plugin != nil {
-				plugin.Scan(ctx, &target, config, state)
+				plugin.Scan(ctx, &target, session)
 			}
 		}()
 		return
@@ -257,7 +264,7 @@ func executeScanTask(ctx context.Context, config *common.Config, state *common.S
 
 		plugin := plugins.Get(pluginName)
 		if plugin != nil {
-			result := plugin.Scan(ctx, &target, config, state)
+			result := plugin.Scan(ctx, &target, session)
 			if result != nil {
 				if result.Success {
 					// 保存成功的扫描结果到文件

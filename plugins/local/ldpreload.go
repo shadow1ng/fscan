@@ -33,7 +33,8 @@ func NewLDPreloadPlugin() *LDPreloadPlugin {
 }
 
 // Scan 执行LD_PRELOAD持久化 - 直接实现
-func (p *LDPreloadPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *plugins.Result {
+func (p *LDPreloadPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
+	config := session.Config
 	var output strings.Builder
 
 	if runtime.GOOS != "linux" {

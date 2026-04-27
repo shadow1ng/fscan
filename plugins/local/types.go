@@ -10,7 +10,7 @@ import (
 // Plugin 本地插件接口 - 不需要端口概念
 type Plugin interface {
 	Name() string
-	Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *plugins.Result
+	Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result
 }
 
 // RegisterLocalPlugin 注册本地插件 - 自动标记local类型

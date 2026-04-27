@@ -10,7 +10,7 @@ import (
 // 插件接口定义 - 统一命名风格
 type Plugin interface {
 	Name() string
-	Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult
+	Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult
 }
 
 type ScanResult = plugins.Result

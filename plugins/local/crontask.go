@@ -35,7 +35,8 @@ func NewCronTaskPlugin() *CronTaskPlugin {
 }
 
 // Scan 执行计划任务持久化 - 直接实现
-func (p *CronTaskPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *plugins.Result {
+func (p *CronTaskPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
+	config := session.Config
 	var output strings.Builder
 
 	if runtime.GOOS != "linux" {

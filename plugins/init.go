@@ -11,7 +11,7 @@ import (
 // Plugin 统一插件接口
 type Plugin interface {
 	Name() string
-	Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *Result
+	Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *Result
 }
 
 // BasePlugin 基础插件结构，提供通用的name字段
@@ -62,7 +62,7 @@ type Result struct {
 
 // Exploiter 利用接口
 type Exploiter interface {
-	Exploit(ctx context.Context, info *common.HostInfo, creds Credential, config *common.Config) *ExploitResult
+	Exploit(ctx context.Context, info *common.HostInfo, creds Credential, session *common.ScanSession) *ExploitResult
 }
 
 // ExploitResult 利用结果

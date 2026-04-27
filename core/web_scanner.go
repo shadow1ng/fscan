@@ -304,7 +304,7 @@ func (s *WebScanStrategy) Description() string {
 }
 
 // Execute 执行Web扫描策略
-func (s *WebScanStrategy) Execute(ctx context.Context, config *common.Config, state *common.State, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
+func (s *WebScanStrategy) Execute(ctx context.Context, session *common.ScanSession, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
 	// 输出扫描开始信息
 	s.LogScanStart()
 
@@ -315,13 +315,13 @@ func (s *WebScanStrategy) Execute(ctx context.Context, config *common.Config, st
 	}
 
 	// 准备URL目标
-	targets := s.PrepareTargets(info, state)
+	targets := s.PrepareTargets(info, session.State)
 
 	// 输出插件信息
-	s.LogPluginInfo(config)
+	s.LogPluginInfo(session.Config)
 
 	// 执行扫描任务
-	ExecuteScanTasks(ctx, config, state, targets, s, ch, wg)
+	ExecuteScanTasks(ctx, session, targets, s, ch, wg)
 }
 
 // PrepareTargets 准备URL目标列表

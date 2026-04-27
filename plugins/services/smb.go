@@ -24,7 +24,9 @@ func NewSmbPlugin() *SmbPlugin {
 	}
 }
 
-func (p *SmbPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *plugins.Result {
+func (p *SmbPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 
 	// 检查端口

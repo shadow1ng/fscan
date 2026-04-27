@@ -54,17 +54,15 @@ func (s *AliveScanStrategy) Description() string {
 }
 
 // Execute 执行存活探测扫描策略
-func (s *AliveScanStrategy) Execute(_ context.Context, config *common.Config, state *common.State, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
+func (s *AliveScanStrategy) Execute(_ context.Context, session *common.ScanSession, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
 	// 验证扫描目标（需要同时检查 -h 和 -hf 参数）
-	fv := common.GetFlagVars()
-	if info.Host == "" && fv.HostsFile == "" {
+	if info.Host == "" && session.Params.HostsFile == "" {
 		common.LogError(i18n.GetText("parse_error_target_empty"))
 		return
 	}
 
-
 	// 执行存活探测
-	s.performAliveScan(info, config, state)
+	s.performAliveScan(info, session.Config, session.State)
 
 	// 输出统计信息
 	s.outputStats()

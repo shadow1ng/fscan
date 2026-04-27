@@ -41,7 +41,9 @@ func NewDCInfoPlugin() *DCInfoPlugin {
 }
 
 // Scan 执行域控信息收集 - 直接实现
-func (p *DCInfoPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *plugins.Result {
+func (p *DCInfoPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
+	config := session.Config
+	state := session.State
 	var output strings.Builder
 
 	output.WriteString("=== 域控制器信息收集 ===\n")

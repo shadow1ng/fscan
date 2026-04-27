@@ -50,7 +50,9 @@ func NewTelnetPlugin() *TelnetPlugin {
 	}
 }
 
-func (p *TelnetPlugin) Scan(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *TelnetPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 
 	if config.DisableBrute {

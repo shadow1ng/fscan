@@ -113,10 +113,11 @@ func (s *ServiceScanStrategy) Description() string {
 }
 
 // Execute 执行服务扫描策略
-func (s *ServiceScanStrategy) Execute(ctx context.Context, config *common.Config, state *common.State, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
+func (s *ServiceScanStrategy) Execute(ctx context.Context, session *common.ScanSession, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
+	config := session.Config
+
 	// 验证扫描目标（需要同时检查 -h 和 -hf 参数）
-	fv := common.GetFlagVars()
-	if info.Host == "" && fv.HostsFile == "" {
+	if info.Host == "" && session.Params.HostsFile == "" {
 		common.LogError(i18n.GetText("parse_error_target_empty"))
 		return
 	}
@@ -134,13 +135,13 @@ func (s *ServiceScanStrategy) Execute(ctx context.Context, config *common.Config
 	s.LogPluginInfo(config)
 
 	// 执行主机扫描流程
-	s.performHostScan(ctx, config, state, info, ch, wg)
+	s.performHostScan(ctx, session, info, ch, wg)
 }
 
 // performHostScan 执行主机扫描的完整流程
-func (s *ServiceScanStrategy) performHostScan(ctx context.Context, config *common.Config, state *common.State, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
+func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *common.ScanSession, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
 	// 发现目标主机和端口
-	targetInfos, err := s.discoverTargets(info.Host, info, config, state)
+	targetInfos, err := s.discoverTargets(info.Host, info, session.Config, session.State)
 	if err != nil {
 		common.LogError(err.Error())
 		return
@@ -148,7 +149,7 @@ func (s *ServiceScanStrategy) performHostScan(ctx context.Context, config *commo
 
 	// 执行漏洞扫描
 	if len(targetInfos) > 0 {
-		ExecuteScanTasks(ctx, config, state, targetInfos, s, ch, wg)
+		ExecuteScanTasks(ctx, session, targetInfos, s, ch, wg)
 	}
 }
 
