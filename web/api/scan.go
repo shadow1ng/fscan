@@ -206,9 +206,11 @@ func (h *ScanHandler) runScan(req ScanRequest) {
 	fv.DisableSave = true // Web模式不保存到文件
 	fv.Silent = true      // 静默模式
 
-	// 构建Config
+	// 构建Config，同步到全局实例供 network/限速等模块使用
 	config := common.BuildConfigFromFlags(fv)
 	state := common.NewState()
+	common.SetGlobalConfig(config)
+	common.SetGlobalState(state)
 
 	// 设置WebSocket结果回调
 	common.SetResultCallback(func(result interface{}) {

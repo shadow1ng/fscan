@@ -100,6 +100,8 @@ func parseUsernames(fv *FlagVars) []string {
 	if fv.UsersFile != "" {
 		if lines, err := parsers.ReadLinesFromFile(fv.UsersFile); err == nil {
 			usernames = append(usernames, lines...)
+		} else {
+			LogError(fmt.Sprintf("读取用户名文件 %s 失败: %v", fv.UsersFile, err))
 		}
 	}
 
@@ -128,6 +130,8 @@ func parsePasswords(fv *FlagVars) []string {
 	if fv.PasswordsFile != "" {
 		if lines, err := parsers.ReadLinesFromFile(fv.PasswordsFile); err == nil {
 			passwords = append(passwords, lines...)
+		} else {
+			LogError(fmt.Sprintf("读取密码文件 %s 失败: %v", fv.PasswordsFile, err))
 		}
 	}
 
@@ -246,6 +250,8 @@ func parseURLs(fv *FlagVars) []string {
 			for _, line := range lines {
 				urls = append(urls, normalizeURL(line))
 			}
+		} else {
+			LogError(fmt.Sprintf("读取URL文件 %s 失败: %v", fv.URLsFile, err))
 		}
 	}
 

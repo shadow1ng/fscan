@@ -118,24 +118,34 @@ func (p *Socks5ProxyPlugin) startSocks5Server(ctx context.Context, port int, sta
 		}
 
 		// 并发处理客户端连接
-		go p.handleClient(conn)
+		go p.handleClient(ctx, conn)
 	}
 }
 
 // handleClient 处理客户端连接
-func (p *Socks5ProxyPlugin) handleClient(clientConn net.Conn) {
+func (p *Socks5ProxyPlugin) handleClient(ctx context.Context, clientConn net.Conn) {
 	defer func() { _ = clientConn.Close() }()
+
+	// ctx 取消时关闭连接，解除阻塞的 IO
+	go func() {
+		<-ctx.Done()
+		_ = clientConn.Close()
+	}()
 
 	// SOCKS5握手阶段
 	if err := p.handleSocks5Handshake(clientConn); err != nil {
-		common.LogError(i18n.Tr("socks5_handshake_failed", err))
+		if ctx.Err() == nil {
+			common.LogError(i18n.Tr("socks5_handshake_failed", err))
+		}
 		return
 	}
 
 	// SOCKS5请求阶段
 	targetConn, _, err := p.handleSocks5Request(clientConn)
 	if err != nil {
-		common.LogError(i18n.Tr("socks5_request_failed", err))
+		if ctx.Err() == nil {
+			common.LogError(i18n.Tr("socks5_request_failed", err))
+		}
 		return
 	}
 	defer func() { _ = targetConn.Close() }()
