@@ -169,7 +169,9 @@ func (p *FindNetPlugin) performNetworkDiscovery(conn net.Conn) (*NetworkInfo, er
 	// 查找响应结束标记
 	for i := 0; i < len(responseData)-5; i++ {
 		if bytes.Equal(responseData[i:i+6], rpcBuffer3) {
-			responseData = responseData[:i-4]
+			if i >= 4 {
+				responseData = responseData[:i-4]
+			}
 			break
 		}
 	}

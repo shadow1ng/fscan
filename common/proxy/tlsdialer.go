@@ -50,7 +50,9 @@ func (t *tlsDialerWrapper) DialTLSContext(ctx context.Context, network, address 
 	if err := tlsConn.Handshake(); err != nil {
 		_ = tcpConn.Close() // TLS握手失败，Close错误可忽略
 		atomic.AddInt64(&t.stats.FailedConnections, 1)
+		t.stats.mu.Lock()
 		t.stats.LastError = err.Error()
+		t.stats.mu.Unlock()
 		return nil, NewProxyError(ErrTypeConnection, ErrMsgTLSHandshakeFailed, ErrCodeTLSHandshakeFailed, err)
 	}
 
@@ -71,7 +73,8 @@ func (t *tlsDialerWrapper) DialTLSContext(ctx context.Context, network, address 
 
 // updateAverageConnectTime 更新平均连接时间
 func (t *tlsDialerWrapper) updateAverageConnectTime(duration time.Duration) {
-	// 简单的移动平均
+	t.stats.mu.Lock()
+	defer t.stats.mu.Unlock()
 	if t.stats.AverageConnectTime == 0 {
 		t.stats.AverageConnectTime = duration
 	} else {

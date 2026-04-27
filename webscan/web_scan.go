@@ -56,7 +56,9 @@ func WebScan(ctx context.Context, info *common.HostInfo, cfg *common.Config) {
 	if !pocLoaded {
 		cachedPocPath = cfg.POC.PocPath
 		initPocs()
-		pocLoaded = true
+		if len(allPocs) > 0 {
+			pocLoaded = true
+		}
 	}
 	pocMu.Unlock()
 

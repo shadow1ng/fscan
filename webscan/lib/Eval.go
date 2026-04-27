@@ -33,16 +33,13 @@ var (
 
 // 包级POC配置
 var (
-	pocConfigOnce sync.Once
-	pocDNSLog     bool // DNSLog配置缓存
+	pocDNSLog bool // DNSLog配置缓存
 )
 
-// InitPOCConfig 初始化POC配置（在扫描开始前调用一次）
+// InitPOCConfig 初始化POC配置（在扫描开始前调用）
 // 这样CEL回调函数可以使用包级变量而非GetGlobalConfig
 func InitPOCConfig(dnsLog bool) {
-	pocConfigOnce.Do(func() {
-		pocDNSLog = dnsLog
-	})
+	pocDNSLog = dnsLog
 }
 
 // NewEnv 创建一个新的 CEL 环境（使用缓存避免重复注册函数）

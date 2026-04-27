@@ -319,7 +319,7 @@ func (p *MS17010Plugin) checkMS17010Vulnerability(ip string, config *common.Conf
 	}
 
 	n, readErr = conn.Read(reply)
-	if readErr != nil || n < 36 {
+	if readErr != nil || n < 45 {
 		return false, "", fmt.Errorf("SMB会话建立失败")
 	}
 
@@ -330,7 +330,7 @@ func (p *MS17010Plugin) checkMS17010Vulnerability(ip string, config *common.Conf
 	// 提取系统信息
 	var osVersion string
 	sessionSetupResponse := reply[36:n]
-	if wordCount := sessionSetupResponse[0]; wordCount != 0 {
+	if wordCount := sessionSetupResponse[0]; wordCount != 0 && len(sessionSetupResponse) >= 10 {
 		byteCount := binary.LittleEndian.Uint16(sessionSetupResponse[7:9])
 		if n == int(byteCount)+45 {
 			for i := 10; i < len(sessionSetupResponse)-1; i++ {

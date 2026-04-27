@@ -30,7 +30,9 @@ func (h *httpDialer) DialContext(ctx context.Context, network, address string) (
 	proxyConn, err := h.baseDial.DialContext(ctx, NetworkTCP, h.config.Address)
 	if err != nil {
 		atomic.AddInt64(&h.stats.FailedConnections, 1)
+		h.stats.mu.Lock()
 		h.stats.LastError = err.Error()
+		h.stats.mu.Unlock()
 		return nil, NewProxyError(ErrTypeConnection, ErrMsgHTTPConnFailed, ErrCodeHTTPConnFailed, err)
 	}
 
@@ -38,12 +40,16 @@ func (h *httpDialer) DialContext(ctx context.Context, network, address string) (
 	if err := h.sendConnectRequest(proxyConn, address); err != nil {
 		_ = proxyConn.Close() // 错误处理路径，Close错误可忽略
 		atomic.AddInt64(&h.stats.FailedConnections, 1)
+		h.stats.mu.Lock()
 		h.stats.LastError = err.Error()
+		h.stats.mu.Unlock()
 		return nil, err
 	}
 
 	duration := time.Since(start)
+	h.stats.mu.Lock()
 	h.stats.LastConnectTime = start
+	h.stats.mu.Unlock()
 	atomic.AddInt64(&h.stats.ActiveConnections, 1)
 	h.updateAverageConnectTime(duration)
 
@@ -108,7 +114,8 @@ func (h *httpDialer) sendConnectRequest(conn net.Conn, address string) error {
 
 // updateAverageConnectTime 更新平均连接时间
 func (h *httpDialer) updateAverageConnectTime(duration time.Duration) {
-	// 简单的移动平均
+	h.stats.mu.Lock()
+	defer h.stats.mu.Unlock()
 	if h.stats.AverageConnectTime == 0 {
 		h.stats.AverageConnectTime = duration
 	} else {
