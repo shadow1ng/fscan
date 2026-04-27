@@ -242,7 +242,7 @@ func probeSMBv1(conn net.Conn, target string, timeout time.Duration) (*SMBTarget
 	}
 
 	ret, err := readSMBMessage(conn)
-	if err != nil || len(ret) < 45 {
+	if err != nil || len(ret) < 47 {
 		return nil, fmt.Errorf("读取SMBv1 Session Setup响应失败: %w", err)
 	}
 
@@ -251,21 +251,24 @@ func probeSMBv1(conn net.Conn, target string, timeout time.Duration) (*SMBTarget
 	}
 
 	// 解析blob信息
-	blobLength := bytesToUint16(ret[43:45])
-	blobCount := bytesToUint16(ret[45:47])
+	blobLength := int(bytesToUint16(ret[43:45]))
+	blobCount := int(bytesToUint16(ret[45:47]))
 
-	if int(blobCount) > len(ret) {
+	gssNative := ret[47:]
+	gssLen := len(gssNative)
+
+	// 校验远端返回的偏移量
+	if blobLength > gssLen || blobCount > gssLen || blobLength > blobCount {
 		return info, nil
 	}
 
-	gssNative := ret[47:]
 	offNTLM := bytes.Index(gssNative, []byte("NTLMSSP"))
 	if offNTLM == -1 {
 		return info, nil
 	}
 
 	// 提取native OS和LM信息
-	native := gssNative[int(blobLength):blobCount]
+	native := gssNative[blobLength:blobCount]
 	ss := strings.Split(string(native), "\x00\x00")
 
 	if len(ss) > 0 {
@@ -276,8 +279,10 @@ func probeSMBv1(conn net.Conn, target string, timeout time.Duration) (*SMBTarget
 	}
 
 	// 解析NTLM信息
-	bs := gssNative[offNTLM:blobLength]
-	parseNTLMChallenge(bs, info)
+	if offNTLM <= blobLength {
+		bs := gssNative[offNTLM:blobLength]
+		parseNTLMChallenge(bs, info)
+	}
 
 	return info, nil
 }

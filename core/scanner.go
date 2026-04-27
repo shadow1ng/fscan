@@ -109,11 +109,14 @@ func RunScan(ctx context.Context, info common.HostInfo, config *common.Config, s
 		}
 		common.LogInfo(i18n.GetText("press_ctrl_c_exit"))
 
-		// 优雅等待信号
+		// 优雅等待信号或 context 取消（Web Stop）
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-		<-sigChan
-		common.LogInfo(i18n.GetText("received_exit_signal"))
+		select {
+		case <-sigChan:
+			common.LogInfo(i18n.GetText("received_exit_signal"))
+		case <-ctx.Done():
+		}
 		cancel()
 		time.Sleep(500 * time.Millisecond)
 	}
