@@ -277,30 +277,6 @@ func IsMarkedWebService(host string, port int) bool {
 }
 
 // ===============================
-// 指纹缓存
-// ===============================
-
-// 指纹缓存 - 存储 host:port → 指纹列表的映射
-var (
-	fingerprintCache      = make(map[string][]string)
-	fingerprintCacheMutex sync.RWMutex
-)
-
-// SetFingerprints 存储目标的指纹信息
-func SetFingerprints(host string, port int, fingerprints []string) {
-	if len(fingerprints) == 0 {
-		return
-	}
-
-	cacheKey := fmt.Sprintf("%s:%d", host, port)
-
-	fingerprintCacheMutex.Lock()
-	defer fingerprintCacheMutex.Unlock()
-
-	fingerprintCache[cacheKey] = fingerprints
-}
-
-// ===============================
 // Web扫描策略
 // ===============================
 

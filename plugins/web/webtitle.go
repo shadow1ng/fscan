@@ -192,11 +192,6 @@ func (p *WebTitlePlugin) identifyFingerprintsMulti(info *common.HostInfo, baseUR
 	// 调用指纹识别
 	fingerprints := WebScan.InfoCheck(baseURL, &checkDataList)
 
-	// 存入缓存
-	if len(fingerprints) > 0 {
-		core.SetFingerprints(info.Host, info.Port, fingerprints)
-	}
-
 	// 非全量模式下，基于指纹触发POC扫描
 	if !config.POC.Full && !config.POC.Disabled {
 		p.triggerPocScan(info, fingerprints, config)

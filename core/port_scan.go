@@ -252,7 +252,10 @@ func slidingWindowSchedule(iter *SocketIterator, pool *AdaptivePool, wg *sync.Wa
 			port:      port,
 			semaphore: semaphore,
 		}
-		_ = pool.Invoke(task)
+		if err := pool.Invoke(task); err != nil {
+			<-semaphore
+			wg.Done()
+		}
 	}
 
 	// 等待所有任务完成
