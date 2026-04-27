@@ -128,9 +128,19 @@ func (m *manager) Stats() *ProxyStats {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	// 返回副本以避免并发问题
-	statsCopy := *m.stats
-	return &statsCopy
+	m.stats.mu.Lock()
+	defer m.stats.mu.Unlock()
+
+	return &ProxyStats{
+		TotalConnections:   atomic.LoadInt64(&m.stats.TotalConnections),
+		ActiveConnections:  atomic.LoadInt64(&m.stats.ActiveConnections),
+		FailedConnections:  atomic.LoadInt64(&m.stats.FailedConnections),
+		AverageConnectTime: m.stats.AverageConnectTime,
+		LastConnectTime:    m.stats.LastConnectTime,
+		LastError:          m.stats.LastError,
+		ProxyType:          m.stats.ProxyType,
+		ProxyAddress:       m.stats.ProxyAddress,
+	}
 }
 
 // createDirectDialer 创建直连拨号器
