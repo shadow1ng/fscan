@@ -48,6 +48,10 @@ type ProgressManager struct {
 
 	// 进度条更新控制（减少 Windows 终端的重复输出）
 	lastRenderedPercent int
+
+	// 引用，避免读全局
+	state   *State
+	noColor bool
 }
 
 // =============================================================================
@@ -102,11 +106,13 @@ func GetProgressManager() *ProgressManager {
 
 // InitProgress 初始化进度条
 func (pm *ProgressManager) InitProgress(total int64, description string) {
-	fv := GetFlagVars()
-	if fv.DisableProgress || fv.Silent {
+	cfg := GetGlobalConfig()
+	if cfg.Output.DisableProgress || cfg.Output.Silent {
 		pm.enabled = false
 		return
 	}
+	pm.state = GetGlobalState()
+	pm.noColor = cfg.Output.NoColor
 
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
@@ -277,13 +283,16 @@ func (pm *ProgressManager) generateProgressBar() string {
 
 // getPacketInfo 获取发包统计信息（简化版）
 func (pm *ProgressManager) getPacketInfo() string {
-	packetCount := GetGlobalState().GetPacketCount()
+	if pm.state == nil {
+		return ""
+	}
+	packetCount := pm.state.GetPacketCount()
 	if packetCount == 0 {
 		return ""
 	}
 
-	tcpSuccess := GetGlobalState().GetTCPSuccessPacketCount()
-	tcpFailed := GetGlobalState().GetTCPFailedPacketCount()
+	tcpSuccess := pm.state.GetTCPSuccessPacketCount()
+	tcpFailed := pm.state.GetTCPFailedPacketCount()
 
 	// 简化格式：TCP:成功/失败
 	if tcpSuccess > 0 || tcpFailed > 0 {
@@ -301,7 +310,7 @@ func (pm *ProgressManager) showCompletionInfo() {
 	fmt.Print("\n")
 
 	completionMsg := i18n.GetText("progress_scan_completed")
-	if GetFlagVars().NoColor {
+	if pm.noColor {
 		fmt.Printf("[完成] %s %d/%d (耗时: %s)\n",
 			completionMsg, pm.total, pm.total, formatDuration(elapsed))
 	} else {
@@ -532,7 +541,7 @@ func (pm *ProgressManager) renderProgressUnsafe() {
 	fmt.Print(clearStr)
 
 	// 输出进度条（带颜色，如果启用）
-	if GetFlagVars().NoColor {
+	if pm.noColor {
 		fmt.Print(progressBar)
 	} else {
 		fmt.Printf("%s%s%s", AnsiCyan, progressBar, AnsiReset)

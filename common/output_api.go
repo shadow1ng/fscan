@@ -81,7 +81,7 @@ func SaveResult(result *output.ScanResult) error {
 	})
 
 	// 用户禁用保存或输出未初始化时，跳过文件保存
-	if GetFlagVars().DisableSave || ResultOutput == nil {
+	if GetGlobalConfig().Output.DisableSave || ResultOutput == nil {
 		return nil
 	}
 	return ResultOutput.SaveResult(result)

@@ -71,8 +71,7 @@ func (s *AliveScanStrategy) Execute(_ context.Context, session *common.ScanSessi
 // performAliveScan 执行存活探测
 func (s *AliveScanStrategy) performAliveScan(info common.HostInfo, session *common.ScanSession) {
 	// 解析目标主机
-	fv := common.GetFlagVars()
-	hosts, err := parsers.ParseIP(info.Host, fv.HostsFile, fv.ExcludeHosts)
+	hosts, err := parsers.ParseIP(info.Host, session.Params.HostsFile, session.Params.ExcludeHosts)
 	if err != nil {
 		common.LogError(i18n.Tr("parse_target_failed", err))
 		return

@@ -28,7 +28,7 @@ func NewServiceScanStrategy() *ServiceScanStrategy {
 func (s *ServiceScanStrategy) LogPluginInfo(config *common.Config) {
 	// 需要从命令行参数获取端口信息来进行过滤
 	// 如果没有指定端口，使用默认端口进行过滤显示
-	ports := common.GetFlagVars().Ports
+	ports := config.Target.Ports
 	if ports == "" || ports == "all" {
 		// 默认端口扫描：显示所有插件
 		s.BaseScanStrategy.LogPluginInfo(config)
@@ -43,7 +43,7 @@ func (s *ServiceScanStrategy) showPluginsForSpecifiedPorts(config *common.Config
 	allPlugins, isCustomMode := s.GetPlugins(config)
 
 	// 解析端口
-	ports := s.parsePortList(common.GetFlagVars().Ports)
+	ports := s.parsePortList(config.Target.Ports)
 	if len(ports) == 0 {
 		s.BaseScanStrategy.LogPluginInfo(config)
 		return
@@ -219,8 +219,7 @@ func (s *ServiceScanStrategy) discoverTargets(hostInput string, baseInfo common.
 	config := session.Config
 	state := session.State
 	// 标准流程：解析目标主机
-	fv := common.GetFlagVars()
-	hosts, err := parsers.ParseIP(hostInput, fv.HostsFile, fv.ExcludeHosts)
+	hosts, err := parsers.ParseIP(hostInput, session.Params.HostsFile, session.Params.ExcludeHosts)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", i18n.GetText("parse_target_failed"), err)
 	}
