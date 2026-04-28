@@ -27,6 +27,14 @@ func RegisterRoutes(mux *http.ServeMux, hub *ws.Hub) {
 	mux.HandleFunc("/api/config/presets", configHandler.Presets)
 	mux.HandleFunc("/api/config/plugins", configHandler.Plugins)
 
+	// 项目缓存
+	projectHandler := NewProjectHandler()
+	mux.HandleFunc("/api/projects", projectHandler.List)
+	mux.HandleFunc("/api/projects/create", projectHandler.Create)
+	mux.HandleFunc("/api/projects/get", projectHandler.Get)
+	mux.HandleFunc("/api/projects/delete", projectHandler.Delete)
+	mux.HandleFunc("/api/projects/cache", projectHandler.Cache)
+
 	// 系统信息
 	mux.HandleFunc("/api/system/info", systemInfo)
 	mux.HandleFunc("/api/health", healthCheck)

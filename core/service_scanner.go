@@ -250,26 +250,42 @@ func (s *ServiceScanStrategy) shouldPerformLivenessCheck(hosts []string, config 
 }
 
 // discoverAlivePorts 发现存活的端口
+// 执行正常端口扫描后，合并预设的 host:port（来自项目缓存或 CLI），确保不遗漏
 func (s *ServiceScanStrategy) discoverAlivePorts(ctx context.Context, hosts []string, session *common.ScanSession) []string {
 	config := session.Config
 	state := session.State
 	var alivePorts []string
 
-	// 如果已经有明确指定的host:port，直接使用（让后续SmartIdentify统一验证和识别）
-	hostPorts := state.GetHostPorts()
-	if len(hostPorts) > 0 {
-		alivePorts = hostPorts
-		common.LogInfo(i18n.Tr("alive_ports_count", len(alivePorts)))
-		state.ClearHostPorts()
-		return alivePorts
-	}
-
-	// 根据扫描模式选择端口扫描方式
+	// 正常端口扫描
 	if len(hosts) > 0 {
 		alivePorts = EnhancedPortScan(ctx, hosts, config.Target.Ports, int64(config.Timeout.Seconds()), session)
 	}
 
+	// 合并预设的 host:port（项目缓存 / CLI 注入）
+	hostPorts := state.GetHostPorts()
+	if len(hostPorts) > 0 {
+		alivePorts = mergeHostPorts(alivePorts, hostPorts)
+		common.LogInfo(i18n.Tr("alive_ports_count", len(alivePorts)))
+		state.ClearHostPorts()
+	}
+
 	return alivePorts
+}
+
+// mergeHostPorts 合并两个 host:port 列表并去重
+func mergeHostPorts(a, b []string) []string {
+	seen := make(map[string]struct{}, len(a)+len(b))
+	for _, s := range a {
+		seen[s] = struct{}{}
+	}
+	for _, s := range b {
+		seen[s] = struct{}{}
+	}
+	result := make([]string, 0, len(seen))
+	for s := range seen {
+		result = append(result, s)
+	}
+	return result
 }
 
 // convertToTargetInfos 将端口列表转换为目标信息

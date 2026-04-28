@@ -51,6 +51,9 @@ type ScanRequest struct {
 	PocName  string `json:"poc_name"`
 	PocFull  bool   `json:"poc_full"`
 	DisablePoc bool `json:"disable_poc"`
+
+	// 项目缓存
+	ProjectID string `json:"project_id,omitempty"`
 }
 
 // ScanStatus 扫描状态响应
@@ -215,6 +218,13 @@ func (h *ScanHandler) runScan(req ScanRequest) {
 	common.SetGlobalConfig(config)
 	common.SetGlobalState(state)
 
+	// 项目缓存注入：把已知的 host:port 加入扫描目标
+	if req.ProjectID != "" {
+		if cached := globalProjectStore.CachedHostPorts(req.ProjectID); len(cached) > 0 {
+			state.SetHostPorts(cached)
+		}
+	}
+
 	// 设置WebSocket结果回调
 	common.SetResultCallback(func(result interface{}) {
 		item := h.results.Add(result)
@@ -225,6 +235,14 @@ func (h *ScanHandler) runScan(req ScanRequest) {
 
 	// 执行扫描
 	core.RunScan(ctx, info, session)
+
+	// 项目缓存回写：合并本次扫描结果
+	if req.ProjectID != "" {
+		items := h.results.List()
+		if len(items) > 0 {
+			_ = globalProjectStore.MergeResults(req.ProjectID, items)
+		}
+	}
 }
 
 // Stop 停止扫描
