@@ -185,7 +185,7 @@ func (h *ScanHandler) runScan(req ScanRequest) {
 		fv.ScanMode = "all"
 	}
 	fv.ThreadNum = req.ThreadNum
-	if fv.ThreadNum == 0 {
+	if fv.ThreadNum <= 0 {
 		fv.ThreadNum = 600
 	}
 	fv.TimeoutSec = int64(req.Timeout)
@@ -193,7 +193,7 @@ func (h *ScanHandler) runScan(req ScanRequest) {
 		fv.TimeoutSec = 3
 	}
 	fv.ModuleThreadNum = req.ModuleThreadNum
-	if fv.ModuleThreadNum == 0 {
+	if fv.ModuleThreadNum <= 0 {
 		fv.ModuleThreadNum = 20
 	}
 	fv.DisablePing = req.DisablePing

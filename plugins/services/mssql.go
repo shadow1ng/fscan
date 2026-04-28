@@ -65,7 +65,7 @@ func (p *MSSQLPlugin) createAuthFunc(info *common.HostInfo, config *common.Confi
 
 // doMSSQLAuth 执行MSSQL认证
 func (p *MSSQLPlugin) doMSSQLAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
-	connStr := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;database=master;connection timeout=%d",
+	connStr := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;database=master;encrypt=disable;connection timeout=%d",
 		info.Host, cred.Username, cred.Password, info.Port, int64(config.Timeout.Seconds()))
 
 	db, err := sql.Open("mssql", connStr)
@@ -148,7 +148,7 @@ func classifyMSSQLErrorType(err error) ErrorType {
 func (p *MSSQLPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
 	target := info.Target()
 
-	connStr := fmt.Sprintf("server=%s;user id=invalid;password=invalid;port=%d;database=master;connection timeout=%d",
+	connStr := fmt.Sprintf("server=%s;user id=invalid;password=invalid;port=%d;database=master;encrypt=disable;connection timeout=%d",
 		info.Host, info.Port, int64(config.Timeout.Seconds()))
 
 	db, err := sql.Open("mssql", connStr)
