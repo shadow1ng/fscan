@@ -52,7 +52,6 @@ func NewTelnetPlugin() *TelnetPlugin {
 
 func (p *TelnetPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
-	state := session.State
 	target := info.Target()
 
 	if config.DisableBrute {
@@ -91,7 +90,7 @@ func (p *TelnetPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 		cveUsers = []string{"root", "admin", "administrator"}
 	}
 	for _, user := range cveUsers {
-		if vuln, cveUser, evidence := p.checkCVE202624061(info, config, state, user); vuln {
+		if vuln, cveUser, evidence := p.checkCVE202624061(ctx, info, session, user); vuln {
 			common.LogVuln(i18n.Tr("telnet_cve202624061", target, cveUser, evidence))
 			return &ScanResult{
 				Success: true,
@@ -773,8 +772,8 @@ func (p *TelnetPlugin) drainBuffer(conn net.Conn) {
 // checkCVE202624061 检测 CVE-2026-24061 Telnetd Authentication Bypass 漏洞
 // 利用 NEW-ENVIRON (option 39) 子协商注入恶意环境变量,实现认证绕过
 // 返回 (是否漏洞, 触发用户名, 证据)
-func (p *TelnetPlugin) checkCVE202624061(info *common.HostInfo, config *common.Config, state *common.State, user string) (bool, string, string) {
-	conn, err := net.DialTimeout("tcp", info.Target(), config.Timeout)
+func (p *TelnetPlugin) checkCVE202624061(ctx context.Context, info *common.HostInfo, session *common.ScanSession, user string) (bool, string, string) {
+	conn, err := session.DialTCP(ctx, "tcp", info.Target(), session.Config.Timeout)
 	if err != nil {
 		return false, "", ""
 	}
@@ -993,13 +992,6 @@ func (e *cveChecker) run() (bool, string, string) {
 	stripped := strings.Replace(result, "echo "+token+"\n", "", 1)
 	if strings.Contains(stripped, token) {
 		return true, e.user, "[echo " + token + "]"
-	}
-
-	// 阶段 4: Shell prompt 特征
-	for _, pp := range []string{"# ", "$ ", "login: ", "Last login:", "Welcome to"} {
-		if strings.Contains(result, pp) {
-			return true, e.user, "[" + strings.TrimSpace(pp) + "]"
-		}
 	}
 
 	return false, "", ""

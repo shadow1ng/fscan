@@ -42,7 +42,7 @@ func (s *ScanSession) DialTCP(ctx context.Context, network, address string, time
 	}
 
 	// 获取 dialer
-	dialer, err := s.getDialer(timeout)
+	dialer, err := s.getDialer()
 	if err != nil {
 		LogError(fmt.Sprintf("获取代理拨号器失败: %v", err))
 		s.State.IncrementTCPFailedPacketCount()
@@ -60,18 +60,18 @@ func (s *ScanSession) DialTCP(ctx context.Context, network, address string, time
 	return conn, nil
 }
 
-func (s *ScanSession) getDialer(timeout time.Duration) (proxy.Dialer, error) {
+func (s *ScanSession) getDialer() (proxy.Dialer, error) {
 	s.dialerOnce.Do(func() {
-		cfg := s.createProxyConfig(timeout)
+		cfg := s.createProxyConfig()
 		manager := proxy.NewProxyManager(cfg)
 		s.dialer, s.dialerErr = manager.GetDialer()
 	})
 	return s.dialer, s.dialerErr
 }
 
-func (s *ScanSession) createProxyConfig(timeout time.Duration) *proxy.ProxyConfig {
+func (s *ScanSession) createProxyConfig() *proxy.ProxyConfig {
 	cfg := proxy.DefaultProxyConfig()
-	cfg.Timeout = timeout
+	cfg.Timeout = s.Config.Timeout
 	cfg.LocalAddr = s.Config.Network.Iface
 
 	// 优先 SOCKS5
