@@ -118,9 +118,10 @@ func DefaultConcurrentTestConfig(config *common.Config) ConcurrentTestConfig {
 		concurrency = 10
 	}
 	return ConcurrentTestConfig{
-		Concurrency: concurrency,
-		MaxRetries:  3,
-		RetryDelay:  time.Second,
+		Concurrency:             concurrency,
+		MaxRetries:              3,
+		RetryDelay:              time.Second,
+		MaxConsecutiveNetErrors: 5,
 	}
 }
 
@@ -151,9 +152,9 @@ func TestCredentialsConcurrently(
 	cancelCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// 通道
+	// 通道（buffer 设为 concurrency+1 避免 worker 阻塞在发送上）
 	credChan := make(chan Credential, len(credentials))
-	resultChan := make(chan *ScanResult, concurrency)
+	resultChan := make(chan *ScanResult, concurrency+1)
 
 	// 发送所有凭据
 	for _, cred := range credentials {
@@ -211,6 +212,12 @@ func workerTestCredentials(
 	serviceName string,
 	testConfig ConcurrentTestConfig,
 ) {
+	consecutiveNetErrors := 0
+	maxNetErrors := testConfig.MaxConsecutiveNetErrors
+	if maxNetErrors <= 0 {
+		maxNetErrors = 5
+	}
+
 	for cred := range credChan {
 		// 检查是否应该停止
 		select {
@@ -219,11 +226,23 @@ func workerTestCredentials(
 		default:
 		}
 
+		// 连续网络错误达到阈值，目标可能不可达，提前退出
+		if consecutiveNetErrors >= maxNetErrors {
+			return
+		}
+
 		// 带重试的凭据测试
 		result := testCredentialWithRetry(ctx, cred, authFn, serviceName, testConfig)
 		if result != nil && result.Success {
 			resultChan <- result
 			return
+		}
+
+		// 跟踪连续网络错误
+		if result != nil && result.Error != nil {
+			consecutiveNetErrors++
+		} else {
+			consecutiveNetErrors = 0
 		}
 	}
 }
@@ -267,11 +286,12 @@ func testCredentialWithRetry(
 		case ErrorTypeNetwork, ErrorTypeUnknown:
 			// 网络错误或未知错误，可以重试（可能是服务端限流等临时问题）
 			if attempt < testConfig.MaxRetries-1 {
+				timer := time.NewTimer(testConfig.RetryDelay)
 				select {
 				case <-ctx.Done():
+					timer.Stop()
 					return nil
-				case <-time.After(testConfig.RetryDelay):
-					// 继续重试
+				case <-timer.C:
 				}
 			}
 		}
