@@ -116,6 +116,15 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 	state := session.State
 	common.LogDebug(fmt.Sprintf("[PortScan] 开始: %d个主机, 线程数=%d", len(hosts), config.ThreadNum))
 
+	// 大规模扫描预筛：跨多个 /24 时先做网段探活，跳过空网段
+	if len(hosts) > subnetProbeThreshold {
+		hosts = probeSubnets(ctx, hosts, time.Duration(timeout)*time.Second, session)
+		if len(hosts) == 0 {
+			common.LogInfo(i18n.GetText("port_scan_no_alive_subnet"))
+			return nil
+		}
+	}
+
 	// 解析端口和排除端口
 	portList := parsers.ParsePort(ports)
 	if len(portList) == 0 {
@@ -653,4 +662,145 @@ func tryHTTPFallbackDetection(host string, port int, addr string, config *common
 
 	common.LogInfo(i18n.Tr("port_open_http", addr))
 	return true
+}
+
+// =============================================================================
+// 网段预筛 — 大规模扫描时跳过空 /24 网段
+// =============================================================================
+
+// subnetProbeThreshold 触发网段预筛的主机数阈值（超过 1 个 /24）
+const subnetProbeThreshold = 256
+
+// subnetProbePorts 网段探活用的端口（覆盖面广、响应快）
+var subnetProbePorts = []int{80, 443, 22, 445, 3389}
+
+// subnetProbeTimeout 每个探测的超时
+const subnetProbeTimeout = 1 * time.Second
+
+// subnetProbeConcurrency 网段探活并发数
+const subnetProbeConcurrency = 200
+
+// probeSubnets 对每个 /24 网段做轻量探活，返回属于存活网段的主机列表
+func probeSubnets(ctx context.Context, hosts []string, timeout time.Duration, session *common.ScanSession) []string {
+	// 按 /24 分组
+	subnets := make(map[string][]string) // "10.1.1" → [10.1.1.1, 10.1.1.2, ...]
+	for _, h := range hosts {
+		prefix := subnetPrefix(h)
+		if prefix != "" {
+			subnets[prefix] = append(subnets[prefix], h)
+		}
+	}
+
+	// 只有 1 个 /24，不需要预筛
+	if len(subnets) <= 1 {
+		return hosts
+	}
+
+	common.LogInfo(fmt.Sprintf("网段预筛: %d 个 /24 子网, %d 个主机", len(subnets), len(hosts)))
+
+	// 并发探测每个 /24
+	aliveSubnets := make(map[string]bool)
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	limiter := make(chan struct{}, subnetProbeConcurrency)
+
+	for prefix, subnetHosts := range subnets {
+		wg.Add(1)
+		limiter <- struct{}{}
+
+		go func(pfx string, sHosts []string) {
+			defer func() {
+				<-limiter
+				wg.Done()
+			}()
+
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			if probeSubnetAlive(ctx, sHosts, session) {
+				mu.Lock()
+				aliveSubnets[pfx] = true
+				mu.Unlock()
+			}
+		}(prefix, subnetHosts)
+	}
+
+	wg.Wait()
+
+	if len(aliveSubnets) == 0 {
+		return nil
+	}
+
+	// 只保留存活网段的主机
+	result := make([]string, 0, len(hosts))
+	for _, h := range hosts {
+		if aliveSubnets[subnetPrefix(h)] {
+			result = append(result, h)
+		}
+	}
+
+	skipped := len(subnets) - len(aliveSubnets)
+	common.LogInfo(fmt.Sprintf("网段预筛完成: %d 个存活, %d 个跳过, 剩余 %d 主机", len(aliveSubnets), skipped, len(result)))
+	return result
+}
+
+// probeSubnetAlive 探测一个 /24 网段是否存活
+// 从网段中抽样最多 3 台主机，对每台并行打探测端口，任一响应即判定存活
+func probeSubnetAlive(ctx context.Context, hosts []string, session *common.ScanSession) bool {
+	// 抽样：取网段中最多 3 台主机（首、中、尾）
+	samples := sampleHosts(hosts, 3)
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	result := make(chan bool, len(samples)*len(subnetProbePorts))
+
+	total := 0
+	for _, host := range samples {
+		for _, port := range subnetProbePorts {
+			total++
+			go func(h string, p int) {
+				addr := fmt.Sprintf("%s:%d", h, p)
+				conn, err := net.DialTimeout("tcp", addr, subnetProbeTimeout)
+				if err == nil {
+					_ = conn.Close()
+					result <- true
+					return
+				}
+				result <- false
+			}(host, port)
+		}
+	}
+
+	for i := 0; i < total; i++ {
+		if <-result {
+			return true
+		}
+	}
+	return false
+}
+
+// sampleHosts 从列表中均匀抽样 n 台主机
+func sampleHosts(hosts []string, n int) []string {
+	if len(hosts) <= n {
+		return hosts
+	}
+	samples := make([]string, n)
+	step := len(hosts) / n
+	for i := 0; i < n; i++ {
+		samples[i] = hosts[i*step]
+	}
+	return samples
+}
+
+// subnetPrefix 提取 IP 的 /24 前缀（如 "10.1.1"）
+func subnetPrefix(ip string) string {
+	lastDot := strings.LastIndex(ip, ".")
+	if lastDot <= 0 {
+		return ""
+	}
+	return ip[:lastDot]
 }
