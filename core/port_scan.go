@@ -671,8 +671,14 @@ func tryHTTPFallbackDetection(host string, port int, addr string, config *common
 // subnetProbeThreshold 触发网段预筛的主机数阈值（超过 1 个 /24）
 const subnetProbeThreshold = 256
 
-// subnetProbePorts 网段探活用的端口（覆盖率优先）
+// subnetProbePorts 逐主机探活用的端口（轮换）
 var subnetProbePorts = []int{80, 443, 22, 445, 3389, 8080, 3306, 6379}
+
+// gatewayProbePorts 网关启发式探测端口（网关常开的服务）
+var gatewayProbePorts = []int{22, 80, 443, 23, 8080, 161, 53, 3389}
+
+// gatewayOffsets 网关候选地址偏移量
+var gatewayOffsets = []string{".1", ".254"}
 
 // subnetProbeTimeout 每个探测的超时
 const subnetProbeTimeout = 1500 * time.Millisecond
@@ -680,8 +686,11 @@ const subnetProbeTimeout = 1500 * time.Millisecond
 // subnetProbeConcurrency 网段探活全局并发数
 const subnetProbeConcurrency = 500
 
-// probeSubnets 对每个 /24 网段做全覆盖探活，返回属于存活网段的主机列表
-// 策略：每台主机打 1 个端口（端口在子网内轮换），子网内任一主机响应即保留
+// probeSubnets 对每个 /24 网段做探活，返回属于存活网段的主机列表
+// 两阶段策略：
+//
+//	阶段 1（快速）：对每个子网的 .1/.254 网关做多端口探测，命中即标记存活
+//	阶段 2（兜底）：未命中的子网，逐主机单端口轮换扫描
 func probeSubnets(ctx context.Context, hosts []string, timeout time.Duration, session *common.ScanSession) []string {
 	// 按 /24 分组
 	subnets := make(map[string][]string)
@@ -698,13 +707,41 @@ func probeSubnets(ctx context.Context, hosts []string, timeout time.Duration, se
 
 	common.LogInfo(fmt.Sprintf("网段预筛: %d 个 /24 子网, %d 个主机", len(subnets), len(hosts)))
 
-	// 全局并发控制
 	aliveSubnets := sync.Map{}
 	var wg sync.WaitGroup
 	limiter := make(chan struct{}, subnetProbeConcurrency)
 
+	// ── 阶段 1：网关启发式 ──────────────────────────────────
+	// 对每个子网的 .1 和 .254 打多个端口，命中率高且速度极快
+	for prefix := range subnets {
+		for _, suffix := range gatewayOffsets {
+			gw := prefix + suffix
+			for _, port := range gatewayProbePorts {
+				wg.Add(1)
+				limiter <- struct{}{}
+				go func(pfx, addr string) {
+					defer func() { <-limiter; wg.Done() }()
+					conn, err := net.DialTimeout("tcp", addr, subnetProbeTimeout)
+					if err == nil {
+						_ = conn.Close()
+						aliveSubnets.Store(pfx, true)
+					}
+				}(prefix, fmt.Sprintf("%s:%d", gw, port))
+			}
+		}
+	}
+	wg.Wait()
+
+	// 统计阶段 1 命中
+	gwHits := 0
+	aliveSubnets.Range(func(_, _ interface{}) bool { gwHits++; return true })
+
+	// ── 阶段 2：逐主机兜底（仅对网关未命中的子网）──────────
 	for prefix, subnetHosts := range subnets {
-		// 对子网内每台主机发 1 个探测包（端口轮换覆盖多个端口）
+		if _, alive := aliveSubnets.Load(prefix); alive {
+			continue // 网关已命中，跳过
+		}
+
 		for i, host := range subnetHosts {
 			select {
 			case <-ctx.Done():
@@ -712,24 +749,17 @@ func probeSubnets(ctx context.Context, hosts []string, timeout time.Duration, se
 			default:
 			}
 
-			port := subnetProbePorts[i%len(subnetProbePorts)]
-
-			// 如果这个子网已经确认存活，跳过剩余主机
 			if _, alive := aliveSubnets.Load(prefix); alive {
 				break
 			}
 
+			port := subnetProbePorts[i%len(subnetProbePorts)]
 			wg.Add(1)
 			limiter <- struct{}{}
 
 			go func(pfx, h string, p int) {
-				defer func() {
-					<-limiter
-					wg.Done()
-				}()
-
-				addr := fmt.Sprintf("%s:%d", h, p)
-				conn, err := net.DialTimeout("tcp", addr, subnetProbeTimeout)
+				defer func() { <-limiter; wg.Done() }()
+				conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", h, p), subnetProbeTimeout)
 				if err == nil {
 					_ = conn.Close()
 					aliveSubnets.Store(pfx, true)
@@ -743,16 +773,12 @@ done:
 
 	// 统计
 	aliveCount := 0
-	aliveSubnets.Range(func(_, _ interface{}) bool {
-		aliveCount++
-		return true
-	})
+	aliveSubnets.Range(func(_, _ interface{}) bool { aliveCount++; return true })
 
 	if aliveCount == 0 {
 		return nil
 	}
 
-	// 只保留存活网段的主机
 	result := make([]string, 0, len(hosts))
 	for _, h := range hosts {
 		if _, alive := aliveSubnets.Load(subnetPrefix(h)); alive {
@@ -761,7 +787,8 @@ done:
 	}
 
 	skipped := len(subnets) - aliveCount
-	common.LogInfo(fmt.Sprintf("网段预筛完成: %d 个存活, %d 个跳过, 剩余 %d 主机", aliveCount, skipped, len(result)))
+	common.LogInfo(fmt.Sprintf("网段预筛完成: %d 个存活 (网关命中 %d), %d 个跳过, 剩余 %d 主机",
+		aliveCount, gwHits, skipped, len(result)))
 	return result
 }
 
