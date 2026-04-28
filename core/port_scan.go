@@ -286,9 +286,9 @@ func connectWithRetry(ctx context.Context, session *common.ScanSession, addr str
 		// 记录资源耗尽错误
 		session.State.IncrementResourceExhaustedCount()
 
-		// 指数退避：第1次等50ms，第2次等150ms
+		// 指数退避：200ms → 600ms → 1200ms
 		if attempt < maxRetries-1 {
-			waitTime := time.Duration(50*(attempt+1)) * time.Millisecond
+			waitTime := time.Duration(200*(1<<uint(attempt))) * time.Millisecond
 			time.Sleep(waitTime)
 		}
 	}
@@ -350,7 +350,7 @@ func buildServiceLogMessage(addr string, serviceInfo *ServiceInfo, isWeb bool) s
 func scanSinglePort(ctx context.Context, host string, port int, addr string, timeout time.Duration, count *int64, collector *resultCollector, failedCollector *failedPortCollector, session *common.ScanSession) {
 	config := session.Config
 	// 步骤1：建立连接
-	conn, err := connectWithRetry(ctx, session, addr, timeout, 3)
+	conn, err := connectWithRetry(ctx, session, addr, timeout, 2)
 	if err != nil {
 		handleConnectionFailure(err, host, port, addr, failedCollector)
 		return
@@ -369,7 +369,7 @@ func scanSinglePort(ctx context.Context, host string, port int, addr string, tim
 	if common.IsProxyEnabled() && verifyMethod != "direct" {
 		_ = conn.Close()
 		// 重新建立干净的连接用于服务识别
-		conn, err = connectWithRetry(ctx, session, addr, timeout, 3)
+		conn, err = connectWithRetry(ctx, session, addr, timeout, 2)
 		if err != nil {
 			handleConnectionFailure(err, host, port, addr, failedCollector)
 			return

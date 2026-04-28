@@ -176,8 +176,8 @@ func TestSmartPortInfoScanner_Creation(t *testing.T) {
 // TestDefaultConstants 验证默认常量值
 func TestDefaultConstants(t *testing.T) {
 	// 验证默认等待时间
-	if defaultTotalWaitMS != 6000 {
-		t.Errorf("defaultTotalWaitMS 应该是 6000，实际是 %d", defaultTotalWaitMS)
+	if defaultTotalWaitMS != 3000 {
+		t.Errorf("defaultTotalWaitMS 应该是 3000，实际是 %d", defaultTotalWaitMS)
 	}
 
 	// 验证默认 intensity

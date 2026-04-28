@@ -16,7 +16,7 @@ import (
 
 // 默认超时时间常量
 const (
-	defaultTotalWaitMS = 6000 // Nmap 默认等待时间
+	defaultTotalWaitMS = 3000 // 服务探测默认等待时间
 	defaultIntensity   = 7    // 默认探测强度 (1-9)
 )
 

@@ -473,8 +473,12 @@ func icmpalive(host string) bool {
 // RunPing 使用系统Ping命令并发探测主机存活
 func RunPing(hostslist []string, chanHosts chan string, livewg *sync.WaitGroup) {
 	var wg sync.WaitGroup
-	// 限制并发数为50
-	limiter := make(chan struct{}, 50)
+	// 并发数根据主机数动态调整，上限 200
+	concurrency := len(hostslist)
+	if concurrency > 200 {
+		concurrency = 200
+	}
+	limiter := make(chan struct{}, concurrency)
 
 	// 并发探测
 	for _, host := range hostslist {
@@ -677,20 +681,34 @@ func ArrayCountValueTop(arrInit []string, length int, flag bool) (arrTop []strin
 var tcpProbeCommonPorts = []int{80, 443, 22, 445}
 
 // tcpProbeTimeout TCP 探测超时时间（较短，只做存活判断）
-const tcpProbeTimeout = 2 * time.Second
+const tcpProbeTimeout = 1 * time.Second
 
 // tcpProbeThreshold TCP 补充探测触发阈值
 // 当 ICMP 响应率低于此值时，自动启用 TCP 补充探测
 const tcpProbeThreshold = 0.1 // 10%
 
-// tcpProbeAlive 使用 TCP 探测主机是否存活
-// 尝试连接常用端口，任一端口响应即认为存活
+// tcpProbeAlive 使用 TCP 并行探测主机是否存活
+// 同时连接所有常用端口，任一响应即返回
 func tcpProbeAlive(ctx context.Context, session *common.ScanSession, host string) bool {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	result := make(chan bool, len(tcpProbeCommonPorts))
 	for _, port := range tcpProbeCommonPorts {
-		addr := fmt.Sprintf("%s:%d", host, port)
-		conn, err := session.DialTCP(ctx, "tcp", addr, tcpProbeTimeout)
-		if err == nil {
-			_ = conn.Close()
+		go func(p int) {
+			addr := fmt.Sprintf("%s:%d", host, p)
+			conn, err := session.DialTCP(ctx, "tcp", addr, tcpProbeTimeout)
+			if err == nil {
+				_ = conn.Close()
+				result <- true
+				return
+			}
+			result <- false
+		}(port)
+	}
+
+	for range tcpProbeCommonPorts {
+		if <-result {
 			return true
 		}
 	}
@@ -709,10 +727,10 @@ func runTcpProbeForHosts(ctx context.Context, hosts []string, session *common.Sc
 	var mu sync.Mutex
 	aliveHosts := make([]string, 0)
 
-	// 并发控制，避免资源耗尽
-	concurrency := 50
-	if len(hosts) < concurrency {
-		concurrency = len(hosts)
+	// 并发控制，根据主机数动态调整，上限 200
+	concurrency := len(hosts)
+	if concurrency > 200 {
+		concurrency = 200
 	}
 	limiter := make(chan struct{}, concurrency)
 
