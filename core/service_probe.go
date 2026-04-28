@@ -76,6 +76,7 @@ type Info struct {
 	Conn          net.Conn            // 网络连接
 	Result        Result              // 探测结果
 	Found         bool                // 是否成功识别服务
+	ctx           context.Context     // 扫描级 context
 	config        *common.Config      // 配置引用
 	session       *common.ScanSession // 会话引用
 	readTimeoutMS int                 // 当前读取超时时间（毫秒）
@@ -95,7 +96,7 @@ type SmartPortInfoScanner struct {
 // 预定义的基础探测器已在PortFinger.go中定义，这里不再重复定义
 
 // NewSmartPortInfoScanner 创建智能服务识别器
-func NewSmartPortInfoScanner(addr string, port int, conn net.Conn, timeout time.Duration, config *common.Config, session *common.ScanSession) *SmartPortInfoScanner {
+func NewSmartPortInfoScanner(ctx context.Context, addr string, port int, conn net.Conn, timeout time.Duration, config *common.Config, session *common.ScanSession) *SmartPortInfoScanner {
 	return &SmartPortInfoScanner{
 		Address: addr,
 		Port:    port,
@@ -107,6 +108,7 @@ func NewSmartPortInfoScanner(addr string, port int, conn net.Conn, timeout time.
 			Address: addr,
 			Port:    port,
 			Conn:    conn,
+			ctx:     ctx,
 			config:  config,
 			session: session,
 			Result: Result{
@@ -256,7 +258,7 @@ func (s *SmartPortInfoScanner) reconnectIfNeeded() {
 	}
 
 	// 重新建立连接
-	newConn, err := s.session.DialTCP(context.Background(), "tcp", fmt.Sprintf("%s:%d", s.Address, s.Port), s.Timeout)
+	newConn, err := s.session.DialTCP(s.info.ctx, "tcp", fmt.Sprintf("%s:%d", s.Address, s.Port), s.Timeout)
 	if err != nil {
 		return
 	}
@@ -516,7 +518,7 @@ func (i *Info) Write(msg []byte) error {
 		_ = oldConn.Close()
 
 		// 尝试重新连接 - 支持SOCKS5代理
-		newConn, retryErr := i.session.DialTCP(context.Background(), "tcp", fmt.Sprintf("%s:%d", i.Address, i.Port), time.Duration(6)*time.Second)
+		newConn, retryErr := i.session.DialTCP(i.ctx, "tcp", fmt.Sprintf("%s:%d", i.Address, i.Port), time.Duration(6)*time.Second)
 		if retryErr != nil {
 			return retryErr
 		}

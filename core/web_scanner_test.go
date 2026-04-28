@@ -662,6 +662,8 @@ func TestDetectHTTPScheme(t *testing.T) {
 	cfg.Network.WebTimeout = 2 * time.Second
 	defer func() { cfg.Network.WebTimeout = oldTimeout }()
 
+	session := common.NewScanSession(cfg, common.NewState(), common.GetFlagVars())
+
 	t.Run("HTTPS服务器检测", func(t *testing.T) {
 		// 创建HTTPS测试服务器
 		server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -677,7 +679,7 @@ func TestDetectHTTPScheme(t *testing.T) {
 		port, _ := strconv.Atoi(portStr)
 
 		// 测试检测
-		result := DetectHTTPScheme(host, port, cfg)
+		result := DetectHTTPScheme(host, port, cfg, session)
 		if result != "https" {
 			t.Errorf("DetectHTTPScheme() = %q, 期望 'https'", result)
 		}
@@ -698,7 +700,7 @@ func TestDetectHTTPScheme(t *testing.T) {
 		port, _ := strconv.Atoi(portStr)
 
 		// 测试检测
-		result := DetectHTTPScheme(host, port, cfg)
+		result := DetectHTTPScheme(host, port, cfg, session)
 		if result != "http" {
 			t.Errorf("DetectHTTPScheme() = %q, 期望 'http'", result)
 		}
@@ -706,7 +708,7 @@ func TestDetectHTTPScheme(t *testing.T) {
 
 	t.Run("不存在的服务", func(t *testing.T) {
 		// 使用127.0.0.1的一个未使用端口
-		result := DetectHTTPScheme("127.0.0.1", 65534, cfg)
+		result := DetectHTTPScheme("127.0.0.1", 65534, cfg, session)
 		if result != "" {
 			t.Errorf("不存在的服务应返回空字符串, 实际 %q", result)
 		}
@@ -736,7 +738,7 @@ func TestDetectHTTPScheme(t *testing.T) {
 		port, _ := strconv.Atoi(portStr)
 
 		// 测试检测
-		result := DetectHTTPScheme("127.0.0.1", port, cfg)
+		result := DetectHTTPScheme("127.0.0.1", port, cfg, session)
 		if result != "" {
 			t.Logf("非Web服务检测返回: %q (预期空字符串，但立即关闭连接可能被误判)", result)
 		}
@@ -757,7 +759,7 @@ func TestDetectHTTPScheme(t *testing.T) {
 		host, portStr, _ := net.SplitHostPort(server.Listener.Addr().String())
 		port, _ := strconv.Atoi(portStr)
 
-		result := DetectHTTPScheme(host, port, cfg)
+		result := DetectHTTPScheme(host, port, cfg, session)
 		if result != "https" {
 			t.Errorf("TLS 1.0服务器应被检测为https, 实际 %q", result)
 		}

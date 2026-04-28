@@ -391,7 +391,7 @@ func checkSMBGhost(ctx context.Context, host string, timeout time.Duration, sess
 // SMBAuthenticator 统一认证接口
 type SMBAuthenticator interface {
 	Authenticate(ctx context.Context, host string, port int, cred Credential, domain string, timeout time.Duration, session *common.ScanSession) (*AuthResult, error)
-	ListShares(ctx context.Context, host string, port int, cred Credential, domain string, timeout time.Duration) ([]string, error)
+	ListShares(ctx context.Context, host string, port int, cred Credential, domain string, timeout time.Duration, session *common.ScanSession) ([]string, error)
 }
 
 // SMB1Authenticator SMB1认证器
@@ -472,8 +472,8 @@ func (a *SMB1Authenticator) Authenticate(ctx context.Context, host string, port 
 }
 
 // ListShares 列举SMB共享（SMB1使用SMB2库列举）
-func (a *SMB1Authenticator) ListShares(ctx context.Context, host string, port int, cred Credential, domain string, timeout time.Duration) ([]string, error) {
-	return listSMBSharesInternal(host, port, cred, domain, timeout)
+func (a *SMB1Authenticator) ListShares(ctx context.Context, host string, port int, cred Credential, domain string, timeout time.Duration, session *common.ScanSession) ([]string, error) {
+	return listSMBSharesInternal(ctx, host, port, cred, domain, timeout, session)
 }
 
 // SMB2Authenticator SMB2认证器
@@ -523,15 +523,15 @@ func (a *SMB2Authenticator) Authenticate(ctx context.Context, host string, port 
 }
 
 // ListShares 列举SMB2共享
-func (a *SMB2Authenticator) ListShares(ctx context.Context, host string, port int, cred Credential, domain string, timeout time.Duration) ([]string, error) {
-	return listSMBSharesInternal(host, port, cred, domain, timeout)
+func (a *SMB2Authenticator) ListShares(ctx context.Context, host string, port int, cred Credential, domain string, timeout time.Duration, session *common.ScanSession) ([]string, error) {
+	return listSMBSharesInternal(ctx, host, port, cred, domain, timeout, session)
 }
 
 // listSMBSharesInternal 内部共享列举实现
-func listSMBSharesInternal(host string, port int, cred Credential, domain string, timeout time.Duration) ([]string, error) {
+func listSMBSharesInternal(ctx context.Context, host string, port int, cred Credential, domain string, timeout time.Duration, session *common.ScanSession) ([]string, error) {
 	target := net.JoinHostPort(host, strconv.Itoa(port))
 
-	conn, err := net.DialTimeout("tcp", target, timeout*2)
+	conn, err := session.DialTCP(ctx, "tcp", target, timeout*2)
 	if err != nil {
 		return nil, err
 	}

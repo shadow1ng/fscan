@@ -68,7 +68,7 @@ func (p *SmbPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	auth := p.getAuthenticator(smbTarget.Protocol)
 
 	// 4. 未授权访问检测
-	if result := p.testUnauthorizedAccess(ctx, info, auth, config, state); result != nil && result.Success {
+	if result := p.testUnauthorizedAccess(ctx, info, auth, config, state, session); result != nil && result.Success {
 		var successMsg string
 		if config.Credentials.Domain != "" {
 			successMsg = fmt.Sprintf("SMB %s 未授权访问 - %s\\%s:%s", target, config.Credentials.Domain, result.Username, result.Password)
@@ -126,7 +126,7 @@ func (p *SmbPlugin) createAuthFunc(info *common.HostInfo, auth SMBAuthenticator,
 }
 
 // testUnauthorizedAccess 测试未授权访问
-func (p *SmbPlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, auth SMBAuthenticator, config *common.Config, state *common.State) *ScanResult {
+func (p *SmbPlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, auth SMBAuthenticator, config *common.Config, state *common.State, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
 	unauthorizedCreds := []Credential{
@@ -136,7 +136,7 @@ func (p *SmbPlugin) testUnauthorizedAccess(ctx context.Context, info *common.Hos
 	}
 
 	for _, cred := range unauthorizedCreds {
-		shareInfo, err := auth.ListShares(ctx, info.Host, info.Port, cred, config.Credentials.Domain, config.Timeout)
+		shareInfo, err := auth.ListShares(ctx, info.Host, info.Port, cred, config.Credentials.Domain, config.Timeout, session)
 		if err == nil && len(shareInfo) > 0 {
 			var output strings.Builder
 			displayUser := cred.Username

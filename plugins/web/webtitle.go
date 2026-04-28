@@ -41,7 +41,7 @@ func NewWebTitlePlugin() *WebTitlePlugin {
 // Scan 执行WebTitle扫描
 func (p *WebTitlePlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *WebScanResult {
 	config := session.Config
-	title, status, length, server, fingerprints, url, err := p.getWebTitle(ctx, info, config)
+	title, status, length, server, fingerprints, url, err := p.getWebTitle(ctx, info, config, session)
 	if err != nil {
 		return &WebScanResult{
 			Success: false,
@@ -79,9 +79,9 @@ func (p *WebTitlePlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	}
 }
 
-func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo, config *common.Config) (string, int, int, string, []string, string, error) {
+func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo, config *common.Config, session *common.ScanSession) (string, int, int, string, []string, string, error) {
 	// 智能协议检测
-	protocol := p.detectProtocol(info, config)
+	protocol := p.detectProtocol(info, config, session)
 	baseURL := fmt.Sprintf("%s://%s:%d", protocol, info.Host, info.Port)
 
 	// 构建显示用URL（隐藏标准端口）
@@ -235,7 +235,7 @@ func (p *WebTitlePlugin) formatHeaders(headers http.Header) string {
 }
 
 // detectProtocol 智能检测HTTP/HTTPS协议（基于服务识别和主动探测）
-func (p *WebTitlePlugin) detectProtocol(info *common.HostInfo, config *common.Config) string {
+func (p *WebTitlePlugin) detectProtocol(info *common.HostInfo, config *common.Config, session *common.ScanSession) string {
 	host := info.Host
 	port := info.Port
 
@@ -262,7 +262,7 @@ func (p *WebTitlePlugin) detectProtocol(info *common.HostInfo, config *common.Co
 
 	// 第三优先级：主动协议检测（TLS握手）
 	// 对于-u模式或服务名为普通"http"的情况，进行主动检测确认
-	detected := core.DetectHTTPScheme(host, port, config)
+	detected := core.DetectHTTPScheme(host, port, config, session)
 	if detected != "" {
 		// 缓存检测结果（避免重复检测）
 		if exists {

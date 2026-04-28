@@ -111,7 +111,7 @@ func (f *failedPortCollector) Count() int {
 
 // EnhancedPortScan 高性能端口扫描函数
 // 使用滑动窗口调度 + 自适应线程池 + 流式迭代器
-func EnhancedPortScan(hosts []string, ports string, timeout int64, session *common.ScanSession) []string {
+func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout int64, session *common.ScanSession) []string {
 	config := session.Config
 	state := session.State
 	common.LogDebug(fmt.Sprintf("[PortScan] 开始: %d个主机, 线程数=%d", len(hosts), config.ThreadNum))
@@ -182,7 +182,7 @@ func EnhancedPortScan(hosts []string, ports string, timeout int64, session *comm
 		}()
 
 		addr := fmt.Sprintf("%s:%d", taskInfo.host, taskInfo.port)
-		scanSinglePort(taskInfo.host, taskInfo.port, addr, to, &count, collector, failedCollector, session)
+		scanSinglePort(ctx, taskInfo.host, taskInfo.port, addr, to, &count, collector, failedCollector, session)
 		common.UpdateProgressBar(1)
 	}, state)
 	if err != nil {
@@ -347,10 +347,10 @@ func buildServiceLogMessage(addr string, serviceInfo *ServiceInfo, isWeb bool) s
 }
 
 // scanSinglePort 扫描单个端口并进行服务识别（重构后的简洁版本）
-func scanSinglePort(host string, port int, addr string, timeout time.Duration, count *int64, collector *resultCollector, failedCollector *failedPortCollector, session *common.ScanSession) {
+func scanSinglePort(ctx context.Context, host string, port int, addr string, timeout time.Duration, count *int64, collector *resultCollector, failedCollector *failedPortCollector, session *common.ScanSession) {
 	config := session.Config
 	// 步骤1：建立连接
-	conn, err := connectWithRetry(context.Background(), session, addr, timeout, 3)
+	conn, err := connectWithRetry(ctx, session, addr, timeout, 3)
 	if err != nil {
 		handleConnectionFailure(err, host, port, addr, failedCollector)
 		return
@@ -369,7 +369,7 @@ func scanSinglePort(host string, port int, addr string, timeout time.Duration, c
 	if common.IsProxyEnabled() && verifyMethod != "direct" {
 		_ = conn.Close()
 		// 重新建立干净的连接用于服务识别
-		conn, err = connectWithRetry(context.Background(), session, addr, timeout, 3)
+		conn, err = connectWithRetry(ctx, session, addr, timeout, 3)
 		if err != nil {
 			handleConnectionFailure(err, host, port, addr, failedCollector)
 			return
@@ -382,12 +382,12 @@ func scanSinglePort(host string, port int, addr string, timeout time.Duration, c
 	saveOpenPort(host, port)
 
 	// 步骤3：服务识别（Scanner负责关闭连接，包括探测中可能创建的新连接）
-	scanner := NewSmartPortInfoScanner(host, port, conn, timeout, config, session)
+	scanner := NewSmartPortInfoScanner(ctx, host, port, conn, timeout, config, session)
 	defer scanner.Close()
 	serviceInfo, _ := scanner.SmartIdentify()
 
 	// 步骤4：处理结果
-	processServiceResult(host, port, addr, serviceInfo, config)
+	processServiceResult(host, port, addr, serviceInfo, config, session)
 }
 
 // handleConnectionFailure 处理连接失败
@@ -557,10 +557,10 @@ func saveOpenPort(host string, port int) {
 }
 
 // processServiceResult 处理服务识别结果
-func processServiceResult(host string, port int, addr string, serviceInfo *ServiceInfo, config *common.Config) {
+func processServiceResult(host string, port int, addr string, serviceInfo *ServiceInfo, config *common.Config, session *common.ScanSession) {
 	if serviceInfo == nil {
 		// 服务识别失败，尝试 HTTP 回退探测
-		if !tryHTTPFallbackDetection(host, port, addr, config) {
+		if !tryHTTPFallbackDetection(host, port, addr, config, session) {
 			common.LogInfo(i18n.Tr("port_open", addr))
 		}
 		return
@@ -620,10 +620,10 @@ func buildServiceDetails(port int, info *ServiceInfo) map[string]interface{} {
 }
 
 // tryHTTPFallbackDetection 尝试HTTP回退探测，返回是否成功识别为HTTP服务
-func tryHTTPFallbackDetection(host string, port int, addr string, config *common.Config) bool {
+func tryHTTPFallbackDetection(host string, port int, addr string, config *common.Config, session *common.ScanSession) bool {
 	// 使用WebDetection进行HTTP协议探测
 	webDetector := GetWebPortDetector()
-	if !webDetector.DetectHTTPServiceOnly(host, port, config) {
+	if !webDetector.DetectHTTPServiceOnly(host, port, config, session) {
 		return false
 	}
 

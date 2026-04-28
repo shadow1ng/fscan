@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/cel-go/cel"
@@ -31,15 +32,13 @@ var (
 	baseProgramOpt []cel.ProgramOption
 )
 
-// 包级POC配置
-var (
-	pocDNSLog bool // DNSLog配置缓存
-)
+// 包级POC配置（atomic 保证并发安全）
+var pocDNSLog atomic.Bool
 
 // InitPOCConfig 初始化POC配置（在扫描开始前调用）
 // 这样CEL回调函数可以使用包级变量而非GetGlobalConfig
 func InitPOCConfig(dnsLog bool) {
-	pocDNSLog = dnsLog
+	pocDNSLog.Store(dnsLog)
 }
 
 // NewEnv 创建一个新的 CEL 环境（使用缓存避免重复注册函数）
@@ -349,7 +348,7 @@ func randomString(n int) string {
 // 使用包级pocDNSLog变量，由InitPOCConfig初始化
 func reverseCheck(r *Reverse, timeout int64) bool {
 	// 检查必要条件（使用包级配置变量）
-	if ceyeAPI == "" || r.Domain == "" || !pocDNSLog {
+	if ceyeAPI == "" || r.Domain == "" || !pocDNSLog.Load() {
 		return false
 	}
 

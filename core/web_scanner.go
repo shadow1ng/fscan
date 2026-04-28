@@ -30,9 +30,9 @@ func GetWebPortDetector() *WebPortDetector {
 // DetectHTTPScheme 智能检测HTTP/HTTPS协议
 // 策略：TLS握手优先（快速且准确），失败后尝试HTTP
 // 返回: "https", "http", 或 "" (都不是Web服务)
-func DetectHTTPScheme(host string, port int, config *common.Config) string {
+func DetectHTTPScheme(host string, port int, config *common.Config, session *common.ScanSession) string {
 	// 优化：先快速检测 TCP 连通性
-	if !isPortReachable(host, port, config) {
+	if !isPortReachable(host, port, config, session) {
 		return ""
 	}
 
@@ -125,10 +125,10 @@ func createHTTPClient(config *common.Config) *http.Client {
 }
 
 // DetectHTTPServiceOnly HTTP协议检测 - 保持API兼容，简化实现
-func (w *WebPortDetector) DetectHTTPServiceOnly(host string, port int, config *common.Config) bool {
+func (w *WebPortDetector) DetectHTTPServiceOnly(host string, port int, config *common.Config, session *common.ScanSession) bool {
 	// 优化：先快速检测 TCP 连通性，避免在不可达端口上浪费双倍超时时间
 	// 对于不存在的端口，这可以将检测时间从 2×timeout 减少到 1×timeout
-	if !isPortReachable(host, port, config) {
+	if !isPortReachable(host, port, config, session) {
 		return false
 	}
 
@@ -149,11 +149,11 @@ func (w *WebPortDetector) DetectHTTPServiceOnly(host string, port int, config *c
 
 // isPortReachable 快速检测端口是否可达（TCP 连接测试）
 // 用于在 HTTP/HTTPS 检测前过滤不可达端口，避免双重超时
-func isPortReachable(host string, port int, config *common.Config) bool {
+func isPortReachable(host string, port int, config *common.Config, session *common.ScanSession) bool {
 	timeout := config.Network.WebTimeout
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
 
-	conn, err := net.DialTimeout("tcp", addr, timeout)
+	conn, err := session.DialTCP(context.Background(), "tcp", addr, timeout)
 	if err != nil {
 		return false
 	}
