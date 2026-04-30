@@ -16,7 +16,7 @@ builds:
       - CGO_ENABLED=0
     goos: [windows, linux, darwin, freebsd, solaris]
     goarch: [amd64, arm64, "386", arm, mips, mips64, mipsle]
-    goarm: ["6", "7"]
+    goarm: ["5", "6", "7"]
     gomips: [softfloat]
     ignore:
       - goos: darwin
@@ -69,7 +69,7 @@ builds:
       - CGO_ENABLED=0
     goos: [windows, linux, darwin, freebsd, solaris]
     goarch: [amd64, arm64, "386", arm, mips, mips64, mipsle]
-    goarm: ["6", "7"]
+    goarm: ["5", "6", "7"]
     gomips: [softfloat]
     ignore:
       - goos: darwin
@@ -231,10 +231,10 @@ release:
 
     | 平台 | 架构 |
     |------|------|
-    | Linux | x64, x32, arm64, armv6, armv7, mips, mips64, mipsle |
+    | Linux | x64, x32, arm64, armv5, armv6, armv7, mips, mips64, mipsle |
     | Windows | x64, x32 |
     | macOS | x64, arm64 |
-    | FreeBSD | x64, x32, arm64, armv6, armv7 |
+    | FreeBSD | x64, x32, arm64, armv5, armv6, armv7 |
     | Solaris | x64 |
   footer: |
     **完整更新日志**: https://github.com/{{ .Env.GITHUB_OWNER }}/{{ .Env.GITHUB_REPO }}/compare/{{ .PreviousTag }}...{{ .Tag }}
