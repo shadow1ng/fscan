@@ -56,7 +56,7 @@ jobs:
       - name: 运行 golangci-lint
         run: |
           # 下载 golangci-lint v2
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin latest
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.12.1
 
           # 运行检查并灵活处理结果
           set +e
