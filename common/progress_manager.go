@@ -479,6 +479,10 @@ func (pm *ProgressManager) GetPercent() float64 {
 
 // LogWithProgress 在进度条活跃时协调日志输出
 func LogWithProgress(message string) {
+	if cfg := GetGlobalConfig(); cfg != nil && cfg.Output.Silent {
+		return
+	}
+
 	pm := GetProgressManager()
 	if !pm.IsActive() {
 		// 如果进度条不活跃，直接输出

@@ -24,6 +24,7 @@ type LoggerConfig struct {
 	EnableColor  bool                     `json:"enable_color"`
 	SlowOutput   bool                     `json:"slow_output"`
 	ShowProgress bool                     `json:"show_progress"`
+	Silent       bool                     `json:"silent"`
 	StartTime    time.Time                `json:"start_time"`
 	LevelColors  map[LogLevel]interface{} `json:"-"`
 }
@@ -110,6 +111,10 @@ func (l *Logger) Error(msg string) {
 func (l *Logger) log(level LogLevel, content string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
+	if l.config.Silent {
+		return
+	}
 
 	if !l.shouldLog(level) {
 		return

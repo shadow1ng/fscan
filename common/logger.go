@@ -27,6 +27,7 @@ func getGlobalLogger() *logging.Logger {
 			EnableColor:  !fv.NoColor,
 			SlowOutput:   false,
 			ShowProgress: !fv.DisableProgress,
+			Silent:       fv.Silent,
 			StartTime:    GetGlobalState().GetStartTime(),
 		}
 		globalLogger = logging.NewLogger(config)

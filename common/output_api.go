@@ -15,9 +15,17 @@ import (
 // ResultOutput 全局输出管理器
 var ResultOutput *output.Manager
 
+// StdoutWriter silent模式下的NDJSON stdout写入器
+var StdoutWriter *output.StdoutNDJSONWriter
+
 // InitOutput 初始化输出系统
 func InitOutput() error {
 	fv := GetFlagVars()
+
+	// silent模式：初始化NDJSON stdout写入器（独立于文件输出）
+	if fv.Silent {
+		StdoutWriter = output.NewStdoutNDJSONWriter()
+	}
 
 	// 用户通过-no flag禁用保存时，跳过文件初始化避免不必要的资源开销
 	if fv.DisableSave {
@@ -59,6 +67,9 @@ func InitOutput() error {
 
 // CloseOutput 关闭输出系统
 func CloseOutput() error {
+	if StdoutWriter != nil {
+		_ = StdoutWriter.Close()
+	}
 	if ResultOutput == nil {
 		return nil
 	}
@@ -79,6 +90,11 @@ func SaveResult(result *output.ScanResult) error {
 		"time":    result.Time,
 		"details": result.Details,
 	})
+
+	// silent模式：NDJSON实时输出到stdout
+	if StdoutWriter != nil {
+		_ = StdoutWriter.WriteResult(result)
+	}
 
 	// 用户禁用保存或输出未初始化时，跳过文件保存
 	if GetGlobalConfig().Output.DisableSave || ResultOutput == nil {
