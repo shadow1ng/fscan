@@ -184,10 +184,7 @@ func aesDecrypt(crypted string, key string) (string, error) {
 		return "", fmt.Errorf("密文长度过短")
 	}
 
-	iv := cryptedBytes[:aes.BlockSize]
-	cryptedBytes = cryptedBytes[aes.BlockSize:]
-
-	mode := cipher.NewCBCDecrypter(block, iv)
+	mode := cipher.NewCBCDecrypter(block, keyBytes[:aes.BlockSize])
 	mode.CryptBlocks(cryptedBytes, cryptedBytes)
 
 	// 移除PKCS7填充
