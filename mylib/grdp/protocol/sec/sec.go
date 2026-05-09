@@ -9,6 +9,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"unicode/utf16"
 
@@ -495,7 +496,9 @@ func (c *Client) connect(clientData []interface{}, serverData []interface{}, use
 	c.enableEncryption = c.ClientCoreData().ServerSelectedProtocol == 0
 
 	if c.enableEncryption {
-		c.sendClientRandom()
+		if !c.sendClientRandom() {
+			return
+		}
 	}
 
 	c.sendInfoPkt()
@@ -611,7 +614,11 @@ func sessionKeyBlob(secret, random1, random2 []byte) []byte {
 	return ms.Bytes()
 
 }
-func generateKeys(clientRandom, serverRandom []byte, method uint32) ([]byte, []byte, []byte) {
+func generateKeys(clientRandom, serverRandom []byte, method uint32) ([]byte, []byte, []byte, error) {
+	if len(clientRandom) < 32 || len(serverRandom) < 32 {
+		return nil, nil, nil, fmt.Errorf("invalid RDP random length: client=%d server=%d", len(clientRandom), len(serverRandom))
+	}
+
 	b := &bytes.Buffer{}
 	b.Write(clientRandom[:24])
 	b.Write(serverRandom[:24])
@@ -633,12 +640,12 @@ func generateKeys(clientRandom, serverRandom []byte, method uint32) ([]byte, []b
 	glog.Debug("SecondKey128:", hex.EncodeToString(initialSecondKey128))
 	//generate valid key
 	if method == gcc.ENCRYPTION_FLAG_40BIT {
-		return gen40bits(macKey128), gen40bits(initialFirstKey128), gen40bits(initialSecondKey128)
+		return gen40bits(macKey128), gen40bits(initialFirstKey128), gen40bits(initialSecondKey128), nil
 	} else if method == gcc.ENCRYPTION_FLAG_56BIT {
-		return gen56bits(macKey128), gen56bits(initialFirstKey128), gen56bits(initialSecondKey128)
+		return gen56bits(macKey128), gen56bits(initialFirstKey128), gen56bits(initialSecondKey128), nil
 	}
 	// method == gcc.ENCRYPTION_FLAG_128BIT
-	return macKey128, initialFirstKey128, initialSecondKey128
+	return macKey128, initialFirstKey128, initialSecondKey128, nil
 
 }
 
@@ -656,7 +663,7 @@ func (e *ClientSecurityExchangePDU) serialize() []byte {
 
 	return buff.Bytes()
 }
-func (c *Client) sendClientRandom() {
+func (c *Client) sendClientRandom() bool {
 	glog.Debug("send Client Random")
 
 	clientRandom := core.Random(32)
@@ -665,8 +672,14 @@ func (c *Client) sendClientRandom() {
 	serverRandom := c.ServerSecurityData().ServerRandom
 	glog.Debug("ServerRandom:", hex.EncodeToString(serverRandom))
 
-	c.macKey, c.initialDecrytKey, c.initialEncryptKey = generateKeys(clientRandom,
+	var err error
+	c.macKey, c.initialDecrytKey, c.initialEncryptKey, err = generateKeys(clientRandom,
 		serverRandom, c.ServerSecurityData().EncryptionMethod)
+	if err != nil {
+		glog.Error("generateKeys failed:", err)
+		c.Emit("error", err)
+		return false
+	}
 
 	//initialize keys
 	c.currentDecrytKey = c.initialDecrytKey
@@ -681,13 +694,13 @@ func (c *Client) sendClientRandom() {
 	if err != nil || serverPubKey == nil {
 		glog.Error("GetPublicKey failed:", err)
 		c.Emit("error", errors.New("failed to get server public key"))
-		return
+		return false
 	}
 	ret, err := rsa.EncryptPKCS1v15(rand.Reader, serverPubKey, core.Reverse(clientRandom))
 	if err != nil {
 		glog.Error("EncryptPKCS1v15 err:", err)
 		c.Emit("error", err)
-		return
+		return false
 	}
 	message := ClientSecurityExchangePDU{}
 	message.EncryptedClientRandom = core.Reverse(ret)
@@ -697,6 +710,7 @@ func (c *Client) sendClientRandom() {
 	glog.Debug("message:", message)
 
 	c.sendFlagged(EXCHANGE_PKT, message.serialize())
+	return true
 }
 func (c *Client) sendInfoPkt() {
 	var secFlag uint16 = INFO_PKT

@@ -173,7 +173,7 @@ func (g *Client) NlaAuthOnly(domain, user, pwd string, timeout int64) (bool, err
 
 func (g *Client) ProbeOSInfo(host, domain, user, pwd string, timeout int64, rdpProtocol uint32) (info map[string]any) {
 	start := time.Now()
-	exitFlag := make(chan bool)
+	exitFlag := make(chan bool, 1)
 	info = make(map[string]any)
 
 	targetSlice := strings.Split(g.Host, ":")
@@ -199,6 +199,12 @@ func (g *Client) ProbeOSInfo(host, domain, user, pwd string, timeout int64, rdpP
 	g.sec.SetFastPathListener(g.pdu)
 	g.pdu.SetFastPathSender(g.tpkt)
 	g.sec.SetChannelSender(g.mcs)
+
+	g.sec.On("error", func(e error) {
+		err = e
+		glog.Error("sec error", e)
+		g.pdu.Emit("done")
+	})
 
 	g.tpkt.On("os_info", func(infoMap map[string]any) {
 		glog.Debug("[+] callback, get os info ........................")
