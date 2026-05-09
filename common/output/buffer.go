@@ -59,7 +59,8 @@ func (b *ResultBuffer) Add(result *ScanResult) {
 			b.seenServices[key] = len(b.ServiceResults)
 			b.ServiceResults = append(b.ServiceResults, result)
 		} else {
-			// 保留信息更完整的记录
+			b.mergeDetails(b.ServiceResults[idx], result)
+			// 保留信息更完整的记录，同时保留另一条记录补充的字段
 			if b.isMoreComplete(result, b.ServiceResults[idx]) {
 				b.ServiceResults[idx] = result
 			}
@@ -68,6 +69,28 @@ func (b *ResultBuffer) Add(result *ScanResult) {
 		if _, exists := b.seenVulns[key]; !exists {
 			b.seenVulns[key] = struct{}{}
 			b.VulnResults = append(b.VulnResults, result)
+		}
+	}
+}
+
+func (b *ResultBuffer) mergeDetails(oldResult, newResult *ScanResult) {
+	if oldResult == nil || newResult == nil {
+		return
+	}
+	if oldResult.Details == nil {
+		oldResult.Details = make(map[string]interface{})
+	}
+	if newResult.Details == nil {
+		newResult.Details = make(map[string]interface{})
+	}
+	for k, v := range oldResult.Details {
+		if _, exists := newResult.Details[k]; !exists {
+			newResult.Details[k] = v
+		}
+	}
+	for k, v := range newResult.Details {
+		if _, exists := oldResult.Details[k]; !exists {
+			oldResult.Details[k] = v
 		}
 	}
 }

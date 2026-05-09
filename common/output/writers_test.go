@@ -1139,7 +1139,7 @@ func TestCSVWriter_ErrorHandling(t *testing.T) {
 // TestCSVWriter_DetailsFormatting 测试CSV的Details字段格式化
 //
 // CSVWriter 对不同类型有不同的格式：
-// - Service类型：Target, Service, Version, Banner
+// - Service类型：Target, Service, Version, Title, Status, Server, Fingerprints, Banner
 func TestCSVWriter_DetailsFormatting(t *testing.T) {
 	dir := createTestDir(t)
 	filePath := filepath.Join(dir, "test.csv")
@@ -1186,6 +1186,48 @@ func TestCSVWriter_DetailsFormatting(t *testing.T) {
 	}
 
 	t.Logf("✓ CSV Details格式化测试通过")
+}
+
+func TestCSVWriter_WebServiceFields(t *testing.T) {
+	dir := createTestDir(t)
+	filePath := filepath.Join(dir, "test.csv")
+
+	writer, _ := NewCSVWriter(filePath)
+	defer func() { _ = writer.Close() }()
+
+	_ = writer.WriteHeader()
+	result := createTestResult(
+		TypeService,
+		"192.168.1.1:80",
+		"web",
+		map[string]interface{}{
+			"plugin":       "webtitle",
+			"is_web":       true,
+			"port":         80,
+			"title":        "Home",
+			"status":       200,
+			"server":       "nginx",
+			"fingerprints": []string{"nginx", "php"},
+			"banner":       "HTTP/1.1 200 OK\x00\nServer: nginx",
+		},
+	)
+	_ = writer.Write(result)
+	writer.Close()
+
+	content := readFileContent(t, filePath)
+	for _, want := range []string{
+		"Target,Service,Version,Title,Status,Server,Fingerprints,Banner",
+		"webtitle",
+		"Home",
+		"200",
+		"nginx",
+		"nginx,php",
+		"\\x00\\nServer: nginx",
+	} {
+		if !strings.Contains(content, want) {
+			t.Errorf("CSV文件缺少 %q，内容:\n%s", want, content)
+		}
+	}
 }
 
 // TestJSONWriter_FlushAndFormat 测试JSON的Flush和GetFormat

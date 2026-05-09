@@ -226,6 +226,40 @@ func TestResultBuffer_ServiceUpdate(t *testing.T) {
 	}
 }
 
+func TestResultBuffer_ServiceUpdateMergesDetails(t *testing.T) {
+	buf := NewResultBuffer()
+
+	buf.Add(&ScanResult{
+		Type:   TypeService,
+		Target: "192.168.1.1:80",
+		Status: "identified",
+		Details: map[string]interface{}{
+			"service": "http",
+			"banner":  "HTTP/1.1 200 OK",
+		},
+	})
+	buf.Add(&ScanResult{
+		Type:   TypeService,
+		Target: "192.168.1.1:80",
+		Status: "web",
+		Details: map[string]interface{}{
+			"title":  "Home",
+			"status": 200,
+			"server": "nginx",
+		},
+	})
+
+	if len(buf.ServiceResults) != 1 {
+		t.Fatalf("期望1条服务记录，实际 %d", len(buf.ServiceResults))
+	}
+	details := buf.ServiceResults[0].Details
+	for _, key := range []string{"service", "banner", "title", "status", "server"} {
+		if _, ok := details[key]; !ok {
+			t.Errorf("合并后的服务记录缺少字段 %q: %#v", key, details)
+		}
+	}
+}
+
 // TestResultBuffer_ServiceNoDowngrade 测试不降级服务记录
 //
 // 当新记录不如旧记录完整时，不应替换

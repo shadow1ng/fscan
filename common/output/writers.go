@@ -13,13 +13,26 @@ import (
 
 // escapeControlChars 转义控制字符
 func escapeControlChars(s string) string {
-	replacer := strings.NewReplacer(
-		"\r\n", "\\r\\n",
-		"\n", "\\n",
-		"\r", "\\r",
-		"\t", "\\t",
-	)
-	return replacer.Replace(s)
+	s = strings.ToValidUTF8(s, "?")
+
+	var b strings.Builder
+	for _, r := range s {
+		switch r {
+		case '\n':
+			b.WriteString("\\n")
+		case '\r':
+			b.WriteString("\\r")
+		case '\t':
+			b.WriteString("\\t")
+		default:
+			if r < 0x20 || r == 0x7f {
+				fmt.Fprintf(&b, "\\x%02x", r)
+				continue
+			}
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // =============================================================================
@@ -647,7 +660,7 @@ func (w *CSVWriter) Close() error {
 	// 写入各分类
 	w.writeSection("# Hosts", []string{"Target"}, w.buffer.HostResults, w.formatHostRecord)
 	w.writeSection("# Ports", []string{"Target", "Port", "Status"}, w.buffer.PortResults, w.formatPortRecord)
-	w.writeSection("# Services", []string{"Target", "Service", "Version", "Banner"}, w.buffer.ServiceResults, w.formatServiceRecord)
+	w.writeSection("# Services", []string{"Target", "Service", "Version", "Title", "Status", "Server", "Fingerprints", "Banner"}, w.buffer.ServiceResults, w.formatServiceRecord)
 	w.writeSection("# Vulns", []string{"Target", "Type", "Details"}, w.buffer.VulnResults, w.formatVulnRecord)
 
 	w.closed = true
@@ -697,7 +710,7 @@ func (w *CSVWriter) formatPortRecord(result *ScanResult) []string {
 }
 
 func (w *CSVWriter) formatServiceRecord(result *ScanResult) []string {
-	service, version, banner := "", "", ""
+	service, version, title, status, server, fingerprints, banner := "", "", "", "", "", "", ""
 	if result.Details != nil {
 		if s, ok := result.Details["service"].(string); ok {
 			service = s
@@ -705,9 +718,22 @@ func (w *CSVWriter) formatServiceRecord(result *ScanResult) []string {
 		if s, ok := result.Details["name"].(string); ok && service == "" {
 			service = s
 		}
+		if s, ok := result.Details["plugin"].(string); ok && service == "" {
+			service = s
+		}
 		if v, ok := result.Details["version"].(string); ok {
 			version = v
 		}
+		if t, ok := result.Details["title"].(string); ok {
+			title = escapeControlChars(t)
+		}
+		if s, ok := result.Details["status"]; ok && s != nil && s != 0 {
+			status = fmt.Sprintf("%v", s)
+		}
+		if s, ok := result.Details["server"].(string); ok {
+			server = escapeControlChars(s)
+		}
+		fingerprints = formatFingerprints(result.Details["fingerprints"])
 		if b, ok := result.Details["banner"].(string); ok {
 			banner = escapeControlChars(b)
 			if len(banner) > 100 {
@@ -721,7 +747,24 @@ func (w *CSVWriter) formatServiceRecord(result *ScanResult) []string {
 			target = fmt.Sprintf("%s:%v", target, p)
 		}
 	}
-	return []string{target, service, version, banner}
+	return []string{target, service, version, title, status, server, fingerprints, banner}
+}
+
+func formatFingerprints(value interface{}) string {
+	switch v := value.(type) {
+	case []string:
+		return strings.Join(v, ",")
+	case []interface{}:
+		parts := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok && s != "" {
+				parts = append(parts, s)
+			}
+		}
+		return strings.Join(parts, ",")
+	default:
+		return ""
+	}
 }
 
 func (w *CSVWriter) formatVulnRecord(result *ScanResult) []string {
