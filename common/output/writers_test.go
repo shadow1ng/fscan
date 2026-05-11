@@ -1230,6 +1230,44 @@ func TestCSVWriter_WebServiceFields(t *testing.T) {
 	}
 }
 
+func TestTXTWriter_WebServiceProtocolFromDetails(t *testing.T) {
+	dir := createTestDir(t)
+	filePath := filepath.Join(dir, "test_web_protocol.txt")
+
+	writer, err := NewTXTWriter(filePath)
+	if err != nil {
+		t.Fatalf("创建TXTWriter失败: %v", err)
+	}
+
+	result := createTestResult(
+		TypeService,
+		"192.168.1.1:8443",
+		"web",
+		map[string]interface{}{
+			"plugin":   "webtitle",
+			"is_web":   true,
+			"port":     8443,
+			"protocol": "https",
+			"title":    "Home",
+			"status":   200,
+		},
+	)
+	if err := writer.Write(result); err != nil {
+		t.Fatalf("Write()失败: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("Close()失败: %v", err)
+	}
+
+	content := readFileContent(t, filePath)
+	if !strings.Contains(content, "https://192.168.1.1:8443") {
+		t.Fatalf("TXT输出缺少HTTPS URL，内容:\n%s", content)
+	}
+	if strings.Contains(content, "http://192.168.1.1:8443") {
+		t.Fatalf("TXT输出不应把HTTPS目标降级为HTTP，内容:\n%s", content)
+	}
+}
+
 // TestJSONWriter_FlushAndFormat 测试JSON的Flush和GetFormat
 func TestJSONWriter_FlushAndFormat(t *testing.T) {
 	dir := createTestDir(t)

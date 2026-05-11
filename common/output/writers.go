@@ -196,13 +196,7 @@ func (w *TXTWriter) formatWebServiceLine(result *ScanResult) string {
 		}
 	}
 
-	protocol := "http"
-	service := w.getDetailStr(result, "service")
-	if service == "https" || strings.Contains(target, ":443") {
-		protocol = "https"
-	}
-
-	url := fmt.Sprintf("%s://%s", protocol, target)
+	url := fmt.Sprintf("%s://%s", w.webProtocol(result, target), target)
 	title := w.getDetailStr(result, "title")
 	status := w.getDetail(result, "status")
 	server := w.getDetailStr(result, "server")
@@ -375,13 +369,7 @@ func (w *TXTWriter) writeWebServices() {
 			}
 		}
 
-		protocol := "http"
-		service := w.getDetailStr(result, "service")
-		if service == "https" || strings.Contains(target, ":443") {
-			protocol = "https"
-		}
-
-		urls = append(urls, fmt.Sprintf("%s://%s", protocol, target))
+		urls = append(urls, fmt.Sprintf("%s://%s", w.webProtocol(result, target), target))
 	}
 
 	if len(urls) == 0 {
@@ -408,6 +396,19 @@ func (w *TXTWriter) isWebService(result *ScanResult) bool {
 	}
 	service := w.getDetailStr(result, "service")
 	return service == "http" || service == "https"
+}
+
+func (w *TXTWriter) webProtocol(result *ScanResult, target string) string {
+	protocol := strings.ToLower(w.getDetailStr(result, "protocol"))
+	if protocol == "http" || protocol == "https" {
+		return protocol
+	}
+
+	service := strings.ToLower(w.getDetailStr(result, "service"))
+	if service == "https" || strings.Contains(target, ":443") {
+		return "https"
+	}
+	return "http"
 }
 
 // GetFormat 获取格式类型

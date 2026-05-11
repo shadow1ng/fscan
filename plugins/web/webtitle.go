@@ -72,6 +72,7 @@ func (p *WebTitlePlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	return &WebScanResult{
 		Type:         plugins.ResultTypeWeb,
 		Success:      true,
+		Output:       url,
 		Title:        title,
 		Status:       status,
 		Server:       server,

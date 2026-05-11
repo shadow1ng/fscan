@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"os/signal"
 	"sync"
@@ -340,9 +341,16 @@ var resultSerializers = map[plugins.ResultType]resultSerializer{
 	plugins.ResultTypeWeb: {
 		outputType: output.TypeService,
 		getStatus:  func(_ *plugins.Result, _ *common.HostInfo) string { return "web" },
-		fillDetail: func(_ *plugins.Result, info *common.HostInfo, d map[string]interface{}) {
+		fillDetail: func(r *plugins.Result, info *common.HostInfo, d map[string]interface{}) {
 			d["is_web"] = true
 			d["port"] = info.Port
+			if r.Output == "" {
+				return
+			}
+			d["url"] = r.Output
+			if parsed, err := url.Parse(r.Output); err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") {
+				d["protocol"] = parsed.Scheme
+			}
 		},
 	},
 }
