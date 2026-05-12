@@ -109,6 +109,7 @@ func Flag(Info *HostInfo) error {
 	flag.IntVar(&fv.ModuleThreadNum, "mt", 20, i18n.GetText("flag_module_thread_num"))
 	flag.Int64Var(&fv.GlobalTimeout, "gt", 180, i18n.GetText("flag_global_timeout"))
 	flag.BoolVar(&fv.DisablePing, "np", false, i18n.GetText("flag_disable_ping"))
+	flag.BoolVar(&fv.DisableTcpProbe, "ntp", false, i18n.GetText("flag_disable_tcp_probe"))
 	flag.StringVar(&fv.LocalPlugin, "local", "", "指定本地插件名称 (如: cleaner, avdetect, keylogger 等)")
 	flag.BoolVar(&fv.AliveOnly, "ao", false, i18n.GetText("flag_alive_only"))
 

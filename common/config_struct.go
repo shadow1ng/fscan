@@ -27,6 +27,7 @@ type Config struct {
 	ModuleThreadNum int           // 模块线程数
 	DisableBrute    bool          // 禁用暴力破解
 	DisablePing     bool          // 禁用Ping检测
+	DisableTcpProbe bool          // 禁用TCP补充探测
 
 	// 扫描模式
 	Mode        string // 扫描模式
@@ -147,6 +148,7 @@ func NewConfig() *Config {
 		ModuleThreadNum: 10,
 		DisableBrute:    false,
 		DisablePing:     false,
+		DisableTcpProbe: false,
 
 		// 扫描模式
 		Mode:       DefaultScanMode,

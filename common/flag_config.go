@@ -36,6 +36,7 @@ type FlagVars struct {
 	TimeoutSec      int64 // 秒，需转换为 time.Duration
 	GlobalTimeout   int64
 	DisablePing     bool
+	DisableTcpProbe bool
 	LocalPlugin     string
 	AliveOnly       bool
 	DisableBrute    bool
@@ -137,6 +138,7 @@ func BuildConfigFromFlags(fv *FlagVars) *Config {
 		ModuleThreadNum: fv.ModuleThreadNum,
 		DisableBrute:    fv.DisableBrute,
 		DisablePing:     fv.DisablePing,
+		DisableTcpProbe: fv.DisableTcpProbe,
 
 		// 扫描模式
 		Mode:        fv.ScanMode,

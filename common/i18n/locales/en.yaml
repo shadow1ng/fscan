@@ -28,6 +28,8 @@ flag_global_timeout:
   other: "Global timeout"
 flag_disable_ping:
   other: "Disable ping detection"
+flag_disable_tcp_probe:
+  other: "Disable TCP supplementary probe"
 flag_alive_only:
   other: "Alive detection only"
 flag_username:

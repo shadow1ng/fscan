@@ -28,6 +28,8 @@ flag_global_timeout:
   other: "全局超时时间"
 flag_disable_ping:
   other: "禁用ping探测"
+flag_disable_tcp_probe:
+  other: "禁用TCP补充探测"
 flag_alive_only:
   other: "仅进行存活探测"
 flag_username:
