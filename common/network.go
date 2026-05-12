@@ -156,6 +156,11 @@ func IsProxyReliable() bool {
 	return proxy.IsProxyReliable()
 }
 
+// IsSOCKS5Proxy 检查当前代理是否为SOCKS5类型
+func IsSOCKS5Proxy() bool {
+	return proxy.IsSOCKS5Proxy()
+}
+
 // SafeHTTPDo 带发包控制的HTTP请求
 func SafeHTTPDo(client *http.Client, req *http.Request) (*http.Response, error) {
 	// 检查发包限制

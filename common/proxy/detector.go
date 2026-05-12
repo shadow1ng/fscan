@@ -19,6 +19,9 @@ var (
 
 	// proxyProbed 标记代理是否已经探测过（避免重复探测）
 	proxyProbed atomic.Bool
+
+	// currentProxyType 当前代理类型
+	currentProxyType atomic.Int32
 )
 
 // SetProxyEnabled 设置代理启用状态
@@ -61,6 +64,11 @@ func IsProxyProbed() bool {
 	return proxyProbed.Load()
 }
 
+// IsSOCKS5Proxy 检查当前代理是否为SOCKS5类型
+func IsSOCKS5Proxy() bool {
+	return proxyEnabled.Load() && ProxyType(currentProxyType.Load()) == ProxyTypeSOCKS5
+}
+
 // AutoConfigureProxy 自动配置代理相关行为
 // 根据代理类型和状态自动调整扫描策略
 func AutoConfigureProxy(config *ProxyConfig) {
@@ -74,6 +82,7 @@ func AutoConfigureProxy(config *ProxyConfig) {
 
 	// 启用代理标记
 	SetProxyEnabled(true)
+	currentProxyType.Store(int32(config.Type))
 
 	// SOCKS5代理默认假设非标准（后续由探测函数验证）
 	if config.Type == ProxyTypeSOCKS5 {

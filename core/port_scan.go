@@ -420,8 +420,9 @@ func isTimeoutError(err error) bool {
 // 2. 轻量探测 (发送 \r\n) - 触发某些服务响应，同时不污染协议状态
 // 3. 短超时等待 (500ms) - 平衡准确性和性能
 func verifyProxyConnectionDeep(conn net.Conn, addr string) (bool, string) {
-	// 如果没有使用代理，跳过验证
-	if !common.IsProxyEnabled() {
+	// 无代理或SOCKS5代理：跳过深度验证
+	// SOCKS5协议层已验证连接可达性，连接成功即端口开放
+	if !common.IsProxyEnabled() || common.IsSOCKS5Proxy() {
 		return true, "direct"
 	}
 
