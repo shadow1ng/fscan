@@ -82,7 +82,7 @@ func CheckLive(ctx context.Context, hostslist []string, Ping bool, session *comm
 // tcpSupplementaryProbe TCP 补充探测
 // 当 ICMP 响应率过低时（<10%），对未响应主机进行 TCP 探测
 func tcpSupplementaryProbe(ctx context.Context, allHosts []string, aliveHosts []string, session *common.ScanSession) []string {
-	if session.Config.DisableTcpProbe {
+	if session.Config.DisableTcpProbe || session.Config.Mode == "icmp" {
 		return aliveHosts
 	}
 
