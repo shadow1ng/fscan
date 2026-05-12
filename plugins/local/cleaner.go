@@ -44,7 +44,7 @@ func (p *CleanerPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 	for _, file := range files {
 		if p.removeFile(file) {
 			filesCleared++
-			output.WriteString(fmt.Sprintf("清理文件: %s\n", file))
+			_, _ = fmt.Fprintf(&output, "清理文件: %s\n", file)
 		}
 	}
 
@@ -53,7 +53,7 @@ func (p *CleanerPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 	for _, file := range tempFiles {
 		if p.removeFile(file) {
 			filesCleared++
-			output.WriteString(fmt.Sprintf("清理临时文件: %s\n", file))
+			_, _ = fmt.Fprintf(&output, "清理临时文件: %s\n", file)
 		}
 	}
 

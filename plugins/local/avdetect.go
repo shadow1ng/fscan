@@ -107,7 +107,7 @@ func (p *AVDetectPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 
 	// 统计结果
 	output.WriteString("=== 检测结果 ===\n")
-	output.WriteString(fmt.Sprintf("检测到的AV产品: %d个\n", len(detectedAVs)))
+	_, _ = fmt.Fprintf(&output, "检测到的AV产品: %d个\n", len(detectedAVs))
 
 	if len(detectedAVs) > 0 {
 		output.WriteString("检测到的产品: " + strings.Join(detectedAVs, ", ") + "\n")

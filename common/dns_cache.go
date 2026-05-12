@@ -16,7 +16,8 @@ type dnsCache struct {
 // ResolveIP 解析 host 为 *net.IPAddr，结果缓存
 func (c *dnsCache) ResolveIP(host string) (*net.IPAddr, error) {
 	if v, ok := c.m.Load(host); ok {
-		return v.(*net.IPAddr), nil
+		addr, _ := v.(*net.IPAddr)
+		return addr, nil
 	}
 	addr, err := net.ResolveIPAddr("ip", host)
 	if err != nil {
