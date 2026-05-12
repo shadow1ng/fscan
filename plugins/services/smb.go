@@ -91,7 +91,7 @@ func (p *SmbPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	}
 
 	authFn := p.createAuthFunc(info, auth, session)
-	testConfig := DefaultConcurrentTestConfig(config)
+	testConfig := DefaultConcurrentTestConfigWithTarget(config, info)
 
 	result := TestCredentialsConcurrently(ctx, creds, authFn, "smb", testConfig)
 

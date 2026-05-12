@@ -20,6 +20,7 @@ const MaxFallbacks = 20
 type Probe struct {
 	Name     string // 探测器名称
 	Data     string // 探测数据
+	DecodedData []byte // 预解码的探测数据
 	Protocol string // 协议
 	Ports    string // 端口范围
 	SSLPorts string // SSL端口范围

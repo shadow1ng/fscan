@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"net"
 	"sync"
 	"time"
 
@@ -109,6 +110,7 @@ type ConcurrentTestConfig struct {
 	MaxRetries             int           // 最大重试次数，默认 3
 	RetryDelay             time.Duration // 重试延迟，默认 1s
 	MaxConsecutiveNetErrors int          // 连续网络错误阈值，超过则认为目标不可达，默认 5
+	TargetAddr             string        // 目标地址 host:port，用于 TCP 预检（可选）
 }
 
 // DefaultConcurrentTestConfig 默认配置
@@ -123,6 +125,13 @@ func DefaultConcurrentTestConfig(config *common.Config) ConcurrentTestConfig {
 		RetryDelay:              time.Second,
 		MaxConsecutiveNetErrors: 5,
 	}
+}
+
+// DefaultConcurrentTestConfigWithTarget 带目标预检的默认配置
+func DefaultConcurrentTestConfigWithTarget(config *common.Config, info *common.HostInfo) ConcurrentTestConfig {
+	cfg := DefaultConcurrentTestConfig(config)
+	cfg.TargetAddr = fmt.Sprintf("%s:%d", info.Host, info.Port)
+	return cfg
 }
 
 // TestCredentialsConcurrently 并发测试多个凭据
@@ -140,6 +149,19 @@ func TestCredentialsConcurrently(
 			Service: serviceName,
 			Error:   fmt.Errorf("无凭据可测试"),
 		}
+	}
+
+	// TCP 预检：快速验证目标可达，避免对不可达目标浪费全部凭据尝试
+	if testConfig.TargetAddr != "" {
+		preConn, err := net.DialTimeout("tcp", testConfig.TargetAddr, 3*time.Second)
+		if err != nil {
+			return &ScanResult{
+				Success: false,
+				Service: serviceName,
+				Error:   fmt.Errorf("目标不可达: %w", err),
+			}
+		}
+		_ = preConn.Close()
 	}
 
 	// 调整并发数

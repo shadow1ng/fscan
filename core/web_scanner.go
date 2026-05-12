@@ -19,6 +19,25 @@ import (
 // Web服务检测
 // ===============================
 
+// 全局共享 HTTP Client，复用连接池减少 TLS 握手和 TCP 建连开销
+var (
+	sharedHTTPClientOnce sync.Once
+	sharedHTTPClient     *http.Client
+)
+
+func getSharedHTTPClient(config *common.Config) *http.Client {
+	sharedHTTPClientOnce.Do(func() {
+		sharedHTTPClient = createHTTPClient(config)
+		// 启用 keep-alive 复用连接
+		if t, ok := sharedHTTPClient.Transport.(*http.Transport); ok {
+			t.DisableKeepAlives = false
+			t.MaxIdleConns = 100
+			t.MaxIdleConnsPerHost = 2
+		}
+	})
+	return sharedHTTPClient
+}
+
 // WebPortDetector 简化的Web检测器 - 保持API兼容
 type WebPortDetector struct{}
 
@@ -59,15 +78,7 @@ func DetectHTTPScheme(host string, port int, config *common.Config, session *com
 	// TLS握手失败，记录原因
 
 	// 第二步：尝试HTTP请求（回退检测HTTP）
-	client := &http.Client{
-		Timeout: timeout,
-		Transport: &http.Transport{
-			DisableKeepAlives: true,
-		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse // 不跟随重定向
-		},
-	}
+	client := getSharedHTTPClient(config)
 
 	// 使用HEAD请求（更轻量）
 	httpURL := fmt.Sprintf("http://%s", addr)
@@ -132,7 +143,7 @@ func (w *WebPortDetector) DetectHTTPServiceOnly(host string, port int, config *c
 		return false
 	}
 
-	client := createHTTPClient(config)
+	client := getSharedHTTPClient(config)
 
 	// 尝试HTTP
 	if w.tryHTTP(client, host, port, "http") {

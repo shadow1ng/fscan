@@ -391,7 +391,7 @@ func RunIcmp1(hostslist []string, conn *icmp.PacketConn, chanHosts chan string, 
 	}
 	packets := make([]icmpPacket, 0, len(hostslist))
 	for _, host := range hostslist {
-		dst, _ := net.ResolveIPAddr("ip", host)
+		dst, _ := common.DNSCache.ResolveIP(host)
 		packets = append(packets, icmpPacket{data: makemsg(host), dst: dst})
 	}
 

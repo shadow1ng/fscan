@@ -219,9 +219,14 @@ func (s *SmartPortInfoScanner) tryProbeList(probes []*Probe, usedProbes map[stri
 		}
 		usedProbes[probe.Name] = struct{}{}
 
-		probeData, err := DecodeData(probe.Data)
-		if err != nil {
-			continue
+		// 优先使用预解码数据
+		probeData := probe.DecodedData
+		if probeData == nil {
+			var err error
+			probeData, err = DecodeData(probe.Data)
+			if err != nil {
+				continue
+			}
 		}
 
 		// 使用 TotalWaitMS 设置动态超时
@@ -282,8 +287,15 @@ func (s *SmartPortInfoScanner) performSSLSecondStage(serviceInfo *ServiceInfo) *
 			continue
 		}
 
-		probeData, err := DecodeData(probe.Data)
-		if err != nil || len(probeData) == 0 {
+		probeData := probe.DecodedData
+		if probeData == nil {
+			var decErr error
+			probeData, decErr = DecodeData(probe.Data)
+			if decErr != nil || len(probeData) == 0 {
+				continue
+			}
+		}
+		if len(probeData) == 0 {
 			continue
 		}
 		response := s.info.Connect(probeData)
@@ -317,8 +329,15 @@ func (s *SmartPortInfoScanner) tryHTTPSProbe() *ServiceInfo {
 		return nil
 	}
 
-	probeData, err := DecodeData(probe.Data)
-	if err != nil || len(probeData) == 0 {
+	probeData := probe.DecodedData
+	if probeData == nil {
+		var decErr error
+		probeData, decErr = DecodeData(probe.Data)
+		if decErr != nil || len(probeData) == 0 {
+			return nil
+		}
+	}
+	if len(probeData) == 0 {
 		return nil
 	}
 	response := s.info.Connect(probeData)

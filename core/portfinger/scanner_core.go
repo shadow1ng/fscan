@@ -25,6 +25,23 @@ func (vs *VScan) Init() {
 	vs.parseProbesToMapKName()
 	vs.SetusedProbes()
 	vs.compileFallbacks() // 编译 fallback 数组
+	vs.preDecodeProbeData() // 预解码探针数据
+}
+
+// preDecodeProbeData 预解码所有探针的 Data 字段，避免运行时重复解码
+func (vs *VScan) preDecodeProbeData() {
+	for i := range vs.Probes {
+		if vs.Probes[i].Data != "" {
+			decoded, err := DecodeData(vs.Probes[i].Data)
+			if err == nil {
+				vs.Probes[i].DecodedData = decoded
+			}
+		}
+	}
+	// 同步到 map
+	for i := range vs.Probes {
+		vs.ProbesMapKName[vs.Probes[i].Name] = vs.Probes[i]
+	}
 }
 
 // compileFallbacks 编译所有探测器的 fallback 数组

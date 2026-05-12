@@ -49,7 +49,7 @@ func (p *VNCPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 
 	// 使用公共框架进行并发凭据测试
 	authFn := p.createAuthFunc(info, session)
-	testConfig := DefaultConcurrentTestConfig(config)
+	testConfig := DefaultConcurrentTestConfigWithTarget(config, info)
 
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "vnc", testConfig)
 

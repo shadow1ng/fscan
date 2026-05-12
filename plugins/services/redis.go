@@ -56,7 +56,7 @@ func (p *RedisPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 
 	// 使用公共框架进行并发凭据测试
 	authFn := p.createAuthFunc(info, session)
-	testConfig := DefaultConcurrentTestConfig(config)
+	testConfig := DefaultConcurrentTestConfigWithTarget(config, info)
 	testConfig.Concurrency = 20 // Redis 默认并发度更高
 
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "redis", testConfig)

@@ -49,7 +49,7 @@ func (p *CassandraPlugin) Scan(ctx context.Context, info *common.HostInfo, sessi
 
 	// 使用公共框架进行并发凭据测试
 	authFn := p.createAuthFunc(info, config, state)
-	testConfig := DefaultConcurrentTestConfig(config)
+	testConfig := DefaultConcurrentTestConfigWithTarget(config, info)
 
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "cassandra", testConfig)
 

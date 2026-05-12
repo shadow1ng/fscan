@@ -50,7 +50,7 @@ func (p *ActiveMQPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 
 	// 使用公共框架进行并发凭据测试
 	authFn := p.createAuthFunc(info, session)
-	testConfig := DefaultConcurrentTestConfig(config)
+	testConfig := DefaultConcurrentTestConfigWithTarget(config, info)
 
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "activemq", testConfig)
 

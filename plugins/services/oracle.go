@@ -50,7 +50,7 @@ func (p *OraclePlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 
 	// 使用公共框架进行并发凭据测试
 	authFn := p.createAuthFunc(info, config, state)
-	testConfig := DefaultConcurrentTestConfig(config)
+	testConfig := DefaultConcurrentTestConfigWithTarget(config, info)
 
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "oracle", testConfig)
 
