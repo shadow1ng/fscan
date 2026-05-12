@@ -39,46 +39,38 @@ var resourceExhaustedPatterns = []string{
 }
 
 // resultCollector 结果收集器，用于并发安全地收集扫描结果
-// 使用 Bloom Filter 去重 + slice 存储，大规模扫描时内存更优
 type resultCollector struct {
 	mu     sync.Mutex
-	addrs  []string
-	bloom  *BloomFilter
-	stream chan<- string // 可选：流式通知 channel
+	addrs  map[string]struct{}
+	stream chan<- string
 }
 
-// newResultCollector 创建结果收集器
-func newResultCollector(stream chan<- string, expectedSize int) *resultCollector {
-	if expectedSize < 1024 {
-		expectedSize = 1024
-	}
+func newResultCollector(stream chan<- string) *resultCollector {
 	return &resultCollector{
-		addrs:  make([]string, 0, expectedSize/10),
-		bloom:  NewBloomFilter(expectedSize, 0.001),
+		addrs:  make(map[string]struct{}),
 		stream: stream,
 	}
 }
 
-// Add 添加一个扫描结果
 func (c *resultCollector) Add(addr string) {
 	c.mu.Lock()
-	if c.bloom.Contains(addr) {
+	if _, dup := c.addrs[addr]; dup {
 		c.mu.Unlock()
 		return
 	}
-	c.bloom.Add(addr)
-	c.addrs = append(c.addrs, addr)
+	c.addrs[addr] = struct{}{}
 	c.mu.Unlock()
 	if c.stream != nil {
 		c.stream <- addr
 	}
 }
 
-// GetAll 获取所有结果
 func (c *resultCollector) GetAll() []string {
 	c.mu.Lock()
-	result := make([]string, len(c.addrs))
-	copy(result, c.addrs)
+	result := make([]string, 0, len(c.addrs))
+	for addr := range c.addrs {
+		result = append(result, addr)
+	}
 	c.mu.Unlock()
 	return result
 }
@@ -189,7 +181,7 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 	to := time.Duration(timeout) * time.Second
 	adaptiveTO := NewAdaptiveTimeout(to)
 	var count int64
-	collector := newResultCollector(stream, totalTasks)
+	collector := newResultCollector(stream)
 	failedCollector := &failedPortCollector{}
 	var wg sync.WaitGroup
 

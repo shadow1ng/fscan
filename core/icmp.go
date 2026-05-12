@@ -328,8 +328,8 @@ func RunIcmp1(hostslist []string, conn *icmp.PacketConn, chanHosts chan string, 
 	var endflag atomic.Bool
 	var listenerWg sync.WaitGroup
 
-	// 创建布隆过滤器用于去重（自动根据主机数量调整大小）
-	bloomFilter := NewBloomFilter(len(hostslist), 0.01)
+	// 去重集合：过滤重复的ICMP响应
+	seen := make(map[string]struct{}, len(hostslist))
 
 	// 启动监听协程
 	listenerWg.Add(1)
@@ -365,11 +365,10 @@ func RunIcmp1(hostslist []string, conn *icmp.PacketConn, chanHosts chan string, 
 			if sourceIP != nil && !endflag.Load() {
 				ipStr := sourceIP.String()
 
-				// 使用布隆过滤器去重，过滤重复的ICMP响应和杂包
-				if bloomFilter.Contains(ipStr) {
+				if _, dup := seen[ipStr]; dup {
 					continue
 				}
-				bloomFilter.Add(ipStr)
+				seen[ipStr] = struct{}{}
 
 				livewg.Add(1)
 				select {
