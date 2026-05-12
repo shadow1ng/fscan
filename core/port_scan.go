@@ -400,15 +400,11 @@ func scanSinglePort(ctx context.Context, host string, port int, addr string, tim
 }
 
 // handleConnectionFailure 处理连接失败
+// 只收集资源耗尽类错误，timeout 是正常的扫描结果（防火墙 drop）不计入失败
 func handleConnectionFailure(err error, host string, port int, addr string, failedCollector *failedPortCollector) {
-	if isResourceExhaustedError(err) || isTimeoutError(err) {
+	if isResourceExhaustedError(err) {
 		failedCollector.Add(host, port, addr)
 	}
-}
-
-// isTimeoutError 判断是否为超时错误
-func isTimeoutError(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "i/o timeout")
 }
 
 // verifyProxyConnectionDeep 深度验证代理连接是否真正可用
