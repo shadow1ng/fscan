@@ -127,6 +127,9 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 		hosts = probeSubnets(ctx, hosts, time.Duration(timeout)*time.Second, session)
 		if len(hosts) == 0 {
 			common.LogInfo(i18n.GetText("port_scan_no_alive_subnet"))
+			if stream != nil {
+				close(stream)
+			}
 			return nil
 		}
 	}
@@ -135,6 +138,9 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 	portList := parsers.ParsePort(ports)
 	if len(portList) == 0 {
 		common.LogError(i18n.Tr("invalid_port", ports))
+		if stream != nil {
+			close(stream)
+		}
 		return nil
 	}
 	common.LogDebug(fmt.Sprintf("[PortScan] 端口解析完成: %d个端口", len(portList)))
@@ -203,6 +209,9 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 	}, state)
 	if err != nil {
 		common.LogError(i18n.Tr("thread_pool_create_failed", err))
+		if stream != nil {
+			close(stream)
+		}
 		return nil
 	}
 	common.LogDebug("[PortScan] 线程池创建成功")
@@ -408,8 +417,13 @@ func scanSinglePort(ctx context.Context, host string, port int, addr string, ada
 	// 步骤3：服务识别（Scanner负责关闭连接，包括探测中可能创建的新连接）
 	scanner := NewSmartPortInfoScanner(ctx, host, port, conn, timeout, config, session)
 	// 服务探测超时自适应：用 RTT 采样值约束读超时上限
+	// 下限 500ms：服务处理需要时间，不能太激进
 	if rttTO := adaptiveTO.Timeout(); rttTO < timeout {
-		scanner.info.maxReadTimeoutMS = int(rttTO.Milliseconds()) * 6
+		maxMS := int(rttTO.Milliseconds()) * 6
+		if maxMS < 500 {
+			maxMS = 500
+		}
+		scanner.info.maxReadTimeoutMS = maxMS
 	}
 	defer scanner.Close()
 	serviceInfo, _ := scanner.SmartIdentify()
