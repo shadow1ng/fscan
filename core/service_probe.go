@@ -71,15 +71,16 @@ type Service struct {
 
 // Info 定义单个端口探测的上下文信息
 type Info struct {
-	Address       string              // 目标IP地址
-	Port          int                 // 目标端口
-	Conn          net.Conn            // 网络连接
-	Result        Result              // 探测结果
-	Found         bool                // 是否成功识别服务
-	ctx           context.Context     // 扫描级 context
-	config        *common.Config      // 配置引用
-	session       *common.ScanSession // 会话引用
-	readTimeoutMS int                 // 当前读取超时时间（毫秒）
+	Address          string              // 目标IP地址
+	Port             int                 // 目标端口
+	Conn             net.Conn            // 网络连接
+	Result           Result              // 探测结果
+	Found            bool                // 是否成功识别服务
+	ctx              context.Context     // 扫描级 context
+	config           *common.Config      // 配置引用
+	session          *common.ScanSession // 会话引用
+	readTimeoutMS    int                 // 当前读取超时时间（毫秒）
+	maxReadTimeoutMS int                 // RTT 自适应上限（毫秒），0 表示不限制
 }
 
 // SmartPortInfoScanner 智能服务识别器：保持nmap准确性，优化网络交互
@@ -488,10 +489,14 @@ func (i *Info) setReadTimeout(ms int) {
 
 // getReadTimeout 获取当前读取超时时间
 func (i *Info) getReadTimeout() time.Duration {
+	ms := defaultReadTimeoutMS
 	if i.readTimeoutMS > 0 {
-		return time.Duration(i.readTimeoutMS) * time.Millisecond
+		ms = i.readTimeoutMS
 	}
-	return time.Duration(defaultReadTimeoutMS) * time.Millisecond
+	if i.maxReadTimeoutMS > 0 && ms > i.maxReadTimeoutMS {
+		ms = i.maxReadTimeoutMS
+	}
+	return time.Duration(ms) * time.Millisecond
 }
 
 // WrTimeout 默认读写超时时间(秒)

@@ -56,6 +56,11 @@ func (s *ScanSession) DialTCP(ctx context.Context, network, address string, time
 		return nil, err
 	}
 
+	// SO_LINGER=0: 连接关闭时立即发送 RST，避免 TIME_WAIT 堆积
+	if tc, ok := conn.(*net.TCPConn); ok {
+		_ = tc.SetLinger(0)
+	}
+
 	s.State.IncrementTCPSuccessPacketCount()
 	return conn, nil
 }

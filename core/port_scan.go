@@ -41,14 +41,16 @@ var resourceExhaustedPatterns = []string{
 // resultCollector 结果收集器，用于并发安全地收集扫描结果
 // 使用 map 实现：O(1) 的添加和删除，无顺序依赖问题
 type resultCollector struct {
-	mu    sync.Mutex
-	addrs map[string]struct{}
+	mu     sync.Mutex
+	addrs  map[string]struct{}
+	stream chan<- string // 可选：流式通知 channel
 }
 
 // newResultCollector 创建结果收集器
-func newResultCollector() *resultCollector {
+func newResultCollector(stream chan<- string) *resultCollector {
 	return &resultCollector{
-		addrs: make(map[string]struct{}),
+		addrs:  make(map[string]struct{}),
+		stream: stream,
 	}
 }
 
@@ -57,6 +59,9 @@ func (c *resultCollector) Add(addr string) {
 	c.mu.Lock()
 	c.addrs[addr] = struct{}{}
 	c.mu.Unlock()
+	if c.stream != nil {
+		c.stream <- addr
+	}
 }
 
 // GetAll 获取所有结果
@@ -111,7 +116,8 @@ func (f *failedPortCollector) Count() int {
 
 // EnhancedPortScan 高性能端口扫描函数
 // 使用滑动窗口调度 + 自适应线程池 + 流式迭代器
-func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout int64, session *common.ScanSession) []string {
+// stream: 可选，非 nil 时每发现开放端口立即发送 addr，扫描结束后关闭
+func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout int64, session *common.ScanSession, stream chan<- string) []string {
 	config := session.Config
 	state := session.State
 	common.LogDebug(fmt.Sprintf("[PortScan] 开始: %d个主机, 线程数=%d", len(hosts), config.ThreadNum))
@@ -175,7 +181,7 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 	to := time.Duration(timeout) * time.Second
 	adaptiveTO := NewAdaptiveTimeout(to)
 	var count int64
-	collector := newResultCollector()
+	collector := newResultCollector(stream)
 	failedCollector := &failedPortCollector{}
 	var wg sync.WaitGroup
 
@@ -209,6 +215,11 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 
 	// 收集结果
 	aliveAddrs := collector.GetAll()
+
+	// 关闭流式通知 channel
+	if stream != nil {
+		close(stream)
+	}
 
 	// 完成端口扫描进度条
 	if common.IsProgressActive() {
@@ -396,6 +407,10 @@ func scanSinglePort(ctx context.Context, host string, port int, addr string, ada
 
 	// 步骤3：服务识别（Scanner负责关闭连接，包括探测中可能创建的新连接）
 	scanner := NewSmartPortInfoScanner(ctx, host, port, conn, timeout, config, session)
+	// 服务探测超时自适应：用 RTT 采样值约束读超时上限
+	if rttTO := adaptiveTO.Timeout(); rttTO < timeout {
+		scanner.info.maxReadTimeoutMS = int(rttTO.Milliseconds()) * 6
+	}
 	defer scanner.Close()
 	serviceInfo, _ := scanner.SmartIdentify()
 

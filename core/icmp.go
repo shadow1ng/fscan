@@ -383,13 +383,22 @@ func RunIcmp1(hostslist []string, conn *icmp.PacketConn, chanHosts chan string, 
 		}
 	}()
 
-	// 发送ICMP请求（应用令牌桶限速）
-	limiter := state.GetICMPLimiter(config.Network.ICMPRate)
+	// 发送ICMP请求（批量预构建 + 令牌桶限速）
+	// 预构建所有 ICMP 包和目标地址，减少发送循环中的开销
+	type icmpPacket struct {
+		data []byte
+		dst  net.Addr
+	}
+	packets := make([]icmpPacket, 0, len(hostslist))
 	for _, host := range hostslist {
-		limiter.Wait(1) // 等待令牌，控制发包速率
 		dst, _ := net.ResolveIPAddr("ip", host)
-		IcmpByte := makemsg(host)
-		_, _ = conn.WriteTo(IcmpByte, dst)
+		packets = append(packets, icmpPacket{data: makemsg(host), dst: dst})
+	}
+
+	limiter := state.GetICMPLimiter(config.Network.ICMPRate)
+	for i := range packets {
+		limiter.Wait(1)
+		_, _ = conn.WriteTo(packets[i].data, packets[i].dst)
 	}
 
 	// 自适应等待响应

@@ -139,17 +139,72 @@ func (s *ServiceScanStrategy) Execute(ctx context.Context, session *common.ScanS
 }
 
 // performHostScan 执行主机扫描的完整流程
+// pipeline 模式：端口扫描和插件执行并行，扫到开放端口立即开始跑插件
 func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *common.ScanSession, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
-	// 发现目标主机和端口
-	targetInfos, err := s.discoverTargets(ctx, info.Host, info, session)
+	config := session.Config
+	state := session.State
+
+	// 解析目标主机
+	hosts, err := parsers.ParseIP(info.Host, session.Params.HostsFile, session.Params.ExcludeHosts)
 	if err != nil {
-		common.LogError(err.Error())
+		common.LogError(fmt.Sprintf("%s: %v", i18n.GetText("parse_target_failed"), err))
 		return
 	}
 
-	// 执行漏洞扫描
-	if len(targetInfos) > 0 {
-		ExecuteScanTasks(ctx, session, targetInfos, s, ch, wg)
+	// 主机存活检测
+	if s.shouldPerformLivenessCheck(hosts, config) {
+		hosts = CheckLive(ctx, hosts, false, session)
+		common.LogInfo(i18n.Tr("alive_hosts_count_info", len(hosts)))
+	}
+
+	if len(hosts) == 0 && len(state.GetHostPorts()) == 0 {
+		return
+	}
+
+	// 流式 channel：端口扫描发现开放端口后立即通知插件执行
+	stream := make(chan string, 64)
+
+	// 启动端口扫描 goroutine
+	go func() {
+		if len(hosts) > 0 {
+			EnhancedPortScan(ctx, hosts, config.Target.Ports, int64(config.Timeout.Seconds()), session, stream)
+		} else {
+			close(stream)
+		}
+	}()
+
+	// pipeline 消费：边收开放端口边执行插件
+	pluginsToRun, isCustomMode := s.GetPlugins(config)
+	for addr := range stream {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		infos := s.convertToTargetInfos([]string{addr}, info)
+		for _, target := range infos {
+			for _, pluginName := range pluginsToRun {
+				if s.IsPluginApplicableByName(pluginName, target.Host, target.Port, isCustomMode, config) {
+					executeScanTask(ctx, session, pluginName, target, ch, wg)
+				}
+			}
+		}
+	}
+
+	// 合并预设的 host:port
+	hostPorts := state.GetHostPorts()
+	if len(hostPorts) > 0 {
+		merged := mergeHostPorts(nil, hostPorts)
+		targets := s.convertToTargetInfos(merged, info)
+		for _, target := range targets {
+			for _, pluginName := range pluginsToRun {
+				if s.IsPluginApplicableByName(pluginName, target.Host, target.Port, isCustomMode, config) {
+					executeScanTask(ctx, session, pluginName, target, ch, wg)
+				}
+			}
+		}
+		state.ClearHostPorts()
 	}
 }
 
@@ -258,7 +313,7 @@ func (s *ServiceScanStrategy) discoverAlivePorts(ctx context.Context, hosts []st
 
 	// 正常端口扫描
 	if len(hosts) > 0 {
-		alivePorts = EnhancedPortScan(ctx, hosts, config.Target.Ports, int64(config.Timeout.Seconds()), session)
+		alivePorts = EnhancedPortScan(ctx, hosts, config.Target.Ports, int64(config.Timeout.Seconds()), session, nil)
 	}
 
 	// 合并预设的 host:port（项目缓存 / CLI 注入）
