@@ -69,7 +69,7 @@ func (p *AVDetectPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 		}
 	}
 
-	output.WriteString(fmt.Sprintf("扫描进程数: %d\n\n", len(processes)))
+	_, _ = fmt.Fprintf(&output, "扫描进程数: %d\n\n", len(processes))
 
 	// 检测AV产品 - 使用JSON数据库
 	for avName, avProduct := range p.avProducts {
@@ -92,13 +92,13 @@ func (p *AVDetectPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 
 		if len(foundProcesses) > 0 {
 			detectedAVs = append(detectedAVs, avName)
-			output.WriteString(fmt.Sprintf("✓ 检测到 %s:\n", avName))
+			_, _ = fmt.Fprintf(&output, "✓ 检测到 %s:\n", avName)
 
 			common.LogSuccess(i18n.Tr("avdetect_found", avName, len(foundProcesses)))
 
 			// 输出详细进程信息到控制台
 			for _, proc := range foundProcesses {
-				output.WriteString(fmt.Sprintf("  - %s\n", proc))
+				_, _ = fmt.Fprintf(&output, "  - %s\n", proc)
 				common.LogInfo(i18n.Tr("avdetect_process", proc))
 			}
 			output.WriteString("\n")

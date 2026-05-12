@@ -158,11 +158,11 @@ func (l *Logger) log(level LogLevel, content string) {
 			lines := strings.Split(content, "\n")
 			for _, line := range lines {
 				if line != "" {
-					fmt.Fprintf(l.debugFile, "[%s] %s %s\n", timestamp, prefix, line)
+					_, _ = fmt.Fprintf(l.debugFile, "[%s] %s %s\n", timestamp, prefix, line)
 				}
 			}
 		} else {
-			fmt.Fprintf(l.debugFile, "[%s] %s %s\n", timestamp, prefix, content)
+			_, _ = fmt.Fprintf(l.debugFile, "[%s] %s %s\n", timestamp, prefix, content)
 		}
 	}
 
