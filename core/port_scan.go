@@ -173,6 +173,7 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 
 	// 初始化并发控制
 	to := time.Duration(timeout) * time.Second
+	adaptiveTO := NewAdaptiveTimeout(to)
 	var count int64
 	collector := newResultCollector()
 	failedCollector := &failedPortCollector{}
@@ -191,7 +192,7 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 		}()
 
 		addr := fmt.Sprintf("%s:%d", taskInfo.host, taskInfo.port)
-		scanSinglePort(ctx, taskInfo.host, taskInfo.port, addr, to, &count, collector, failedCollector, session)
+		scanSinglePort(ctx, taskInfo.host, taskInfo.port, addr, adaptiveTO, &count, collector, failedCollector, session)
 		common.UpdateProgressBar(1)
 	}, state)
 	if err != nil {
@@ -356,14 +357,17 @@ func buildServiceLogMessage(addr string, serviceInfo *ServiceInfo, isWeb bool) s
 }
 
 // scanSinglePort 扫描单个端口并进行服务识别（重构后的简洁版本）
-func scanSinglePort(ctx context.Context, host string, port int, addr string, timeout time.Duration, count *int64, collector *resultCollector, failedCollector *failedPortCollector, session *common.ScanSession) {
+func scanSinglePort(ctx context.Context, host string, port int, addr string, adaptiveTO *AdaptiveTimeout, count *int64, collector *resultCollector, failedCollector *failedPortCollector, session *common.ScanSession) {
 	config := session.Config
+	timeout := adaptiveTO.Timeout()
 	// 步骤1：建立连接
+	start := time.Now()
 	conn, err := connectWithRetry(ctx, session, addr, timeout, 2)
 	if err != nil {
 		handleConnectionFailure(err, host, port, addr, failedCollector)
 		return
 	}
+	adaptiveTO.Record(time.Since(start))
 
 	// 步骤1.5：代理连接深度验证（防止透明代理/全回显代理的假连接问题）
 	valid, verifyMethod := verifyProxyConnectionDeep(conn, addr)
