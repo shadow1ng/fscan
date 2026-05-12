@@ -182,6 +182,7 @@ func Flag(Info *HostInfo) error {
 	flag.BoolVar(&fv.Silent, "silent", false, i18n.GetText("flag_silent_mode"))
 	flag.BoolVar(&fv.NoColor, "nocolor", false, i18n.GetText("flag_no_color"))
 	flag.StringVar(&fv.LogLevel, "log", LogLevelBaseInfoSuccess, i18n.GetText("flag_log_level"))
+	flag.BoolVar(&fv.Debug, "debug", false, i18n.GetText("flag_debug"))
 	flag.BoolVar(&fv.DisableProgress, "nopg", false, i18n.GetText("flag_disable_progress"))
 	flag.BoolVar(&fv.PerfStats, "perf", false, "输出性能统计JSON")
 
@@ -284,6 +285,11 @@ func shouldShowHelp(Info *HostInfo, fv *FlagVars) bool {
 // 返回error而不是调用os.Exit，让调用者决定如何处理
 func checkParameterConflicts() error {
 	fv := flagVars
+
+	// -debug 等价于 -log debug
+	if fv.Debug {
+		fv.LogLevel = LogLevelDebug
+	}
 
 	// 检查 -ao 和 -m icmp 同时指定的情况（向后兼容提示）
 	if fv.AliveOnly && fv.ScanMode == "icmp" {

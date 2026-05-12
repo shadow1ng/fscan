@@ -95,6 +95,7 @@ type FlagVars struct {
 	Silent          bool
 	NoColor         bool
 	LogLevel        string
+	Debug           bool
 	DisableProgress bool
 	PerfStats       bool
 	Language        string

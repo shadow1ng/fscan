@@ -2,6 +2,7 @@ package logging
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +28,7 @@ type LoggerConfig struct {
 	Silent       bool                     `json:"silent"`
 	StartTime    time.Time                `json:"start_time"`
 	LevelColors  map[LogLevel]interface{} `json:"-"`
+	DebugLogFile string                   `json:"debug_log_file"`
 }
 
 // DefaultLoggerConfig 默认日志器配置
@@ -48,6 +50,7 @@ type Logger struct {
 	startTime         time.Time
 	coordinatedOutput func(string)
 	initialized       bool
+	debugFile         *os.File
 }
 
 // NewLogger 创建新的日志管理器
@@ -56,11 +59,20 @@ func NewLogger(config *LoggerConfig) *Logger {
 		config = DefaultLoggerConfig()
 	}
 
-	return &Logger{
+	l := &Logger{
 		config:      config,
 		startTime:   config.StartTime,
 		initialized: true,
 	}
+
+	if config.DebugLogFile != "" {
+		f, err := os.OpenFile(config.DebugLogFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+		if err == nil {
+			l.debugFile = f
+		}
+	}
+
+	return l
 }
 
 // Initialize 初始化日志器
@@ -139,9 +151,34 @@ func (l *Logger) log(level LogLevel, content string) {
 		l.outputMessage(level, logMsg)
 	}
 
+	// 写入debug日志文件（纯文本，无颜色）
+	if l.debugFile != nil {
+		timestamp := time.Since(l.startTime).Truncate(time.Millisecond)
+		if strings.Contains(content, "\n") {
+			lines := strings.Split(content, "\n")
+			for _, line := range lines {
+				if line != "" {
+					fmt.Fprintf(l.debugFile, "[%s] %s %s\n", timestamp, prefix, line)
+				}
+			}
+		} else {
+			fmt.Fprintf(l.debugFile, "[%s] %s %s\n", timestamp, prefix, content)
+		}
+	}
+
 	// 根据慢速输出设置决定是否添加延迟
 	if l.config.SlowOutput {
 		time.Sleep(SlowOutputDelay)
+	}
+}
+
+// Close 关闭日志器，释放文件资源
+func (l *Logger) Close() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.debugFile != nil {
+		_ = l.debugFile.Close()
+		l.debugFile = nil
 	}
 }
 

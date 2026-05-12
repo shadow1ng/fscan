@@ -30,6 +30,8 @@ flag_disable_ping:
   other: "禁用ping探测"
 flag_disable_tcp_probe:
   other: "禁用TCP补充探测"
+flag_debug:
+  other: "开启调试模式，日志写入fscan_debug.log"
 flag_alive_only:
   other: "仅进行存活探测"
 flag_username:
