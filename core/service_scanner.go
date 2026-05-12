@@ -175,10 +175,15 @@ func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *comm
 
 	// pipeline 消费：边收开放端口边执行插件
 	pluginsToRun, isCustomMode := s.GetPlugins(config)
+	cancelled := false
 	for addr := range stream {
+		if cancelled {
+			continue // ctx 已取消，排空 stream 防止写端阻塞
+		}
 		select {
 		case <-ctx.Done():
-			return
+			cancelled = true
+			continue
 		default:
 		}
 

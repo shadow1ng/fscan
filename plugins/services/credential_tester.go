@@ -152,7 +152,8 @@ func TestCredentialsConcurrently(
 	}
 
 	// TCP 预检：快速验证目标可达，避免对不可达目标浪费全部凭据尝试
-	if testConfig.TargetAddr != "" {
+	// 代理模式下跳过：net.DialTimeout 直连无法到达代理后的内网目标
+	if testConfig.TargetAddr != "" && !common.IsProxyEnabled() {
 		preConn, err := net.DialTimeout("tcp", testConfig.TargetAddr, 3*time.Second)
 		if err != nil {
 			return &ScanResult{
