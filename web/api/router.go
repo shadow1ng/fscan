@@ -49,5 +49,5 @@ func healthCheck(w http.ResponseWriter, r *http.Request) {
 // systemInfo 系统信息
 func systemInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"version":"2.1.1","build":"web"}`))
+	w.Write([]byte(`{"version":"2.1.4","build":"web"}`))
 }
