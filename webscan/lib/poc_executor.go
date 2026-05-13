@@ -348,8 +348,8 @@ func doSearch(re string, body string) map[string]string {
 		paramsMap := make(map[string]string)
 		for i, name := range names {
 			if i > 0 && i <= len(result) {
-				// 特殊处理Cookie头
-				if strings.HasPrefix(re, "Set-Cookie:") && strings.Contains(name, "cookie") {
+				// 特殊处理Set-Cookie头：剥离Path/Expires等属性，仅保留key=value
+				if strings.HasPrefix(re, "Set-Cookie:") {
 					paramsMap[name] = optimizeCookies(result[i])
 				} else {
 					paramsMap[name] = result[i]

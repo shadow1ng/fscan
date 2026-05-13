@@ -399,6 +399,11 @@ func (x *XrayPocAdapter) ToFscanPoc() (*Poc, error) {
 			Expression:      rule.Expression,
 		}
 
+		// 转换 output 字段为 Search — 多步POC中从响应提取变量供后续步骤使用
+		if searchVal, ok := rule.Output["search"]; ok {
+			fscanRule.Search = fmt.Sprintf("%v", searchVal)
+		}
+
 		// 如果expression为空，默认检查200状态码
 		if fscanRule.Expression == "" {
 			fscanRule.Expression = "response.status == 200"
@@ -498,6 +503,11 @@ func (a *AfrogPocAdapter) ToFscanPoc() (*Poc, error) {
 			Body:            rule.Request.Body,
 			FollowRedirects: rule.Request.FollowRedirects,
 			Expression:      rule.Expression,
+		}
+
+		// 转换 output 字段为 Search — 多步POC中从响应提取变量供后续步骤使用
+		if searchVal, ok := rule.Output["search"]; ok {
+			fscanRule.Search = fmt.Sprintf("%v", searchVal)
 		}
 
 		// 如果expression为空，默认检查200状态码
