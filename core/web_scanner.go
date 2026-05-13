@@ -13,6 +13,7 @@ import (
 
 	"github.com/shadow1ng/fscan/common"
 	"github.com/shadow1ng/fscan/common/i18n"
+	gmtls "github.com/tjfoc/gmsm/gmtls"
 )
 
 // ===============================
@@ -47,8 +48,8 @@ func GetWebPortDetector() *WebPortDetector {
 }
 
 // DetectHTTPScheme 智能检测HTTP/HTTPS协议
-// 策略：TLS握手优先（快速且准确），失败后尝试HTTP
-// 返回: "https", "http", 或 "" (都不是Web服务)
+// 策略：TLS握手优先（快速且准确），失败后尝试GM TLS，最后HTTP
+// 返回: "https", "https-gm", "http", 或 "" (都不是Web服务)
 func DetectHTTPScheme(host string, port int, config *common.Config, session *common.ScanSession) string {
 	// 优化：先快速检测 TCP 连通性
 	if !isPortReachable(host, port, config, session) {
@@ -58,15 +59,14 @@ func DetectHTTPScheme(host string, port int, config *common.Config, session *com
 	timeout := config.Network.WebTimeout
 	addr := fmt.Sprintf("%s:%d", host, port)
 
-	// 第一步：尝试TLS握手（优先检测HTTPS）
-	// 优势：握手失败代价小，不需要发送完整HTTP请求
+	// 第一步：尝试标准TLS握手（优先检测HTTPS）
 	tlsDialer := &net.Dialer{Timeout: timeout}
 	tlsConn, err := tls.DialWithDialer(
 		tlsDialer,
 		"tcp", addr,
 		&tls.Config{
 			InsecureSkipVerify: true,
-			MinVersion:         tls.VersionTLS10, // 兼容老版本TLS
+			MinVersion:         tls.VersionTLS10,
 		},
 	)
 
@@ -75,9 +75,22 @@ func DetectHTTPScheme(host string, port int, config *common.Config, session *com
 		return "https"
 	}
 
-	// TLS握手失败，记录原因
+	// 第二步：尝试国密TLS握手（GM TLS fallback）
+	gmConn, gmErr := gmtls.DialWithDialer(
+		tlsDialer,
+		"tcp", addr,
+		&gmtls.Config{
+			GMSupport:          gmtls.NewGMSupport(),
+			InsecureSkipVerify: true,
+		},
+	)
 
-	// 第二步：尝试HTTP请求（回退检测HTTP）
+	if gmErr == nil {
+		_ = gmConn.Close()
+		return "https-gm"
+	}
+
+	// TLS和GM TLS都失败，尝试HTTP
 	client := getSharedHTTPClient(config)
 
 	// 使用HEAD请求（更轻量）

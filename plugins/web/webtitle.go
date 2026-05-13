@@ -83,14 +83,28 @@ func (p *WebTitlePlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo, config *common.Config, session *common.ScanSession) (string, int, int, string, []string, string, error) {
 	// 智能协议检测
 	protocol := p.detectProtocol(info, config, session)
-	baseURL := fmt.Sprintf("%s://%s:%d", protocol, info.Host, info.Port)
+	isGM := false
+	urlScheme := protocol
+	if protocol == "https-gm" {
+		isGM = true
+		urlScheme = "https" // 国密连接仍使用 https URL 格式
+	}
+	baseURL := fmt.Sprintf("%s://%s:%d", urlScheme, info.Host, info.Port)
+
+	// 选择对应的 HTTP 客户端
+	clientNR, clientR := lib.ClientNoRedirect, lib.Client
+	if isGM {
+		clientNR, clientR = lib.ClientNoRedirectGM, lib.ClientGM
+	}
 
 	// 构建显示用URL（隐藏标准端口）
 	var displayURL string
-	if (protocol == "https" && info.Port == 443) || (protocol == "http" && info.Port == 80) {
+	if isGM && info.Port == 443 {
+		displayURL = fmt.Sprintf("%s://%s", protocol, info.Host)
+	} else if (protocol == "https" && info.Port == 443) || (protocol == "http" && info.Port == 80) {
 		displayURL = fmt.Sprintf("%s://%s", protocol, info.Host)
 	} else {
-		displayURL = baseURL
+		displayURL = fmt.Sprintf("%s://%s:%d", protocol, info.Host, info.Port)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL, nil)
@@ -101,7 +115,7 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 
 	// 先使用不跟随重定向的Client获取原始响应
-	resp, err := lib.ClientNoRedirect.Do(req)
+	resp, err := clientNR.Do(req)
 	if err != nil {
 		return "", 0, 0, "", nil, displayURL, err
 	}
@@ -136,7 +150,7 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 				reqRedirect, err := http.NewRequestWithContext(ctx, "GET", redirectURL, nil)
 				if err == nil {
 					reqRedirect.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-					respRedirect, err := lib.Client.Do(reqRedirect)
+					respRedirect, err := clientR.Do(reqRedirect)
 					if err == nil {
 						bodyRedirect, _ := io.ReadAll(respRedirect.Body)
 						_ = respRedirect.Body.Close()
@@ -251,7 +265,7 @@ func (p *WebTitlePlugin) detectProtocol(info *common.HostInfo, config *common.Co
 		// 第二优先级：基于服务名称特征判断（仅限服务识别阶段确定的https/ssl/tls）
 		// 注意：普通的"http"服务名不直接返回，因为可能是-u模式默认添加的协议
 		serviceName := strings.ToLower(serviceInfo.Name)
-		if common.ContainsAny(serviceName, "https", "ssl", "tls") {
+		if common.ContainsAny(serviceName, "https-gm", "https", "ssl", "tls") {
 			// 缓存协议信息到Extras
 			if serviceInfo.Extras == nil {
 				serviceInfo.Extras = make(map[string]string)

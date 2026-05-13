@@ -446,6 +446,19 @@ func DoRequest(req *http.Request, redirect bool) (*Response, error) {
 		oResp, err = ClientNoRedirect.Do(req)
 	}
 
+	// 标准TLS连接失败时，尝试国密TLS客户端
+	if err != nil && req.URL.Scheme == "https" {
+		if redirect {
+			if oResp2, err2 := ClientGM.Do(req); err2 == nil {
+				oResp, err = oResp2, nil
+			}
+		} else {
+			if oResp2, err2 := ClientNoRedirectGM.Do(req); err2 == nil {
+				oResp, err = oResp2, nil
+			}
+		}
+	}
+
 	if err != nil {
 		// HTTP请求失败，计为TCP失败
 		common.GetGlobalState().IncrementTCPFailedPacketCount()

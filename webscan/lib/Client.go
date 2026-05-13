@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"context"
 	"crypto/tls"
 	"embed"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/shadow1ng/fscan/common"
 	"github.com/shadow1ng/fscan/common/proxy"
+	gmtls "github.com/tjfoc/gmsm/gmtls"
 	"gopkg.in/yaml.v2"
 )
 
@@ -29,10 +31,12 @@ const (
 
 // 全局HTTP客户端变量
 var (
-	Client           *http.Client      // 标准HTTP客户端
-	ClientNoRedirect *http.Client      // 不自动跟随重定向的HTTP客户端
-	dialTimeout      = 5 * time.Second // 连接超时时间
-	keepAlive        = 5 * time.Second // 连接保持时间
+	Client              *http.Client      // 标准HTTP客户端
+	ClientNoRedirect    *http.Client      // 不自动跟随重定向的HTTP客户端
+	ClientGM            *http.Client      // 国密TLS HTTP客户端
+	ClientNoRedirectGM  *http.Client      // 国密TLS 不跟随重定向
+	dialTimeout         = 5 * time.Second // 连接超时时间
+	keepAlive           = 5 * time.Second // 连接保持时间
 )
 
 // Inithttp 初始化HTTP客户端配置
@@ -162,6 +166,43 @@ func InitHTTPClient(ThreadsNum int, DownProxy string, Timeout time.Duration, max
 	// 创建不跟随重定向的HTTP客户端
 	ClientNoRedirect = &http.Client{
 		Transport:     tr,
+		Timeout:       Timeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
+	}
+
+	// 创建国密TLS客户端（用于连接国密HTTPS站点）
+	trGM := &http.Transport{
+		DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			dialer := &net.Dialer{
+				Timeout:   dialTimeout,
+				KeepAlive: keepAlive,
+			}
+			return gmtls.DialWithDialer(dialer, network, addr, &gmtls.Config{
+				GMSupport:          gmtls.NewGMSupport(),
+				InsecureSkipVerify: true,
+			})
+		},
+		MaxConnsPerHost:     20,
+		MaxIdleConns:        20,
+		MaxIdleConnsPerHost: 5,
+		IdleConnTimeout:     keepAlive,
+		TLSHandshakeTimeout: 5 * time.Second,
+		DisableKeepAlives:   false,
+	}
+
+	ClientGM = &http.Client{
+		Transport: trGM,
+		Timeout:   Timeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= maxRedirects {
+				return http.ErrUseLastResponse
+			}
+			return nil
+		},
+	}
+
+	ClientNoRedirectGM = &http.Client{
+		Transport:     trGM,
 		Timeout:       Timeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
 	}
