@@ -4,7 +4,7 @@
 
 Comprehensive intranet scanning tool for automated vulnerability assessment.
 
-**Version**: 2.1.2
+**Version**: 2.1.3
 
 ## Features
 
