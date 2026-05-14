@@ -302,7 +302,7 @@ func parseIPCIDR(cidr string, maxTargets int) ([]string, error) {
 	for ipNet.Contains(ip) {
 		ips = append(ips, ip.String())
 		count++
-		if count >= maxTargets {
+		if maxTargets > 0 && count >= maxTargets {
 			break
 		}
 		incrementIP(ip)
@@ -346,7 +346,7 @@ func parseIPRangeString(rangeStr string, maxTargets int) ([]string, error) {
 
 	// 处理简写格式 (如: 192.168.1.1-100)
 	if len(endIPStr) < 4 || !strings.Contains(endIPStr, ".") {
-		return parseIPShortRange(startIPStr, endIPStr)
+		return parseIPShortRange(startIPStr, endIPStr, maxTargets)
 	}
 
 	// 处理完整格式 (如: 192.168.1.1-192.168.1.100)
@@ -359,7 +359,7 @@ func parseIPRangeString(rangeStr string, maxTargets int) ([]string, error) {
 }
 
 // parseIPShortRange 解析短格式IP范围
-func parseIPShortRange(startIPStr, endSuffix string) ([]string, error) {
+func parseIPShortRange(startIPStr, endSuffix string, maxTargets int) ([]string, error) {
 	endNum, err := strconv.Atoi(endSuffix)
 	if err != nil || endNum > 255 {
 		return nil, fmt.Errorf("无效的IP范围结束值: %s", endSuffix)
@@ -377,8 +377,13 @@ func parseIPShortRange(startIPStr, endSuffix string) ([]string, error) {
 	}
 
 	var allIP []string
+	count := 0
 	for i := startNum; i <= endNum; i++ {
 		allIP = append(allIP, fmt.Sprintf("%s.%d", prefixIP, i))
+		count++
+		if maxTargets > 0 && count >= maxTargets {
+			break
+		}
 	}
 
 	return allIP, nil
@@ -408,7 +413,7 @@ func parseIPFullRange(startIP, endIP net.IP, maxTargets int) ([]string, error) {
 		ips = append(ips, current.String())
 		count++
 
-		if current.Equal(end4) || count >= maxTargets {
+		if current.Equal(end4) || (maxTargets > 0 && count >= maxTargets) {
 			break
 		}
 		incrementIP(current)
