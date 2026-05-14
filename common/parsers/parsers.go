@@ -89,31 +89,31 @@ func parseHostString(host string) ([]string, error) {
 
 		switch {
 		case h == "192":
-			cidrHosts, err := parseIPCIDR("192.168.0.0/16", SimpleMaxHosts)
+			cidrHosts, err := parseIPCIDR("192.168.0.0/16", NoLimitHosts)
 			if err != nil {
 				return nil, err
 			}
 			hosts = append(hosts, cidrHosts...)
 		case h == "172":
-			cidrHosts, err := parseIPCIDR("172.16.0.0/12", SimpleMaxHosts)
+			cidrHosts, err := parseIPCIDR("172.16.0.0/12", NoLimitHosts)
 			if err != nil {
 				return nil, err
 			}
 			hosts = append(hosts, cidrHosts...)
 		case h == "10":
-			cidrHosts, err := parseIPCIDR("10.0.0.0/8", SimpleMaxHosts)
+			cidrHosts, err := parseIPCIDR("10.0.0.0/8", NoLimitHosts)
 			if err != nil {
 				return nil, err
 			}
 			hosts = append(hosts, cidrHosts...)
 		case strings.Contains(h, "/"):
-			cidrHosts, err := parseIPCIDR(h, SimpleMaxHosts)
+			cidrHosts, err := parseIPCIDR(h, NoLimitHosts)
 			if err != nil {
 				return nil, fmt.Errorf("CIDR解析失败 %s: %w", h, err)
 			}
 			hosts = append(hosts, cidrHosts...)
 		case strings.Contains(h, "-") && !strings.Contains(h, ":") && looksLikeIPRange(h):
-			rangeHosts, err := parseIPRangeString(h, SimpleMaxHosts)
+			rangeHosts, err := parseIPRangeString(h, NoLimitHosts)
 			if err != nil {
 				return nil, fmt.Errorf("IP范围解析失败 %s: %w", h, err)
 			}
@@ -302,7 +302,7 @@ func parseIPCIDR(cidr string, maxTargets int) ([]string, error) {
 	for ipNet.Contains(ip) {
 		ips = append(ips, ip.String())
 		count++
-		if count >= maxTargets {
+		if maxTargets > 0 && count >= maxTargets {
 			break
 		}
 		incrementIP(ip)
@@ -346,7 +346,7 @@ func parseIPRangeString(rangeStr string, maxTargets int) ([]string, error) {
 
 	// 处理简写格式 (如: 192.168.1.1-100)
 	if len(endIPStr) < 4 || !strings.Contains(endIPStr, ".") {
-		return parseIPShortRange(startIPStr, endIPStr)
+		return parseIPShortRange(startIPStr, endIPStr, maxTargets)
 	}
 
 	// 处理完整格式 (如: 192.168.1.1-192.168.1.100)
@@ -359,7 +359,7 @@ func parseIPRangeString(rangeStr string, maxTargets int) ([]string, error) {
 }
 
 // parseIPShortRange 解析短格式IP范围
-func parseIPShortRange(startIPStr, endSuffix string) ([]string, error) {
+func parseIPShortRange(startIPStr, endSuffix string, maxTargets int) ([]string, error) {
 	endNum, err := strconv.Atoi(endSuffix)
 	if err != nil || endNum > 255 {
 		return nil, fmt.Errorf("无效的IP范围结束值: %s", endSuffix)
@@ -377,8 +377,13 @@ func parseIPShortRange(startIPStr, endSuffix string) ([]string, error) {
 	}
 
 	var allIP []string
+	count := 0
 	for i := startNum; i <= endNum; i++ {
 		allIP = append(allIP, fmt.Sprintf("%s.%d", prefixIP, i))
+		count++
+		if maxTargets > 0 && count >= maxTargets {
+			break
+		}
 	}
 
 	return allIP, nil
@@ -408,7 +413,7 @@ func parseIPFullRange(startIP, endIP net.IP, maxTargets int) ([]string, error) {
 		ips = append(ips, current.String())
 		count++
 
-		if current.Equal(end4) || count >= maxTargets {
+		if current.Equal(end4) || (maxTargets > 0 && count >= maxTargets) {
 			break
 		}
 		incrementIP(current)
