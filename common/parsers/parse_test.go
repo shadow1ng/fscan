@@ -590,6 +590,18 @@ func TestParseIP_IPRange(t *testing.T) {
 	}
 }
 
+func TestParseIP_IPRangeLimit(t *testing.T) {
+	result, err := parseIPRangeString("192.168.1.1-5", 3)
+	if err != nil {
+		t.Fatalf("parseIPRangeString error = %v", err)
+	}
+
+	expected := []string{"192.168.1.1", "192.168.1.2", "192.168.1.3"}
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("parseIPRangeString limit = %v, want %v", result, expected)
+	}
+}
+
 // TestParseIP_FromFile 测试从文件读取
 //
 // 验证：文件中的IP列表被正确读取
@@ -969,6 +981,24 @@ func TestParseIP_FullIPRange(t *testing.T) {
 	}
 }
 
+func TestParseIP_FullIPRangeNoLimit(t *testing.T) {
+	result, err := parseIPRangeString("192.168.1.1-192.168.1.5", -1)
+	if err != nil {
+		t.Fatalf("parseIPRangeString error = %v", err)
+	}
+
+	expected := []string{
+		"192.168.1.1",
+		"192.168.1.2",
+		"192.168.1.3",
+		"192.168.1.4",
+		"192.168.1.5",
+	}
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("parseIPRangeString no limit = %v, want %v", result, expected)
+	}
+}
+
 // TestParseIP_InvalidCIDR 测试无效CIDR
 func TestParseIP_InvalidCIDR(t *testing.T) {
 	tests := []struct {
@@ -1173,7 +1203,7 @@ test:
 		{"admin", "password123"},
 		{"root", "toor"},
 		{"user", "pass:with:colons"}, // 密码可以包含冒号
-		{"test", ""},                  // 空密码
+		{"test", ""},                 // 空密码
 	}
 
 	if len(result) != len(tests) {

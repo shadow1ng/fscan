@@ -89,31 +89,31 @@ func parseHostString(host string) ([]string, error) {
 
 		switch {
 		case h == "192":
-			cidrHosts, err := parseIPCIDR("192.168.0.0/16", NoLimitHosts)
+			cidrHosts, err := parseIPCIDR("192.168.0.0/16", SimpleMaxHosts)
 			if err != nil {
 				return nil, err
 			}
 			hosts = append(hosts, cidrHosts...)
 		case h == "172":
-			cidrHosts, err := parseIPCIDR("172.16.0.0/12", NoLimitHosts)
+			cidrHosts, err := parseIPCIDR("172.16.0.0/12", SimpleMaxHosts)
 			if err != nil {
 				return nil, err
 			}
 			hosts = append(hosts, cidrHosts...)
 		case h == "10":
-			cidrHosts, err := parseIPCIDR("10.0.0.0/8", NoLimitHosts)
+			cidrHosts, err := parseIPCIDR("10.0.0.0/8", SimpleMaxHosts)
 			if err != nil {
 				return nil, err
 			}
 			hosts = append(hosts, cidrHosts...)
 		case strings.Contains(h, "/"):
-			cidrHosts, err := parseIPCIDR(h, NoLimitHosts)
+			cidrHosts, err := parseIPCIDR(h, SimpleMaxHosts)
 			if err != nil {
 				return nil, fmt.Errorf("CIDR解析失败 %s: %w", h, err)
 			}
 			hosts = append(hosts, cidrHosts...)
 		case strings.Contains(h, "-") && !strings.Contains(h, ":") && looksLikeIPRange(h):
-			rangeHosts, err := parseIPRangeString(h, NoLimitHosts)
+			rangeHosts, err := parseIPRangeString(h, SimpleMaxHosts)
 			if err != nil {
 				return nil, fmt.Errorf("IP范围解析失败 %s: %w", h, err)
 			}
