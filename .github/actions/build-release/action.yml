@@ -29,23 +29,27 @@ runs:
         cache: true
 
     - name: 安装 C 编译工具
+      timeout-minutes: 10
       shell: bash
       run: |
         sudo apt-get update -qq
         sudo apt-get install -y gcc make mingw-w64 gcc-multilib g++-multilib
 
     - name: 下载依赖
+      timeout-minutes: 5
       shell: bash
       run: |
         go mod download
         go mod verify
 
     - name: 安装 UPX
+      timeout-minutes: 2
       uses: crazy-max/ghaction-upx@v3
       with:
         install-only: true
 
     - name: 使用 GoReleaser 构建
+      timeout-minutes: 60
       uses: goreleaser/goreleaser-action@v6
       with:
         distribution: goreleaser

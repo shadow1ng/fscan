@@ -3,6 +3,7 @@ name: 测试构建
 on:
   push:
     branches:
+      - main
       - dev
       - dev-*
       - develop
