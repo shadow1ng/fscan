@@ -15,6 +15,9 @@ import (
 // ErrShowHelp 表示用户请求显示帮助（正常退出）
 var ErrShowHelp = errors.New("show help requested")
 
+// IsLocalMode 由 plugins 包注册，判断 -m 指定的是否全是本地插件
+var IsLocalMode func(mode string) bool
+
 // Banner 显示程序横幅信息
 func Banner() {
 	// 静默模式下完全跳过Banner显示
@@ -272,9 +275,14 @@ func shouldShowHelp(Info *HostInfo, fv *FlagVars) bool {
 	// 检查是否提供了扫描目标
 	hasTarget := Info.Host != "" || fv.TargetURL != "" || fv.HostsFile != "" || fv.URLsFile != ""
 
-	// 本地模式需要指定插件才算有效目标
+	// 本地模式不需要目标主机
 	if fv.LocalPlugin != "" {
-		hasTarget = true
+		return false
+	}
+
+	// -m 指定的全是本地插件时也不需要目标
+	if IsLocalMode != nil && IsLocalMode(fv.ScanMode) {
+		return false
 	}
 
 	// 如果没有提供任何扫描目标，则显示帮助

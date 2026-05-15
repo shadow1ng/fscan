@@ -693,6 +693,28 @@ systeminfo_distro_exists:
   other: "发行版: /etc/os-release 存在"
 systeminfo_whoami:
   other: "当前用户(whoami): {{.Arg1}}"
+systeminfo_iface:
+  other: "网卡 {{.Arg1}}: {{.Arg2}} (MAC: {{.Arg3}})"
+systeminfo_privilege:
+  other: "权限级别: {{.Arg1}}"
+systeminfo_privilege_group:
+  other: "所属管理组: {{.Arg1}}"
+systeminfo_id_info:
+  other: "用户信息: {{.Arg1}}"
+systeminfo_firewall:
+  other: "防火墙: {{.Arg1}}"
+systeminfo_firewall_rules:
+  other: "防火墙规则数: {{.Arg1}}"
+systeminfo_patches:
+  other: "已安装补丁: {{.Arg1}}个"
+systeminfo_antivirus:
+  other: "检测到杀软: {{.Arg1}}"
+systeminfo_sudo:
+  other: "sudo权限: {{.Arg1}}"
+systeminfo_macos_detail:
+  other: "macOS: {{.Arg1}}"
+systeminfo_sensitive_env:
+  other: "敏感环境变量: {{.Arg1}}={{.Arg2}}"
 
 # Windows计划任务
 winschtask_success:

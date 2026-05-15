@@ -5,6 +5,7 @@ package local
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"os/user"
@@ -16,184 +17,247 @@ import (
 	"github.com/shadow1ng/fscan/plugins"
 )
 
-// SystemInfoPlugin 系统信息收集插件
-// 设计哲学：纯信息收集，无攻击性功能
-// - 删除复杂的继承体系
-// - 收集基本系统信息
-// - 跨平台支持，运行时适配
 type SystemInfoPlugin struct {
 	plugins.BasePlugin
+	output strings.Builder
 }
 
-// NewSystemInfoPlugin 创建系统信息插件
 func NewSystemInfoPlugin() *SystemInfoPlugin {
 	return &SystemInfoPlugin{
 		BasePlugin: plugins.NewBasePlugin("systeminfo"),
 	}
 }
 
-// Scan 执行系统信息收集 - 直接、简单、有效
-func (p *SystemInfoPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
-	var output strings.Builder
+func (p *SystemInfoPlugin) log(key string, args ...interface{}) {
+	msg := i18n.Tr(key, args...)
+	common.LogInfo(msg)
+	p.output.WriteString(msg + "\n")
+}
 
-	output.WriteString("=== 系统信息收集 ===\n")
+func (p *SystemInfoPlugin) logSuccess(key string, args ...interface{}) {
+	msg := i18n.Tr(key, args...)
+	common.LogSuccess(msg)
+	p.output.WriteString(msg + "\n")
+}
+
+func (p *SystemInfoPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
 	common.LogSuccess(i18n.GetText("systeminfo_start"))
 
-	// 基本系统信息
-	output.WriteString(fmt.Sprintf("操作系统: %s\n", runtime.GOOS))
-	output.WriteString(fmt.Sprintf("架构: %s\n", runtime.GOARCH))
-	output.WriteString(fmt.Sprintf("CPU核心数: %d\n", runtime.NumCPU()))
-
-	common.LogInfo(i18n.Tr("systeminfo_os", runtime.GOOS))
-	common.LogInfo(i18n.Tr("systeminfo_arch", runtime.GOARCH))
-	common.LogInfo(i18n.Tr("systeminfo_cpu", runtime.NumCPU()))
-
-	// 主机名
-	if hostname, err := os.Hostname(); err == nil {
-		output.WriteString(fmt.Sprintf("主机名: %s\n", hostname))
-		common.LogInfo(i18n.Tr("systeminfo_hostname", hostname))
-	}
-
-	// 当前用户
-	if currentUser, err := user.Current(); err == nil {
-		output.WriteString(fmt.Sprintf("当前用户: %s\n", currentUser.Username))
-		common.LogInfo(i18n.Tr("systeminfo_user", currentUser.Username))
-		if currentUser.HomeDir != "" {
-			output.WriteString(fmt.Sprintf("用户目录: %s\n", currentUser.HomeDir))
-			common.LogInfo(i18n.Tr("systeminfo_homedir", currentUser.HomeDir))
-		}
-	}
-
-	// 工作目录
-	if workDir, err := os.Getwd(); err == nil {
-		output.WriteString(fmt.Sprintf("工作目录: %s\n", workDir))
-		common.LogInfo(i18n.Tr("systeminfo_workdir", workDir))
-	}
-
-	// 临时目录
-	output.WriteString(fmt.Sprintf("临时目录: %s\n", os.TempDir()))
-	common.LogInfo(i18n.Tr("systeminfo_tempdir", os.TempDir()))
-
-	// 环境变量关键信息
-	if path := os.Getenv("PATH"); path != "" {
-		pathCount := len(strings.Split(path, string(os.PathListSeparator)))
-		output.WriteString(fmt.Sprintf("PATH变量条目: %d个\n", pathCount))
-		common.LogInfo(i18n.Tr("systeminfo_pathcount", pathCount))
-	}
-
-	// 平台特定信息
-	platformInfo := p.getPlatformSpecificInfo()
-	if platformInfo != "" {
-		output.WriteString("\n=== 平台特定信息 ===\n")
-		output.WriteString(platformInfo)
-		// 输出平台特定信息到控制台
-		p.logPlatformInfo()
-	}
+	p.collectBasicInfo()
+	p.collectNetworkInfo()
+	p.collectPrivilegeInfo()
+	p.collectPlatformInfo()
+	p.collectSensitiveEnvVars()
 
 	return &plugins.Result{
 		Success: true,
 		Type:    plugins.ResultTypeService,
-		Output:  output.String(),
-		Error:   nil,
+		Output:  p.output.String(),
 	}
 }
 
-// getPlatformSpecificInfo 获取平台特定信息 - 运行时适配，不做预检查
-func (p *SystemInfoPlugin) getPlatformSpecificInfo() string {
-	var info strings.Builder
+func (p *SystemInfoPlugin) collectBasicInfo() {
+	p.log("systeminfo_os", runtime.GOOS)
+	p.log("systeminfo_arch", runtime.GOARCH)
+	p.log("systeminfo_cpu", runtime.NumCPU())
 
+	if hostname, err := os.Hostname(); err == nil {
+		p.log("systeminfo_hostname", hostname)
+	}
+	if u, err := user.Current(); err == nil {
+		p.log("systeminfo_user", u.Username)
+		if u.HomeDir != "" {
+			p.log("systeminfo_homedir", u.HomeDir)
+		}
+	}
+	if wd, err := os.Getwd(); err == nil {
+		p.log("systeminfo_workdir", wd)
+	}
+	p.log("systeminfo_tempdir", os.TempDir())
+}
+
+func (p *SystemInfoPlugin) collectNetworkInfo() {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil || len(addrs) == 0 {
+			continue
+		}
+		var ips []string
+		for _, addr := range addrs {
+			ips = append(ips, addr.String())
+		}
+		p.log("systeminfo_iface", iface.Name, strings.Join(ips, ", "), iface.HardwareAddr.String())
+	}
+}
+
+func (p *SystemInfoPlugin) collectPrivilegeInfo() {
 	switch runtime.GOOS {
 	case "windows":
-		// Windows版本信息
-		if output, err := p.runCommand("cmd", "/c", "ver"); err == nil {
-			info.WriteString(i18n.Tr("systeminfo_winver", strings.TrimSpace(output)) + "\n")
+		if out, err := p.runCommand("net", "session"); err == nil {
+			_ = out
+			p.logSuccess("systeminfo_privilege", "Administrator")
+		} else {
+			p.log("systeminfo_privilege", "Normal User")
 		}
-
-		// 域信息
-		if output, err := p.runCommand("cmd", "/c", "echo %USERDOMAIN%"); err == nil {
-			domain := strings.TrimSpace(output)
-			if domain != "" && domain != "%USERDOMAIN%" {
-				info.WriteString(i18n.Tr("systeminfo_domain", domain) + "\n")
+		if out, err := p.runCommand("whoami", "/groups"); err == nil {
+			if strings.Contains(out, "S-1-5-32-544") {
+				p.logSuccess("systeminfo_privilege_group", "Administrators")
 			}
 		}
-
 	case "linux", "darwin":
-		// Unix系统信息
-		if output, err := p.runCommand("uname", "-a"); err == nil {
-			info.WriteString(i18n.Tr("systeminfo_kernel", strings.TrimSpace(output)) + "\n")
+		if uid := os.Getuid(); uid == 0 {
+			p.logSuccess("systeminfo_privilege", "root")
+		} else {
+			p.log("systeminfo_privilege", fmt.Sprintf("uid=%d", uid))
 		}
-
-		// 发行版信息（Linux）
-		if runtime.GOOS == "linux" {
-			if output, err := p.runCommand("lsb_release", "-d"); err == nil {
-				info.WriteString(i18n.Tr("systeminfo_distro", strings.TrimSpace(output)) + "\n")
-			} else if p.fileExists("/etc/os-release") {
-				info.WriteString(i18n.GetText("systeminfo_distro_exists") + "\n")
-			}
+		if out, err := p.runCommand("id"); err == nil {
+			p.log("systeminfo_id_info", strings.TrimSpace(out))
 		}
+	}
+}
 
-		// whoami
-		if output, err := p.runCommand("whoami"); err == nil {
-			info.WriteString(i18n.Tr("systeminfo_whoami", strings.TrimSpace(output)) + "\n")
+func (p *SystemInfoPlugin) collectPlatformInfo() {
+	switch runtime.GOOS {
+	case "windows":
+		p.collectWindowsInfo()
+	case "linux":
+		p.collectLinuxInfo()
+	case "darwin":
+		p.collectDarwinInfo()
+	}
+}
+
+func (p *SystemInfoPlugin) collectWindowsInfo() {
+	if out, err := p.runCommand("cmd", "/c", "ver"); err == nil {
+		p.log("systeminfo_winver", strings.TrimSpace(out))
+	}
+	if out, err := p.runCommand("cmd", "/c", "echo %USERDOMAIN%"); err == nil {
+		domain := strings.TrimSpace(out)
+		if domain != "" && domain != "%USERDOMAIN%" {
+			p.log("systeminfo_domain", domain)
 		}
 	}
 
-	return info.String()
+	// 防火墙状态
+	if out, err := p.runCommand("netsh", "advfirewall", "show", "allprofiles", "state"); err == nil {
+		for _, line := range strings.Split(out, "\n") {
+			line = strings.TrimSpace(line)
+			if strings.Contains(line, "ON") || strings.Contains(line, "OFF") {
+				p.log("systeminfo_firewall", line)
+			}
+		}
+	}
+
+	// 已安装补丁
+	if out, err := p.runCommand("wmic", "qfe", "get", "HotFixID,InstalledOn"); err == nil {
+		lines := strings.Split(strings.TrimSpace(out), "\n")
+		patches := 0
+		for _, line := range lines {
+			if strings.HasPrefix(strings.TrimSpace(line), "KB") {
+				patches++
+			}
+		}
+		if patches > 0 {
+			p.log("systeminfo_patches", patches)
+		}
+	}
+
+	// 已安装的杀软 (WMI)
+	if out, err := p.runCommand("wmic", "/namespace:\\\\root\\SecurityCenter2", "path", "AntiVirusProduct", "get", "displayName"); err == nil {
+		for _, line := range strings.Split(out, "\n") {
+			line = strings.TrimSpace(line)
+			if line != "" && line != "displayName" {
+				p.logSuccess("systeminfo_antivirus", line)
+			}
+		}
+	}
 }
 
-// runCommand 执行命令 - 简单包装，无复杂错误处理
+func (p *SystemInfoPlugin) collectLinuxInfo() {
+	if out, err := p.runCommand("uname", "-a"); err == nil {
+		p.log("systeminfo_kernel", strings.TrimSpace(out))
+	}
+	if data, err := os.ReadFile("/etc/os-release"); err == nil {
+		for _, line := range strings.Split(string(data), "\n") {
+			if strings.HasPrefix(line, "PRETTY_NAME=") {
+				name := strings.Trim(strings.TrimPrefix(line, "PRETTY_NAME="), "\"")
+				p.log("systeminfo_distro", name)
+				break
+			}
+		}
+	}
+
+	// 防火墙
+	if out, err := p.runCommand("iptables", "-L", "-n", "--line-numbers"); err == nil {
+		ruleCount := 0
+		for _, line := range strings.Split(out, "\n") {
+			if len(line) > 0 && line[0] >= '0' && line[0] <= '9' {
+				ruleCount++
+			}
+		}
+		p.log("systeminfo_firewall_rules", ruleCount)
+	}
+
+	// sudo 权限
+	if out, err := p.runCommand("sudo", "-l", "-n"); err == nil {
+		if strings.Contains(out, "ALL") {
+			p.logSuccess("systeminfo_sudo", "ALL commands")
+		} else if strings.Contains(out, "NOPASSWD") {
+			p.logSuccess("systeminfo_sudo", "NOPASSWD entries found")
+		}
+	}
+}
+
+func (p *SystemInfoPlugin) collectDarwinInfo() {
+	if out, err := p.runCommand("uname", "-a"); err == nil {
+		p.log("systeminfo_kernel", strings.TrimSpace(out))
+	}
+	if out, err := p.runCommand("sw_vers"); err == nil {
+		for _, line := range strings.Split(out, "\n") {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				p.log("systeminfo_macos_detail", line)
+			}
+		}
+	}
+}
+
+func (p *SystemInfoPlugin) collectSensitiveEnvVars() {
+	keywords := []string{
+		"password", "passwd", "secret", "key", "token",
+		"auth", "credential", "api_key", "access_key",
+	}
+	for _, env := range os.Environ() {
+		parts := strings.SplitN(env, "=", 2)
+		if len(parts) != 2 || parts[1] == "" {
+			continue
+		}
+		name := strings.ToLower(parts[0])
+		for _, kw := range keywords {
+			if strings.Contains(name, kw) {
+				display := parts[1]
+				if len(display) > 8 {
+					display = display[:8] + "***"
+				}
+				p.logSuccess("systeminfo_sensitive_env", parts[0], display)
+				break
+			}
+		}
+	}
+}
+
 func (p *SystemInfoPlugin) runCommand(name string, args ...string) (string, error) {
-	cmd := exec.Command(name, args...)
-	output, err := cmd.Output()
-	return string(output), err
+	out, err := exec.Command(name, args...).Output()
+	return string(out), err
 }
 
-// fileExists 检查文件是否存在
-func (p *SystemInfoPlugin) fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
-}
-
-// logPlatformInfo 输出平台特定信息到控制台
-func (p *SystemInfoPlugin) logPlatformInfo() {
-	switch runtime.GOOS {
-	case "windows":
-		// Windows版本信息
-		if output, err := p.runCommand("cmd", "/c", "ver"); err == nil {
-			common.LogInfo(i18n.Tr("systeminfo_winver", strings.TrimSpace(output)))
-		}
-
-		// 域信息
-		if output, err := p.runCommand("cmd", "/c", "echo %USERDOMAIN%"); err == nil {
-			domain := strings.TrimSpace(output)
-			if domain != "" && domain != "%USERDOMAIN%" {
-				common.LogInfo(i18n.Tr("systeminfo_domain", domain))
-			}
-		}
-
-	case "linux", "darwin":
-		// Unix系统信息
-		if output, err := p.runCommand("uname", "-a"); err == nil {
-			common.LogInfo(i18n.Tr("systeminfo_kernel", strings.TrimSpace(output)))
-		}
-
-		// 发行版信息（Linux）
-		if runtime.GOOS == "linux" {
-			if output, err := p.runCommand("lsb_release", "-d"); err == nil {
-				common.LogInfo(i18n.Tr("systeminfo_distro", strings.TrimSpace(output)))
-			} else if p.fileExists("/etc/os-release") {
-				common.LogInfo(i18n.GetText("systeminfo_distro_exists"))
-			}
-		}
-
-		// whoami
-		if output, err := p.runCommand("whoami"); err == nil {
-			common.LogInfo(i18n.Tr("systeminfo_whoami", strings.TrimSpace(output)))
-		}
-	}
-}
-
-// 注册插件
 func init() {
 	RegisterLocalPlugin("systeminfo", func() Plugin {
 		return NewSystemInfoPlugin()

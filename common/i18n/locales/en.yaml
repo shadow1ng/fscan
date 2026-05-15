@@ -693,6 +693,28 @@ systeminfo_distro_exists:
   other: "Distribution: /etc/os-release exists"
 systeminfo_whoami:
   other: "Current User (whoami): {{.Arg1}}"
+systeminfo_iface:
+  other: "Interface {{.Arg1}}: {{.Arg2}} (MAC: {{.Arg3}})"
+systeminfo_privilege:
+  other: "Privilege Level: {{.Arg1}}"
+systeminfo_privilege_group:
+  other: "Admin Group: {{.Arg1}}"
+systeminfo_id_info:
+  other: "User Info: {{.Arg1}}"
+systeminfo_firewall:
+  other: "Firewall: {{.Arg1}}"
+systeminfo_firewall_rules:
+  other: "Firewall Rules: {{.Arg1}}"
+systeminfo_patches:
+  other: "Installed Patches: {{.Arg1}}"
+systeminfo_antivirus:
+  other: "Antivirus Detected: {{.Arg1}}"
+systeminfo_sudo:
+  other: "Sudo Privileges: {{.Arg1}}"
+systeminfo_macos_detail:
+  other: "macOS: {{.Arg1}}"
+systeminfo_sensitive_env:
+  other: "Sensitive Env Var: {{.Arg1}}={{.Arg2}}"
 
 # Windows scheduled task
 winschtask_success:

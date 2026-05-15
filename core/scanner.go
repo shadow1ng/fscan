@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -55,7 +54,7 @@ func determineScanMode(config *common.Config, state *common.State) ScanMode {
 		return ScanModeAlive
 	case config.LocalMode:
 		return ScanModeLocal
-	case isAllLocalPlugins(config.Mode):
+	case common.IsLocalMode != nil && common.IsLocalMode(config.Mode):
 		config.LocalMode = true
 		config.LocalPlugin = config.Mode
 		return ScanModeLocal
@@ -64,23 +63,6 @@ func determineScanMode(config *common.Config, state *common.State) ScanMode {
 	default:
 		return ScanModeService
 	}
-}
-
-// isAllLocalPlugins 检查 -m 指定的插件是否全部为 local 类型
-func isAllLocalPlugins(mode string) bool {
-	if mode == "" || mode == "all" {
-		return false
-	}
-	for _, name := range strings.Split(mode, ",") {
-		name = strings.TrimSpace(name)
-		if name == "" {
-			continue
-		}
-		if !plugins.HasType(name, plugins.PluginTypeLocal) {
-			return false
-		}
-	}
-	return true
 }
 
 // selectStrategy 根据扫描模式选择策略

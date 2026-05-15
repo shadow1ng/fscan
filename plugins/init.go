@@ -98,6 +98,24 @@ var (
 	mutex   sync.RWMutex
 )
 
+func init() {
+	common.IsLocalMode = func(mode string) bool {
+		if mode == "" || mode == "all" {
+			return false
+		}
+		for _, name := range strings.Split(mode, ",") {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			if !HasType(name, PluginTypeLocal) {
+				return false
+			}
+		}
+		return true
+	}
+}
+
 // RegisterWithPorts 注册带端口信息的插件
 func RegisterWithPorts(name string, factory func() Plugin, ports []int) {
 	RegisterWithTypes(name, factory, ports, []string{PluginTypeService})
