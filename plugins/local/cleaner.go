@@ -27,28 +27,19 @@ func (p *CleanerPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 	var output strings.Builder
 	var cleaned int
 
-	// 清理工作目录下的 fscan 产物
+	// 清理 fscan 产物文件
 	workDir, _ := os.Getwd()
 	cleaned += p.cleanFiles(&output, workDir, []string{
 		"result.txt", "result.json", "result.csv",
 		"fscan_debug.log",
 	})
-
-	// 清理临时目录
 	cleaned += p.cleanGlob(&output, os.TempDir(), "fscan_*")
 
-	// 清理自身可执行文件（如果在工作目录）
-	if exe, err := os.Executable(); err == nil {
-		base := filepath.Base(exe)
-		if strings.Contains(strings.ToLower(base), "fscan") && filepath.Dir(exe) == workDir {
-			cleaned += p.cleanFiles(&output, workDir, []string{base})
-		}
-	}
+	// 清理持久化痕迹（平台特定）
+	cleaned += cleanPersistence(&output)
 
-	// 平台特定清理
+	// 平台通用文件清理
 	switch runtime.GOOS {
-	case "windows":
-		cleaned += p.cleanWindows(&output)
 	case "linux", "darwin":
 		cleaned += p.cleanUnix(&output)
 	}
@@ -86,22 +77,10 @@ func (p *CleanerPlugin) cleanGlob(output *strings.Builder, dir, pattern string) 
 	return cleaned
 }
 
-func (p *CleanerPlugin) cleanWindows(output *strings.Builder) int {
-	cleaned := 0
-	// Prefetch 中的 fscan 记录
-	cleaned += p.cleanGlob(output, `C:\Windows\Prefetch`, "FSCAN*.pf")
-	// Recent 中的 fscan 快捷方式
-	if profile := os.Getenv("USERPROFILE"); profile != "" {
-		cleaned += p.cleanGlob(output, filepath.Join(profile, "Recent"), "fscan*.lnk")
-	}
-	return cleaned
-}
-
 func (p *CleanerPlugin) cleanUnix(output *strings.Builder) int {
 	cleaned := 0
 	homeDir, _ := os.UserHomeDir()
 
-	// 从 history 文件中删除 fscan 相关行
 	histFiles := []string{
 		filepath.Join(homeDir, ".bash_history"),
 		filepath.Join(homeDir, ".zsh_history"),
@@ -113,10 +92,8 @@ func (p *CleanerPlugin) cleanUnix(output *strings.Builder) int {
 		}
 	}
 
-	// /tmp 下的 fscan 残留
 	cleaned += p.cleanGlob(output, "/tmp", "fscan_*")
 	cleaned += p.cleanGlob(output, "/tmp", ".fscan*")
-
 	return cleaned
 }
 
