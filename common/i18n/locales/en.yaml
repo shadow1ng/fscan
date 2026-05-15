@@ -648,6 +648,9 @@ systemdservice_success:
   other: "Systemd service persistence completed: {{.Arg1}} methods succeeded"
 
 # System info
+minidump_regsave_success:
+  other: "Registry hive export completed (SAM/SECURITY/SYSTEM)"
+
 systeminfo_start:
   other: "Starting system information collection"
 systeminfo_os:

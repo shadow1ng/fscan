@@ -647,6 +647,9 @@ systemdservice_success:
   other: "系统服务持久化完成: {{.Arg1}}个方法成功"
 
 # 系统信息
+minidump_regsave_success:
+  other: "注册表 hive 导出完成 (SAM/SECURITY/SYSTEM)"
+
 systeminfo_start:
   other: "开始系统信息收集"
 systeminfo_os:

