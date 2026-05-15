@@ -575,9 +575,6 @@ cleaner_success:
 cleaner_history_found:
   other: "Found history file: {{.Arg1}} (requires manual cleanup)"
 
-# Downloader
-downloader_success:
-  other: "File download completed: {{.Arg1}} -> {{.Arg2}} (size: {{.Arg3}} bytes)"
 
 # Forward shell
 forwardshell_complete:
@@ -611,9 +608,10 @@ winstartup_success:
 winservice_success:
   other: "Windows service persistence completed: {{.Arg1}} items"
 
-# Shell environment
-shellenv_success:
-  other: "Shell environment persistence completed: {{.Arg1}} methods succeeded"
+
+# SSH Key injection
+sshkey_success:
+  other: "SSH key injection completed: {{.Arg1}} users"
 
 # LD_PRELOAD
 ldpreload_success:

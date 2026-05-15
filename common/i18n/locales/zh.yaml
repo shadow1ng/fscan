@@ -574,10 +574,6 @@ cleaner_success:
 cleaner_history_found:
   other: "发现历史文件: {{.Arg1}} (需手动清理相关条目)"
 
-# 文件下载
-downloader_success:
-  other: "文件下载完成: {{.Arg1}} -> {{.Arg2}} (大小: {{.Arg3}} bytes)"
-
 # 正向Shell
 forwardshell_complete:
   other: "正向Shell服务完成 - 端口: {{.Arg1}}"
@@ -610,9 +606,9 @@ winstartup_success:
 winservice_success:
   other: "Windows服务持久化完成: {{.Arg1}}个项目"
 
-# Shell环境变量
-shellenv_success:
-  other: "Shell环境变量持久化完成: {{.Arg1}}个方法成功"
+# SSH Key注入
+sshkey_success:
+  other: "SSH Key注入完成: {{.Arg1}}个用户"
 
 # LD_PRELOAD
 ldpreload_success:
