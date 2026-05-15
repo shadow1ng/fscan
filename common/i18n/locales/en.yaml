@@ -595,18 +595,6 @@ forwardshell_read_failed:
 winstartup_success:
   other: "Windows startup folder persistence completed: {{.Arg1}} methods"
 
-# File info
-fileinfo_sensitive:
-  other: "Found sensitive file: {{.Arg1}}"
-fileinfo_potential:
-  other: "Found potentially sensitive file: {{.Arg1}}"
-
-# DC info
-dcinfo_not_joined:
-  other: "Current computer is not joined to a domain"
-dcinfo_success:
-  other: "Domain controller info collection completed: {{.Arg1}} categories succeeded"
-
 # Windows service
 winservice_success:
   other: "Windows service persistence completed: {{.Arg1}} items"
@@ -704,6 +692,36 @@ systeminfo_macos_detail:
   other: "macOS: {{.Arg1}}"
 systeminfo_sensitive_env:
   other: "Sensitive Env Var: {{.Arg1}}={{.Arg2}}"
+systeminfo_sensitive_file:
+  other: "Sensitive File: {{.Arg1}}"
+systeminfo_dc_detected:
+  other: "Domain detected: {{.Arg1}}"
+systeminfo_dc_connect_failed:
+  other: "Domain controller connection failed: {{.Arg1}}"
+systeminfo_dc_basedn:
+  other: "Domain Base DN: {{.Arg1}}"
+systeminfo_dc_created:
+  other: "Domain created: {{.Arg1}}"
+systeminfo_dc_func_level:
+  other: "Domain functional level: {{.Arg1}}"
+systeminfo_dc_controllers:
+  other: "Domain controllers: {{.Arg1}}"
+systeminfo_dc_controller_detail:
+  other: "  - {{.Arg1}} ({{.Arg2}}) {{.Arg3}}"
+systeminfo_dc_admins:
+  other: "Domain admins: {{.Arg1}}"
+systeminfo_dc_admin_detail:
+  other: "  - {{.Arg1}} ({{.Arg2}})"
+systeminfo_dc_users:
+  other: "Domain users: {{.Arg1}}"
+systeminfo_dc_computers:
+  other: "Domain computers: {{.Arg1}}"
+systeminfo_dc_computer_detail:
+  other: "  - {{.Arg1}} ({{.Arg2}})"
+systeminfo_dc_gpos:
+  other: "Group policies: {{.Arg1}}"
+systeminfo_dc_gpo_detail:
+  other: "  - {{.Arg1}} [{{.Arg2}}]"
 
 # Windows scheduled task
 winschtask_success:

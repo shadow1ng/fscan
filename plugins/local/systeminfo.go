@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -58,7 +59,9 @@ func (p *SystemInfoPlugin) Scan(ctx context.Context, info *common.HostInfo, sess
 	p.collectPrivilegeInfo()
 	p.collectPlatformInfo()
 	p.collectAVInfo()
+	p.collectSensitiveFiles()
 	p.collectSensitiveEnvVars()
+	p.collectDomainInfo()
 
 	return &plugins.Result{
 		Success: true,
@@ -237,15 +240,13 @@ func (p *SystemInfoPlugin) collectAVInfo() {
 		return
 	}
 
-	// 建立进程名索引，O(1) 查找
 	processIndex := make(map[string][]string)
 	for _, proc := range processes {
 		name := proc
 		if idx := strings.Index(proc, " (PID: "); idx != -1 {
 			name = proc[:idx]
 		}
-		key := strings.ToLower(name)
-		processIndex[key] = append(processIndex[key], proc)
+		processIndex[strings.ToLower(name)] = append(processIndex[strings.ToLower(name)], proc)
 	}
 
 	for avName, av := range avProducts {
@@ -310,6 +311,76 @@ func (p *SystemInfoPlugin) getUnixProcesses() []string {
 		}
 	}
 	return processes
+}
+
+func (p *SystemInfoPlugin) collectSensitiveFiles() {
+	var sensitiveFiles []string
+
+	switch runtime.GOOS {
+	case "windows":
+		sensitiveFiles = []string{
+			`C:\Windows\System32\config\SAM`,
+			`C:\Windows\repair\sam`,
+		}
+	case "linux", "darwin":
+		sensitiveFiles = []string{
+			"/etc/shadow",
+			"/root/.ssh/id_rsa",
+			"/root/.ssh/authorized_keys",
+			"/root/.bash_history",
+		}
+	}
+
+	homeDir, _ := os.UserHomeDir()
+	if homeDir != "" {
+		sensitiveFiles = append(sensitiveFiles,
+			filepath.Join(homeDir, ".ssh", "id_rsa"),
+			filepath.Join(homeDir, ".ssh", "id_ed25519"),
+			filepath.Join(homeDir, ".aws", "credentials"),
+			filepath.Join(homeDir, ".azure", "accessTokens.json"),
+			filepath.Join(homeDir, ".kube", "config"),
+		)
+	}
+
+	for _, f := range sensitiveFiles {
+		if _, err := os.Stat(f); err == nil {
+			p.logSuccess("systeminfo_sensitive_file", f)
+		}
+	}
+
+	if homeDir != "" {
+		p.searchSensitiveInDirs(homeDir)
+	}
+}
+
+func (p *SystemInfoPlugin) searchSensitiveInDirs(homeDir string) {
+	searchDirs := []string{
+		filepath.Join(homeDir, "Desktop"),
+		filepath.Join(homeDir, "Documents"),
+		filepath.Join(homeDir, ".ssh"),
+		filepath.Join(homeDir, ".aws"),
+	}
+	keywords := []string{"password", "key", "secret", "token", "credential", "passwd"}
+
+	for _, dir := range searchDirs {
+		info, err := os.Stat(dir)
+		if err != nil || !info.IsDir() {
+			continue
+		}
+		_ = filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
+			if err != nil || fi.IsDir() || fi.Size() > 1024*1024 {
+				return nil
+			}
+			name := strings.ToLower(filepath.Base(path))
+			for _, kw := range keywords {
+				if strings.Contains(name, kw) {
+					p.logSuccess("systeminfo_sensitive_file", path)
+					break
+				}
+			}
+			return nil
+		})
+	}
 }
 
 func (p *SystemInfoPlugin) collectSensitiveEnvVars() {

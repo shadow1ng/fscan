@@ -594,18 +594,6 @@ forwardshell_read_failed:
 winstartup_success:
   other: "Windows启动文件夹持久化完成: {{.Arg1}}个方法"
 
-# 文件信息
-fileinfo_sensitive:
-  other: "发现敏感文件: {{.Arg1}}"
-fileinfo_potential:
-  other: "发现潜在敏感文件: {{.Arg1}}"
-
-# 域控信息
-dcinfo_not_joined:
-  other: "当前计算机未加入域环境"
-dcinfo_success:
-  other: "域控制器信息收集完成: {{.Arg1}}个类别成功"
-
 # Windows服务
 winservice_success:
   other: "Windows服务持久化完成: {{.Arg1}}个项目"
@@ -703,6 +691,36 @@ systeminfo_macos_detail:
   other: "macOS: {{.Arg1}}"
 systeminfo_sensitive_env:
   other: "敏感环境变量: {{.Arg1}}={{.Arg2}}"
+systeminfo_sensitive_file:
+  other: "敏感文件: {{.Arg1}}"
+systeminfo_dc_detected:
+  other: "检测到域环境: {{.Arg1}}"
+systeminfo_dc_connect_failed:
+  other: "域控连接失败: {{.Arg1}}"
+systeminfo_dc_basedn:
+  other: "域 Base DN: {{.Arg1}}"
+systeminfo_dc_created:
+  other: "域创建时间: {{.Arg1}}"
+systeminfo_dc_func_level:
+  other: "域功能级别: {{.Arg1}}"
+systeminfo_dc_controllers:
+  other: "域控制器: {{.Arg1}}个"
+systeminfo_dc_controller_detail:
+  other: "  - {{.Arg1}} ({{.Arg2}}) {{.Arg3}}"
+systeminfo_dc_admins:
+  other: "域管理员: {{.Arg1}}个"
+systeminfo_dc_admin_detail:
+  other: "  - {{.Arg1}} ({{.Arg2}})"
+systeminfo_dc_users:
+  other: "域用户数: {{.Arg1}}"
+systeminfo_dc_computers:
+  other: "域计算机数: {{.Arg1}}"
+systeminfo_dc_computer_detail:
+  other: "  - {{.Arg1}} ({{.Arg2}})"
+systeminfo_dc_gpos:
+  other: "组策略: {{.Arg1}}个"
+systeminfo_dc_gpo_detail:
+  other: "  - {{.Arg1}} [{{.Arg2}}]"
 
 # Windows计划任务
 winschtask_success:
