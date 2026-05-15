@@ -34,7 +34,7 @@ func NewWinRegistryPlugin() *WinRegistryPlugin {
 // Scan 执行Windows注册表持久化 - 直接实现
 func (p *WinRegistryPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
 	config := session.Config
-	state := session.State
+	_ = session.State
 	var output strings.Builder
 
 	if runtime.GOOS != "windows" {

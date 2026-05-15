@@ -84,8 +84,8 @@ func NewMiniDumpPlugin() *MiniDumpPlugin {
 
 // Scan 执行内存转储 - 直接实现
 func (p *MiniDumpPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
-	config := session.Config
-	state := session.State
+	_ = session.Config
+	_ = session.State
 	defer func() {
 		if r := recover(); r != nil {
 			common.LogError(i18n.Tr("minidump_panic", r))
