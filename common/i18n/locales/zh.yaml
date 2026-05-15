@@ -564,10 +564,6 @@ keylogger_save_failed:
 keylogger_no_input:
   other: "没有捕获到键盘输入"
 
-# 环境变量信息
-envinfo_sensitive:
-  other: "发现敏感环境变量: {{.Arg1}}"
-
 # Windows WMI
 winwmi_success:
   other: "Windows WMI事件订阅持久化完成: {{.Arg1}}个项目"
@@ -593,16 +589,6 @@ forwardshell_client_connected:
   other: "客户端连接来自: {{.Arg1}}"
 forwardshell_read_failed:
   other: "读取客户端命令失败: {{.Arg1}}"
-
-# AV检测
-avdetect_load_failed:
-  other: "加载AV数据库失败: {{.Arg1}}"
-avdetect_loaded:
-  other: "加载了 {{.Arg1}} 个AV产品信息"
-avdetect_found:
-  other: "检测到AV: {{.Arg1}} ({{.Arg2}}个进程)"
-avdetect_process:
-  other: "  - {{.Arg1}}"
 
 # Windows启动文件夹
 winstartup_success:
@@ -709,6 +695,8 @@ systeminfo_patches:
   other: "已安装补丁: {{.Arg1}}个"
 systeminfo_antivirus:
   other: "检测到杀软: {{.Arg1}}"
+systeminfo_av_process:
+  other: "  - {{.Arg1}}"
 systeminfo_sudo:
   other: "sudo权限: {{.Arg1}}"
 systeminfo_macos_detail:

@@ -4,6 +4,8 @@ package local
 
 import (
 	"context"
+	_ "embed"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -16,6 +18,14 @@ import (
 	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/plugins"
 )
+
+//go:embed auto.json
+var avDatabase []byte
+
+type avProduct struct {
+	Processes []string `json:"processes"`
+	URL       string   `json:"url"`
+}
 
 type SystemInfoPlugin struct {
 	plugins.BasePlugin
@@ -47,6 +57,7 @@ func (p *SystemInfoPlugin) Scan(ctx context.Context, info *common.HostInfo, sess
 	p.collectNetworkInfo()
 	p.collectPrivilegeInfo()
 	p.collectPlatformInfo()
+	p.collectAVInfo()
 	p.collectSensitiveEnvVars()
 
 	return &plugins.Result{
@@ -145,7 +156,6 @@ func (p *SystemInfoPlugin) collectWindowsInfo() {
 		}
 	}
 
-	// 防火墙状态
 	if out, err := p.runCommand("netsh", "advfirewall", "show", "allprofiles", "state"); err == nil {
 		for _, line := range strings.Split(out, "\n") {
 			line = strings.TrimSpace(line)
@@ -155,7 +165,6 @@ func (p *SystemInfoPlugin) collectWindowsInfo() {
 		}
 	}
 
-	// 已安装补丁
 	if out, err := p.runCommand("wmic", "qfe", "get", "HotFixID,InstalledOn"); err == nil {
 		lines := strings.Split(strings.TrimSpace(out), "\n")
 		patches := 0
@@ -166,16 +175,6 @@ func (p *SystemInfoPlugin) collectWindowsInfo() {
 		}
 		if patches > 0 {
 			p.log("systeminfo_patches", patches)
-		}
-	}
-
-	// 已安装的杀软 (WMI)
-	if out, err := p.runCommand("wmic", "/namespace:\\\\root\\SecurityCenter2", "path", "AntiVirusProduct", "get", "displayName"); err == nil {
-		for _, line := range strings.Split(out, "\n") {
-			line = strings.TrimSpace(line)
-			if line != "" && line != "displayName" {
-				p.logSuccess("systeminfo_antivirus", line)
-			}
 		}
 	}
 }
@@ -194,7 +193,6 @@ func (p *SystemInfoPlugin) collectLinuxInfo() {
 		}
 	}
 
-	// 防火墙
 	if out, err := p.runCommand("iptables", "-L", "-n", "--line-numbers"); err == nil {
 		ruleCount := 0
 		for _, line := range strings.Split(out, "\n") {
@@ -205,7 +203,6 @@ func (p *SystemInfoPlugin) collectLinuxInfo() {
 		p.log("systeminfo_firewall_rules", ruleCount)
 	}
 
-	// sudo 权限
 	if out, err := p.runCommand("sudo", "-l", "-n"); err == nil {
 		if strings.Contains(out, "ALL") {
 			p.logSuccess("systeminfo_sudo", "ALL commands")
@@ -227,6 +224,92 @@ func (p *SystemInfoPlugin) collectDarwinInfo() {
 			}
 		}
 	}
+}
+
+func (p *SystemInfoPlugin) collectAVInfo() {
+	var avProducts map[string]avProduct
+	if err := json.Unmarshal(avDatabase, &avProducts); err != nil {
+		return
+	}
+
+	processes := p.getRunningProcesses()
+	if len(processes) == 0 {
+		return
+	}
+
+	// 建立进程名索引，O(1) 查找
+	processIndex := make(map[string][]string)
+	for _, proc := range processes {
+		name := proc
+		if idx := strings.Index(proc, " (PID: "); idx != -1 {
+			name = proc[:idx]
+		}
+		key := strings.ToLower(name)
+		processIndex[key] = append(processIndex[key], proc)
+	}
+
+	for avName, av := range avProducts {
+		var matched []string
+		for _, avProc := range av.Processes {
+			if procs, ok := processIndex[strings.ToLower(avProc)]; ok {
+				matched = append(matched, procs...)
+			}
+		}
+		if len(matched) > 0 {
+			p.logSuccess("systeminfo_antivirus", fmt.Sprintf("%s (%d个进程)", avName, len(matched)))
+			for _, proc := range matched {
+				p.log("systeminfo_av_process", proc)
+			}
+		}
+	}
+}
+
+func (p *SystemInfoPlugin) getRunningProcesses() []string {
+	switch runtime.GOOS {
+	case "windows":
+		return p.getWindowsProcesses()
+	case "linux", "darwin":
+		return p.getUnixProcesses()
+	}
+	return nil
+}
+
+func (p *SystemInfoPlugin) getWindowsProcesses() []string {
+	out, err := p.runCommand("tasklist", "/fo", "csv", "/nh")
+	if err != nil {
+		return nil
+	}
+	var processes []string
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "\"") {
+			continue
+		}
+		parts := strings.Split(line, "\",\"")
+		if len(parts) >= 2 {
+			name := strings.Trim(parts[0], "\"")
+			pid := strings.Trim(parts[1], "\"")
+			if name != "" && pid != "" {
+				processes = append(processes, fmt.Sprintf("%s (PID: %s)", name, pid))
+			}
+		}
+	}
+	return processes
+}
+
+func (p *SystemInfoPlugin) getUnixProcesses() []string {
+	out, err := p.runCommand("ps", "-eo", "comm")
+	if err != nil {
+		return nil
+	}
+	var processes []string
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" && line != "COMMAND" {
+			processes = append(processes, line)
+		}
+	}
+	return processes
 }
 
 func (p *SystemInfoPlugin) collectSensitiveEnvVars() {

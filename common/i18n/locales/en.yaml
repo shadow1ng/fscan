@@ -564,9 +564,6 @@ keylogger_save_failed:
 keylogger_no_input:
   other: "No keyboard input captured"
 
-# Environment info
-envinfo_sensitive:
-  other: "Found sensitive environment variable: {{.Arg1}}"
 
 # Windows WMI
 winwmi_success:
@@ -593,16 +590,6 @@ forwardshell_client_connected:
   other: "Client connected from: {{.Arg1}}"
 forwardshell_read_failed:
   other: "Failed to read client command: {{.Arg1}}"
-
-# AV detection
-avdetect_load_failed:
-  other: "Failed to load AV database: {{.Arg1}}"
-avdetect_loaded:
-  other: "Loaded {{.Arg1}} AV product info"
-avdetect_found:
-  other: "Detected AV: {{.Arg1}} ({{.Arg2}} processes)"
-avdetect_process:
-  other: "  - {{.Arg1}}"
 
 # Windows startup folder
 winstartup_success:
@@ -709,6 +696,8 @@ systeminfo_patches:
   other: "Installed Patches: {{.Arg1}}"
 systeminfo_antivirus:
   other: "Antivirus Detected: {{.Arg1}}"
+systeminfo_av_process:
+  other: "  - {{.Arg1}}"
 systeminfo_sudo:
   other: "Sudo Privileges: {{.Arg1}}"
 systeminfo_macos_detail:
