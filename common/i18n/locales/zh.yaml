@@ -590,6 +590,22 @@ forwardshell_client_connected:
 forwardshell_read_failed:
   other: "读取客户端命令失败: {{.Arg1}}"
 
+# IFEO映像劫持
+winifeo_success:
+  other: "IFEO映像劫持完成: {{.Arg1}}个目标"
+
+# BITS持久化
+winbits_success:
+  other: "BITS持久化完成: {{.Arg1}}"
+
+# Winlogon持久化
+winlogon_success:
+  other: "Winlogon持久化完成: {{.Arg1}}个项目"
+
+# Bashrc注入
+bashrc_success:
+  other: "Bashrc注入完成: {{.Arg1}}个文件"
+
 # Windows启动文件夹
 winstartup_success:
   other: "Windows启动文件夹持久化完成: {{.Arg1}}个方法"

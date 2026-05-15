@@ -591,6 +591,22 @@ forwardshell_client_connected:
 forwardshell_read_failed:
   other: "Failed to read client command: {{.Arg1}}"
 
+# IFEO image hijacking
+winifeo_success:
+  other: "IFEO image hijacking completed: {{.Arg1}} targets"
+
+# BITS persistence
+winbits_success:
+  other: "BITS persistence completed: {{.Arg1}}"
+
+# Winlogon persistence
+winlogon_success:
+  other: "Winlogon persistence completed: {{.Arg1}} entries"
+
+# Bashrc injection
+bashrc_success:
+  other: "Bashrc injection completed: {{.Arg1}} files"
+
 # Windows startup folder
 winstartup_success:
   other: "Windows startup folder persistence completed: {{.Arg1}} methods"
