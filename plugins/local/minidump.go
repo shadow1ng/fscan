@@ -143,10 +143,14 @@ func (p *MiniDumpPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	// 提升权限
 	output.WriteString("正在提升SeDebugPrivilege权限...\n")
 	if privErr := pm.elevatePrivileges(); privErr != nil {
-		output.WriteString(fmt.Sprintf("权限提升失败: %v (尝试继续执行)\n", privErr))
-	} else {
-		output.WriteString("✓ 权限提升成功\n")
+		output.WriteString(fmt.Sprintf("权限提升失败: %v\n", privErr))
+		return &plugins.Result{
+			Success: false,
+			Output:  output.String(),
+			Error:   fmt.Errorf("SeDebugPrivilege 提升失败: %w", privErr),
+		}
 	}
+	output.WriteString("✓ 权限提升成功\n")
 
 	// 创建转储文件
 	outputPath := filepath.Join(".", fmt.Sprintf("lsass-%d.dmp", pid))

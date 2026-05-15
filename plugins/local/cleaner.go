@@ -15,260 +15,132 @@ import (
 	"github.com/shadow1ng/fscan/plugins"
 )
 
-// CleanerPlugin 痕迹清理插件
-// 设计哲学：保持原有功能，删除过度设计
-// - 删除复杂的继承体系和配置选项
-// - 直接实现清理功能
-
 type CleanerPlugin struct {
 	plugins.BasePlugin
 }
 
-// NewCleanerPlugin 创建系统痕迹清理插件
 func NewCleanerPlugin() *CleanerPlugin {
-	return &CleanerPlugin{
-		BasePlugin: plugins.NewBasePlugin("cleaner"),
-	}
+	return &CleanerPlugin{BasePlugin: plugins.NewBasePlugin("cleaner")}
 }
 
-// Scan 执行系统痕迹清理 - 直接、简单
 func (p *CleanerPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
 	var output strings.Builder
-	var filesCleared, dirsCleared, sysCleared int
+	var cleaned int
 
-	output.WriteString("=== 系统痕迹清理 ===\n")
-
-	// 清理当前目录fscan相关文件
+	// 清理工作目录下的 fscan 产物
 	workDir, _ := os.Getwd()
-	files := p.findFscanFiles(workDir)
-	for _, file := range files {
-		if p.removeFile(file) {
-			filesCleared++
-			_, _ = fmt.Fprintf(&output, "清理文件: %s\n", file)
-		}
-	}
+	cleaned += p.cleanFiles(&output, workDir, []string{
+		"result.txt", "result.json", "result.csv",
+		"fscan_debug.log",
+	})
 
-	// 清理临时目录fscan相关文件
-	tempFiles := p.findTempFiles()
-	for _, file := range tempFiles {
-		if p.removeFile(file) {
-			filesCleared++
-			_, _ = fmt.Fprintf(&output, "清理临时文件: %s\n", file)
-		}
-	}
+	// 清理临时目录
+	cleaned += p.cleanGlob(&output, os.TempDir(), "fscan_*")
 
-	// 清理日志和输出文件
-	logFiles := p.findLogFiles(workDir)
-	for _, file := range logFiles {
-		if p.removeFile(file) {
-			filesCleared++
-			output.WriteString(fmt.Sprintf("清理日志: %s\n", file))
+	// 清理自身可执行文件（如果在工作目录）
+	if exe, err := os.Executable(); err == nil {
+		base := filepath.Base(exe)
+		if strings.Contains(strings.ToLower(base), "fscan") && filepath.Dir(exe) == workDir {
+			cleaned += p.cleanFiles(&output, workDir, []string{base})
 		}
 	}
 
 	// 平台特定清理
 	switch runtime.GOOS {
 	case "windows":
-		sysCleared += p.clearWindowsTraces()
+		cleaned += p.cleanWindows(&output)
 	case "linux", "darwin":
-		sysCleared += p.clearUnixTraces()
+		cleaned += p.cleanUnix(&output)
 	}
 
-	// 输出统计
-	output.WriteString(fmt.Sprintf("\n清理完成: 文件(%d) 目录(%d) 系统条目(%d)\n",
-		filesCleared, dirsCleared, sysCleared))
-
-	common.LogSuccess(i18n.Tr("cleaner_success", filesCleared, sysCleared))
+	common.LogSuccess(i18n.Tr("cleaner_success", cleaned, 0))
 
 	return &plugins.Result{
-		Success: filesCleared > 0 || sysCleared > 0,
+		Success: cleaned > 0,
+		Type:    plugins.ResultTypeService,
 		Output:  output.String(),
-		Error:   nil,
 	}
 }
 
-// findFscanFiles 查找fscan相关文件 - 简化搜索逻辑
-func (p *CleanerPlugin) findFscanFiles(dir string) []string {
-	var files []string
-
-	// fscan相关文件模式 - 直接硬编码
-	patterns := []string{
-		"fscan*.exe", "fscan*.log", "result*.txt", "result*.json",
-		"fscan_*", "*fscan*", "scan_result*", "vulnerability*",
-	}
-
-	for _, pattern := range patterns {
-		matches, _ := filepath.Glob(filepath.Join(dir, pattern))
-		files = append(files, matches...)
-	}
-
-	return files
-}
-
-// findTempFiles 查找临时文件
-func (p *CleanerPlugin) findTempFiles() []string {
-	var files []string
-	tempDir := os.TempDir()
-
-	// 临时文件模式
-	patterns := []string{
-		"fscan_*", "scan_*", "tmp_scan*", "vulnerability_*",
-	}
-
-	for _, pattern := range patterns {
-		matches, _ := filepath.Glob(filepath.Join(tempDir, pattern))
-		files = append(files, matches...)
-	}
-
-	return files
-}
-
-// findLogFiles 查找日志文件
-func (p *CleanerPlugin) findLogFiles(dir string) []string {
-	var files []string
-
-	// 日志文件模式
-	logPatterns := []string{
-		"*.log", "scan*.txt", "error*.txt", "debug*.txt",
-		"output*.txt", "report*.txt", "*.out",
-	}
-
-	for _, pattern := range logPatterns {
-		matches, _ := filepath.Glob(filepath.Join(dir, pattern))
-		for _, match := range matches {
-			// 只清理可能是扫描相关的日志
-			filename := strings.ToLower(filepath.Base(match))
-			if p.isScanRelatedLog(filename) {
-				files = append(files, match)
-			}
+func (p *CleanerPlugin) cleanFiles(output *strings.Builder, dir string, names []string) int {
+	cleaned := 0
+	for _, name := range names {
+		path := filepath.Join(dir, name)
+		if err := os.Remove(path); err == nil {
+			output.WriteString(fmt.Sprintf("[清理] %s\n", path))
+			cleaned++
 		}
 	}
-
-	return files
+	return cleaned
 }
 
-// isScanRelatedLog 判断是否为扫描相关日志
-func (p *CleanerPlugin) isScanRelatedLog(filename string) bool {
-	scanKeywords := []string{
-		"scan", "fscan", "vulnerability", "result", "report",
-		"exploit", "brute", "port", "service", "web",
-	}
-
-	for _, keyword := range scanKeywords {
-		if strings.Contains(filename, keyword) {
-			return true
+func (p *CleanerPlugin) cleanGlob(output *strings.Builder, dir, pattern string) int {
+	matches, _ := filepath.Glob(filepath.Join(dir, pattern))
+	cleaned := 0
+	for _, f := range matches {
+		if err := os.Remove(f); err == nil {
+			output.WriteString(fmt.Sprintf("[清理] %s\n", f))
+			cleaned++
 		}
 	}
-	return false
+	return cleaned
 }
 
-// clearWindowsTraces 清理Windows系统痕迹
-func (p *CleanerPlugin) clearWindowsTraces() int {
-	cleared := 0
-
-	// 清理预读文件
-	prefetchDir := "C:\\Windows\\Prefetch"
-	if prefetchFiles := p.findPrefetchFiles(prefetchDir); len(prefetchFiles) > 0 {
-		for _, file := range prefetchFiles {
-			if p.removeFile(file) {
-				cleared++
-			}
-		}
+func (p *CleanerPlugin) cleanWindows(output *strings.Builder) int {
+	cleaned := 0
+	// Prefetch 中的 fscan 记录
+	cleaned += p.cleanGlob(output, `C:\Windows\Prefetch`, "FSCAN*.pf")
+	// Recent 中的 fscan 快捷方式
+	if profile := os.Getenv("USERPROFILE"); profile != "" {
+		cleaned += p.cleanGlob(output, filepath.Join(profile, "Recent"), "fscan*.lnk")
 	}
-
-	// 清理最近文档记录（注册表方式复杂，这里简化处理）
-	// 可以通过删除Recent文件夹的快捷方式
-	if recentDir := os.Getenv("USERPROFILE") + "\\Recent"; p.dirExists(recentDir) {
-		recentFiles, _ := filepath.Glob(filepath.Join(recentDir, "fscan*.lnk"))
-		for _, file := range recentFiles {
-			if p.removeFile(file) {
-				cleared++
-			}
-		}
-	}
-
-	return cleared
+	return cleaned
 }
 
-// clearUnixTraces 清理Unix系统痕迹
-func (p *CleanerPlugin) clearUnixTraces() int {
-	cleared := 0
-
-	// 清理bash历史记录相关
+func (p *CleanerPlugin) cleanUnix(output *strings.Builder) int {
+	cleaned := 0
 	homeDir, _ := os.UserHomeDir()
-	historyFiles := []string{
+
+	// 从 history 文件中删除 fscan 相关行
+	histFiles := []string{
 		filepath.Join(homeDir, ".bash_history"),
 		filepath.Join(homeDir, ".zsh_history"),
 	}
-
-	for _, histFile := range historyFiles {
-		if p.clearHistoryEntries(histFile) {
-			cleared++
+	for _, hf := range histFiles {
+		if p.scrubHistory(hf) {
+			output.WriteString(fmt.Sprintf("[清理] %s 中的 fscan 记录\n", hf))
+			cleaned++
 		}
 	}
 
-	// 清理/var/log中的相关日志（需要权限）
-	logDirs := []string{"/var/log", "/tmp"}
-	for _, logDir := range logDirs {
-		if p.dirExists(logDir) {
-			logFiles, _ := filepath.Glob(filepath.Join(logDir, "*fscan*"))
-			for _, file := range logFiles {
-				if p.removeFile(file) {
-					cleared++
-				}
-			}
+	// /tmp 下的 fscan 残留
+	cleaned += p.cleanGlob(output, "/tmp", "fscan_*")
+	cleaned += p.cleanGlob(output, "/tmp", ".fscan*")
+
+	return cleaned
+}
+
+func (p *CleanerPlugin) scrubHistory(path string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	lines := strings.Split(string(data), "\n")
+	var kept []string
+	removed := false
+	for _, line := range lines {
+		if strings.Contains(strings.ToLower(line), "fscan") {
+			removed = true
+			continue
 		}
+		kept = append(kept, line)
 	}
-
-	return cleared
-}
-
-// findPrefetchFiles 查找预读文件
-func (p *CleanerPlugin) findPrefetchFiles(dir string) []string {
-	var files []string
-	if !p.dirExists(dir) {
-		return files
+	if !removed {
+		return false
 	}
-
-	matches, _ := filepath.Glob(filepath.Join(dir, "FSCAN*.pf"))
-	files = append(files, matches...)
-
-	return files
+	return os.WriteFile(path, []byte(strings.Join(kept, "\n")), 0600) == nil
 }
 
-// clearHistoryEntries 清理历史记录条目（简化实现）
-func (p *CleanerPlugin) clearHistoryEntries(histFile string) bool {
-	// 这里简化实现：不修改历史文件内容
-	// 实际应该是读取文件，删除包含fscan的行，然后写回
-	// 为简化，这里只记录找到相关历史文件
-	if p.fileExists(histFile) {
-		common.LogInfo(i18n.Tr("cleaner_history_found", histFile))
-		return true
-	}
-	return false
-}
-
-// removeFile 删除文件
-func (p *CleanerPlugin) removeFile(path string) bool {
-	if err := os.Remove(path); err == nil {
-		return true
-	}
-	return false
-}
-
-// fileExists 检查文件是否存在
-func (p *CleanerPlugin) fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
-}
-
-// dirExists 检查目录是否存在
-func (p *CleanerPlugin) dirExists(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && info.IsDir()
-}
-
-// 注册插件
 func init() {
 	RegisterLocalPlugin("cleaner", func() Plugin {
 		return NewCleanerPlugin()

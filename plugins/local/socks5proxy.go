@@ -78,7 +78,7 @@ func (p *Socks5ProxyPlugin) Scan(ctx context.Context, info *common.HostInfo, ses
 // startSocks5Server 启动SOCKS5代理服务器 - 核心实现
 func (p *Socks5ProxyPlugin) startSocks5Server(ctx context.Context, port int, state *common.State) error {
 	// 监听指定端口
-	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
 		return fmt.Errorf("监听端口失败: %w", err)
 	}
