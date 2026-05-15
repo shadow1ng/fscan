@@ -603,10 +603,6 @@ winbits_success:
 winlogon_success:
   other: "Winlogon persistence completed: {{.Arg1}} entries"
 
-# Bashrc injection
-bashrc_success:
-  other: "Bashrc injection completed: {{.Arg1}} files"
-
 # Windows startup folder
 winstartup_success:
   other: "Windows startup folder persistence completed: {{.Arg1}} methods"

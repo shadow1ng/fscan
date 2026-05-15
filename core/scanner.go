@@ -227,12 +227,19 @@ func executeScanTask(ctx context.Context, session *common.ScanSession, pluginNam
 
 	// 长驻插件不进 WaitGroup，通过 ctx 管理生命周期
 	if longRunningPlugins[pluginName] {
+		ready := make(chan struct{}, 1)
 		go func() {
 			plugin := plugins.Get(pluginName)
 			if plugin != nil {
+				// 给主线程一点时间让 state 标记生效
+				go func() {
+					time.Sleep(500 * time.Millisecond)
+					ready <- struct{}{}
+				}()
 				plugin.Scan(ctx, &target, session)
 			}
 		}()
+		<-ready
 		return
 	}
 

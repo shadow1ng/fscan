@@ -602,10 +602,6 @@ winbits_success:
 winlogon_success:
   other: "Winlogon持久化完成: {{.Arg1}}个项目"
 
-# Bashrc注入
-bashrc_success:
-  other: "Bashrc注入完成: {{.Arg1}}个文件"
-
 # Windows启动文件夹
 winstartup_success:
   other: "Windows启动文件夹持久化完成: {{.Arg1}}个方法"
