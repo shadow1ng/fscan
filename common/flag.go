@@ -310,7 +310,7 @@ func checkParameterConflicts() error {
 		invalidChars := []string{",", ";", " ", "|", "&"}
 		for _, char := range invalidChars {
 			if strings.Contains(fv.LocalPlugin, char) {
-				return fmt.Errorf(i18n.Tr("param_local_multi_plugin", char))
+				return fmt.Errorf("%s", i18n.Tr("param_local_multi_plugin", char))
 			}
 		}
 	}

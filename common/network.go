@@ -110,7 +110,7 @@ func WrapperTcpWithTimeout(network, address string, timeout time.Duration) (net.
 	// 检查发包限制 - 在代理连接前进行控制
 	if canSend, reason := CanSendPacket(); !canSend {
 		LogError(fmt.Sprintf("TCP连接 %s 受限: %s", address, reason))
-		return nil, fmt.Errorf(i18n.Tr("network_rate_limited", reason))
+		return nil, fmt.Errorf("%s", i18n.Tr("network_rate_limited", reason))
 	}
 
 	// 获取全局拨号器（复用，避免重复创建）
@@ -167,7 +167,7 @@ func SafeHTTPDo(client *http.Client, req *http.Request) (*http.Response, error) 
 	// 检查发包限制
 	if canSend, reason := CanSendPacket(); !canSend {
 		LogError(fmt.Sprintf("HTTP请求 %s 受限: %s", req.URL.String(), reason))
-		return nil, fmt.Errorf(i18n.Tr("network_rate_limited", reason))
+		return nil, fmt.Errorf("%s", i18n.Tr("network_rate_limited", reason))
 	}
 
 	// 执行HTTP请求

@@ -82,7 +82,7 @@ func ValidateExclusiveParams(info *HostInfo) error {
 	}
 
 	if paramCount > 1 {
-		return fmt.Errorf(i18n.Tr("param_exclusive", activeParam))
+		return fmt.Errorf("%s", i18n.Tr("param_exclusive", activeParam))
 	}
 
 	return nil
