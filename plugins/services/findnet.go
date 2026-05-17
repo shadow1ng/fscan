@@ -46,7 +46,7 @@ func (p *FindNetPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 		return &ScanResult{
 			Success: false,
 			Service: "findnet",
-			Error:   fmt.Errorf(i18n.Tr("service_port_restriction", "FindNet", "135")),
+			Error:   fmt.Errorf("%s", i18n.Tr("service_port_restriction", "FindNet", "135")),
 		}
 	}
 

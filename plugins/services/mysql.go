@@ -48,7 +48,7 @@ func (p *MySQLPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 		return &ScanResult{
 			Success: false,
 			Service: "mysql",
-			Error:   fmt.Errorf(i18n.GetText("service_no_credentials")),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 
@@ -165,7 +165,7 @@ func (p *MySQLPlugin) identifyService(ctx context.Context, info *common.HostInfo
 	return &ScanResult{
 		Success: false,
 		Service: "mysql",
-		Error:   fmt.Errorf(i18n.Tr("service_not_identified", "MySQL")),
+		Error:   fmt.Errorf("%s", i18n.Tr("service_not_identified", "MySQL")),
 	}
 }
 

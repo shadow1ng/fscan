@@ -58,7 +58,7 @@ func (p *RsyncPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 		return &ScanResult{
 			Success: false,
 			Service: "rsync",
-			Error:   fmt.Errorf(i18n.GetText("service_no_credentials")),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 
@@ -374,7 +374,7 @@ func (p *RsyncPlugin) identifyService(ctx context.Context, info *common.HostInfo
 		return &ScanResult{
 			Success: false,
 			Service: "rsync",
-			Error:   fmt.Errorf(i18n.Tr("service_not_identified", "Rsync")),
+			Error:   fmt.Errorf("%s", i18n.Tr("service_not_identified", "Rsync")),
 		}
 	}
 

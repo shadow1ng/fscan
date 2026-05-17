@@ -148,7 +148,7 @@ func TestCredentialsConcurrently(
 		return &ScanResult{
 			Success: false,
 			Service: serviceName,
-			Error:   fmt.Errorf(i18n.GetText("service_no_test_creds")),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_test_creds")),
 		}
 	}
 
@@ -223,7 +223,7 @@ func TestCredentialsConcurrently(
 		Type:    plugins.ResultTypeCredential, // 标记这是凭据测试结果
 		Success: false,
 		Service: serviceName,
-		Error:   fmt.Errorf(i18n.GetText("service_no_weak_pass")),
+		Error:   fmt.Errorf("%s", i18n.GetText("service_no_weak_pass")),
 	}
 }
 

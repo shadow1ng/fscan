@@ -140,7 +140,7 @@ func (p *MemcachedPlugin) identifyService(ctx context.Context, info *common.Host
 	return &ScanResult{
 		Success: false,
 		Service: "memcached",
-		Error:   fmt.Errorf(i18n.Tr("service_not_identified", "Memcached")),
+		Error:   fmt.Errorf("%s", i18n.Tr("service_not_identified", "Memcached")),
 	}
 }
 

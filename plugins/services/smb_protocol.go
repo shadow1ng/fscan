@@ -437,7 +437,7 @@ func (a *SMB1Authenticator) Authenticate(ctx context.Context, host string, port 
 			resultChan <- &AuthResult{
 				Success:   false,
 				ErrorType: ErrorTypeAuth,
-				Error:     fmt.Errorf(i18n.GetText("service_auth_failed")),
+				Error:     fmt.Errorf("%s", i18n.GetText("service_auth_failed")),
 			}
 		}
 	}()

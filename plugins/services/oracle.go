@@ -44,7 +44,7 @@ func (p *OraclePlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 		return &ScanResult{
 			Success: false,
 			Service: "oracle",
-			Error:   fmt.Errorf(i18n.GetText("service_no_credentials")),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 

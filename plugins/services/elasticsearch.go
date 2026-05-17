@@ -51,7 +51,7 @@ func (p *ElasticsearchPlugin) Scan(ctx context.Context, info *common.HostInfo, s
 		return &ScanResult{
 			Success: false,
 			Service: "elasticsearch",
-			Error:   fmt.Errorf(i18n.GetText("service_no_credentials")),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 
@@ -71,7 +71,7 @@ func (p *ElasticsearchPlugin) Scan(ctx context.Context, info *common.HostInfo, s
 	return &ScanResult{
 		Success: false,
 		Service: "elasticsearch",
-		Error:   fmt.Errorf(i18n.GetText("service_no_weak_pass")),
+		Error:   fmt.Errorf("%s", i18n.GetText("service_no_weak_pass")),
 	}
 }
 
@@ -137,7 +137,7 @@ func (p *ElasticsearchPlugin) identifyService(ctx context.Context, info *common.
 	return &ScanResult{
 		Success: false,
 		Service: "elasticsearch",
-		Error:   fmt.Errorf(i18n.Tr("service_not_identified", "Elasticsearch")),
+		Error:   fmt.Errorf("%s", i18n.Tr("service_not_identified", "Elasticsearch")),
 	}
 }
 

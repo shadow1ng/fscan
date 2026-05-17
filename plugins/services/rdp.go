@@ -153,7 +153,7 @@ func (p *RDPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	return &ScanResult{
 		Success: false,
 		Service: "rdp",
-		Error:   fmt.Errorf(i18n.GetText("service_auth_failed")),
+		Error:   fmt.Errorf("%s", i18n.GetText("service_auth_failed")),
 	}
 }
 

@@ -63,7 +63,7 @@ func (p *MongoDBPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 		return &ScanResult{
 			Success: false,
 			Service: "mongodb",
-			Error:   fmt.Errorf(i18n.GetText("service_no_credentials")),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 
@@ -237,7 +237,7 @@ func (p *MongoDBPlugin) mongodbUnauth(ctx context.Context, info *common.HostInfo
 		return false, nil
 	}
 
-	return false, fmt.Errorf(i18n.Tr("service_not_identified", "MongoDB"))
+	return false, fmt.Errorf("%s", i18n.Tr("service_not_identified", "MongoDB"))
 }
 
 // checkMongoAuth 检查MongoDB认证状态

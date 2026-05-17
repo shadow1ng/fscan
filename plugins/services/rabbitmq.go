@@ -46,7 +46,7 @@ func (p *RabbitMQPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 		return &ScanResult{
 			Success: false,
 			Service: "rabbitmq",
-			Error:   fmt.Errorf(i18n.GetText("service_no_credentials")),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 
@@ -307,7 +307,7 @@ func (p *RabbitMQPlugin) testManagementInterface(ctx context.Context, info *comm
 	return &ScanResult{
 		Success: false,
 		Service: "rabbitmq",
-		Error:   fmt.Errorf(i18n.Tr("service_not_identified", "RabbitMQ")),
+		Error:   fmt.Errorf("%s", i18n.Tr("service_not_identified", "RabbitMQ")),
 	}
 }
 

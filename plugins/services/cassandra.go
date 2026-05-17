@@ -43,7 +43,7 @@ func (p *CassandraPlugin) Scan(ctx context.Context, info *common.HostInfo, sessi
 		return &ScanResult{
 			Success: false,
 			Service: "cassandra",
-			Error:   fmt.Errorf(i18n.GetText("service_no_credentials")),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 

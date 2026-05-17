@@ -267,7 +267,7 @@ func (p *ActiveMQPlugin) identifyService(ctx context.Context, info *common.HostI
 	return &ScanResult{
 		Success: false,
 		Service: "activemq",
-		Error:   fmt.Errorf(i18n.Tr("service_not_identified", "ActiveMQ STOMP")),
+		Error:   fmt.Errorf("%s", i18n.Tr("service_not_identified", "ActiveMQ STOMP")),
 	}
 }
 

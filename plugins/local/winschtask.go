@@ -28,14 +28,14 @@ func NewWinSchTaskPlugin() *WinSchTaskPlugin {
 func (p *WinSchTaskPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
 	pePath := session.Config.WinPEFile
 	if pePath == "" {
-		return &plugins.Result{Success: false, Error: 		fmt.Errorf(i18n.GetText("local_pe_not_specified"))}
+		return &plugins.Result{Success: false, Error: 		fmt.Errorf("%s", i18n.GetText("local_pe_not_specified"))}
 	}
 	if _, err := os.Stat(pePath); err != nil {
-		return &plugins.Result{Success: false, Error: 		fmt.Errorf(i18n.Tr("local_pe_not_found", pePath))}
+		return &plugins.Result{Success: false, Error: 		fmt.Errorf("%s", i18n.Tr("local_pe_not_found", pePath))}
 	}
 	ext := strings.ToLower(filepath.Ext(pePath))
 	if ext != ".exe" && ext != ".dll" {
-		return &plugins.Result{Success: false, Error: 		fmt.Errorf(i18n.Tr("local_invalid_pe", pePath))}
+		return &plugins.Result{Success: false, Error: 		fmt.Errorf("%s", i18n.Tr("local_invalid_pe", pePath))}
 	}
 
 	absPath, _ := filepath.Abs(pePath)

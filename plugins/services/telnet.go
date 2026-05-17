@@ -75,7 +75,7 @@ func (p *TelnetPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 		return &ScanResult{
 			Success: false,
 			Service: "telnet",
-			Error:   fmt.Errorf(i18n.GetText("service_no_credentials")),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 
@@ -145,7 +145,7 @@ func (p *TelnetPlugin) doTelnetAuth(ctx context.Context, info *common.HostInfo, 
 			resultChan <- &AuthResult{
 				Success:   false,
 				ErrorType: ErrorTypeAuth,
-				Error:     fmt.Errorf(i18n.GetText("service_auth_failed")),
+				Error:     fmt.Errorf("%s", i18n.GetText("service_auth_failed")),
 			}
 		}
 	}()

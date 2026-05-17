@@ -45,7 +45,7 @@ func (p *SMTPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 		return &ScanResult{
 			Success: false,
 			Service: "smtp",
-			Error:   fmt.Errorf(i18n.GetText("service_no_credentials")),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 

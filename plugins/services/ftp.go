@@ -43,7 +43,7 @@ func (p *FTPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 		return &ScanResult{
 			Success: false,
 			Service: "ftp",
-			Error:   fmt.Errorf(i18n.GetText("service_no_credentials")),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 

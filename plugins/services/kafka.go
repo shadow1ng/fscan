@@ -38,7 +38,7 @@ func (p *KafkaPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 		return &ScanResult{
 			Success: false,
 			Service: "kafka",
-			Error:   fmt.Errorf(i18n.GetText("service_no_credentials")),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 
@@ -195,7 +195,7 @@ func (p *KafkaPlugin) identifyService(ctx context.Context, info *common.HostInfo
 		return &ScanResult{
 			Success: false,
 			Service: "kafka",
-			Error:   fmt.Errorf(i18n.Tr("service_not_identified", "Kafka")),
+			Error:   fmt.Errorf("%s", i18n.Tr("service_not_identified", "Kafka")),
 		}
 	}
 	state.IncrementTCPSuccessPacketCount()

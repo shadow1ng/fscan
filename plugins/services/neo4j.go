@@ -45,7 +45,7 @@ func (p *Neo4jPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 		return &ScanResult{
 			Success: false,
 			Service: "neo4j",
-			Error:   fmt.Errorf(i18n.GetText("service_no_credentials")),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 
@@ -220,7 +220,7 @@ func (p *Neo4jPlugin) identifyService(ctx context.Context, info *common.HostInfo
 		return &ScanResult{
 			Success: false,
 			Service: "neo4j",
-			Error:   fmt.Errorf(i18n.Tr("service_not_identified", "Neo4j")),
+			Error:   fmt.Errorf("%s", i18n.Tr("service_not_identified", "Neo4j")),
 		}
 	}
 

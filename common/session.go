@@ -39,7 +39,7 @@ func (s *ScanSession) DialTCP(ctx context.Context, network, address string, time
 	// 检查发包限制
 	if ok, err := CanSendPacketWith(s.Config, s.State); !ok {
 		LogError(fmt.Sprintf("TCP连接 %s 受限: %s", address, err.Error()))
-		return nil, fmt.Errorf(i18n.Tr("network_rate_limited", err.Error()))
+		return nil, fmt.Errorf("%s", i18n.Tr("network_rate_limited", err.Error()))
 	}
 
 	// 获取 dialer

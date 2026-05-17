@@ -45,7 +45,7 @@ func (p *PostgreSQLPlugin) Scan(ctx context.Context, info *common.HostInfo, sess
 		return &ScanResult{
 			Success: false,
 			Service: "postgresql",
-			Error:   fmt.Errorf(i18n.GetText("service_no_credentials")),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 
@@ -243,7 +243,7 @@ func (p *PostgreSQLPlugin) identifyService(ctx context.Context, info *common.Hos
 			return &ScanResult{
 				Success: false,
 				Service: "postgresql",
-				Error:   fmt.Errorf(i18n.Tr("service_not_identified", "PostgreSQL")),
+				Error:   fmt.Errorf("%s", i18n.Tr("service_not_identified", "PostgreSQL")),
 			}
 		}
 	} else {
