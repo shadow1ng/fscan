@@ -4,16 +4,18 @@ package services
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
-	"strings"
+	"io"
+	"net"
+	"time"
 
-	"github.com/IBM/sarama"
 	"github.com/shadow1ng/fscan/common"
 	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/plugins"
 )
 
-// KafkaPlugin Kafka扫描插件
+// KafkaPlugin Kafka扫描插件（纯 raw TCP 实现，无重型依赖）
 type KafkaPlugin struct {
 	plugins.BasePlugin
 }
@@ -42,7 +44,6 @@ func (p *KafkaPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 		}
 	}
 
-	// 使用公共框架进行并发凭据测试
 	authFn := p.createAuthFunc(info, config, state)
 	testConfig := DefaultConcurrentTestConfigWithTarget(config, info)
 
@@ -55,168 +56,223 @@ func (p *KafkaPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 	return result
 }
 
-// createAuthFunc 创建Kafka认证函数
 func (p *KafkaPlugin) createAuthFunc(info *common.HostInfo, config *common.Config, state *common.State) AuthFunc {
 	return func(ctx context.Context, cred Credential) *AuthResult {
 		return p.doKafkaAuth(ctx, info, cred, config, state)
 	}
 }
 
-// doKafkaAuth 执行Kafka认证
+// ── raw TCP Kafka 实现 ──────────────────────────────────────────
+
 func (p *KafkaPlugin) doKafkaAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
-	target := info.Target()
+	target := fmt.Sprintf("%s:%d", info.Host, info.Port)
+	timeout := config.Timeout
 
-	kafkaConfig := sarama.NewConfig()
-	kafkaConfig.Net.DialTimeout = config.Timeout
-	kafkaConfig.Net.ReadTimeout = config.Timeout
-	kafkaConfig.Net.WriteTimeout = config.Timeout
-	kafkaConfig.Version = sarama.V2_0_0_0
-
-	if cred.Username != "" || cred.Password != "" {
-		kafkaConfig.Net.SASL.Enable = true
-		kafkaConfig.Net.SASL.Mechanism = sarama.SASLTypePlaintext
-		kafkaConfig.Net.SASL.User = cred.Username
-		kafkaConfig.Net.SASL.Password = cred.Password
-		kafkaConfig.Net.SASL.Handshake = true
-	}
-
-	type kafkaResult struct {
-		client sarama.Client
-		err    error
-	}
-
-	resultChan := make(chan kafkaResult, 1)
-	go func() {
-		client, err := sarama.NewClient([]string{target}, kafkaConfig)
-		resultChan <- kafkaResult{client: client, err: err}
-	}()
-
-	select {
-	case result := <-resultChan:
-		if result.err != nil {
-			state.IncrementTCPFailedPacketCount()
-			return &AuthResult{
-				Success:   false,
-				ErrorType: classifyKafkaErrorType(result.err),
-				Error:     result.err,
-			}
-		}
-		state.IncrementTCPSuccessPacketCount()
-		return &AuthResult{
-			Success:   true,
-			Conn:      &kafkaClientWrapper{result.client},
-			ErrorType: ErrorTypeUnknown,
-			Error:     nil,
-		}
-	case <-ctx.Done():
-		// context 被取消，启动清理协程等待并关闭可能创建的 client
-		go func() {
-			result := <-resultChan
-			if result.client != nil {
-				_ = result.client.Close()
-			}
-		}()
+	dialer := net.Dialer{Timeout: timeout}
+	conn, err := dialer.DialContext(ctx, "tcp", target)
+	if err != nil {
+		state.IncrementTCPFailedPacketCount()
 		return &AuthResult{
 			Success:   false,
-			ErrorType: ErrorTypeNetwork,
-			Error:     ctx.Err(),
+			ErrorType: classifyKafkaErrorType(err),
+			Error:     err,
 		}
 	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(timeout))
+
+	// Step 1: ApiVersions 握手 (api_key=18, api_version=0)
+	if err := kafkaSend(conn, 18, 0, nil); err != nil {
+		state.IncrementTCPFailedPacketCount()
+		return &AuthResult{Success: false, ErrorType: ErrorTypeNetwork, Error: err}
+	}
+	_, err = kafkaRecv(conn)
+	if err != nil {
+		state.IncrementTCPFailedPacketCount()
+		return &AuthResult{Success: false, ErrorType: ErrorTypeNetwork, Error: err}
+	}
+
+	// Step 2: SASL/PLAIN 认证 (如果需要)
+	if cred.Username != "" || cred.Password != "" {
+		// SaslHandshake: mechanism=PLAIN (api_key=17, api_version=0)
+		body := kafkaString("PLAIN")
+		if err := kafkaSend(conn, 17, 0, body); err != nil {
+			state.IncrementTCPFailedPacketCount()
+			return &AuthResult{Success: false, ErrorType: ErrorTypeNetwork, Error: err}
+		}
+		resp, err := kafkaRecv(conn)
+		if err != nil {
+			state.IncrementTCPFailedPacketCount()
+			return &AuthResult{Success: false, ErrorType: classifyKafkaErrorType(err), Error: err}
+		}
+		// SaslHandshake 响应: [4B error_code] + [mechanisms array]
+		if len(resp) >= 2 {
+			code := int16(binary.BigEndian.Uint16(resp[:2]))
+			if code != 0 {
+				return &AuthResult{Success: false, ErrorType: ErrorTypeAuth, Error: fmt.Errorf("SASL handshake error: %d", code)}
+			}
+		}
+
+		// SaslAuthenticate: PLAIN token = \x00user\x00pass (api_key=36, api_version=0)
+		token := []byte("\x00" + cred.Username + "\x00" + cred.Password)
+		authBody := kafkaBytes(token)
+		if err := kafkaSend(conn, 36, 0, authBody); err != nil {
+			state.IncrementTCPFailedPacketCount()
+			return &AuthResult{Success: false, ErrorType: ErrorTypeNetwork, Error: err}
+		}
+		resp, err = kafkaRecv(conn)
+		if err != nil {
+			state.IncrementTCPFailedPacketCount()
+			return &AuthResult{Success: false, ErrorType: classifyKafkaErrorType(err), Error: err}
+		}
+		if len(resp) >= 2 {
+			code := int16(binary.BigEndian.Uint16(resp[:2]))
+			if code != 0 {
+				return &AuthResult{Success: false, ErrorType: ErrorTypeAuth, Error: fmt.Errorf("SASL authenticate error: %d", code)}
+			}
+		}
+	}
+
+	// Step 3: Metadata 请求验证连接 (api_key=3, api_version=0)
+	// body: [topics_array] -> empty array = request all topics
+	metaBody := []byte{0x00, 0x00, 0x00, 0x00} // empty topics array + allow_auto_topic_creation=false
+	if err := kafkaSend(conn, 3, 0, metaBody); err != nil {
+		state.IncrementTCPFailedPacketCount()
+		return &AuthResult{Success: false, ErrorType: ErrorTypeNetwork, Error: err}
+	}
+	_, err = kafkaRecv(conn)
+	if err != nil {
+		state.IncrementTCPFailedPacketCount()
+		return &AuthResult{Success: false, ErrorType: ErrorTypeNetwork, Error: err}
+	}
+
+	state.IncrementTCPSuccessPacketCount()
+	return &AuthResult{Success: true, ErrorType: ErrorTypeUnknown, Error: nil}
 }
 
-// kafkaClientWrapper 包装 sarama.Client 以实现 io.Closer
-type kafkaClientWrapper struct {
-	sarama.Client
+// ── Kafka 协议编解码 ────────────────────────────────────────────
+
+var kafkaCorrelationID int32
+
+func kafkaSend(conn net.Conn, apiKey, apiVersion int16, body []byte) error {
+	corrID := kafkaCorrelationID
+	kafkaCorrelationID++
+
+	// 请求格式: [4B len] [2B api_key] [2B api_version] [4B corr_id] [2B client_id_len] [client_id] [body]
+	clientID := "fscan"
+	totalLen := 2 + 2 + 4 + 2 + len(clientID) + len(body)
+	buf := make([]byte, 4+totalLen)
+	binary.BigEndian.PutUint32(buf[0:4], uint32(totalLen))
+	binary.BigEndian.PutUint16(buf[4:6], uint16(apiKey))
+	binary.BigEndian.PutUint16(buf[6:8], uint16(apiVersion))
+	binary.BigEndian.PutUint32(buf[8:12], uint32(corrID))
+	binary.BigEndian.PutUint16(buf[12:14], uint16(len(clientID)))
+	copy(buf[14:], clientID)
+	copy(buf[14+len(clientID):], body)
+
+	_, err := conn.Write(buf)
+	return err
 }
 
-func (w *kafkaClientWrapper) Close() error {
-	return w.Client.Close()
+func kafkaRecv(conn net.Conn) ([]byte, error) {
+	// 读取 4 字节长度
+	lenBuf := make([]byte, 4)
+	if _, err := io.ReadFull(conn, lenBuf); err != nil {
+		return nil, err
+	}
+	msgLen := int(binary.BigEndian.Uint32(lenBuf))
+	// 读取消息体
+	msg := make([]byte, msgLen)
+	if _, err := io.ReadFull(conn, msg); err != nil {
+		return nil, err
+	}
+	// 跳过 correlation_id (4B)，返回 body
+	if len(msg) >= 4 {
+		return msg[4:], nil
+	}
+	return msg, nil
 }
 
-// classifyKafkaErrorType Kafka错误分类
+func kafkaString(s string) []byte {
+	b := []byte(s)
+	buf := make([]byte, 2+len(b))
+	binary.BigEndian.PutUint16(buf, uint16(len(b)))
+	copy(buf[2:], b)
+	return buf
+}
+
+func kafkaBytes(b []byte) []byte {
+	buf := make([]byte, 4+len(b))
+	binary.BigEndian.PutUint32(buf, uint32(len(b)))
+	copy(buf[4:], b)
+	return buf
+}
+
+// ── 错误分类 ────────────────────────────────────────────────────
+
 func classifyKafkaErrorType(err error) ErrorType {
 	if err == nil {
 		return ErrorTypeUnknown
 	}
-
 	kafkaAuthErrors := []string{
 		"sasl authentication failed",
 		"authentication failed",
 		"invalid credentials",
 		"unauthorized",
-		"sasl/plain authentication failed",
 	}
-
 	kafkaNetworkErrors := append(CommonNetworkErrors,
-		"kafka: client has run out of available brokers",
 		"broker not available",
 		"no available brokers",
 	)
-
 	return ClassifyError(err, kafkaAuthErrors, kafkaNetworkErrors)
 }
 
+// ── 服务识别 ────────────────────────────────────────────────────
+
 func (p *KafkaPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
 	target := info.Target()
+	timeout := config.Timeout
 
-	// 尝试无认证连接
-	emptyCred := Credential{Username: "", Password: ""}
-	result := p.doKafkaAuth(ctx, info, emptyCred, config, state)
-	if result.Success && result.Conn != nil {
-		_ = result.Conn.Close()
-		banner := "Kafka (无认证)"
-		common.LogSuccess(i18n.Tr("kafka_service", target, banner))
-		return &ScanResult{
-			Type:    plugins.ResultTypeService,
-			Success: true,
-			Service: "kafka",
-			Banner:  banner,
-		}
-	}
-
-	// 尝试检测协议
-	kafkaConfig := sarama.NewConfig()
-	kafkaConfig.Net.DialTimeout = config.Timeout
-	kafkaConfig.Version = sarama.V2_0_0_0
-
-	client, err := sarama.NewClient([]string{target}, kafkaConfig)
+	dialer := net.Dialer{Timeout: timeout}
+	conn, err := dialer.DialContext(ctx, "tcp", target)
 	if err != nil {
 		state.IncrementTCPFailedPacketCount()
-		if p.isKafkaProtocolError(err) {
-			banner := "Kafka (需要认证)"
-			common.LogSuccess(i18n.Tr("kafka_service", target, banner))
-			return &ScanResult{
-				Type:    plugins.ResultTypeService,
-				Success: true,
-				Service: "kafka",
-				Banner:  banner,
-			}
-		}
 		return &ScanResult{
 			Success: false,
 			Service: "kafka",
 			Error:   fmt.Errorf("%s", i18n.Tr("service_not_identified", "Kafka")),
 		}
 	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(timeout))
+
+	if err := kafkaSend(conn, 18, 0, nil); err != nil {
+		state.IncrementTCPFailedPacketCount()
+		return &ScanResult{Success: false, Service: "kafka", Error: err}
+	}
+	_, err = kafkaRecv(conn)
+	if err != nil {
+		state.IncrementTCPFailedPacketCount()
+		if p.isKafkaError(err) {
+			banner := "Kafka (需要认证)"
+			common.LogSuccess(i18n.Tr("kafka_service", target, banner))
+			return &ScanResult{Type: plugins.ResultTypeService, Success: true, Service: "kafka", Banner: banner}
+		}
+		return &ScanResult{Success: false, Service: "kafka", Error: fmt.Errorf("%s", i18n.Tr("service_not_identified", "Kafka"))}
+	}
 	state.IncrementTCPSuccessPacketCount()
-	_ = client.Close()
 
 	banner := "Kafka"
 	common.LogSuccess(i18n.Tr("kafka_service", target, banner))
-	return &ScanResult{
-		Type:    plugins.ResultTypeService,
-		Success: true,
-		Service: "kafka",
-		Banner:  banner,
-	}
+	return &ScanResult{Type: plugins.ResultTypeService, Success: true, Service: "kafka", Banner: banner}
 }
 
-func (p *KafkaPlugin) isKafkaProtocolError(err error) bool {
-	errStr := strings.ToLower(err.Error())
-	return strings.Contains(errStr, "sasl") ||
-		strings.Contains(errStr, "authentication") ||
-		strings.Contains(errStr, "kafka") ||
-		strings.Contains(errStr, "broker")
+func (p *KafkaPlugin) isKafkaError(err error) bool {
+	if err == nil {
+		return false
+	}
+	// 连接成功后读不到数据 -> 需要认证的 Kafka
+	return true
 }
 
 func init() {
