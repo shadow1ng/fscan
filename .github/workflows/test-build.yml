@@ -56,32 +56,22 @@ jobs:
 
       - name: 运行 golangci-lint
         run: |
-          # 安装 golangci-lint v2 (需要 Go 1.22+，仅用于静态分析，不影响二进制兼容性)
+          # 安装 golangci-lint v2 (需 Go 1.22+，仅用于静态分析，不影响二进制兼容性)
           go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.1
 
-          # 运行检查并灵活处理结果
-          set +e
-          golangci-lint run --timeout=5m > lint_output.txt 2>&1
-          LINT_EXIT_CODE=$?
+          # 运行检查
+          golangci-lint run --timeout=5m > lint_output.txt 2>&1 || true
           cat lint_output.txt
-          set -e
 
-          # 只关注真正的 bug，忽略代码质量建议
-          # 过滤规则：
-          # - gocognit/gocyclo: 复杂度警告（阈值已在配置中设置）
-          # - QF/S/ST: staticcheck 的代码质量改进建议（非bug）
-          if [ $LINT_EXIT_CODE -ne 0 ]; then
-            CRITICAL_ISSUES=$(grep -E "\.go:[0-9]+:[0-9]+:" lint_output.txt | grep -v "gocognit" | grep -v "gocyclo" | grep -v "QF[0-9]" | grep -v " S[0-9]" | grep -v "ST[0-9]" || true)
-            if [ -n "$CRITICAL_ISSUES" ]; then
-              echo "❌ Linting failed with critical issues:"
-              echo "$CRITICAL_ISSUES" | head -20
-              exit 1
-            else
-              echo "⚠️  Only quality suggestions - PASSING"
-              exit 0
-            fi
+          # 过滤非关键问题（复杂度建议和 staticcheck 风格建议不阻塞 CI）
+          CRITICAL=$(grep -E "\.go:[0-9]+:[0-9]+:" lint_output.txt \
+            | grep -vE "gocognit|gocyclo|QF[0-9]+| S[0-9]+|ST[0-9]+" || true)
+          if [ -n "$CRITICAL" ]; then
+            echo "❌ Linting failed with critical issues:"
+            echo "$CRITICAL" | head -20
+            exit 1
           fi
-          echo "✅ No lint issues found"
+          echo "✅ Lint 检查通过"
 
       - name: 检查代码复杂度（质量门禁）
         run: |
@@ -132,7 +122,8 @@ jobs:
       - name: 运行测试
         run: |
           # 排除第三方grdp库测试（存在环境依赖问题）
-          go test -vet=off -race -coverprofile=coverage.out -covermode=atomic $(go list ./... | grep -v '/mylib/grdp/')
+          PKGS=$(go list ./... | grep -v '/mylib/grdp/')
+          go test -vet=off -race -coverprofile=coverage.out -covermode=atomic $PKGS
 
       - name: 上传覆盖率
         uses: actions/upload-artifact@v4
@@ -153,18 +144,14 @@ jobs:
           echo "### 🚦 覆盖率质量门禁" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # 提取总体覆盖率
-          TOTAL_COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          # 提取总体覆盖率（awk 整数比较，不需要 bc）
+          TOTAL_COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print int($3)}')
 
           echo "总体覆盖率: ${TOTAL_COVERAGE}%" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # 检查核心模块覆盖率（core, common/parsers必须>50%）
-          CORE_COVERAGE=$(go tool cover -func=coverage.out | grep "^github.com/shadow1ng/fscan/core/" | grep -v "_test.go" | awk '{sum+=$3; count++} END {if(count>0) print sum/count; else print 0}')
-          PARSERS_COVERAGE=$(go tool cover -func=coverage.out | grep "^github.com/shadow1ng/fscan/common/parsers/" | grep -v "_test.go" | awk '{sum+=$3; count++} END {if(count>0) print sum/count; else print 0}')
-
-          # 警告阈值：总体<40%, 核心模块<50%
-          if (( $(echo "$TOTAL_COVERAGE < 40" | bc -l) )); then
+          # 警告阈值：总体<40%
+          if [ "$TOTAL_COVERAGE" -lt 40 ]; then
             echo "⚠️ **警告**: 总体覆盖率 ${TOTAL_COVERAGE}% < 40%，建议补充测试" >> $GITHUB_STEP_SUMMARY
           fi
 
