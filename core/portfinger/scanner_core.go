@@ -127,19 +127,19 @@ func InitializeGlobalVScan() error {
 
 // GetGlobalVScan 获取全局VScan实例
 func GetGlobalVScan() *VScan {
-	InitializeGlobalVScan() // 确保已初始化
+	_ = InitializeGlobalVScan() // 确保已初始化
 	return &globalVScan
 }
 
 // GetNullProbe 获取NULL探测器
 func GetNullProbe() *Probe {
-	InitializeGlobalVScan() // 确保已初始化
+	_ = InitializeGlobalVScan() // 确保已初始化
 	return globalNull
 }
 
 // GetCommonProbe 获取通用探测器
 func GetCommonProbe() *Probe {
-	InitializeGlobalVScan() // 确保已初始化
+	_ = InitializeGlobalVScan() // 确保已初始化
 	return globalCommon
 }
 
