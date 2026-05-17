@@ -756,6 +756,14 @@ minidump_panic:
 minidump_success:
   other: "Successfully dumped lsass.exe memory to file: {{.Arg1}} (size: {{.Arg2}} bytes)"
 
+# Local plugin common errors
+local_pe_not_specified:
+  other: "No PE file specified, use -win-pe parameter"
+local_pe_not_found:
+  other: "PE file not found: {{.Arg1}}"
+local_invalid_pe:
+  other: "Invalid PE file: {{.Arg1}}"
+
 # ========================= WebScan Messages =========================
 webscan_target_url_failed:
   other: "Failed to build target URL: {{.Arg1}}"

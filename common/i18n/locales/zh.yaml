@@ -753,6 +753,14 @@ minidump_panic:
 minidump_success:
   other: "成功将lsass.exe内存转储到文件: {{.Arg1}} (大小: {{.Arg2}} bytes)"
 
+# 本地插件通用错误
+local_pe_not_specified:
+  other: "未指定PE文件，使用 -win-pe 参数"
+local_pe_not_found:
+  other: "PE文件不存在: {{.Arg1}}"
+local_invalid_pe:
+  other: "无效的PE文件: {{.Arg1}}"
+
 # ========================= WebScan消息 =========================
 webscan_target_url_failed:
   other: "构建目标URL失败: {{.Arg1}}"

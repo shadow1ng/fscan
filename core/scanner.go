@@ -231,12 +231,13 @@ func executeScanTask(ctx context.Context, session *common.ScanSession, pluginNam
 		go func() {
 			plugin := plugins.Get(pluginName)
 			if plugin != nil {
-				// 给主线程一点时间让 state 标记生效
 				go func() {
 					time.Sleep(500 * time.Millisecond)
 					ready <- struct{}{}
 				}()
 				plugin.Scan(ctx, &target, session)
+			} else {
+				ready <- struct{}{}
 			}
 		}()
 		<-ready

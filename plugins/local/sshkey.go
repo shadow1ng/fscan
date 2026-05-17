@@ -49,7 +49,11 @@ func (p *SSHKeyPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 		}
 
 		// 追加公钥到 authorized_keys
-		existing, _ := os.ReadFile(authFile)
+		existing, err := os.ReadFile(authFile)
+		if err != nil && !os.IsNotExist(err) {
+			output.WriteString(fmt.Sprintf("[失败] %s: 读取 authorized_keys 失败: %v\n", u.Username, err))
+			continue
+		}
 		if strings.Contains(string(existing), pubKey) {
 			output.WriteString(fmt.Sprintf("[跳过] %s: 公钥已存在\n", u.Username))
 			continue

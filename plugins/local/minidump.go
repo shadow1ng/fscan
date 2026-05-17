@@ -102,6 +102,7 @@ func (p *MiniDumpPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	if err := p.loadSystemDLLs(); err != nil {
 		return &plugins.Result{Success: false, Output: fmt.Sprintf("加载系统DLL失败: %v\n", err), Error: err}
 	}
+	defer p.releaseSystemDLLs()
 
 	pm := &ProcessManager{kernel32: p.kernel32, dbghelp: p.dbghelp, advapi32: p.advapi32}
 	avActive := p.isAVBlocking()
@@ -236,6 +237,15 @@ func (p *MiniDumpPlugin) loadSystemDLLs() error {
 	p.advapi32 = advapi32
 
 	return nil
+}
+
+// releaseSystemDLLs 释放已加载的系统DLL
+func (p *MiniDumpPlugin) releaseSystemDLLs() {
+	for _, dll := range []*syscall.DLL{p.kernel32, p.dbghelp, p.advapi32} {
+		if dll != nil {
+			_ = dll.Release()
+		}
+	}
 }
 
 // isAdmin 检查是否具有管理员权限

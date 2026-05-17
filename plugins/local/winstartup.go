@@ -28,10 +28,10 @@ func NewWinStartupPlugin() *WinStartupPlugin {
 func (p *WinStartupPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
 	pePath := session.Config.WinPEFile
 	if pePath == "" {
-		return &plugins.Result{Success: false, Error: fmt.Errorf("未指定PE文件，使用 -win-pe 参数")}
+		return &plugins.Result{Success: false, Error: 		fmt.Errorf(i18n.GetText("local_pe_not_specified"))}
 	}
 	if _, err := os.Stat(pePath); err != nil {
-		return &plugins.Result{Success: false, Error: fmt.Errorf("PE文件不存在: %s", pePath)}
+		return &plugins.Result{Success: false, Error: 		fmt.Errorf(i18n.Tr("local_pe_not_found", pePath))}
 	}
 
 	absPath, _ := filepath.Abs(pePath)

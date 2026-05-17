@@ -6,6 +6,7 @@ import (
 	"math/rand" //nolint:gosec // G404: math/rand用于生成测试数据，非加密用途
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -19,11 +20,18 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-// API配置常量
-const (
-	ceyeAPI    = "a78a1cb49d91fe09e01876078d1868b2" // Ceye平台的API密钥
-	ceyeDomain = "7wtusr.ceye.io"                   // Ceye平台的域名
-)
+// Ceye平台凭据（通过环境变量配置，避免将密钥硬编码在源码中）
+// CEYE_API: Ceye API令牌
+// CEYE_DOMAIN: Ceye平台域名（可选，默认使用api.ceye.io）
+var ceyeAPI, ceyeDomain string
+
+func init() {
+	ceyeAPI = os.Getenv("CEYE_API")
+	ceyeDomain = os.Getenv("CEYE_DOMAIN")
+	if ceyeDomain == "" {
+		ceyeDomain = "api.ceye.io"
+	}
+}
 
 // Task 定义单个POC检测任务的结构体
 type Task struct {
@@ -480,7 +488,10 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 				if key == "payload" {
 					payloadExpr = expr
 				}
-				output, _ := evalset1(env, variableMap, key, expr)
+				output, err := evalset1(env, variableMap, key, expr)
+			if err != nil {
+				common.LogError(i18n.Tr("webscan_set_exec_error", key, err))
+			}
 				payloads[key] = output
 			}
 

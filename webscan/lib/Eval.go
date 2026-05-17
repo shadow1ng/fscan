@@ -363,7 +363,10 @@ func reverseCheck(r *Reverse, timeout int64) bool {
 		ceyeAPI, sub)
 
 	// 创建并发送请求
-	req, _ := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return false
+	}
 	resp, err := DoRequest(req, false)
 	if err != nil {
 		return false
@@ -521,9 +524,15 @@ func ParseRequest(oReq *http.Request) (*Request, error) {
 
 // ParseResponse 将标准 HTTP 响应转换为自定义响应对象
 func ParseResponse(oResp *http.Response) (*Response, error) {
+	var respURL *UrlType
+	if oResp.Request != nil {
+		respURL = ParseURL(oResp.Request.URL)
+	} else {
+		respURL = &UrlType{}
+	}
 	resp := Response{
 		Status:      int32(oResp.StatusCode),
-		URL:         ParseURL(oResp.Request.URL),
+		URL:         respURL,
 		Headers:     make(map[string]string),
 		ContentType: oResp.Header.Get("Content-Type"),
 	}
