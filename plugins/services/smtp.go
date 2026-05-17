@@ -45,7 +45,7 @@ func (p *SMTPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 		return &ScanResult{
 			Success: false,
 			Service: "smtp",
-			Error:   fmt.Errorf("没有可用的测试凭据"),
+			Error:   fmt.Errorf(i18n.GetText("service_no_credentials")),
 		}
 	}
 

@@ -63,7 +63,7 @@ func (p *MongoDBPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 		return &ScanResult{
 			Success: false,
 			Service: "mongodb",
-			Error:   fmt.Errorf("没有可用的测试凭据"),
+			Error:   fmt.Errorf(i18n.GetText("service_no_credentials")),
 		}
 	}
 
@@ -237,14 +237,14 @@ func (p *MongoDBPlugin) mongodbUnauth(ctx context.Context, info *common.HostInfo
 		return false, nil
 	}
 
-	return false, fmt.Errorf("无法识别为MongoDB服务")
+	return false, fmt.Errorf(i18n.Tr("service_not_identified", "MongoDB"))
 }
 
 // checkMongoAuth 检查MongoDB认证状态
 func (p *MongoDBPlugin) checkMongoAuth(ctx context.Context, address string, packet []byte, session *common.ScanSession) (string, error) {
 	conn, err := session.DialTCP(ctx, "tcp", address, session.Config.Timeout)
 	if err != nil {
-		return "", fmt.Errorf("连接失败: %w", err)
+		return "", fmt.Errorf(i18n.Tr("service_connection_failed", "%w"), err)
 	}
 	defer func() { _ = conn.Close() }()
 

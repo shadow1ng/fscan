@@ -2,6 +2,8 @@ package common
 
 import (
 	"fmt"
+
+	"github.com/shadow1ng/fscan/common/i18n"
 )
 
 /*
@@ -80,7 +82,7 @@ func ValidateExclusiveParams(info *HostInfo) error {
 	}
 
 	if paramCount > 1 {
-		return fmt.Errorf("参数 %s 互斥，请只指定一个扫描目标\n  -h: 网络主机扫描\n  -u: Web URL扫描\n  -local: 本地信息收集", activeParam)
+		return fmt.Errorf(i18n.Tr("param_exclusive", activeParam))
 	}
 
 	return nil

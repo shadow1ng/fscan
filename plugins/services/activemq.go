@@ -218,7 +218,7 @@ func (p *ActiveMQPlugin) identifyService(ctx context.Context, info *common.HostI
 		return &ScanResult{
 			Success: false,
 			Service: "activemq",
-			Error:   fmt.Errorf("无法发送STOMP请求: %w", writeErr),
+			Error:   fmt.Errorf("STOMP request send failed: %w", writeErr),
 		}
 	}
 
@@ -229,7 +229,7 @@ func (p *ActiveMQPlugin) identifyService(ctx context.Context, info *common.HostI
 		return &ScanResult{
 			Success: false,
 			Service: "activemq",
-			Error:   fmt.Errorf("无法读取响应: %w", err),
+			Error:   fmt.Errorf("Failed to read response: %w", err),
 		}
 	}
 	if n == 0 {
@@ -267,7 +267,7 @@ func (p *ActiveMQPlugin) identifyService(ctx context.Context, info *common.HostI
 	return &ScanResult{
 		Success: false,
 		Service: "activemq",
-		Error:   fmt.Errorf("无法识别为ActiveMQ STOMP服务"),
+		Error:   fmt.Errorf(i18n.Tr("service_not_identified", "ActiveMQ STOMP")),
 	}
 }
 

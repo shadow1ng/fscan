@@ -88,7 +88,7 @@ func RunScan(ctx context.Context, info common.HostInfo, session *common.ScanSess
 	// 初始化HTTP客户端（静默，无需日志）
 	if err := lib.Inithttp(config); err != nil {
 		common.LogError(i18n.Tr("http_client_init_failed", err))
-		os.Exit(1)
+		return
 	}
 
 	// 选择策略

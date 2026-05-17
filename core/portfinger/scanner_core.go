@@ -19,13 +19,16 @@ var (
 	vscanOnce    sync.Once
 )
 
-// Init 初始化VScan对象
-func (vs *VScan) Init() {
-	vs.parseProbesFromContent(ProbeString)
+// Init 初始化VScan对象，返回错误替代panic
+func (vs *VScan) Init() error {
+	if err := vs.parseProbesFromContent(ProbeString); err != nil {
+		return err
+	}
 	vs.parseProbesToMapKName()
 	vs.SetusedProbes()
-	vs.compileFallbacks() // 编译 fallback 数组
-	vs.preDecodeProbeData() // 预解码探针数据
+	vs.compileFallbacks()
+	vs.preDecodeProbeData()
+	return nil
 }
 
 // preDecodeProbeData 预解码所有探针的 Data 字段，避免运行时重复解码
@@ -100,10 +103,14 @@ func (vs *VScan) compileFallbacks() {
 }
 
 // InitializeGlobalVScan 初始化全局VScan实例（线程安全，只执行一次）
-func InitializeGlobalVScan() {
+func InitializeGlobalVScan() error {
+	var initErr error
 	vscanOnce.Do(func() {
 		globalVScan = VScan{}
-		globalVScan.Init()
+		if err := globalVScan.Init(); err != nil {
+			initErr = err
+			return
+		}
 
 		// 获取并检查 NULL 探测器
 		if nullProbe, ok := globalVScan.ProbesMapKName["NULL"]; ok {
@@ -115,6 +122,7 @@ func InitializeGlobalVScan() {
 			globalCommon = &genericProbe
 		}
 	})
+	return initErr
 }
 
 // GetGlobalVScan 获取全局VScan实例
@@ -136,5 +144,5 @@ func GetCommonProbe() *Probe {
 }
 
 func init() {
-	InitializeGlobalVScan()
+	_ = InitializeGlobalVScan()
 }

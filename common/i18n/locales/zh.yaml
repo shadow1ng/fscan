@@ -213,6 +213,36 @@ parse_error_empty_input:
   other: "输入参数为空"
 parse_error_parser_not_init:
   other: "解析器未初始化"
+parser_read_hosts_failed:
+  other: "读取主机文件失败"
+parser_parse_host_failed:
+  other: "解析主机失败"
+parser_parse_exclude_failed:
+  other: "解析排除主机失败"
+parser_no_valid_hosts:
+  other: "没有找到有效的主机"
+parser_cidr_failed:
+  other: "CIDR解析失败 {{.Arg1}}"
+parser_ip_range_failed:
+  other: "IP范围解析失败 {{.Arg1}}"
+parser_invalid_ip_range_fmt:
+  other: "无效的IP范围格式: {{.Arg1}}"
+parser_invalid_start_ip:
+  other: "无效的起始IP地址: {{.Arg1}}"
+parser_invalid_end_ip:
+  other: "无效的结束IP地址: {{.Arg1}}"
+parser_invalid_ip_end_val:
+  other: "无效的IP范围结束值: {{.Arg1}}"
+parser_invalid_ip_range_val:
+  other: "无效的IP范围: {{.Arg1}}-{{.Arg2}}"
+parser_invalid_ip_fmt:
+  other: "无效的IP地址格式: {{.Arg1}}"
+parser_ipv4_only:
+  other: "仅支持IPv4地址范围"
+parser_start_gt_end:
+  other: "起始IP大于结束IP"
+network_rate_limited:
+  other: "发包受限: {{.Arg1}}"
 target_local_mode:
   other: "本地扫描模式"
 param_conflict_ao_icmp_both:
@@ -796,6 +826,8 @@ webscan_response_parse_failed:
 # Main 入口
 param_error:
   other: "参数错误: {{.Arg1}}"
+param_exclusive:
+  other: "参数 {{.Arg1}} 互斥，请只指定一个扫描目标\n  -h: 网络主机扫描\n  -u: Web URL扫描\n  -local: 本地信息收集"
 error_generic:
   other: "错误: {{.Arg1}}"
 init_failed:
@@ -814,3 +846,25 @@ web_shutting_down:
   other: "Web服务器正在关闭..."
 web_mode_not_supported:
   other: "当前版本不支持Web模式，请使用 -tags web 重新编译"
+
+# ========================= 服务插件通用消息 =========================
+service_no_credentials:
+  other: "没有可用的测试凭据"
+service_not_identified:
+  other: "无法识别为{{.Arg1}}服务"
+service_port_restriction:
+  other: "{{.Arg1}}插件仅支持{{.Arg2}}端口"
+service_target_unreachable:
+  other: "目标不可达: {{.Arg1}}"
+service_unauthorized:
+  other: "未授权访问"
+service_auth_failed:
+  other: "认证失败"
+service_connection_failed:
+  other: "连接失败: {{.Arg1}}"
+service_no_weak_pass:
+  other: "未发现弱密码"
+service_no_test_creds:
+  other: "无凭据可测试"
+service_conn_port_failed:
+  other: "连接端口失败: {{.Arg1}}"

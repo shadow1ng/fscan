@@ -45,7 +45,7 @@ func (p *Neo4jPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 		return &ScanResult{
 			Success: false,
 			Service: "neo4j",
-			Error:   fmt.Errorf("没有可用的测试凭据"),
+			Error:   fmt.Errorf(i18n.GetText("service_no_credentials")),
 		}
 	}
 
@@ -112,7 +112,7 @@ func (p *Neo4jPlugin) doNeo4jAuth(ctx context.Context, info *common.HostInfo, cr
 		return &AuthResult{
 			Success:   false,
 			ErrorType: ErrorTypeAuth,
-			Error:     fmt.Errorf("认证失败，状态码: %d", resp.StatusCode),
+			Error:     fmt.Errorf(i18n.GetText("service_auth_failed")+": %d", resp.StatusCode),
 		}
 	}
 
@@ -170,7 +170,7 @@ func (p *Neo4jPlugin) testUnauthorizedAccess(ctx context.Context, info *common.H
 			Type:    plugins.ResultTypeVuln,
 			Success: true,
 			Service: "neo4j",
-			Banner:  "未授权访问",
+			Banner:  i18n.GetText("service_unauthorized"),
 		}
 	}
 
@@ -220,7 +220,7 @@ func (p *Neo4jPlugin) identifyService(ctx context.Context, info *common.HostInfo
 		return &ScanResult{
 			Success: false,
 			Service: "neo4j",
-			Error:   fmt.Errorf("无法识别为Neo4j服务"),
+			Error:   fmt.Errorf(i18n.Tr("service_not_identified", "Neo4j")),
 		}
 	}
 

@@ -213,6 +213,36 @@ parse_error_empty_input:
   other: "Input parameters are empty"
 parse_error_parser_not_init:
   other: "Parser not initialized"
+parser_read_hosts_failed:
+  other: "Failed to read hosts file"
+parser_parse_host_failed:
+  other: "Failed to parse host"
+parser_parse_exclude_failed:
+  other: "Failed to parse exclude hosts"
+parser_no_valid_hosts:
+  other: "No valid hosts found"
+parser_cidr_failed:
+  other: "CIDR parse failed {{.Arg1}}"
+parser_ip_range_failed:
+  other: "IP range parse failed {{.Arg1}}"
+parser_invalid_ip_range_fmt:
+  other: "Invalid IP range format: {{.Arg1}}"
+parser_invalid_start_ip:
+  other: "Invalid start IP: {{.Arg1}}"
+parser_invalid_end_ip:
+  other: "Invalid end IP: {{.Arg1}}"
+parser_invalid_ip_end_val:
+  other: "Invalid IP range end value: {{.Arg1}}"
+parser_invalid_ip_range_val:
+  other: "Invalid IP range: {{.Arg1}}-{{.Arg2}}"
+parser_invalid_ip_fmt:
+  other: "Invalid IP address format: {{.Arg1}}"
+parser_ipv4_only:
+  other: "IPv4 addresses only"
+parser_start_gt_end:
+  other: "Start IP greater than end IP"
+network_rate_limited:
+  other: "Rate limited: {{.Arg1}}"
 target_local_mode:
   other: "Local scan mode"
 param_conflict_ao_icmp_both:
@@ -817,3 +847,25 @@ web_shutting_down:
   other: "Web server shutting down..."
 web_mode_not_supported:
   other: "Web mode not supported in this build, rebuild with: go build -tags web"
+
+# ========================= Service Plugin Common Messages =========================
+service_no_credentials:
+  other: "No available test credentials"
+service_not_identified:
+  other: "Cannot identify as {{.Arg1}} service"
+service_port_restriction:
+  other: "{{.Arg1}} plugin only supports port {{.Arg2}}"
+service_target_unreachable:
+  other: "Target unreachable: {{.Arg1}}"
+service_unauthorized:
+  other: "Unauthorized access"
+service_auth_failed:
+  other: "Authentication failed"
+service_connection_failed:
+  other: "Connection failed: {{.Arg1}}"
+service_no_weak_pass:
+  other: "No weak password found"
+service_no_test_creds:
+  other: "No credentials to test"
+service_conn_port_failed:
+  other: "Port connection failed: {{.Arg1}}"

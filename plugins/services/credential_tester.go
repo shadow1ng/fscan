@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/plugins"
 )
 
@@ -147,7 +148,7 @@ func TestCredentialsConcurrently(
 		return &ScanResult{
 			Success: false,
 			Service: serviceName,
-			Error:   fmt.Errorf("无凭据可测试"),
+			Error:   fmt.Errorf(i18n.GetText("service_no_test_creds")),
 		}
 	}
 
@@ -159,7 +160,7 @@ func TestCredentialsConcurrently(
 			return &ScanResult{
 				Success: false,
 				Service: serviceName,
-				Error:   fmt.Errorf("目标不可达: %w", err),
+				Error:   fmt.Errorf(i18n.Tr("service_target_unreachable", "%w"), err),
 			}
 		}
 		_ = preConn.Close()
@@ -222,7 +223,7 @@ func TestCredentialsConcurrently(
 		Type:    plugins.ResultTypeCredential, // 标记这是凭据测试结果
 		Success: false,
 		Service: serviceName,
-		Error:   fmt.Errorf("未发现弱密码"),
+		Error:   fmt.Errorf(i18n.GetText("service_no_weak_pass")),
 	}
 }
 
@@ -255,14 +256,14 @@ func workerTestCredentials(
 		}
 
 		// 带重试的凭据测试
-		result := testCredentialWithRetry(ctx, cred, authFn, serviceName, testConfig)
+		result, errType := testCredentialWithRetry(ctx, cred, authFn, serviceName, testConfig)
 		if result != nil && result.Success {
 			resultChan <- result
 			return
 		}
 
 		// 跟踪连续网络错误
-		if result != nil && result.Error != nil {
+		if errType == ErrorTypeNetwork {
 			consecutiveNetErrors++
 		} else {
 			consecutiveNetErrors = 0
@@ -277,12 +278,12 @@ func testCredentialWithRetry(
 	authFn AuthFunc,
 	serviceName string,
 	testConfig ConcurrentTestConfig,
-) *ScanResult {
+) (*ScanResult, ErrorType) {
 	for attempt := 0; attempt < testConfig.MaxRetries; attempt++ {
 		// 检查是否应该停止
 		select {
 		case <-ctx.Done():
-			return nil
+			return nil, ErrorTypeUnknown
 		default:
 		}
 
@@ -298,14 +299,14 @@ func testCredentialWithRetry(
 				Service:  serviceName,
 				Username: cred.Username,
 				Password: cred.Password,
-			}
+			}, ErrorTypeUnknown
 		}
 
 		// 根据错误类型决定是否重试
 		switch result.ErrorType {
 		case ErrorTypeAuth:
 			// 认证错误（密码错误），不重试
-			return nil
+			return nil, result.ErrorType
 		case ErrorTypeNetwork, ErrorTypeUnknown:
 			// 网络错误或未知错误，可以重试（可能是服务端限流等临时问题）
 			if attempt < testConfig.MaxRetries-1 {
@@ -313,13 +314,13 @@ func testCredentialWithRetry(
 				select {
 				case <-ctx.Done():
 					timer.Stop()
-					return nil
+					return nil, result.ErrorType
 				case <-timer.C:
 				}
 			}
 		}
 	}
-	return nil
+	return nil, ErrorTypeNetwork
 }
 
 // =============================================================================

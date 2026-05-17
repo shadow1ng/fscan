@@ -135,7 +135,7 @@ func (p *RedisPlugin) doRedisAuth(ctx context.Context, info *common.HostInfo, cr
 			return &AuthResult{
 				Success:   false,
 				ErrorType: errType,
-				Error:     fmt.Errorf("redis认证失败: %s", strings.TrimSpace(responseStr)),
+				Error:     fmt.Errorf(i18n.GetText("service_auth_failed")+": %s", strings.TrimSpace(responseStr)),
 			}
 		}
 	}

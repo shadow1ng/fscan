@@ -248,7 +248,7 @@ func (p *SSHPlugin) identifyService(ctx context.Context, info *common.HostInfo, 
 	return &ScanResult{
 		Success: false,
 		Service: "ssh",
-		Error:   fmt.Errorf("无法识别为SSH服务"),
+		Error:   fmt.Errorf(i18n.Tr("service_not_identified", "SSH")),
 	}
 }
 

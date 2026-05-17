@@ -15,6 +15,7 @@ import (
 	"unicode"
 
 	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/plugins"
 )
 
@@ -45,7 +46,7 @@ func (p *FindNetPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 		return &ScanResult{
 			Success: false,
 			Service: "findnet",
-			Error:   fmt.Errorf("FindNet插件仅支持RPC端口135"),
+			Error:   fmt.Errorf(i18n.Tr("service_port_restriction", "FindNet", "135")),
 		}
 	}
 
@@ -54,7 +55,7 @@ func (p *FindNetPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 		return &ScanResult{
 			Success: false,
 			Service: "findnet",
-			Error:   fmt.Errorf("连接RPC端口失败: %w", err),
+			Error:   fmt.Errorf(i18n.Tr("service_conn_port_failed", "%w"), err),
 		}
 	}
 	defer func() { _ = conn.Close() }()

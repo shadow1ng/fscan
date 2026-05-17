@@ -182,7 +182,7 @@ func (p *VNCPlugin) testUnauthAccess(ctx context.Context, info *common.HostInfo,
 			Type:    plugins.ResultTypeVuln,
 			Success: true,
 			Service: "vnc",
-			Banner:  "未授权访问",
+			Banner:  i18n.GetText("service_unauthorized"),
 		}
 	}
 

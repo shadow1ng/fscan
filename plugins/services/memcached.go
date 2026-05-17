@@ -59,7 +59,7 @@ func (p *MemcachedPlugin) testUnauthorizedAccess(ctx context.Context, info *comm
 			Type:    plugins.ResultTypeVuln,
 			Success: true,
 			Service: "memcached",
-			Banner:  "未授权访问",
+			Banner:  i18n.GetText("service_unauthorized"),
 		}
 	}
 
@@ -140,7 +140,7 @@ func (p *MemcachedPlugin) identifyService(ctx context.Context, info *common.Host
 	return &ScanResult{
 		Success: false,
 		Service: "memcached",
-		Error:   fmt.Errorf("无法识别为Memcached服务"),
+		Error:   fmt.Errorf(i18n.Tr("service_not_identified", "Memcached")),
 	}
 }
 

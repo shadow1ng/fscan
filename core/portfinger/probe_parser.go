@@ -29,22 +29,20 @@ func (p *Probe) getDirectiveSyntax(data string) (directive Directive) {
 	return directive
 }
 
-// 解析探测器信息
-func (p *Probe) parseProbeInfo(probeStr string) {
+// parseProbeInfo 解析探测器信息，返回错误替代 panic
+func (p *Probe) parseProbeInfo(probeStr string) error {
 	// 提取协议和其他信息
 	proto := probeStr[:4]
 	other := probeStr[4:]
 
 	// 验证协议类型
 	if proto != "TCP " && proto != "UDP " {
-		errMsg := "探测器协议必须是 TCP 或 UDP"
-		panic(errMsg)
+		return fmt.Errorf("探测器协议必须是 TCP 或 UDP")
 	}
 
 	// 验证其他信息不为空
 	if len(other) == 0 {
-		errMsg := "nmap-service-probes - 探测器名称无效"
-		panic(errMsg)
+		return fmt.Errorf("nmap-service-probes - 探测器名称无效")
 	}
 
 	// 解析指令
@@ -55,6 +53,7 @@ func (p *Probe) parseProbeInfo(probeStr string) {
 	p.Data = strings.Split(directive.DirectiveStr, directive.Delimiter)[0]
 	p.Protocol = strings.ToLower(strings.TrimSpace(proto))
 
+	return nil
 }
 
 // 从字符串解析探测器信息
@@ -69,7 +68,9 @@ func (p *Probe) fromString(data string) error {
 	}
 
 	probeStr := lines[0]
-	p.parseProbeInfo(probeStr)
+	if err := p.parseProbeInfo(probeStr); err != nil {
+		return err
+	}
 
 	// 解析匹配规则和其他配置
 	var matchs []Match
@@ -154,8 +155,8 @@ func (p *Probe) parseFallback(data string) {
 	p.Fallback = data[len("fallback")+1:]
 }
 
-// 从内容解析探测器规则
-func (v *VScan) parseProbesFromContent(content string) {
+// parseProbesFromContent 从内容解析探测器规则，返回错误替代 panic
+func (v *VScan) parseProbesFromContent(content string) error {
 	var probes []Probe
 	var lines []string
 
@@ -171,8 +172,7 @@ func (v *VScan) parseProbesFromContent(content string) {
 
 	// 验证文件内容
 	if len(lines) == 0 {
-		errMsg := "读取nmap-service-probes文件失败: 内容为空"
-		panic(errMsg)
+		return fmt.Errorf("读取nmap-service-probes文件失败: 内容为空")
 	}
 
 	// 检查Exclude指令
@@ -182,16 +182,14 @@ func (v *VScan) parseProbesFromContent(content string) {
 			excludeCount++
 		}
 		if excludeCount > 1 {
-			errMsg := "nmap-service-probes文件中只允许有一个Exclude指令"
-			panic(errMsg)
+			return fmt.Errorf("nmap-service-probes文件中只允许有一个Exclude指令")
 		}
 	}
 
 	// 验证第一行格式
 	firstLine := lines[0]
 	if !strings.HasPrefix(firstLine, "Exclude ") && !strings.HasPrefix(firstLine, "Probe ") {
-		errMsg := "解析错误: 首行必须以\"Probe \"或\"Exclude \"开头"
-		panic(errMsg)
+		return fmt.Errorf("解析错误: 首行必须以\"Probe \"或\"Exclude \"开头")
 	}
 
 	// 处理Exclude指令
@@ -214,6 +212,7 @@ func (v *VScan) parseProbesFromContent(content string) {
 	}
 
 	v.AllProbes = probes
+	return nil
 }
 
 // 将探测器转换为名称映射

@@ -16,6 +16,7 @@ import (
 
 	"github.com/hirochachacha/go-smb2"
 	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/stacktitan/smb/smb"
 )
 
@@ -206,7 +207,7 @@ func probeTarget(ctx context.Context, host string, port int, timeout time.Durati
 
 	conn, err := session.DialTCP(ctx, "tcp", target, timeout)
 	if err != nil {
-		return nil, fmt.Errorf("连接失败: %w", err)
+		return nil, fmt.Errorf(i18n.Tr("service_connection_failed", "%w"), err)
 	}
 	defer func() { _ = conn.Close() }()
 
@@ -291,7 +292,7 @@ func probeSMBv1(conn net.Conn, target string, timeout time.Duration) (*SMBTarget
 func probeSMBv2(ctx context.Context, target string, timeout time.Duration, session *common.ScanSession) (*SMBTarget, error) {
 	conn2, err := session.DialTCP(ctx, "tcp", target, timeout)
 	if err != nil {
-		return nil, fmt.Errorf("SMBv2连接失败: %w", err)
+		return nil, fmt.Errorf(i18n.Tr("service_connection_failed", "%w"), err)
 	}
 	defer func() { _ = conn2.Close() }()
 
@@ -436,7 +437,7 @@ func (a *SMB1Authenticator) Authenticate(ctx context.Context, host string, port 
 			resultChan <- &AuthResult{
 				Success:   false,
 				ErrorType: ErrorTypeAuth,
-				Error:     fmt.Errorf("认证失败：用户名或密码错误"),
+				Error:     fmt.Errorf(i18n.GetText("service_auth_failed")),
 			}
 		}
 	}()
@@ -507,7 +508,7 @@ func (a *SMB2Authenticator) Authenticate(ctx context.Context, host string, port 
 		return &AuthResult{
 			Success:   false,
 			ErrorType: classifySMBError(err),
-			Error:     fmt.Errorf("SMB2认证失败: %w", err),
+			Error:     fmt.Errorf(i18n.Tr("service_connection_failed", "%w"), err),
 		}, nil
 	}
 
@@ -662,7 +663,7 @@ func classifySMBError(err error) ErrorType {
 		"smb: wrong password",
 		"smb: login failed",
 		"smb: unauthorized",
-		"smb2认证失败",
+		i18n.GetText("service_auth_failed"),
 		"ntlm authentication failed",
 		"ntlm auth failed",
 		// NT Status codes

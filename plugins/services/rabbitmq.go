@@ -46,7 +46,7 @@ func (p *RabbitMQPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 		return &ScanResult{
 			Success: false,
 			Service: "rabbitmq",
-			Error:   fmt.Errorf("没有可用的测试凭据"),
+			Error:   fmt.Errorf(i18n.GetText("service_no_credentials")),
 		}
 	}
 
@@ -121,7 +121,7 @@ func (p *RabbitMQPlugin) doRabbitMQAuth(ctx context.Context, info *common.HostIn
 		return &AuthResult{
 			Success:   false,
 			ErrorType: ErrorTypeAuth,
-			Error:     fmt.Errorf("认证失败，状态码: %d", resp.StatusCode),
+			Error:     fmt.Errorf(i18n.GetText("service_auth_failed")+": %d", resp.StatusCode),
 		}
 	}
 
@@ -184,7 +184,7 @@ func (p *RabbitMQPlugin) testUnauthorizedAccess(ctx context.Context, info *commo
 				Type:    plugins.ResultTypeVuln,
 				Success: true,
 				Service: "rabbitmq",
-				Banner:  "未授权访问",
+				Banner:  i18n.GetText("service_unauthorized"),
 			}
 		}
 	}
@@ -307,7 +307,7 @@ func (p *RabbitMQPlugin) testManagementInterface(ctx context.Context, info *comm
 	return &ScanResult{
 		Success: false,
 		Service: "rabbitmq",
-		Error:   fmt.Errorf("无法识别为RabbitMQ服务"),
+		Error:   fmt.Errorf(i18n.Tr("service_not_identified", "RabbitMQ")),
 	}
 }
 
