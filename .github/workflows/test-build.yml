@@ -56,7 +56,7 @@ jobs:
 
       - name: 运行 golangci-lint
         run: |
-          # 安装 golangci-lint v2
+          # 安装 golangci-lint v2 (需要 Go 1.22+，仅用于静态分析，不影响二进制兼容性)
           go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.1
 
           # 运行检查并灵活处理结果

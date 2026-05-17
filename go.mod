@@ -10,6 +10,7 @@ require (
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/gocql/gocql v1.7.0
 	github.com/google/cel-go v0.13.0
+	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/hirochachacha/go-smb2 v1.1.0
 	github.com/huin/asn1ber v0.0.0-20120622192748-af09f62e6358
@@ -21,9 +22,9 @@ require (
 	github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
 	github.com/nicksnyder/go-i18n/v2 v2.4.0
 	github.com/panjf2000/ants/v2 v2.11.3
-	github.com/satori/go.uuid v1.2.0
 	github.com/sijms/go-ora/v2 v2.9.0
 	github.com/stacktitan/smb v0.0.0-20190531122847-da9a425dceb8
+	github.com/tjfoc/gmsm v1.4.1
 	go.ciq.dev/go-rsync v0.0.0-20240304021629-0a3bb196e6d1
 	go.mongodb.org/mongo-driver v1.17.4
 	golang.org/x/crypto v0.31.0
@@ -51,7 +52,6 @@ require (
 	github.com/golang-sql/civil v0.0.0-20190719163853-cb61b32ac6fe // indirect
 	github.com/golang-sql/sqlexp v0.1.0 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
@@ -72,7 +72,6 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
-	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.2 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect

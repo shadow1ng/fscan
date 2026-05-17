@@ -113,7 +113,7 @@ func Flag(Info *HostInfo) error {
 	flag.Int64Var(&fv.GlobalTimeout, "gt", 180, i18n.GetText("flag_global_timeout"))
 	flag.BoolVar(&fv.DisablePing, "np", false, i18n.GetText("flag_disable_ping"))
 	flag.BoolVar(&fv.DisableTcpProbe, "ntp", false, i18n.GetText("flag_disable_tcp_probe"))
-	flag.StringVar(&fv.LocalPlugin, "local", "", "指定本地插件名称 (如: cleaner, systeminfo, keylogger 等)")
+	flag.StringVar(&fv.LocalPlugin, "local", "", i18n.GetText("flag_local_plugin"))
 	flag.BoolVar(&fv.AliveOnly, "ao", false, i18n.GetText("flag_alive_only"))
 
 	// ═════════════════════════════════════════════════
@@ -187,7 +187,7 @@ func Flag(Info *HostInfo) error {
 	flag.StringVar(&fv.LogLevel, "log", LogLevelBaseInfoSuccess, i18n.GetText("flag_log_level"))
 	flag.BoolVar(&fv.Debug, "debug", false, i18n.GetText("flag_debug"))
 	flag.BoolVar(&fv.DisableProgress, "nopg", false, i18n.GetText("flag_disable_progress"))
-	flag.BoolVar(&fv.PerfStats, "perf", false, "输出性能统计JSON")
+	flag.BoolVar(&fv.PerfStats, "perf", false, i18n.GetText("flag_perf_stats"))
 
 	// ═════════════════════════════════════════════════
 	// 其他参数
@@ -310,7 +310,7 @@ func checkParameterConflicts() error {
 		invalidChars := []string{",", ";", " ", "|", "&"}
 		for _, char := range invalidChars {
 			if strings.Contains(fv.LocalPlugin, char) {
-				return fmt.Errorf("本地插件只能指定单个插件，不支持使用 '%s' 分隔的多个插件", char)
+				return fmt.Errorf(i18n.Tr("param_local_multi_plugin", char))
 			}
 		}
 	}

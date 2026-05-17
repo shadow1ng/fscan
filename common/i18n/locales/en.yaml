@@ -30,6 +30,8 @@ flag_disable_ping:
   other: "Disable ping detection"
 flag_disable_tcp_probe:
   other: "Disable TCP supplementary probe"
+flag_local_plugin:
+  other: "Specify local plugin name (e.g.: cleaner, systeminfo, keylogger)"
 flag_debug:
   other: "Enable debug mode, write logs to fscan_debug.log"
 flag_alive_only:
@@ -120,6 +122,8 @@ flag_log_level:
   other: "Log level"
 flag_disable_progress:
   other: "Disable progress bar"
+flag_perf_stats:
+  other: "Output performance stats in JSON"
 flag_shellcode:
   other: "Shellcode"
 flag_reverse_shell_target:
@@ -213,6 +217,8 @@ target_local_mode:
   other: "Local scan mode"
 param_conflict_ao_icmp_both:
   other: "Note: Both -ao and -m icmp specified, both enable alive detection mode"
+param_local_multi_plugin:
+  other: "Only a single local plugin can be specified, multiple plugins separated by '{{.Arg1}}' are not supported"
 
 # ========================= Parser Messages =========================
 parser_empty_input:

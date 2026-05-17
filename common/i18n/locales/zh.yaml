@@ -30,6 +30,8 @@ flag_disable_ping:
   other: "禁用ping探测"
 flag_disable_tcp_probe:
   other: "禁用TCP补充探测"
+flag_local_plugin:
+  other: "指定本地插件名称 (如: cleaner, systeminfo, keylogger 等)"
 flag_debug:
   other: "开启调试模式，日志写入fscan_debug.log"
 flag_alive_only:
@@ -120,6 +122,8 @@ flag_log_level:
   other: "日志级别"
 flag_disable_progress:
   other: "禁用进度条"
+flag_perf_stats:
+  other: "输出性能统计JSON"
 flag_shellcode:
   other: "Shellcode"
 flag_reverse_shell_target:
@@ -213,6 +217,8 @@ target_local_mode:
   other: "本地扫描模式"
 param_conflict_ao_icmp_both:
   other: "提示: 同时指定了 -ao 和 -m icmp，两者功能相同，使用存活探测模式"
+param_local_multi_plugin:
+  other: "本地插件只能指定单个插件，不支持使用 '{{.Arg1}}' 分隔的多个插件"
 
 # ========================= 解析器消息 =========================
 parser_empty_input:

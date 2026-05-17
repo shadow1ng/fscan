@@ -8,7 +8,7 @@ import (
 	"encoding/base64"
 	"io"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 )
 
 var (
@@ -55,7 +55,8 @@ func AESCBCEncrypt(shirokey string) string {
 	paddedContent := Padding(Content, block.BlockSize())
 
 	// 生成随机IV
-	iv := uuid.NewV4().Bytes()
+	u := uuid.New()
+	iv := u[:]
 
 	// 创建CBC加密器
 	blockMode := cipher.NewCBCEncrypter(block, iv)
