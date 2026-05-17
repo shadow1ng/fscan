@@ -46,16 +46,18 @@ func (a *AdaptiveTimeout) Record(rtt time.Duration) {
 
 // Timeout 获取当前推荐超时值
 // 样本不足时返回 maxTO（冷启动）
+// 锁外执行均值/标准差计算，减少锁持有时间
 func (a *AdaptiveTimeout) Timeout() time.Duration {
 	a.mu.Lock()
-	defer a.mu.Unlock()
-
 	if a.count < a.warmup {
+		a.mu.Unlock()
 		return a.maxTO
 	}
 
 	if !a.dirty {
-		return a.cachedTO
+		cached := a.cachedTO
+		a.mu.Unlock()
+		return cached
 	}
 
 	n := a.size
@@ -63,15 +65,27 @@ func (a *AdaptiveTimeout) Timeout() time.Duration {
 		n = a.count
 	}
 
+	// 拷贝样本到本地，释放锁后再计算
+	localSamples := make([]float64, n)
+	start := a.pos % a.size
+	if a.count < a.size {
+		copy(localSamples, a.samples[:n])
+	} else {
+		copy(localSamples[:a.size-start], a.samples[start:])
+		copy(localSamples[a.size-start:], a.samples[:start])
+	}
+	a.mu.Unlock()
+
+	// 锁外计算
 	var sum float64
-	for i := 0; i < n; i++ {
-		sum += a.samples[i]
+	for _, s := range localSamples {
+		sum += s
 	}
 	mean := sum / float64(n)
 
 	var variance float64
-	for i := 0; i < n; i++ {
-		d := a.samples[i] - mean
+	for _, s := range localSamples {
+		d := s - mean
 		variance += d * d
 	}
 	stddev := math.Sqrt(variance / float64(n))
@@ -86,7 +100,11 @@ func (a *AdaptiveTimeout) Timeout() time.Duration {
 		to = a.maxTO
 	}
 
+	// 短暂加锁更新缓存
+	a.mu.Lock()
 	a.cachedTO = to
 	a.dirty = false
+	a.mu.Unlock()
+
 	return to
 }

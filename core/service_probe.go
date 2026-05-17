@@ -607,6 +607,11 @@ func readFromConn(conn net.Conn) ([]byte, error) {
 
 	var result []byte
 
+	// 预分配 4KB，消除大部分服务 Banner 场景下的 append 扩容
+	if cap(buf) > 0 {
+		result = make([]byte, 0, 4096)
+	}
+
 	for {
 		count, err := conn.Read(buf)
 

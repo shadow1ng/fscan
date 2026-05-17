@@ -38,6 +38,28 @@ var resourceExhaustedPatterns = []string{
 	"发包受限",
 }
 
+// closedPatterns 连接已关闭的错误模式
+var closedPatterns = []string{
+	"broken pipe",
+	"connection reset",
+	"connection refused",
+	"use of closed network connection",
+	"connection was forcibly closed",
+}
+
+// proxyErrorTexts 代理错误响应文本模式
+var proxyErrorTexts = []string{
+	"connection refused",
+	"host unreachable",
+	"network unreachable",
+	"connection timed out",
+	"proxy error",
+	"gateway error",
+	"bad gateway",
+	"502",
+	"503",
+}
+
 // resultCollector 结果收集器，用于并发安全地收集扫描结果
 type resultCollector struct {
 	mu     sync.Mutex
@@ -79,6 +101,7 @@ func (c *resultCollector) GetAll() []string {
 type portScanTask struct {
 	host      string
 	port      int
+	addr      string        // 预格式化的 host:port，避免 fmt.Sprintf 热路径分配
 	semaphore chan struct{} // 完成时释放窗口槽位
 }
 
@@ -203,8 +226,7 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 			wg.Done()
 		}()
 
-		addr := fmt.Sprintf("%s:%d", taskInfo.host, taskInfo.port)
-		scanSinglePort(ctx, taskInfo.host, taskInfo.port, addr, adaptiveTO, &count, collector, failedCollector, session)
+		scanSinglePort(ctx, taskInfo.host, taskInfo.port, taskInfo.addr, adaptiveTO, &count, collector, failedCollector, session)
 		common.UpdateProgressBar(1)
 	}, state)
 	if err != nil {
@@ -283,6 +305,7 @@ func slidingWindowSchedule(iter *SocketIterator, pool *AdaptivePool, wg *sync.Wa
 		task := portScanTask{
 			host:      host,
 			port:      port,
+			addr:      net.JoinHostPort(host, fmtPort(port)),
 			semaphore: semaphore,
 		}
 		if err := pool.Invoke(task); err != nil {
@@ -293,6 +316,22 @@ func slidingWindowSchedule(iter *SocketIterator, pool *AdaptivePool, wg *sync.Wa
 
 	// 等待所有任务完成
 	wg.Wait()
+}
+
+// fmtPort 无分配的端口号格式化
+func fmtPort(port int) string {
+	if port < 0 || port > 65535 {
+		return "0"
+	}
+	// 预分配足够大的缓冲区
+	var buf [6]byte
+	i := len(buf)
+	for port > 0 || i == len(buf) {
+		i--
+		buf[i] = byte(port%10) + '0'
+		port /= 10
+	}
+	return string(buf[i:])
 }
 
 // connectWithRetry 带重试的TCP连接 - 只对资源耗尽错误重试
@@ -334,12 +373,48 @@ func isResourceExhaustedError(err error) bool {
 
 	errStr := err.Error()
 	for _, pattern := range resourceExhaustedPatterns {
-		if strings.Contains(errStr, pattern) {
+		if containsFold(errStr, pattern) {
 			return true
 		}
 	}
 
 	return false
+}
+
+// containsFold 忽略大小写的子串匹配，避免 strings.ToLower 分配
+func containsFold(s, substr string) bool {
+	if len(substr) == 0 {
+		return true
+	}
+	if len(substr) > len(s) {
+		return false
+	}
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if matchFold(s[i:i+len(substr)], substr) {
+			return true
+		}
+	}
+	return false
+}
+
+// matchFold 忽略大小写逐字节比较
+func matchFold(a, b string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := 0; i < len(a); i++ {
+		ca, cb := a[i], b[i]
+		if ca >= 'A' && ca <= 'Z' {
+			ca += 'a' - 'A'
+		}
+		if cb >= 'A' && cb <= 'Z' {
+			cb += 'a' - 'A'
+		}
+		if ca != cb {
+			return false
+		}
+	}
+	return true
 }
 
 // buildServiceLogMessage 构建服务识别的日志信息
@@ -503,9 +578,9 @@ func verifyProxyConnectionDeep(conn net.Conn, addr string) (bool, string) {
 
 	// 阶段4: 最终判断
 	if readErr != nil {
-		errLower := strings.ToLower(readErr.Error())
+		errStr := readErr.Error()
 		for _, pattern := range proxyFailurePatterns {
-			if strings.Contains(errLower, pattern) {
+			if containsFold(errStr, pattern) {
 				common.LogDebug(fmt.Sprintf("代理连接被拒绝 %s: %v", addr, readErr))
 				return false, "proxy_reject"
 			}
@@ -538,21 +613,9 @@ func isProxyErrorResponse(data []byte) bool {
 	}
 
 	// 检查常见的代理错误文本
-	dataStr := strings.ToLower(string(data))
-	proxyErrorTexts := []string{
-		"connection refused",
-		"host unreachable",
-		"network unreachable",
-		"connection timed out",
-		"proxy error",
-		"gateway error",
-		"bad gateway",
-		"502",
-		"503",
-	}
-
+	dataStr := string(data)
 	for _, errText := range proxyErrorTexts {
-		if strings.Contains(dataStr, errText) {
+		if containsFold(dataStr, errText) {
 			return true
 		}
 	}
@@ -566,17 +629,9 @@ func isConnectionClosed(err error) bool {
 		return false
 	}
 
-	errStr := strings.ToLower(err.Error())
-	closedPatterns := []string{
-		"broken pipe",
-		"connection reset",
-		"connection refused",
-		"use of closed network connection",
-		"connection was forcibly closed",
-	}
-
+	errStr := err.Error()
 	for _, pattern := range closedPatterns {
-		if strings.Contains(errStr, pattern) {
+		if containsFold(errStr, pattern) {
 			return true
 		}
 	}
