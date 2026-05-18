@@ -1,9 +1,9 @@
 result.txt
 result.json
-main
+/main
 .idea
 fscan.exe
-fscan
+/fscan
 fscanapi.csv
 
 # IDE files / IDE 文件

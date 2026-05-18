@@ -88,3 +88,13 @@ func CloseLogger() {
 		globalLogger.Close()
 	}
 }
+
+// ResetLogger clears the process-wide logger so embedded callers can rebuild it
+// after replacing runtime configuration.
+func ResetLogger() {
+	if globalLogger != nil {
+		globalLogger.Close()
+	}
+	globalLogger = nil
+	loggerOnce = sync.Once{}
+}

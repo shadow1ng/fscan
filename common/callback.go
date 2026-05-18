@@ -17,6 +17,23 @@ func SetResultCallback(cb ResultCallback) {
 	resultCallback = cb
 }
 
+// ReplaceResultCallback temporarily replaces the result callback and returns a
+// restore function. This is useful for embedded callers that need to collect
+// structured results without permanently stealing the callback from another
+// subsystem.
+func ReplaceResultCallback(cb ResultCallback) func() {
+	callbackMu.Lock()
+	previous := resultCallback
+	resultCallback = cb
+	callbackMu.Unlock()
+
+	return func() {
+		callbackMu.Lock()
+		resultCallback = previous
+		callbackMu.Unlock()
+	}
+}
+
 // NotifyResult 通知结果给回调函数
 func NotifyResult(result interface{}) {
 	callbackMu.RLock()
