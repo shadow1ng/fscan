@@ -89,9 +89,83 @@ func DefaultSafePlugins() []string {
 	return append([]string(nil), defaultSafePlugins...)
 }
 
+// ListPlugins returns metadata for all registered plugins, sorted by name.
+func ListPlugins() []PluginInfo {
+	names := plugins.All()
+	sort.Strings(names)
+
+	items := make([]PluginInfo, 0, len(names))
+	for _, name := range names {
+		if info, ok := GetPlugin(name); ok {
+			items = append(items, info)
+		}
+	}
+	return items
+}
+
+// GetPlugin returns metadata for a registered plugin.
+func GetPlugin(name string) (PluginInfo, bool) {
+	name = strings.TrimSpace(name)
+	if name == "" || !plugins.Exists(name) {
+		return PluginInfo{}, false
+	}
+	return PluginInfo{
+		Name:    name,
+		Types:   pluginTypes(name),
+		Ports:   pluginPorts(name),
+		Safe:    IsSafePlugin(name),
+		Default: isDefaultSafePlugin(name),
+	}, true
+}
+
+// ValidateConfig checks whether a config and target set can be used for an
+// embedded scan. If no targets are passed, Config.Targets is validated.
+func ValidateConfig(config Config, targets ...Target) error {
+	if len(targets) == 0 {
+		targets = config.Targets
+	}
+	return validateConfig(config, targets)
+}
+
+// IsSafePlugin reports whether a plugin may be used while AllowUnsafePlugins is
+// false. Unknown plugin names are not safe.
+func IsSafePlugin(name string) bool {
+	name = strings.TrimSpace(name)
+	if name == "" || !plugins.Exists(name) {
+		return false
+	}
+	if plugins.HasType(name, plugins.PluginTypeLocal) {
+		return false
+	}
+	if _, bad := unsafePlugins[name]; bad {
+		return false
+	}
+	return true
+}
+
 // Scan runs the scanner for the provided targets and returns structured
 // findings. If no targets are provided, Config.Targets is used.
 func (s *Scanner) Scan(ctx context.Context, targets ...Target) ([]Result, error) {
+	var (
+		mu      sync.Mutex
+		results []Result
+	)
+	err := s.ScanEach(ctx, func(result Result) error {
+		mu.Lock()
+		results = append(results, result)
+		mu.Unlock()
+		return nil
+	}, targets...)
+	return snapshotResults(&mu, results), err
+}
+
+// ScanEach runs the scanner and calls handle serially for each structured
+// result without retaining all results in memory. If handle returns an error,
+// the scan context is canceled and that error is returned.
+func (s *Scanner) ScanEach(ctx context.Context, handle ResultHandler, targets ...Target) error {
+	if handle == nil {
+		return fmt.Errorf("fscan: result handler is required")
+	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -99,8 +173,11 @@ func (s *Scanner) Scan(ctx context.Context, targets ...Target) ([]Result, error)
 		targets = s.config.Targets
 	}
 	if err := validateConfig(s.config, targets); err != nil {
-		return nil, err
+		return err
 	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	scanMu.Lock()
 	defer scanMu.Unlock()
@@ -109,31 +186,46 @@ func (s *Scanner) Scan(ctx context.Context, targets ...Target) ([]Result, error)
 	defer previous.restore()
 
 	var (
-		mu      sync.Mutex
-		results []Result
+		errMu      sync.Mutex
+		handleMu   sync.Mutex
+		handlerErr error
 	)
 
 	for _, target := range targets {
 		if err := ctx.Err(); err != nil {
-			return snapshotResults(&mu, results), err
+			if stored := getHandlerError(&errMu, &handlerErr); stored != nil {
+				return stored
+			}
+			return err
 		}
 		sink := func(raw *output.ScanResult) error {
 			if result, ok := convertOutputResult(raw); ok {
-				mu.Lock()
-				results = append(results, result)
-				mu.Unlock()
+				handleMu.Lock()
+				if err := handle(result); err != nil {
+					handleMu.Unlock()
+					setHandlerError(&errMu, &handlerErr, err)
+					cancel()
+					return err
+				}
 				if s.config.OnResult != nil {
 					s.config.OnResult(result)
 				}
+				handleMu.Unlock()
 			}
 			return nil
 		}
 		if err := s.scanOne(ctx, target, sink); err != nil {
-			return snapshotResults(&mu, results), err
+			return err
+		}
+		if stored := getHandlerError(&errMu, &handlerErr); stored != nil {
+			return stored
 		}
 	}
 
-	return snapshotResults(&mu, results), ctx.Err()
+	if stored := getHandlerError(&errMu, &handlerErr); stored != nil {
+		return stored
+	}
+	return ctx.Err()
 }
 
 func (s *Scanner) scanOne(ctx context.Context, target Target, sink common.ResultSink) error {
@@ -177,15 +269,11 @@ func validateConfig(config Config, targets []Target) error {
 	if len(targets) == 0 {
 		return fmt.Errorf("fscan: at least one target is required")
 	}
-	for _, plugin := range config.Plugins {
-		name := strings.TrimSpace(plugin)
-		if name == "" {
-			continue
-		}
+	for _, name := range normalizePlugins(config.Plugins) {
 		if !plugins.Exists(name) {
 			return fmt.Errorf("fscan: plugin %q not found", name)
 		}
-		if !config.AllowUnsafePlugins && !isSafePlugin(name) {
+		if !config.AllowUnsafePlugins && !IsSafePlugin(name) {
 			return fmt.Errorf("fscan: plugin %q is not enabled for embedded safe mode", name)
 		}
 	}
@@ -293,38 +381,14 @@ func buildFlagVars(config Config, target Target) *common.FlagVars {
 }
 
 func formatPlugins(config Config) string {
-	pluginNames := config.Plugins
-	if len(pluginNames) == 0 && !config.AllowUnsafePlugins {
-		pluginNames = defaultSafePlugins
-	}
-	if len(pluginNames) == 0 {
-		return "all"
-	}
-	parts := make([]string, 0, len(pluginNames))
-	for _, plugin := range pluginNames {
-		plugin = strings.TrimSpace(plugin)
-		if plugin != "" {
-			parts = append(parts, plugin)
-		}
-	}
+	parts := normalizePlugins(config.Plugins)
 	if len(parts) == 0 {
-		return "all"
+		if config.AllowUnsafePlugins {
+			return "all"
+		}
+		parts = defaultSafePlugins
 	}
 	return strings.Join(parts, ",")
-}
-
-func isSafePlugin(name string) bool {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return true
-	}
-	if plugins.HasType(name, plugins.PluginTypeLocal) {
-		return false
-	}
-	if _, bad := unsafePlugins[name]; bad {
-		return false
-	}
-	return true
 }
 
 func formatPorts(ports []int) string {
@@ -338,6 +402,43 @@ func formatPorts(ports []int) string {
 		parts = append(parts, strconv.Itoa(port))
 	}
 	return strings.Join(parts, ",")
+}
+
+func normalizePlugins(pluginNames []string) []string {
+	parts := make([]string, 0, len(pluginNames))
+	for _, plugin := range pluginNames {
+		plugin = strings.TrimSpace(plugin)
+		if plugin != "" {
+			parts = append(parts, plugin)
+		}
+	}
+	return parts
+}
+
+func pluginTypes(name string) []string {
+	types := make([]string, 0, 3)
+	for _, pluginType := range []string{PluginTypeService, PluginTypeWeb, PluginTypeLocal} {
+		if plugins.HasType(name, pluginType) {
+			types = append(types, pluginType)
+		}
+	}
+	return types
+}
+
+func pluginPorts(name string) []int {
+	ports := plugins.GetPluginPorts(name)
+	ports = append([]int(nil), ports...)
+	sort.Ints(ports)
+	return ports
+}
+
+func isDefaultSafePlugin(name string) bool {
+	for _, plugin := range defaultSafePlugins {
+		if plugin == name {
+			return true
+		}
+	}
+	return false
 }
 
 func secondsOrDefault(value time.Duration, fallback int) int64 {
@@ -369,6 +470,20 @@ func snapshotResults(mu *sync.Mutex, results []Result) []Result {
 	mu.Lock()
 	defer mu.Unlock()
 	return append([]Result(nil), results...)
+}
+
+func setHandlerError(mu *sync.Mutex, target *error, err error) {
+	mu.Lock()
+	defer mu.Unlock()
+	if *target == nil {
+		*target = err
+	}
+}
+
+func getHandlerError(mu *sync.Mutex, err *error) error {
+	mu.Lock()
+	defer mu.Unlock()
+	return *err
 }
 
 type runtimeSnapshot struct {

@@ -2,6 +2,7 @@ package fscan
 
 import (
 	"context"
+	"errors"
 	"net"
 	"strings"
 	"sync/atomic"
@@ -29,6 +30,14 @@ func TestBuildFlagVarsDefaults(t *testing.T) {
 	}
 }
 
+func TestBuildFlagVarsBlankPluginsUseSafeDefaults(t *testing.T) {
+	fv := buildFlagVars(Config{Plugins: []string{" ", "\t"}}, Target{Host: "127.0.0.1"})
+
+	if fv.ScanMode != formatPlugins(Config{Plugins: DefaultSafePlugins()}) {
+		t.Fatalf("ScanMode = %q, want safe defaults", fv.ScanMode)
+	}
+}
+
 func TestBuildFlagVarsTargetPortsOverride(t *testing.T) {
 	fv := buildFlagVars(Config{Ports: []int{22, 80}}, Target{Host: "127.0.0.1", Ports: []int{3306, 22}})
 
@@ -53,8 +62,54 @@ func TestValidateConfig(t *testing.T) {
 	if err := validateConfig(Config{Plugins: []string{"webpoc"}, AllowUnsafePlugins: true}, []Target{{URL: "http://127.0.0.1"}}); err != nil {
 		t.Fatalf("unsafe plugin with opt-in failed: %v", err)
 	}
+	if err := ValidateConfig(Config{Targets: []Target{{Host: "127.0.0.1"}}}); err != nil {
+		t.Fatalf("ValidateConfig with config targets failed: %v", err)
+	}
 	if err := validateConfig(Config{}, []Target{{Host: "127.0.0.1", Ports: []int{70000}}}); err == nil {
 		t.Fatal("expected invalid port error")
+	}
+}
+
+func TestIsSafePlugin(t *testing.T) {
+	if !IsSafePlugin("ssh") {
+		t.Fatal("ssh should be safe")
+	}
+	if IsSafePlugin("webpoc") {
+		t.Fatal("webpoc should not be safe")
+	}
+	if IsSafePlugin("definitely-missing") {
+		t.Fatal("unknown plugin should not be safe")
+	}
+}
+
+func TestListPlugins(t *testing.T) {
+	items := ListPlugins()
+	if len(items) == 0 {
+		t.Fatal("expected registered plugins")
+	}
+	for i := 1; i < len(items); i++ {
+		if items[i-1].Name > items[i].Name {
+			t.Fatalf("plugins not sorted: %q before %q", items[i-1].Name, items[i].Name)
+		}
+	}
+	ssh, ok := GetPlugin("ssh")
+	if !ok {
+		t.Fatal("missing ssh plugin")
+	}
+	if ssh.Name != "ssh" {
+		t.Fatalf("plugin name = %q, want ssh", ssh.Name)
+	}
+	if !ssh.Safe || !ssh.Default {
+		t.Fatalf("ssh safe/default = %v/%v, want true/true", ssh.Safe, ssh.Default)
+	}
+	if !containsString(ssh.Types, PluginTypeService) {
+		t.Fatalf("ssh types = %#v, want service", ssh.Types)
+	}
+	if !containsInt(ssh.Ports, 22) {
+		t.Fatalf("ssh ports = %#v, want 22", ssh.Ports)
+	}
+	if _, ok := GetPlugin("definitely-missing"); ok {
+		t.Fatal("unknown plugin should not exist")
 	}
 }
 
@@ -76,27 +131,8 @@ func TestScanHonorsCanceledContext(t *testing.T) {
 }
 
 func TestScanCollectsResultsThroughSessionSink(t *testing.T) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
+	listener := startFTPListener(t)
 	defer listener.Close()
-
-	go func() {
-		for {
-			conn, err := listener.Accept()
-			if err != nil {
-				return
-			}
-			go func(conn net.Conn) {
-				defer conn.Close()
-				_ = conn.SetDeadline(time.Now().Add(2 * time.Second))
-				_, _ = conn.Write([]byte("220 test FTP\r\n"))
-				buf := make([]byte, 64)
-				_, _ = conn.Read(buf)
-			}(conn)
-		}
-	}()
 
 	var callbackCalls int32
 	common.SetResultCallback(func(interface{}) {
@@ -130,15 +166,123 @@ func TestScanCollectsResultsThroughSessionSink(t *testing.T) {
 	if got := atomic.LoadInt32(&streamed); got != int32(len(results)) {
 		t.Fatalf("streamed length = %d, want %d", got, len(results))
 	}
-	if !hasResult(results, "PORT", "open", "") {
+	if !hasResult(results, ResultTypePort, "open", "") {
 		t.Fatalf("missing port result: %#v", results)
 	}
-	if !hasResult(results, "SERVICE", "FTP", "ftp") {
+	if !hasResult(results, ResultTypeService, "FTP", "ftp") {
 		t.Fatalf("missing ftp plugin result: %#v", results)
 	}
 	if got := atomic.LoadInt32(&callbackCalls); got != 0 {
 		t.Fatalf("global callback calls = %d, want 0", got)
 	}
+}
+
+func TestScanEachStreamsResults(t *testing.T) {
+	listener := startFTPListener(t)
+	defer listener.Close()
+
+	scanner := NewScanner(Config{
+		DisablePing:  true,
+		DisableBrute: true,
+		Timeout:      time.Second,
+		Threads:      16,
+		Plugins:      []string{"ftp"},
+	})
+
+	var results []Result
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	port := listener.Addr().(*net.TCPAddr).Port
+	err := scanner.ScanEach(ctx, func(result Result) error {
+		results = append(results, result)
+		return nil
+	}, Target{Host: "127.0.0.1", Ports: []int{port}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasResult(results, ResultTypePort, "open", "") {
+		t.Fatalf("missing port result: %#v", results)
+	}
+	if !hasResult(results, ResultTypeService, "FTP", "ftp") {
+		t.Fatalf("missing ftp plugin result: %#v", results)
+	}
+}
+
+func TestScanEachReturnsHandlerError(t *testing.T) {
+	listener := startFTPListener(t)
+	defer listener.Close()
+
+	scanner := NewScanner(Config{
+		DisablePing:  true,
+		DisableBrute: true,
+		Timeout:      time.Second,
+		Threads:      16,
+		Plugins:      []string{"ftp"},
+	})
+
+	stopErr := errors.New("stop scan")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	port := listener.Addr().(*net.TCPAddr).Port
+	err := scanner.ScanEach(ctx, func(Result) error {
+		return stopErr
+	}, Target{Host: "127.0.0.1", Ports: []int{port}})
+	if !errors.Is(err, stopErr) {
+		t.Fatalf("ScanEach error = %v, want %v", err, stopErr)
+	}
+}
+
+func TestScanEachRequiresHandler(t *testing.T) {
+	scanner := NewScanner(Config{Targets: []Target{{Host: "127.0.0.1"}}})
+
+	if err := scanner.ScanEach(context.Background(), nil); err == nil {
+		t.Fatal("expected missing handler error")
+	}
+}
+
+func startFTPListener(t *testing.T) net.Listener {
+	t.Helper()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			go func(conn net.Conn) {
+				defer conn.Close()
+				_ = conn.SetDeadline(time.Now().Add(2 * time.Second))
+				_, _ = conn.Write([]byte("220 test FTP\r\n"))
+				buf := make([]byte, 64)
+				_, _ = conn.Read(buf)
+			}(conn)
+		}
+	}()
+	return listener
+}
+
+func containsString(items []string, value string) bool {
+	for _, item := range items {
+		if item == value {
+			return true
+		}
+	}
+	return false
+}
+
+func containsInt(items []int, value int) bool {
+	for _, item := range items {
+		if item == value {
+			return true
+		}
+	}
+	return false
 }
 
 func hasResult(results []Result, resultType, statusText, plugin string) bool {
