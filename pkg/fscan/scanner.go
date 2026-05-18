@@ -197,7 +197,9 @@ func (s *Scanner) scanOne(ctx context.Context, target Target, sink common.Result
 	fv := buildFlagVars(s.config, target)
 	info := common.HostInfo{Host: strings.TrimSpace(target.Host), URL: strings.TrimSpace(target.URL)}
 
+	previousLanguage := i18n.GetLanguage()
 	i18n.SetLanguage(fv.Language)
+	defer i18n.SetLanguage(previousLanguage)
 
 	cfg, state, err := common.BuildConfig(fv, &info)
 	if err != nil {

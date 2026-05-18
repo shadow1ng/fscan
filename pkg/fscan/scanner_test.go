@@ -12,6 +12,7 @@ import (
 
 	"github.com/shadow1ng/fscan/common"
 	commonconfig "github.com/shadow1ng/fscan/common/config"
+	"github.com/shadow1ng/fscan/common/i18n"
 )
 
 func TestBuildFlagVarsDefaults(t *testing.T) {
@@ -220,6 +221,64 @@ func TestScanEachStreamsResults(t *testing.T) {
 	}
 }
 
+func TestScanUsesConfigTargets(t *testing.T) {
+	listener := startFTPListener(t)
+	defer listener.Close()
+
+	port := listener.Addr().(*net.TCPAddr).Port
+	scanner := NewScanner(Config{
+		Targets:      []Target{{Host: "127.0.0.1", Ports: []int{port}}},
+		DisablePing:  true,
+		DisableBrute: true,
+		Timeout:      time.Second,
+		Threads:      16,
+		Plugins:      []string{"ftp"},
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	results, err := scanner.Scan(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasPortResult(results, port) {
+		t.Fatalf("missing configured target port result: %#v", results)
+	}
+}
+
+func TestScanExplicitTargetsOverrideConfigTargets(t *testing.T) {
+	configured := startFTPListener(t)
+	defer configured.Close()
+	explicit := startFTPListener(t)
+	defer explicit.Close()
+
+	configuredPort := configured.Addr().(*net.TCPAddr).Port
+	explicitPort := explicit.Addr().(*net.TCPAddr).Port
+	scanner := NewScanner(Config{
+		Targets:      []Target{{Host: "127.0.0.1", Ports: []int{configuredPort}}},
+		DisablePing:  true,
+		DisableBrute: true,
+		Timeout:      time.Second,
+		Threads:      16,
+		Plugins:      []string{"ftp"},
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	results, err := scanner.Scan(ctx, Target{Host: "127.0.0.1", Ports: []int{explicitPort}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasPortResult(results, explicitPort) {
+		t.Fatalf("missing explicit target port result: %#v", results)
+	}
+	if hasPortResult(results, configuredPort) {
+		t.Fatalf("configured target should not run when explicit targets are passed: %#v", results)
+	}
+}
+
 func TestScanEachReturnsHandlerError(t *testing.T) {
 	listener := startFTPListener(t)
 	defer listener.Close()
@@ -340,10 +399,12 @@ func TestScanDoesNotReplaceGlobalRuntime(t *testing.T) {
 	previousConfig := common.GetGlobalConfig()
 	previousState := common.GetGlobalState()
 	previousFlags := *common.GetFlagVars()
+	previousLanguage := i18n.GetLanguage()
 	defer func() {
 		common.SetGlobalConfig(previousConfig)
 		common.SetGlobalState(previousState)
 		*common.GetFlagVars() = previousFlags
+		i18n.SetLanguage(previousLanguage)
 	}()
 
 	sentinelConfig := common.NewConfig()
@@ -351,6 +412,7 @@ func TestScanDoesNotReplaceGlobalRuntime(t *testing.T) {
 	common.SetGlobalConfig(sentinelConfig)
 	common.SetGlobalState(sentinelState)
 	common.GetFlagVars().LogLevel = "sentinel"
+	i18n.SetLanguage(i18n.LangEN)
 
 	scanner := NewScanner(Config{
 		DisablePing:  true,
@@ -358,6 +420,7 @@ func TestScanDoesNotReplaceGlobalRuntime(t *testing.T) {
 		Timeout:      time.Second,
 		Threads:      16,
 		Plugins:      []string{"ftp"},
+		Language:     i18n.LangZH,
 	})
 	port := listener.Addr().(*net.TCPAddr).Port
 	if _, err := scanner.Scan(context.Background(), Target{Host: "127.0.0.1", Ports: []int{port}}); err != nil {
@@ -372,6 +435,9 @@ func TestScanDoesNotReplaceGlobalRuntime(t *testing.T) {
 	}
 	if common.GetFlagVars().LogLevel != "sentinel" {
 		t.Fatal("SDK scan replaced global flags")
+	}
+	if got := i18n.GetLanguage(); got != i18n.LangEN {
+		t.Fatalf("SDK scan leaked global language = %q, want %q", got, i18n.LangEN)
 	}
 }
 
@@ -427,6 +493,18 @@ func hasResult(results []Result, resultType, statusText, plugin string) bool {
 			return true
 		}
 		if result.Details != nil && result.Details["plugin"] == plugin {
+			return true
+		}
+	}
+	return false
+}
+
+func hasPortResult(results []Result, port int) bool {
+	for _, result := range results {
+		if !result.IsPort() {
+			continue
+		}
+		if got, ok := result.Port(); ok && got == port {
 			return true
 		}
 	}
