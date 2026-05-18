@@ -3,7 +3,6 @@ module github.com/shadow1ng/fscan
 go 1.20
 
 require (
-	github.com/denisenkom/go-mssqldb v0.12.3
 	github.com/fatih/color v1.18.0
 	github.com/go-ldap/ldap/v3 v3.4.9
 	github.com/go-sql-driver/mysql v1.8.1
@@ -41,8 +40,6 @@ require (
 	github.com/antlr/antlr4/runtime/Go/antlr v1.4.10 // indirect
 	github.com/geoffgarside/ber v1.1.0 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.7 // indirect
-	github.com/golang-sql/civil v0.0.0-20190719163853-cb61b32ac6fe // indirect
-	github.com/golang-sql/sqlexp v0.1.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
