@@ -51,6 +51,13 @@ func SetLanguage(l string) {
 	localizer = i18n.NewLocalizer(bundle, lang, FallbackLanguage)
 }
 
+// GetLanguage returns the currently configured language.
+func GetLanguage() string {
+	mu.RLock()
+	defer mu.RUnlock()
+	return lang
+}
+
 // GetText 获取国际化文本（无参数）
 func GetText(key string) string {
 	mu.RLock()

@@ -16,29 +16,6 @@ import (
 	gmtls "github.com/tjfoc/gmsm/gmtls"
 )
 
-// ===============================
-// Web服务检测
-// ===============================
-
-// 全局共享 HTTP Client，复用连接池减少 TLS 握手和 TCP 建连开销
-var (
-	sharedHTTPClientOnce sync.Once
-	sharedHTTPClient     *http.Client
-)
-
-func getSharedHTTPClient(config *common.Config) *http.Client {
-	sharedHTTPClientOnce.Do(func() {
-		sharedHTTPClient = createHTTPClient(config)
-		// 启用 keep-alive 复用连接
-		if t, ok := sharedHTTPClient.Transport.(*http.Transport); ok {
-			t.DisableKeepAlives = false
-			t.MaxIdleConns = 100
-			t.MaxIdleConnsPerHost = 2
-		}
-	})
-	return sharedHTTPClient
-}
-
 // WebPortDetector 简化的Web检测器 - 保持API兼容
 type WebPortDetector struct{}
 
@@ -91,7 +68,7 @@ func DetectHTTPScheme(host string, port int, config *common.Config, session *com
 	}
 
 	// TLS和GM TLS都失败，尝试HTTP
-	client := getSharedHTTPClient(config)
+	client := createHTTPClient(config, session)
 
 	// 使用HEAD请求（更轻量）
 	httpURL := fmt.Sprintf("http://%s", addr)
@@ -106,7 +83,7 @@ func DetectHTTPScheme(host string, port int, config *common.Config, session *com
 }
 
 // createHTTPClient 创建统一的HTTP客户端 - 支持HTTP/HTTPS和代理
-func createHTTPClient(config *common.Config) *http.Client {
+func createHTTPClient(config *common.Config, session *common.ScanSession) *http.Client {
 	timeout := config.Network.WebTimeout
 
 	// 创建基础Transport，配置连接和 TLS 超时
@@ -128,14 +105,14 @@ func createHTTPClient(config *common.Config) *http.Client {
 		if proxyURL, err := url.Parse(networkConfig.HTTPProxy); err == nil {
 			transport.Proxy = http.ProxyURL(proxyURL)
 		} else {
-			common.LogError(i18n.Tr("http_proxy_config_error", err))
+			session.LogError(i18n.Tr("http_proxy_config_error", err))
 		}
 	} else if networkConfig.Socks5Proxy != "" {
 		// 使用SOCKS5代理 - 需要特殊处理
 		if _, err := url.Parse(networkConfig.Socks5Proxy); err == nil {
 			// SOCKS5代理需要使用代理管理器
 			// 这里先记录警告，建议使用HTTP代理进行Web检测
-			common.LogError(i18n.GetText("socks5_not_supported_web"))
+			session.LogError(i18n.GetText("socks5_not_supported_web"))
 		}
 	}
 
@@ -156,15 +133,15 @@ func (w *WebPortDetector) DetectHTTPServiceOnly(host string, port int, config *c
 		return false
 	}
 
-	client := getSharedHTTPClient(config)
+	client := createHTTPClient(config, session)
 
 	// 尝试HTTP
-	if w.tryHTTP(client, host, port, "http") {
+	if w.tryHTTP(client, session, host, port, "http") {
 		return true
 	}
 
 	// 尝试HTTPS
-	if w.tryHTTP(client, host, port, "https") {
+	if w.tryHTTP(client, session, host, port, "https") {
 		return true
 	}
 
@@ -186,7 +163,7 @@ func isPortReachable(host string, port int, config *common.Config, session *comm
 }
 
 // tryHTTP 尝试HTTP请求 - 简化的核心逻辑
-func (w *WebPortDetector) tryHTTP(client *http.Client, host string, port int, protocol string) bool {
+func (w *WebPortDetector) tryHTTP(client *http.Client, session *common.ScanSession, host string, port int, protocol string) bool {
 	// 构造URL
 	var url string
 	if (port == 80 && protocol == "http") || (port == 443 && protocol == "https") {
@@ -204,8 +181,7 @@ func (w *WebPortDetector) tryHTTP(client *http.Client, host string, port int, pr
 	req.Header.Set("User-Agent", "fscan-web-detector/2.1")
 	req.Header.Set("Accept", "*/*")
 
-	// 使用统一的SafeHTTPDo以确保遵循限速策略和代理设置
-	resp, err := common.SafeHTTPDo(client, req)
+	resp, err := session.HTTPDo(client, req)
 	if err != nil {
 		return false
 	}
@@ -330,19 +306,19 @@ func (s *WebScanStrategy) Description() string {
 // Execute 执行Web扫描策略
 func (s *WebScanStrategy) Execute(ctx context.Context, session *common.ScanSession, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
 	// 输出扫描开始信息
-	s.LogScanStart()
+	s.LogScanStart(session)
 
 	// 验证插件配置
 	if err := s.ValidateConfiguration(); err != nil {
-		common.LogError(err.Error())
+		session.LogError(err.Error())
 		return
 	}
 
 	// 准备URL目标
-	targets := s.PrepareTargets(info, session.State)
+	targets := s.prepareTargets(info, session.State, session)
 
 	// 输出插件信息
-	s.LogPluginInfo(session.Config)
+	s.LogPluginInfo(session.Config, session)
 
 	// 执行扫描任务
 	ExecuteScanTasks(ctx, session, targets, s, ch, wg)
@@ -350,12 +326,16 @@ func (s *WebScanStrategy) Execute(ctx context.Context, session *common.ScanSessi
 
 // PrepareTargets 准备URL目标列表
 func (s *WebScanStrategy) PrepareTargets(baseInfo common.HostInfo, state *common.State) []common.HostInfo {
+	return s.prepareTargets(baseInfo, state, nil)
+}
+
+func (s *WebScanStrategy) prepareTargets(baseInfo common.HostInfo, state *common.State, session *common.ScanSession) []common.HostInfo {
 	var targetInfos []common.HostInfo
 
 	// 首先从State获取URL目标
 	urls := state.GetURLs()
 	for _, urlStr := range urls {
-		urlInfo := s.createTargetFromURL(baseInfo, urlStr)
+		urlInfo := s.createTargetFromURLWithSession(baseInfo, urlStr, session)
 		if urlInfo != nil {
 			targetInfos = append(targetInfos, *urlInfo)
 		}
@@ -363,7 +343,7 @@ func (s *WebScanStrategy) PrepareTargets(baseInfo common.HostInfo, state *common
 
 	// 如果URLs为空但baseInfo.Url有值，使用baseInfo.URL
 	if len(targetInfos) == 0 && baseInfo.URL != "" {
-		urlInfo := s.createTargetFromURL(baseInfo, baseInfo.URL)
+		urlInfo := s.createTargetFromURLWithSession(baseInfo, baseInfo.URL, session)
 		if urlInfo != nil {
 			targetInfos = append(targetInfos, *urlInfo)
 		}
@@ -374,6 +354,10 @@ func (s *WebScanStrategy) PrepareTargets(baseInfo common.HostInfo, state *common
 
 // createTargetFromURL 从URL创建目标信息
 func (s *WebScanStrategy) createTargetFromURL(baseInfo common.HostInfo, urlStr string) *common.HostInfo {
+	return s.createTargetFromURLWithSession(baseInfo, urlStr, nil)
+}
+
+func (s *WebScanStrategy) createTargetFromURLWithSession(baseInfo common.HostInfo, urlStr string, session *common.ScanSession) *common.HostInfo {
 	// 确保URL包含协议头
 	if !strings.HasPrefix(urlStr, "http://") && !strings.HasPrefix(urlStr, "https://") {
 		urlStr = "http://" + urlStr
@@ -382,7 +366,7 @@ func (s *WebScanStrategy) createTargetFromURL(baseInfo common.HostInfo, urlStr s
 	// 解析URL获取Host和Port信息
 	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
-		common.LogError(i18n.Tr("url_parse_failed", urlStr, err))
+		session.LogError(i18n.Tr("url_parse_failed", urlStr, err))
 		return nil
 	}
 

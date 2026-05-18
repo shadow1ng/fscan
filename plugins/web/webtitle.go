@@ -243,7 +243,7 @@ func (p *WebTitlePlugin) formatHeaders(headers http.Header) string {
 	var builder strings.Builder
 	for name, values := range headers {
 		for _, value := range values {
-			builder.WriteString(fmt.Sprintf("%s: %s\n", name, value))
+			fmt.Fprintf(&builder, "%s: %s\n", name, value)
 		}
 	}
 	return builder.String()

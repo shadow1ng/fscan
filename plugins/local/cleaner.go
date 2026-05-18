@@ -58,7 +58,7 @@ func (p *CleanerPlugin) cleanFiles(output *strings.Builder, dir string, names []
 	for _, name := range names {
 		path := filepath.Join(dir, name)
 		if err := os.Remove(path); err == nil {
-			output.WriteString(fmt.Sprintf("[清理] %s\n", path))
+			fmt.Fprintf(output, "[清理] %s\n", path)
 			cleaned++
 		}
 	}
@@ -70,7 +70,7 @@ func (p *CleanerPlugin) cleanGlob(output *strings.Builder, dir, pattern string) 
 	cleaned := 0
 	for _, f := range matches {
 		if err := os.Remove(f); err == nil {
-			output.WriteString(fmt.Sprintf("[清理] %s\n", f))
+			fmt.Fprintf(output, "[清理] %s\n", f)
 			cleaned++
 		}
 	}
@@ -87,7 +87,7 @@ func (p *CleanerPlugin) cleanUnix(output *strings.Builder) int {
 	}
 	for _, hf := range histFiles {
 		if p.scrubHistory(hf) {
-			output.WriteString(fmt.Sprintf("[清理] %s 中的 fscan 记录\n", hf))
+			fmt.Fprintf(output, "[清理] %s 中的 fscan 记录\n", hf)
 			cleaned++
 		}
 	}

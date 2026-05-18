@@ -341,8 +341,13 @@ func (s *oracleSession) putString(v string) {
 func (s *oracleSession) putInt(v interface{}, size uint8, bigEndian, compress bool) {
 	num := toInt64(v)
 	if compress {
+		neg := num < 0
+		encoded := uint64(num)
+		if neg {
+			encoded = uint64(-(num + 1)) + 1
+		}
 		temp := make([]byte, 8)
-		binary.BigEndian.PutUint64(temp, uint64(num))
+		binary.BigEndian.PutUint64(temp, encoded)
 		temp = bytes.TrimLeft(temp, "\x00")
 		if size > uint8(len(temp)) {
 			size = uint8(len(temp))
@@ -351,8 +356,7 @@ func (s *oracleSession) putInt(v interface{}, size uint8, bigEndian, compress bo
 			s.out.WriteByte(0)
 			return
 		}
-		if num < 0 {
-			num = -num
+		if neg {
 			size |= 0x80
 		}
 		s.out.WriteByte(size)

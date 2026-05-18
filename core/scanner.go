@@ -87,7 +87,7 @@ func RunScan(ctx context.Context, info common.HostInfo, session *common.ScanSess
 
 	// 初始化HTTP客户端（静默，无需日志）
 	if err := lib.Inithttp(config); err != nil {
-		common.LogError(i18n.Tr("http_client_init_failed", err))
+		session.LogError(i18n.Tr("http_client_init_failed", err))
 		return
 	}
 
@@ -107,22 +107,22 @@ func RunScan(ctx context.Context, info common.HostInfo, session *common.ScanSess
 	// 检查是否有活跃的连接需要维持
 	if state.IsReverseShellActive() || state.IsSocks5ProxyActive() || state.IsForwardShellActive() {
 		if state.IsReverseShellActive() {
-			common.LogInfo(i18n.GetText("active_reverse_shell"))
+			session.LogInfo(i18n.GetText("active_reverse_shell"))
 		}
 		if state.IsSocks5ProxyActive() {
-			common.LogInfo(i18n.GetText("active_socks5_proxy"))
+			session.LogInfo(i18n.GetText("active_socks5_proxy"))
 		}
 		if state.IsForwardShellActive() {
-			common.LogInfo(i18n.GetText("active_forward_shell"))
+			session.LogInfo(i18n.GetText("active_forward_shell"))
 		}
-		common.LogInfo(i18n.GetText("press_ctrl_c_exit"))
+		session.LogInfo(i18n.GetText("press_ctrl_c_exit"))
 
 		// 优雅等待信号或 context 取消（Web Stop）
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 		select {
 		case <-sigChan:
-			common.LogInfo(i18n.GetText("received_exit_signal"))
+			session.LogInfo(i18n.GetText("received_exit_signal"))
 		case <-ctx.Done():
 		}
 		cancel()
@@ -130,18 +130,21 @@ func RunScan(ctx context.Context, info common.HostInfo, session *common.ScanSess
 	}
 
 	// 完成扫描
-	finishScan(config, state)
+	finishScan(session)
 }
 
 // finishScan 完成扫描并输出结果
-func finishScan(config *common.Config, state *common.State) {
+func finishScan(session *common.ScanSession) {
+	config := session.Config
+	state := session.State
+
 	// 确保进度条正确完成
 	if common.IsProgressActive() {
 		common.FinishProgressBar()
 	}
 
 	// 输出扫描完成信息
-	common.LogInfo(i18n.Tr("scan_task_complete", time.Since(state.GetStartTime()).Round(time.Millisecond), state.GetNum()))
+	session.LogInfo(i18n.Tr("scan_task_complete", time.Since(state.GetStartTime()).Round(time.Millisecond), state.GetNum()))
 
 	// 输出性能统计 JSON（如果启用）
 	if config.Output.PerfStats {
@@ -262,7 +265,7 @@ func executeScanTask(ctx context.Context, session *common.ScanSession, pluginNam
 		defer func() {
 			// 捕获并记录任何可能的panic
 			if r := recover(); r != nil {
-				common.LogError(i18n.Tr("plugin_panic", pluginName, target.Host, target.Port, r))
+				session.LogError(i18n.Tr("plugin_panic", pluginName, target.Host, target.Port, r))
 			}
 
 			// 更新统计和进度（任务真正完成时才更新）
@@ -281,13 +284,13 @@ func executeScanTask(ctx context.Context, session *common.ScanSession, pluginNam
 			if result != nil {
 				if result.Success {
 					// 保存成功的扫描结果到文件
-					savePluginResult(&target, pluginName, result)
+					savePluginResult(session, &target, pluginName, result)
 				} else if result.Type == plugins.ResultTypeCredential {
 					// 凭据测试完成但未发现弱密码，在error级别输出提示
-					common.LogError(i18n.Tr("brute_no_weak_pass", target.Host, target.Port, pluginName))
+					session.LogError(i18n.Tr("brute_no_weak_pass", target.Host, target.Port, pluginName))
 				} else if result.Error != nil {
 					// 其他类型的错误
-					common.LogError(i18n.Tr("plugin_scan_error", target.Host, target.Port, result.Error))
+					session.LogError(i18n.Tr("plugin_scan_error", target.Host, target.Port, result.Error))
 				}
 			}
 		}
@@ -382,7 +385,7 @@ var defaultSerializer = resultSerializer{
 }
 
 // savePluginResult 保存插件扫描结果
-func savePluginResult(info *common.HostInfo, pluginName string, result *plugins.Result) {
+func savePluginResult(session *common.ScanSession, info *common.HostInfo, pluginName string, result *plugins.Result) {
 	if result == nil || !result.Success || result.Skipped {
 		return
 	}
@@ -402,7 +405,7 @@ func savePluginResult(info *common.HostInfo, pluginName string, result *plugins.
 
 	// 保存结果
 	target := info.Target()
-	_ = common.SaveResult(&output.ScanResult{
+	_ = session.SaveResult(&output.ScanResult{
 		Time:    time.Now(),
 		Type:    serializer.outputType,
 		Target:  target,

@@ -25,27 +25,27 @@ func NewServiceScanStrategy() *ServiceScanStrategy {
 }
 
 // LogPluginInfo 重写以提供基于端口的插件过滤
-func (s *ServiceScanStrategy) LogPluginInfo(config *common.Config) {
+func (s *ServiceScanStrategy) LogPluginInfo(config *common.Config, session *common.ScanSession) {
 	// 需要从命令行参数获取端口信息来进行过滤
 	// 如果没有指定端口，使用默认端口进行过滤显示
 	ports := config.Target.Ports
 	if ports == "" || ports == "all" {
 		// 默认端口扫描：显示所有插件
-		s.BaseScanStrategy.LogPluginInfo(config)
+		s.BaseScanStrategy.LogPluginInfo(config, session)
 	} else {
 		// 指定端口扫描：只显示匹配的插件
-		s.showPluginsForSpecifiedPorts(config)
+		s.showPluginsForSpecifiedPorts(config, session)
 	}
 }
 
 // showPluginsForSpecifiedPorts 显示指定端口的匹配插件
-func (s *ServiceScanStrategy) showPluginsForSpecifiedPorts(config *common.Config) {
+func (s *ServiceScanStrategy) showPluginsForSpecifiedPorts(config *common.Config, session *common.ScanSession) {
 	allPlugins, isCustomMode := s.GetPlugins(config)
 
 	// 解析端口
 	ports := s.parsePortList(config.Target.Ports)
 	if len(ports) == 0 {
-		s.BaseScanStrategy.LogPluginInfo(config)
+		s.BaseScanStrategy.LogPluginInfo(config, session)
 		return
 	}
 
@@ -71,12 +71,12 @@ func (s *ServiceScanStrategy) showPluginsForSpecifiedPorts(config *common.Config
 	if len(applicablePlugins) > 0 {
 		pluginStr := formatPluginList(applicablePlugins)
 		if isCustomMode {
-			common.LogInfo(i18n.Tr("service_plugin_custom", pluginStr))
+			session.LogInfo(i18n.Tr("service_plugin_custom", pluginStr))
 		} else {
-			common.LogInfo(i18n.Tr("service_plugin_info", pluginStr))
+			session.LogInfo(i18n.Tr("service_plugin_info", pluginStr))
 		}
 	} else {
-		common.LogInfo(i18n.GetText("service_plugin_none"))
+		session.LogInfo(i18n.GetText("service_plugin_none"))
 	}
 }
 
@@ -118,21 +118,21 @@ func (s *ServiceScanStrategy) Execute(ctx context.Context, session *common.ScanS
 
 	// 验证扫描目标（需要同时检查 -h 和 -hf 参数）
 	if info.Host == "" && session.Params.HostsFile == "" {
-		common.LogError(i18n.GetText("parse_error_target_empty"))
+		session.LogError(i18n.GetText("parse_error_target_empty"))
 		return
 	}
 
 	// 输出扫描开始信息
-	s.LogScanStart()
+	s.LogScanStart(session)
 
 	// 验证插件配置
 	if err := s.ValidateConfiguration(); err != nil {
-		common.LogError(err.Error())
+		session.LogError(err.Error())
 		return
 	}
 
 	// 输出插件信息（重写以提供端口过滤）
-	s.LogPluginInfo(config)
+	s.LogPluginInfo(config, session)
 
 	// 执行主机扫描流程
 	s.performHostScan(ctx, session, info, ch, wg)
@@ -147,14 +147,14 @@ func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *comm
 	// 解析目标主机
 	hosts, err := parsers.ParseIP(info.Host, session.Params.HostsFile, session.Params.ExcludeHosts)
 	if err != nil {
-		common.LogError(fmt.Sprintf("%s: %v", i18n.GetText("parse_target_failed"), err))
+		session.LogError(fmt.Sprintf("%s: %v", i18n.GetText("parse_target_failed"), err))
 		return
 	}
 
 	// 主机存活检测
 	if s.shouldPerformLivenessCheck(hosts, config) {
 		hosts = CheckLive(ctx, hosts, false, session)
-		common.LogInfo(i18n.Tr("alive_hosts_count_info", len(hosts)))
+		session.LogInfo(i18n.Tr("alive_hosts_count_info", len(hosts)))
 	}
 
 	if len(hosts) == 0 && len(state.GetHostPorts()) == 0 {
@@ -218,7 +218,7 @@ func (s *ServiceScanStrategy) PrepareTargets(info common.HostInfo, session *comm
 	// 发现目标主机和端口
 	targetInfos, err := s.discoverTargets(context.Background(), info.Host, info, session)
 	if err != nil {
-		common.LogError(err.Error())
+		session.LogError(err.Error())
 		return nil
 	}
 	return targetInfos
@@ -291,7 +291,7 @@ func (s *ServiceScanStrategy) discoverTargets(ctx context.Context, hostInput str
 		// 主机存活检测
 		if s.shouldPerformLivenessCheck(hosts, config) {
 			hosts = CheckLive(ctx, hosts, false, session)
-			common.LogInfo(i18n.Tr("alive_hosts_count_info", len(hosts)))
+			session.LogInfo(i18n.Tr("alive_hosts_count_info", len(hosts)))
 		}
 
 		// 端口扫描
@@ -325,7 +325,7 @@ func (s *ServiceScanStrategy) discoverAlivePorts(ctx context.Context, hosts []st
 	hostPorts := state.GetHostPorts()
 	if len(hostPorts) > 0 {
 		alivePorts = mergeHostPorts(alivePorts, hostPorts)
-		common.LogInfo(i18n.Tr("alive_ports_count", len(alivePorts)))
+		session.LogInfo(i18n.Tr("alive_ports_count", len(alivePorts)))
 		state.ClearHostPorts()
 	}
 
@@ -390,4 +390,3 @@ func (s *ServiceScanStrategy) convertToTargetInfos(ports []string, baseInfo comm
 
 	return infos
 }
-

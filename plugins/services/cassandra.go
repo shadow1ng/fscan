@@ -169,9 +169,10 @@ var cqlStreamID int16
 
 func cqlSend(conn net.Conn, opcode byte, body []byte) error {
 	id := cqlStreamID
-	cqlStreamID++
-	if cqlStreamID > 32767 {
+	if cqlStreamID == 32767 {
 		cqlStreamID = 0
+	} else {
+		cqlStreamID++
 	}
 
 	// frame: [1B version|flags] [2B stream] [1B opcode] [4B length] [body]

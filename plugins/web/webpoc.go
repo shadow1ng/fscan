@@ -130,7 +130,7 @@ func matchCDNorWAF(fingerprints []string) string {
 
 // init 自动注册插件
 func init() {
-	RegisterWebPlugin("webpoc", func() WebPlugin {
+	RegisterUnsafeWebPlugin("webpoc", func() WebPlugin {
 		return NewWebPocPlugin()
 	})
 }
