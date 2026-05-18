@@ -192,6 +192,75 @@ func (r Result) IsWeb() bool {
 	return false
 }
 
+// AsPort returns a typed port result when the result describes an open port.
+func (r Result) AsPort() (PortResult, bool) {
+	if !r.IsPort() {
+		return PortResult{}, false
+	}
+	port, ok := r.Port()
+	if !ok {
+		return PortResult{}, false
+	}
+	return PortResult{Target: r.Target, Port: port}, true
+}
+
+// AsService returns a typed service result when service-like fields are present.
+func (r Result) AsService() (ServiceResult, bool) {
+	if !r.IsService() {
+		return ServiceResult{}, false
+	}
+	service := ServiceResult{
+		Target: r.Target,
+		IsWeb:  r.IsWeb(),
+	}
+	if port, ok := r.Port(); ok {
+		service.Port = port
+	}
+	service.Service, _ = r.Service()
+	service.Banner, _ = r.Banner()
+	service.Product, _ = r.DetailString("product")
+	service.Version, _ = r.DetailString("version")
+	service.Protocol, _ = r.Protocol()
+	service.URL, _ = r.URL()
+	return service, service.Service != "" || service.Banner != "" || service.URL != "" || service.Port != 0
+}
+
+// AsCredential returns a typed credential result when the result is a weak credential.
+func (r Result) AsCredential() (CredentialResult, bool) {
+	if !r.IsCredential() {
+		return CredentialResult{}, false
+	}
+	username, userOK := r.Username()
+	password, passOK := r.Password()
+	if !userOK && !passOK {
+		return CredentialResult{}, false
+	}
+	service, _ := r.Service()
+	return CredentialResult{
+		Target:   r.Target,
+		Service:  service,
+		Username: username,
+		Password: password,
+	}, true
+}
+
+// AsVulnerability returns a typed vulnerability result when vulnerability data is present.
+func (r Result) AsVulnerability() (VulnerabilityResult, bool) {
+	if !r.IsVuln() || r.IsCredential() {
+		return VulnerabilityResult{}, false
+	}
+	vulnerability, ok := r.Vulnerability()
+	if !ok || vulnerability == "" {
+		return VulnerabilityResult{}, false
+	}
+	service, _ := r.Service()
+	return VulnerabilityResult{
+		Target:        r.Target,
+		Service:       service,
+		Vulnerability: vulnerability,
+	}, true
+}
+
 func intFromInt64(v int64) (int, bool) {
 	max := int64(^uint(0) >> 1)
 	min := -max - 1

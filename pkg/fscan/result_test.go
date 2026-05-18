@@ -59,9 +59,11 @@ func TestResultPortDoesNotParseBareIPv6(t *testing.T) {
 
 func TestResultCredentialHelpers(t *testing.T) {
 	result := Result{
-		Type: ResultTypeVuln,
+		Type:   ResultTypeVuln,
+		Target: "127.0.0.1:22",
 		Details: map[string]interface{}{
 			"type":     "weak_credential",
+			"service":  "ssh",
 			"username": "root",
 			"password": "toor",
 		},
@@ -78,6 +80,61 @@ func TestResultCredentialHelpers(t *testing.T) {
 	}
 	if password, ok := result.Password(); !ok || password != "toor" {
 		t.Fatalf("Password = %q/%v, want toor/true", password, ok)
+	}
+}
+
+func TestTypedResultViews(t *testing.T) {
+	portResult, ok := (Result{
+		Type:    ResultTypePort,
+		Target:  "127.0.0.1",
+		Details: map[string]interface{}{"port": 22},
+	}).AsPort()
+	if !ok || portResult.Port != 22 || portResult.Target != "127.0.0.1" {
+		t.Fatalf("AsPort = %#v/%v, want port 22", portResult, ok)
+	}
+
+	serviceResult, ok := (Result{
+		Type:   ResultTypeService,
+		Target: "127.0.0.1:80",
+		Details: map[string]interface{}{
+			"port":     80,
+			"service":  "http",
+			"banner":   "nginx",
+			"product":  "nginx",
+			"version":  "1.25",
+			"is_web":   true,
+			"protocol": "http",
+			"url":      "http://127.0.0.1:80",
+		},
+	}).AsService()
+	if !ok || serviceResult.Service != "http" || serviceResult.Port != 80 || !serviceResult.IsWeb {
+		t.Fatalf("AsService = %#v/%v, want http web service", serviceResult, ok)
+	}
+
+	credentialResult, ok := (Result{
+		Type:   ResultTypeVuln,
+		Target: "127.0.0.1:22",
+		Details: map[string]interface{}{
+			"type":     "weak_credential",
+			"service":  "ssh",
+			"username": "root",
+			"password": "toor",
+		},
+	}).AsCredential()
+	if !ok || credentialResult.Username != "root" || credentialResult.Password != "toor" {
+		t.Fatalf("AsCredential = %#v/%v, want root/toor", credentialResult, ok)
+	}
+
+	vulnResult, ok := (Result{
+		Type:   ResultTypeVuln,
+		Target: "127.0.0.1:25",
+		Details: map[string]interface{}{
+			"service":       "smtp",
+			"vulnerability": "open relay",
+		},
+	}).AsVulnerability()
+	if !ok || vulnResult.Service != "smtp" || vulnResult.Vulnerability != "open relay" {
+		t.Fatalf("AsVulnerability = %#v/%v, want smtp/open relay", vulnResult, ok)
 	}
 }
 

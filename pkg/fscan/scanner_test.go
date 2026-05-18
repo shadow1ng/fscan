@@ -79,6 +79,9 @@ func TestIsSafePlugin(t *testing.T) {
 	if IsSafePlugin("webpoc") {
 		t.Fatal("webpoc should not be safe")
 	}
+	if IsSafePlugin("ms17010") {
+		t.Fatal("active poc plugins should not be safe")
+	}
 	if IsSafePlugin("definitely-missing") {
 		t.Fatal("unknown plugin should not be safe")
 	}
@@ -107,6 +110,9 @@ func TestListPlugins(t *testing.T) {
 	if !containsString(ssh.Types, PluginTypeService) {
 		t.Fatalf("ssh types = %#v, want service", ssh.Types)
 	}
+	if !containsString(ssh.Capabilities, PluginCapabilityDetect) || !containsString(ssh.Capabilities, PluginCapabilityAuthCheck) {
+		t.Fatalf("ssh capabilities = %#v, want detect/auth-check", ssh.Capabilities)
+	}
 	if !containsInt(ssh.Ports, 22) {
 		t.Fatalf("ssh ports = %#v, want 22", ssh.Ports)
 	}
@@ -122,6 +128,9 @@ func TestListPlugins(t *testing.T) {
 	}
 	if !containsString(webpoc.Types, PluginTypeWeb) {
 		t.Fatalf("webpoc types = %#v, want web", webpoc.Types)
+	}
+	if !containsString(webpoc.Capabilities, PluginCapabilityPOC) {
+		t.Fatalf("webpoc capabilities = %#v, want poc", webpoc.Capabilities)
 	}
 }
 
@@ -244,6 +253,37 @@ func TestScanUsesConfigTargets(t *testing.T) {
 	}
 	if !hasPortResult(results, port) {
 		t.Fatalf("missing configured target port result: %#v", results)
+	}
+}
+
+func TestScanReportReturnsSummaryAndStats(t *testing.T) {
+	listener := startFTPListener(t)
+	defer listener.Close()
+
+	port := listener.Addr().(*net.TCPAddr).Port
+	scanner := NewScanner(Config{
+		DisablePing:  true,
+		DisableBrute: true,
+		Timeout:      time.Second,
+		Threads:      16,
+		Plugins:      []string{"ftp"},
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	report, err := scanner.ScanReport(ctx, Target{Host: "127.0.0.1", Ports: []int{port}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Results) == 0 || report.Summary.Total != len(report.Results) {
+		t.Fatalf("report summary/results mismatch: %#v", report)
+	}
+	if report.Stats.Duration <= 0 {
+		t.Fatalf("report duration = %s, want positive", report.Stats.Duration)
+	}
+	if report.Stats.TasksCompleted == 0 {
+		t.Fatalf("report stats = %#v, want completed tasks", report.Stats)
 	}
 }
 
@@ -436,6 +476,31 @@ func TestScanDoesNotReplaceGlobalRuntime(t *testing.T) {
 	if common.GetFlagVars().LogLevel != "sentinel" {
 		t.Fatal("SDK scan replaced global flags")
 	}
+	if got := i18n.GetLanguage(); got != i18n.LangEN {
+		t.Fatalf("SDK scan leaked global language = %q, want %q", got, i18n.LangEN)
+	}
+}
+
+func TestScanWithoutLanguageDoesNotTouchGlobalLanguage(t *testing.T) {
+	listener := startFTPListener(t)
+	defer listener.Close()
+
+	previousLanguage := i18n.GetLanguage()
+	defer i18n.SetLanguage(previousLanguage)
+	i18n.SetLanguage(i18n.LangEN)
+
+	scanner := NewScanner(Config{
+		DisablePing:  true,
+		DisableBrute: true,
+		Timeout:      time.Second,
+		Threads:      16,
+		Plugins:      []string{"ftp"},
+	})
+	port := listener.Addr().(*net.TCPAddr).Port
+	if _, err := scanner.Scan(context.Background(), Target{Host: "127.0.0.1", Ports: []int{port}}); err != nil {
+		t.Fatal(err)
+	}
+
 	if got := i18n.GetLanguage(); got != i18n.LangEN {
 		t.Fatalf("SDK scan leaked global language = %q, want %q", got, i18n.LangEN)
 	}

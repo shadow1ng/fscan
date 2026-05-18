@@ -17,6 +17,20 @@ import (
 	"github.com/shadow1ng/fscan/webscan/lib"
 )
 
+// ScanReport summarizes one scan execution.
+type ScanReport struct {
+	Duration          time.Duration
+	TasksTotal        int64
+	TasksCompleted    int64
+	Packets           int64
+	TCPPackets        int64
+	TCPSuccessPackets int64
+	TCPFailedPackets  int64
+	UDPPackets        int64
+	HTTPPackets       int64
+	ResourceExhausted int64
+}
+
 // ScanStrategy 定义扫描策略接口
 type ScanStrategy interface {
 	Execute(ctx context.Context, session *common.ScanSession, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup)
@@ -78,7 +92,8 @@ func selectStrategy(config *common.Config, state *common.State, info common.Host
 }
 
 // RunScan 执行整体扫描流程
-func RunScan(ctx context.Context, info common.HostInfo, session *common.ScanSession) {
+func RunScan(ctx context.Context, info common.HostInfo, session *common.ScanSession) (ScanReport, error) {
+	start := time.Now()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -88,7 +103,7 @@ func RunScan(ctx context.Context, info common.HostInfo, session *common.ScanSess
 	// 初始化HTTP客户端（静默，无需日志）
 	if err := lib.Inithttp(config); err != nil {
 		session.LogError(i18n.Tr("http_client_init_failed", err))
-		return
+		return buildScanReport(state, start), fmt.Errorf("initialize http client: %w", err)
 	}
 
 	// 选择策略
@@ -131,6 +146,25 @@ func RunScan(ctx context.Context, info common.HostInfo, session *common.ScanSess
 
 	// 完成扫描
 	finishScan(session)
+	if err := ctx.Err(); err != nil {
+		return buildScanReport(state, start), err
+	}
+	return buildScanReport(state, start), nil
+}
+
+func buildScanReport(state *common.State, start time.Time) ScanReport {
+	return ScanReport{
+		Duration:          time.Since(start),
+		TasksTotal:        state.GetEnd(),
+		TasksCompleted:    state.GetNum(),
+		Packets:           state.GetPacketCount(),
+		TCPPackets:        state.GetTCPPacketCount(),
+		TCPSuccessPackets: state.GetTCPSuccessPacketCount(),
+		TCPFailedPackets:  state.GetTCPFailedPacketCount(),
+		UDPPackets:        state.GetUDPPacketCount(),
+		HTTPPackets:       state.GetHTTPPacketCount(),
+		ResourceExhausted: state.GetResourceExhaustedCount(),
+	}
 }
 
 // finishScan 完成扫描并输出结果

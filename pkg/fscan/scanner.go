@@ -85,11 +85,12 @@ func GetPlugin(name string) (PluginInfo, bool) {
 		return PluginInfo{}, false
 	}
 	return PluginInfo{
-		Name:    name,
-		Types:   pluginTypes(name),
-		Ports:   pluginPorts(name),
-		Safe:    IsSafePlugin(name),
-		Default: isDefaultSafePlugin(name),
+		Name:         name,
+		Types:        pluginTypes(name),
+		Capabilities: PluginCapabilities(name),
+		Ports:        pluginPorts(name),
+		Safe:         IsSafePlugin(name),
+		Default:      isDefaultSafePlugin(name),
 	}, true
 }
 
@@ -109,31 +110,56 @@ func IsSafePlugin(name string) bool {
 	if name == "" || !plugins.Exists(name) {
 		return false
 	}
-	return plugins.IsSafe(name)
+	return plugins.IsSafe(name) && !hasPluginCapability(name, PluginCapabilityPOC, PluginCapabilityLocalEffect)
+}
+
+// PluginCapabilities returns the SDK-facing behavior classes for a plugin.
+func PluginCapabilities(name string) []string {
+	name = strings.TrimSpace(name)
+	if name == "" || !plugins.Exists(name) {
+		return nil
+	}
+	return pluginCapabilities(name)
 }
 
 // Scan runs the scanner for the provided targets and returns structured
 // findings. If no targets are provided, Config.Targets is used.
 func (s *Scanner) Scan(ctx context.Context, targets ...Target) ([]Result, error) {
+	report, err := s.ScanReport(ctx, targets...)
+	return report.Results, err
+}
+
+// ScanReport runs the scanner and returns results with summary and runtime stats.
+func (s *Scanner) ScanReport(ctx context.Context, targets ...Target) (ScanReport, error) {
 	var (
 		mu      sync.Mutex
 		results []Result
 	)
-	err := s.ScanEach(ctx, func(result Result) error {
+	stats, err := s.scanEach(ctx, func(result Result) error {
 		mu.Lock()
 		results = append(results, result)
 		mu.Unlock()
 		return nil
 	}, targets...)
-	return snapshotResults(&mu, results), err
+	results = snapshotResults(&mu, results)
+	return ScanReport{
+		Results: results,
+		Summary: SummarizeResults(results),
+		Stats:   stats,
+	}, err
 }
 
 // ScanEach runs the scanner and calls handle serially for each structured
 // result without retaining all results in memory. If handle returns an error,
 // the scan context is canceled and that error is returned.
 func (s *Scanner) ScanEach(ctx context.Context, handle ResultHandler, targets ...Target) error {
+	_, err := s.scanEach(ctx, handle, targets...)
+	return err
+}
+
+func (s *Scanner) scanEach(ctx context.Context, handle ResultHandler, targets ...Target) (ScanStats, error) {
 	if handle == nil {
-		return fmt.Errorf("fscan: result handler is required")
+		return ScanStats{}, fmt.Errorf("fscan: result handler is required")
 	}
 	if ctx == nil {
 		ctx = context.Background()
@@ -142,7 +168,7 @@ func (s *Scanner) ScanEach(ctx context.Context, handle ResultHandler, targets ..
 		targets = s.config.Targets
 	}
 	if err := validateConfig(s.config, targets); err != nil {
-		return err
+		return ScanStats{}, err
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -155,13 +181,14 @@ func (s *Scanner) ScanEach(ctx context.Context, handle ResultHandler, targets ..
 		handleMu   sync.Mutex
 		handlerErr error
 	)
+	var stats ScanStats
 
 	for _, target := range targets {
 		if err := ctx.Err(); err != nil {
 			if stored := getHandlerError(&errMu, &handlerErr); stored != nil {
-				return stored
+				return stats, stored
 			}
-			return err
+			return stats, err
 		}
 		sink := func(raw *output.ScanResult) error {
 			if result, ok := convertOutputResult(raw); ok {
@@ -179,31 +206,38 @@ func (s *Scanner) ScanEach(ctx context.Context, handle ResultHandler, targets ..
 			}
 			return nil
 		}
-		if err := s.scanOne(ctx, target, sink); err != nil {
-			return err
+		report, err := s.scanOne(ctx, target, sink)
+		stats.add(coreStatsToSDK(report))
+		if err != nil {
+			if stored := getHandlerError(&errMu, &handlerErr); stored != nil {
+				return stats, stored
+			}
+			return stats, err
 		}
 		if stored := getHandlerError(&errMu, &handlerErr); stored != nil {
-			return stored
+			return stats, stored
 		}
 	}
 
 	if stored := getHandlerError(&errMu, &handlerErr); stored != nil {
-		return stored
+		return stats, stored
 	}
-	return ctx.Err()
+	return stats, ctx.Err()
 }
 
-func (s *Scanner) scanOne(ctx context.Context, target Target, sink common.ResultSink) error {
+func (s *Scanner) scanOne(ctx context.Context, target Target, sink common.ResultSink) (core.ScanReport, error) {
 	fv := buildFlagVars(s.config, target)
 	info := common.HostInfo{Host: strings.TrimSpace(target.Host), URL: strings.TrimSpace(target.URL)}
 
-	previousLanguage := i18n.GetLanguage()
-	i18n.SetLanguage(fv.Language)
-	defer i18n.SetLanguage(previousLanguage)
+	if strings.TrimSpace(s.config.Language) != "" {
+		previousLanguage := i18n.GetLanguage()
+		i18n.SetLanguage(fv.Language)
+		defer i18n.SetLanguage(previousLanguage)
+	}
 
 	cfg, state, err := common.BuildConfig(fv, &info)
 	if err != nil {
-		return err
+		return core.ScanReport{}, err
 	}
 	if len(s.config.UserPassPairs) > 0 {
 		cfg.Credentials.UserPassPairs = make([]commonconfig.CredentialPair, 0, len(s.config.UserPassPairs))
@@ -221,8 +255,7 @@ func (s *Scanner) scanOne(ctx context.Context, target Target, sink common.Result
 
 	session := common.NewScanSession(cfg, state, fv)
 	session.ResultSink = sink
-	core.RunScan(ctx, info, session)
-	return nil
+	return core.RunScan(ctx, info, session)
 }
 
 func validateConfig(config Config, targets []Target) error {
@@ -392,6 +425,75 @@ func pluginPorts(name string) []int {
 	return ports
 }
 
+func pluginCapabilities(name string) []string {
+	capSet := map[string]struct{}{}
+	add := func(capability string) {
+		capSet[capability] = struct{}{}
+	}
+
+	if plugins.HasType(name, PluginTypeService) || plugins.HasType(name, PluginTypeWeb) {
+		add(PluginCapabilityDetect)
+	}
+	if serviceAuthPlugins[name] {
+		add(PluginCapabilityAuthCheck)
+		add(PluginCapabilityBrute)
+	}
+	if activePOCPlugins[name] || strings.Contains(name, "poc") {
+		add(PluginCapabilityPOC)
+	}
+	if plugins.HasType(name, PluginTypeLocal) {
+		add(PluginCapabilityLocalEffect)
+	}
+
+	capabilities := make([]string, 0, len(capSet))
+	for capability := range capSet {
+		capabilities = append(capabilities, capability)
+	}
+	sort.Strings(capabilities)
+	return capabilities
+}
+
+func hasPluginCapability(name string, capabilities ...string) bool {
+	pluginCaps := pluginCapabilities(name)
+	for _, want := range capabilities {
+		for _, got := range pluginCaps {
+			if got == want {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+var serviceAuthPlugins = map[string]bool{
+	"activemq":      true,
+	"cassandra":     true,
+	"elasticsearch": true,
+	"ftp":           true,
+	"kafka":         true,
+	"ldap":          true,
+	"memcached":     true,
+	"mongodb":       true,
+	"mssql":         true,
+	"mysql":         true,
+	"neo4j":         true,
+	"oracle":        true,
+	"postgresql":    true,
+	"rabbitmq":      true,
+	"redis":         true,
+	"rsync":         true,
+	"smb":           true,
+	"smtp":          true,
+	"ssh":           true,
+	"telnet":        true,
+	"vnc":           true,
+}
+
+var activePOCPlugins = map[string]bool{
+	"ms17010": true,
+	"webpoc":  true,
+}
+
 func isDefaultSafePlugin(name string) bool {
 	for _, plugin := range defaultSafePlugins {
 		if plugin == name {
@@ -424,6 +526,34 @@ func convertOutputResult(raw *output.ScanResult) (Result, bool) {
 		Details: raw.Details,
 	}
 	return result, result.Target != "" || result.Status != ""
+}
+
+func coreStatsToSDK(report core.ScanReport) ScanStats {
+	return ScanStats{
+		Duration:          report.Duration,
+		TasksTotal:        report.TasksTotal,
+		TasksCompleted:    report.TasksCompleted,
+		Packets:           report.Packets,
+		TCPPackets:        report.TCPPackets,
+		TCPSuccessPackets: report.TCPSuccessPackets,
+		TCPFailedPackets:  report.TCPFailedPackets,
+		UDPPackets:        report.UDPPackets,
+		HTTPPackets:       report.HTTPPackets,
+		ResourceExhausted: report.ResourceExhausted,
+	}
+}
+
+func (s *ScanStats) add(other ScanStats) {
+	s.Duration += other.Duration
+	s.TasksTotal += other.TasksTotal
+	s.TasksCompleted += other.TasksCompleted
+	s.Packets += other.Packets
+	s.TCPPackets += other.TCPPackets
+	s.TCPSuccessPackets += other.TCPSuccessPackets
+	s.TCPFailedPackets += other.TCPFailedPackets
+	s.UDPPackets += other.UDPPackets
+	s.HTTPPackets += other.HTTPPackets
+	s.ResourceExhausted += other.ResourceExhausted
 }
 
 func snapshotResults(mu *sync.Mutex, results []Result) []Result {

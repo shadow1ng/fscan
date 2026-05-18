@@ -68,5 +68,8 @@ func main() {
 	defer common.CloseLogger()
 
 	// 执行扫描
-	core.RunScan(context.Background(), *result.Info, result.Session)
+	if _, err := core.RunScan(context.Background(), *result.Info, result.Session); err != nil {
+		common.LogError(i18n.Tr("error_generic", err))
+		os.Exit(1)
+	}
 }
