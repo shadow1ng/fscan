@@ -14,6 +14,19 @@ const (
 )
 
 const (
+	// PluginCapabilityDetect marks passive or low-impact detection behavior.
+	PluginCapabilityDetect = "detect"
+	// PluginCapabilityAuthCheck marks credential validation behavior.
+	PluginCapabilityAuthCheck = "auth-check"
+	// PluginCapabilityBrute marks dictionary-style credential attempts.
+	PluginCapabilityBrute = "brute"
+	// PluginCapabilityPOC marks active vulnerability checks or exploitation.
+	PluginCapabilityPOC = "poc"
+	// PluginCapabilityLocalEffect marks plugins that change or inspect local host state.
+	PluginCapabilityLocalEffect = "local-effect"
+)
+
+const (
 	// ResultTypeHost reports a live host.
 	ResultTypeHost = "HOST"
 	// ResultTypePort reports an open port.
@@ -40,11 +53,12 @@ type CredentialPair struct {
 
 // PluginInfo describes one registered scanner plugin.
 type PluginInfo struct {
-	Name    string   `json:"name"`
-	Types   []string `json:"types,omitempty"`
-	Ports   []int    `json:"ports,omitempty"`
-	Safe    bool     `json:"safe"`
-	Default bool     `json:"default"`
+	Name         string   `json:"name"`
+	Types        []string `json:"types,omitempty"`
+	Capabilities []string `json:"capabilities,omitempty"`
+	Ports        []int    `json:"ports,omitempty"`
+	Safe         bool     `json:"safe"`
+	Default      bool     `json:"default"`
 }
 
 // ResultSummary counts common result categories.
@@ -56,6 +70,27 @@ type ResultSummary struct {
 	Vulns       int `json:"vulns"`
 	Web         int `json:"web"`
 	Credentials int `json:"credentials"`
+}
+
+// ScanStats reports runtime counters for one embedded scan call.
+type ScanStats struct {
+	Duration          time.Duration `json:"duration"`
+	TasksTotal        int64         `json:"tasks_total"`
+	TasksCompleted    int64         `json:"tasks_completed"`
+	Packets           int64         `json:"packets"`
+	TCPPackets        int64         `json:"tcp_packets"`
+	TCPSuccessPackets int64         `json:"tcp_success_packets"`
+	TCPFailedPackets  int64         `json:"tcp_failed_packets"`
+	UDPPackets        int64         `json:"udp_packets"`
+	HTTPPackets       int64         `json:"http_packets"`
+	ResourceExhausted int64         `json:"resource_exhausted"`
+}
+
+// ScanReport returns structured results with summary and runtime counters.
+type ScanReport struct {
+	Results []Result      `json:"results"`
+	Summary ResultSummary `json:"summary"`
+	Stats   ScanStats     `json:"stats"`
 }
 
 // ResultHandler receives one structured result. Calls are serialized by the
@@ -113,4 +148,38 @@ type Result struct {
 	Target  string                 `json:"target"`
 	Status  string                 `json:"status"`
 	Details map[string]interface{} `json:"details,omitempty"`
+}
+
+// PortResult is a typed view over an open port result.
+type PortResult struct {
+	Target string `json:"target"`
+	Port   int    `json:"port"`
+}
+
+// ServiceResult is a typed view over a service or web detection result.
+type ServiceResult struct {
+	Target   string `json:"target"`
+	Port     int    `json:"port,omitempty"`
+	Service  string `json:"service,omitempty"`
+	Banner   string `json:"banner,omitempty"`
+	Product  string `json:"product,omitempty"`
+	Version  string `json:"version,omitempty"`
+	Protocol string `json:"protocol,omitempty"`
+	URL      string `json:"url,omitempty"`
+	IsWeb    bool   `json:"is_web,omitempty"`
+}
+
+// CredentialResult is a typed view over a weak credential result.
+type CredentialResult struct {
+	Target   string `json:"target"`
+	Service  string `json:"service,omitempty"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+// VulnerabilityResult is a typed view over a vulnerability result.
+type VulnerabilityResult struct {
+	Target        string `json:"target"`
+	Service       string `json:"service,omitempty"`
+	Vulnerability string `json:"vulnerability"`
 }
