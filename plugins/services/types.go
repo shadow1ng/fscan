@@ -25,4 +25,11 @@ func RegisterPluginWithPorts(name string, factory func() Plugin, ports []int) {
 	}, ports)
 }
 
+// RegisterUDPPluginWithPorts 注册UDP协议插件
+func RegisterUDPPluginWithPorts(name string, factory func() Plugin, ports []int) {
+	plugins.RegisterUDPWithPorts(name, func() plugins.Plugin {
+		return factory()
+	}, ports)
+}
+
 var GenerateCredentials = plugins.GenerateCredentials

@@ -24,6 +24,7 @@ type ScanSession struct {
 	State      *State     // 可变，原子操作，每会话独立
 	Params     *FlagVars  // 原始参数，只读
 	ResultSink ResultSink // 可选，覆盖全局输出
+	PauseGate  func(ctx context.Context) error
 
 	// 每会话 dialer（按 timeout 懒初始化，取决于代理配置）
 	dialerMu   sync.Mutex
@@ -117,6 +118,23 @@ func (s *ScanSession) DialTCP(ctx context.Context, network, address string, time
 	}
 
 	s.State.IncrementTCPSuccessPacketCount()
+	return conn, nil
+}
+
+// DialUDP creates a connected UDP socket with rate limiting and packet counting.
+// UDP cannot be proxied; if a proxy is configured the connection is made directly.
+func (s *ScanSession) DialUDP(ctx context.Context, address string, timeout time.Duration) (net.Conn, error) {
+	if ok, err := CanSendPacketWith(s.Config, s.State); !ok {
+		return nil, fmt.Errorf("%s", i18n.Tr("network_rate_limited", err.Error()))
+	}
+
+	conn, err := net.DialTimeout("udp", address, timeout)
+	if err != nil {
+		s.State.IncrementUDPPacketCount()
+		return nil, err
+	}
+	_ = conn.SetDeadline(time.Now().Add(timeout))
+	s.State.IncrementUDPPacketCount()
 	return conn, nil
 }
 

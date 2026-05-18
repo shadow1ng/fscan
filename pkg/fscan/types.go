@@ -11,6 +11,8 @@ const (
 	PluginTypeLocal = "local"
 	// PluginTypeService marks network service plugins.
 	PluginTypeService = "service"
+	// PluginTypeUDP marks UDP protocol plugins that bypass TCP port scanning.
+	PluginTypeUDP = "udp"
 )
 
 const (
@@ -86,6 +88,17 @@ type ScanStats struct {
 	ResourceExhausted int64         `json:"resource_exhausted"`
 }
 
+// ScanProgress reports live scan progress for Agent integrations.
+type ScanProgress struct {
+	TasksTotal     int64         `json:"tasks_total"`
+	TasksCompleted int64         `json:"tasks_completed"`
+	Duration       time.Duration `json:"duration"`
+	Packets        int64         `json:"packets"`
+	TCPPackets     int64         `json:"tcp_packets"`
+	HTTPPackets    int64         `json:"http_packets"`
+	Paused         bool          `json:"paused"`
+}
+
 // ScanReport returns structured results with summary and runtime counters.
 type ScanReport struct {
 	Results []Result      `json:"results"`
@@ -110,6 +123,10 @@ type Config struct {
 	AllowUnsafePlugins bool
 	// OnResult is called for every structured result as it is discovered.
 	OnResult func(Result)
+	// OnProgress is called periodically with live scan progress.
+	OnProgress func(ScanProgress)
+	// TaskID is injected into every Result.Details["task_id"] when non-empty.
+	TaskID string
 
 	Timeout       time.Duration
 	Threads       int

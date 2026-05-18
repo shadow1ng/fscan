@@ -92,6 +92,7 @@ const (
 	PluginTypeWeb     = "web"     // Web类型插件
 	PluginTypeLocal   = "local"   // 本地类型插件
 	PluginTypeService = "service" // 服务类型插件
+	PluginTypeUDP     = "udp"     // UDP协议插件，跳过TCP端口扫描
 )
 
 var (
@@ -120,6 +121,16 @@ func init() {
 // RegisterWithPorts 注册带端口信息的插件
 func RegisterWithPorts(name string, factory func() Plugin, ports []int) {
 	RegisterWithTypes(name, factory, ports, []string{PluginTypeService})
+}
+
+// RegisterUDPWithPorts 注册UDP协议插件，跳过TCP端口扫描链路
+func RegisterUDPWithPorts(name string, factory func() Plugin, ports []int) {
+	RegisterWithTypes(name, factory, ports, []string{PluginTypeUDP})
+}
+
+// IsUDP 检查插件是否为UDP协议插件
+func IsUDP(pluginName string) bool {
+	return HasType(pluginName, PluginTypeUDP)
 }
 
 // RegisterWithTypes 注册带类型标签的插件

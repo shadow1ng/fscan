@@ -10,6 +10,7 @@ import (
 	"github.com/shadow1ng/fscan/common"
 	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/common/parsers"
+	"github.com/shadow1ng/fscan/plugins"
 )
 
 // ServiceScanStrategy 服务扫描策略
@@ -161,6 +162,11 @@ func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *comm
 		return
 	}
 
+	// UDP 插件并行分发：直接对存活主机发协议探测包，不走端口扫描
+	if len(hosts) > 0 {
+		s.dispatchUDPPlugins(ctx, session, hosts, info, config, ch, wg)
+	}
+
 	// 流式 channel：端口扫描发现开放端口后立即通知插件执行
 	stream := make(chan string, 64)
 
@@ -210,6 +216,34 @@ func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *comm
 			}
 		}
 		state.ClearHostPorts()
+	}
+}
+
+// dispatchUDPPlugins 分发UDP协议插件，跳过TCP端口扫描链路
+func (s *ServiceScanStrategy) dispatchUDPPlugins(ctx context.Context, session *common.ScanSession, hosts []string, baseInfo common.HostInfo, config *common.Config, ch chan struct{}, wg *sync.WaitGroup) {
+	allPlugins, isCustomMode := s.GetPlugins(config)
+
+	var udpPlugins []string
+	for _, name := range allPlugins {
+		if plugins.IsUDP(name) {
+			if isCustomMode || plugins.IsSafe(name) {
+				udpPlugins = append(udpPlugins, name)
+			}
+		}
+	}
+	if len(udpPlugins) == 0 {
+		return
+	}
+
+	for _, host := range hosts {
+		for _, pluginName := range udpPlugins {
+			for _, port := range plugins.GetPluginPorts(pluginName) {
+				target := baseInfo
+				target.Host = host
+				target.Port = port
+				executeScanTask(ctx, session, pluginName, target, ch, wg)
+			}
+		}
 	}
 }
 

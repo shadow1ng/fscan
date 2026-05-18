@@ -42,6 +42,7 @@ var defaultSafePlugins = []string{
 	"rsync",
 	"smb",
 	"smtp",
+	"snmp",
 	"ssh",
 	"telnet",
 	"vnc",
@@ -122,6 +123,10 @@ func PluginCapabilities(name string) []string {
 	return pluginCapabilities(name)
 }
 
+type scanOpts struct {
+	controller *ScanController
+}
+
 // Scan runs the scanner for the provided targets and returns structured
 // findings. If no targets are provided, Config.Targets is used.
 func (s *Scanner) Scan(ctx context.Context, targets ...Target) ([]Result, error) {
@@ -131,11 +136,40 @@ func (s *Scanner) Scan(ctx context.Context, targets ...Target) ([]Result, error)
 
 // ScanReport runs the scanner and returns results with summary and runtime stats.
 func (s *Scanner) ScanReport(ctx context.Context, targets ...Target) (ScanReport, error) {
+	return s.collectReport(ctx, scanOpts{}, targets...)
+}
+
+// ScanEach runs the scanner and calls handle serially for each structured
+// result without retaining all results in memory. If handle returns an error,
+// the scan context is canceled and that error is returned.
+func (s *Scanner) ScanEach(ctx context.Context, handle ResultHandler, targets ...Target) error {
+	_, err := s.scanEach(ctx, scanOpts{}, handle, targets...)
+	return err
+}
+
+// ScanWithController starts a scan and returns a controller for pause/resume
+// and live stats. The scan runs in a background goroutine; read the returned
+// channels to get the report and error when the scan completes.
+func (s *Scanner) ScanWithController(ctx context.Context, targets ...Target) (*ScanController, <-chan ScanReport, <-chan error) {
+	ctrl := newScanController()
+	reportCh := make(chan ScanReport, 1)
+	errCh := make(chan error, 1)
+
+	go func() {
+		report, err := s.collectReport(ctx, scanOpts{controller: ctrl}, targets...)
+		reportCh <- report
+		errCh <- err
+	}()
+
+	return ctrl, reportCh, errCh
+}
+
+func (s *Scanner) collectReport(ctx context.Context, opts scanOpts, targets ...Target) (ScanReport, error) {
 	var (
 		mu      sync.Mutex
 		results []Result
 	)
-	stats, err := s.scanEach(ctx, func(result Result) error {
+	stats, err := s.scanEach(ctx, opts, func(result Result) error {
 		mu.Lock()
 		results = append(results, result)
 		mu.Unlock()
@@ -149,15 +183,7 @@ func (s *Scanner) ScanReport(ctx context.Context, targets ...Target) (ScanReport
 	}, err
 }
 
-// ScanEach runs the scanner and calls handle serially for each structured
-// result without retaining all results in memory. If handle returns an error,
-// the scan context is canceled and that error is returned.
-func (s *Scanner) ScanEach(ctx context.Context, handle ResultHandler, targets ...Target) error {
-	_, err := s.scanEach(ctx, handle, targets...)
-	return err
-}
-
-func (s *Scanner) scanEach(ctx context.Context, handle ResultHandler, targets ...Target) (ScanStats, error) {
+func (s *Scanner) scanEach(ctx context.Context, opts scanOpts, handle ResultHandler, targets ...Target) (ScanStats, error) {
 	if handle == nil {
 		return ScanStats{}, fmt.Errorf("fscan: result handler is required")
 	}
@@ -171,10 +197,33 @@ func (s *Scanner) scanEach(ctx context.Context, handle ResultHandler, targets ..
 		return ScanStats{}, err
 	}
 
+	ctrl := opts.controller
+	if ctrl == nil && s.config.OnProgress != nil {
+		ctrl = newScanController()
+	}
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	restoreLogger := common.PushSilentLogger()
 	defer restoreLogger()
+
+	if ctrl != nil && s.config.OnProgress != nil {
+		progressCtx, progressCancel := context.WithCancel(ctx)
+		defer progressCancel()
+		onProgress := s.config.OnProgress
+		go func() {
+			ticker := time.NewTicker(500 * time.Millisecond)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					onProgress(ctrl.progress())
+				case <-progressCtx.Done():
+					return
+				}
+			}
+		}()
+	}
 
 	var (
 		errMu      sync.Mutex
@@ -192,6 +241,7 @@ func (s *Scanner) scanEach(ctx context.Context, handle ResultHandler, targets ..
 		}
 		sink := func(raw *output.ScanResult) error {
 			if result, ok := convertOutputResult(raw); ok {
+				s.injectTaskID(&result)
 				handleMu.Lock()
 				if err := handle(result); err != nil {
 					handleMu.Unlock()
@@ -206,7 +256,7 @@ func (s *Scanner) scanEach(ctx context.Context, handle ResultHandler, targets ..
 			}
 			return nil
 		}
-		report, err := s.scanOne(ctx, target, sink)
+		report, err := s.scanOne(ctx, target, sink, opts)
 		stats.add(coreStatsToSDK(report))
 		if err != nil {
 			if stored := getHandlerError(&errMu, &handlerErr); stored != nil {
@@ -225,7 +275,17 @@ func (s *Scanner) scanEach(ctx context.Context, handle ResultHandler, targets ..
 	return stats, ctx.Err()
 }
 
-func (s *Scanner) scanOne(ctx context.Context, target Target, sink common.ResultSink) (core.ScanReport, error) {
+func (s *Scanner) injectTaskID(result *Result) {
+	if s.config.TaskID == "" {
+		return
+	}
+	if result.Details == nil {
+		result.Details = make(map[string]interface{})
+	}
+	result.Details["task_id"] = s.config.TaskID
+}
+
+func (s *Scanner) scanOne(ctx context.Context, target Target, sink common.ResultSink, opts scanOpts) (core.ScanReport, error) {
 	fv := buildFlagVars(s.config, target)
 	info := common.HostInfo{Host: strings.TrimSpace(target.Host), URL: strings.TrimSpace(target.URL)}
 
@@ -255,6 +315,12 @@ func (s *Scanner) scanOne(ctx context.Context, target Target, sink common.Result
 
 	session := common.NewScanSession(cfg, state, fv)
 	session.ResultSink = sink
+
+	if opts.controller != nil {
+		session.PauseGate = opts.controller.pauseGate
+		opts.controller.addState(state)
+	}
+
 	return core.RunScan(ctx, info, session)
 }
 
@@ -409,8 +475,8 @@ func normalizePlugins(pluginNames []string) []string {
 }
 
 func pluginTypes(name string) []string {
-	types := make([]string, 0, 3)
-	for _, pluginType := range []string{PluginTypeService, PluginTypeWeb, PluginTypeLocal} {
+	types := make([]string, 0, 4)
+	for _, pluginType := range []string{PluginTypeService, PluginTypeWeb, PluginTypeLocal, PluginTypeUDP} {
 		if plugins.HasType(name, pluginType) {
 			types = append(types, pluginType)
 		}
@@ -431,7 +497,7 @@ func pluginCapabilities(name string) []string {
 		capSet[capability] = struct{}{}
 	}
 
-	if plugins.HasType(name, PluginTypeService) || plugins.HasType(name, PluginTypeWeb) {
+	if plugins.HasType(name, PluginTypeService) || plugins.HasType(name, PluginTypeWeb) || plugins.HasType(name, PluginTypeUDP) {
 		add(PluginCapabilityDetect)
 	}
 	if serviceAuthPlugins[name] {
@@ -484,6 +550,7 @@ var serviceAuthPlugins = map[string]bool{
 	"rsync":         true,
 	"smb":           true,
 	"smtp":          true,
+	"snmp":          true,
 	"ssh":           true,
 	"telnet":        true,
 	"vnc":           true,

@@ -211,6 +211,12 @@ func ExecuteScanTasks(ctx context.Context, session *common.ScanSession, targets 
 		default:
 		}
 
+		if session.PauseGate != nil {
+			if err := session.PauseGate(ctx); err != nil {
+				return
+			}
+		}
+
 		targetPort := target.Port
 
 		for _, pluginName := range pluginsToRun {
@@ -260,6 +266,12 @@ func executeScanTask(ctx context.Context, session *common.ScanSession, pluginNam
 	case <-ctx.Done():
 		return
 	default:
+	}
+
+	if session.PauseGate != nil {
+		if err := session.PauseGate(ctx); err != nil {
+			return
+		}
 	}
 
 	// 长驻插件不进 WaitGroup，通过 ctx 管理生命周期

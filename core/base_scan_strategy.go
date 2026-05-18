@@ -106,6 +106,10 @@ func (b *BaseScanStrategy) isLocalPlugin(pluginName string) bool {
 	return plugins.HasType(pluginName, plugins.PluginTypeLocal)
 }
 
+func (b *BaseScanStrategy) isUDPPlugin(pluginName string) bool {
+	return plugins.IsUDP(pluginName)
+}
+
 func (b *BaseScanStrategy) isLocalPluginExplicitlySpecified(pluginName string, config *common.Config) bool {
 	return config.LocalPlugin == pluginName
 }
@@ -141,6 +145,11 @@ func (b *BaseScanStrategy) isPluginApplicableToPort(pluginName string, targetPor
 
 // isPluginPassesFilterType 检查插件是否通过过滤器类型检查
 func (b *BaseScanStrategy) isPluginPassesFilterType(pluginName string, isCustomMode bool, config *common.Config) bool {
+	// UDP 插件有独立分发路径，不参与 TCP 端口匹配流水线
+	if b.isUDPPlugin(pluginName) {
+		return false
+	}
+
 	// 自定义模式下强制运行所有明确指定的插件
 	if isCustomMode {
 		return true
@@ -155,8 +164,8 @@ func (b *BaseScanStrategy) isPluginPassesFilterType(pluginName string, isCustomM
 		}
 		return false
 	case FilterService:
-		// 服务扫描策略：排除本地插件
-		return !b.isLocalPlugin(pluginName)
+		// 服务扫描策略：排除本地插件和UDP插件（UDP有独立分发路径）
+		return !b.isLocalPlugin(pluginName) && !b.isUDPPlugin(pluginName)
 	case FilterWeb:
 		// Web扫描策略：只允许Web插件
 		return b.isWebPlugin(pluginName)
@@ -231,9 +240,9 @@ func (b *BaseScanStrategy) getPluginsByFilterType() []string {
 			}
 		}
 	case FilterService:
-		// 服务扫描策略：排除本地插件和纯Web插件，保留服务插件
+		// 服务扫描策略：排除本地插件和UDP插件，保留TCP服务插件
 		for _, pluginName := range allPlugins {
-			if !b.isLocalPlugin(pluginName) {
+			if !b.isLocalPlugin(pluginName) && !b.isUDPPlugin(pluginName) {
 				filteredPlugins = append(filteredPlugins, pluginName)
 			}
 		}
