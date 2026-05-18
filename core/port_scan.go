@@ -421,10 +421,10 @@ func matchFold(a, b string) bool {
 // 格式: addr service [Product:xxx ||Version:xxx] Banner:(xxx)
 func buildServiceLogMessage(addr string, serviceInfo *ServiceInfo, isWeb bool) string {
 	var msg strings.Builder
-	msg.WriteString(fmt.Sprintf("%-21s", addr))
+	fmt.Fprintf(&msg, "%-21s", addr)
 
 	if serviceInfo.Name != "unknown" {
-		msg.WriteString(fmt.Sprintf(" %-8s", serviceInfo.Name))
+		fmt.Fprintf(&msg, " %-8s", serviceInfo.Name)
 	}
 
 	// 构建 [Product:xxx ||Version:xxx] 格式

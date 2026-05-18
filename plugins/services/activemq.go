@@ -229,7 +229,7 @@ func (p *ActiveMQPlugin) identifyService(ctx context.Context, info *common.HostI
 		return &ScanResult{
 			Success: false,
 			Service: "activemq",
-			Error:   fmt.Errorf("Failed to read response: %w", err),
+			Error:   fmt.Errorf("failed to read response: %w", err),
 		}
 	}
 	if n == 0 {

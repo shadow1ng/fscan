@@ -323,7 +323,6 @@ func mssqlParseLoginTokens(payload []byte, result *mssqlRawResult) (bool, error)
 				return false, fmt.Errorf("mssql: truncated done token")
 			}
 			status := binary.LittleEndian.Uint16(payload[pos : pos+2])
-			pos += 12
 			return status&(tdsDoneError|tdsDoneSrvError) == 0, nil
 		default:
 			return false, fmt.Errorf("mssql: unexpected login token 0x%02x", token)
