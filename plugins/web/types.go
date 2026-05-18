@@ -22,3 +22,10 @@ func RegisterWebPlugin(name string, creator func() WebPlugin) {
 		return creator()
 	}, []int{}, []string{plugins.PluginTypeWeb})
 }
+
+// RegisterUnsafeWebPlugin 注册需要显式授权的主动Web插件。
+func RegisterUnsafeWebPlugin(name string, creator func() WebPlugin) {
+	plugins.RegisterUnsafeWithTypes(name, func() plugins.Plugin {
+		return creator()
+	}, []int{}, []string{plugins.PluginTypeWeb})
+}

@@ -111,6 +111,16 @@ func TestListPlugins(t *testing.T) {
 	if _, ok := GetPlugin("definitely-missing"); ok {
 		t.Fatal("unknown plugin should not exist")
 	}
+	webpoc, ok := GetPlugin("webpoc")
+	if !ok {
+		t.Fatal("missing webpoc plugin")
+	}
+	if webpoc.Safe {
+		t.Fatal("webpoc should be marked unsafe")
+	}
+	if !containsString(webpoc.Types, PluginTypeWeb) {
+		t.Fatalf("webpoc types = %#v, want web", webpoc.Types)
+	}
 }
 
 func TestScanHonorsCanceledContext(t *testing.T) {

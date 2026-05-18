@@ -50,29 +50,6 @@ var defaultSafePlugins = []string{
 	"webtitle",
 }
 
-var unsafePlugins = map[string]struct{}{
-	"cleaner":        {},
-	"crontask":       {},
-	"download":       {},
-	"forwardshell":   {},
-	"keylogger":      {},
-	"ldpreload":      {},
-	"minidump":       {},
-	"reverseshell":   {},
-	"socks5proxy":    {},
-	"sshkey":         {},
-	"systemdservice": {},
-	"winbits":        {},
-	"winifeo":        {},
-	"winlogon":       {},
-	"winregistry":    {},
-	"winschtask":     {},
-	"winservice":     {},
-	"winstartup":     {},
-	"winwmi":         {},
-	"webpoc":         {},
-}
-
 // Scanner runs fscan from another Go process.
 type Scanner struct {
 	config Config
@@ -134,13 +111,7 @@ func IsSafePlugin(name string) bool {
 	if name == "" || !plugins.Exists(name) {
 		return false
 	}
-	if plugins.HasType(name, plugins.PluginTypeLocal) {
-		return false
-	}
-	if _, bad := unsafePlugins[name]; bad {
-		return false
-	}
-	return true
+	return plugins.IsSafe(name)
 }
 
 // Scan runs the scanner for the provided targets and returns structured
