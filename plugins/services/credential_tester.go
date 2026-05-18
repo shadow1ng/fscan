@@ -107,11 +107,12 @@ func TestSingleCredential(ctx context.Context, cred Credential, authFn AuthFunc)
 
 // ConcurrentTestConfig 并发测试配置
 type ConcurrentTestConfig struct {
-	Concurrency            int           // 并发数，默认 10
-	MaxRetries             int           // 最大重试次数，默认 3
-	RetryDelay             time.Duration // 重试延迟，默认 1s
-	MaxConsecutiveNetErrors int          // 连续网络错误阈值，超过则认为目标不可达，默认 5
-	TargetAddr             string        // 目标地址 host:port，用于 TCP 预检（可选）
+	Concurrency             int           // 并发数，默认 10
+	MaxRetries              int           // 最大重试次数，默认 3
+	RetryDelay              time.Duration // 重试延迟，默认 1s
+	MaxConsecutiveNetErrors int           // 连续网络错误阈值，超过则认为目标不可达，默认 5
+	TargetAddr              string        // 目标地址 host:port，用于 TCP 预检（可选）
+	UseProxy                bool          // 代理模式下跳过直连 TCP 预检
 }
 
 // DefaultConcurrentTestConfig 默认配置
@@ -125,6 +126,7 @@ func DefaultConcurrentTestConfig(config *common.Config) ConcurrentTestConfig {
 		MaxRetries:              3,
 		RetryDelay:              time.Second,
 		MaxConsecutiveNetErrors: 5,
+		UseProxy:                config.Network.Socks5Proxy != "" || config.Network.HTTPProxy != "",
 	}
 }
 
@@ -154,7 +156,7 @@ func TestCredentialsConcurrently(
 
 	// TCP 预检：快速验证目标可达，避免对不可达目标浪费全部凭据尝试
 	// 代理模式下跳过：net.DialTimeout 直连无法到达代理后的内网目标
-	if testConfig.TargetAddr != "" && !common.IsProxyEnabled() {
+	if testConfig.TargetAddr != "" && !testConfig.UseProxy {
 		preConn, err := net.DialTimeout("tcp", testConfig.TargetAddr, 3*time.Second)
 		if err != nil {
 			return &ScanResult{
@@ -381,8 +383,8 @@ func ClassifyError(err error, authKeywords, networkKeywords []string) ErrorType 
 func containsIgnoreCase(s, substr string) bool {
 	return len(s) >= len(substr) &&
 		(s == substr ||
-		 len(substr) == 0 ||
-		 findIgnoreCase(s, substr) >= 0)
+			len(substr) == 0 ||
+			findIgnoreCase(s, substr) >= 0)
 }
 
 // findIgnoreCase 忽略大小写查找子串
