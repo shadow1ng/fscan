@@ -8,16 +8,21 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shadow1ng/fscan/common/proxy"
 	"github.com/shadow1ng/fscan/common/i18n"
+	"github.com/shadow1ng/fscan/common/output"
+	"github.com/shadow1ng/fscan/common/proxy"
 )
+
+// ResultSink receives structured scan results for one scan session.
+type ResultSink func(result *output.ScanResult) error
 
 // ScanSession 封装单次扫描的全部上下文
 // 一次扫描一个 session，并发扫描各自独立
 type ScanSession struct {
-	Config *Config   // 不可变，创建后只读
-	State  *State    // 可变，原子操作，每会话独立
-	Params *FlagVars // 原始参数，只读
+	Config     *Config    // 不可变，创建后只读
+	State      *State     // 可变，原子操作，每会话独立
+	Params     *FlagVars  // 原始参数，只读
+	ResultSink ResultSink // 可选，覆盖全局输出
 
 	// 每会话 dialer（懒初始化，取决于代理配置）
 	dialerOnce sync.Once
@@ -32,6 +37,15 @@ func NewScanSession(config *Config, state *State, params *FlagVars) *ScanSession
 		State:  state,
 		Params: params,
 	}
+}
+
+// SaveResult saves a scan result through the session sink if present, otherwise
+// falls back to the process-wide output pipeline used by the CLI.
+func (s *ScanSession) SaveResult(result *output.ScanResult) error {
+	if s != nil && s.ResultSink != nil {
+		return s.ResultSink(result)
+	}
+	return SaveResult(result)
 }
 
 // DialTCP 创建 TCP 连接，内含限速检查、代理、计数

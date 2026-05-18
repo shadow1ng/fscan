@@ -81,6 +81,11 @@ func (b *BaseScanStrategy) IsPluginApplicableByName(pluginName string, targetHos
 		return false
 	}
 
+	// 显式指定插件时，尊重调用方选择，不再强制使用插件默认端口过滤。
+	if isCustomMode {
+		return b.isPluginPassesFilterType(pluginName, isCustomMode, config)
+	}
+
 	// 检查端口匹配和过滤器类型
 	return b.isPluginApplicableToPortWithHost(pluginName, targetHost, targetPort) && b.isPluginPassesFilterType(pluginName, isCustomMode, config)
 }

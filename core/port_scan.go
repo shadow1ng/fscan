@@ -487,7 +487,7 @@ func scanSinglePort(ctx context.Context, host string, port int, addr string, ada
 	// 步骤2：记录开放端口
 	atomic.AddInt64(count, 1)
 	collector.Add(addr)
-	saveOpenPort(host, port)
+	saveOpenPort(session, host, port)
 
 	// 步骤3：服务识别（Scanner负责关闭连接，包括探测中可能创建的新连接）
 	scanner := NewSmartPortInfoScanner(ctx, host, port, conn, timeout, config, session)
@@ -640,8 +640,8 @@ func isConnectionClosed(err error) bool {
 }
 
 // saveOpenPort 保存开放端口结果
-func saveOpenPort(host string, port int) {
-	_ = common.SaveResult(&output.ScanResult{
+func saveOpenPort(session *common.ScanSession, host string, port int) {
+	_ = session.SaveResult(&output.ScanResult{
 		Time:    time.Now(),
 		Type:    output.TypePort,
 		Target:  host,
@@ -669,7 +669,7 @@ func processServiceResult(host string, port int, addr string, serviceInfo *Servi
 		MarkAsWebService(host, port, serviceInfo)
 	}
 
-	_ = common.SaveResult(&output.ScanResult{
+	_ = session.SaveResult(&output.ScanResult{
 		Time:    time.Now(),
 		Type:    output.TypeService,
 		Target:  fmt.Sprintf("%s:%d", host, port),
@@ -737,7 +737,7 @@ func tryHTTPFallbackDetection(host string, port int, addr string, config *common
 		"is_web":      true,
 		"detected_by": "http_probe",
 	}
-	_ = common.SaveResult(&output.ScanResult{
+	_ = session.SaveResult(&output.ScanResult{
 		Time:    time.Now(),
 		Type:    output.TypeService,
 		Target:  fmt.Sprintf("%s:%d", host, port),

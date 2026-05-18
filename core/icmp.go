@@ -55,7 +55,7 @@ func CheckLive(ctx context.Context, hostslist []string, Ping bool, session *comm
 	chanHosts := make(chan string, len(hostslist))
 
 	// 处理存活主机
-	go handleAliveHosts(chanHosts, hostslist, Ping, &aliveHosts, &aliveHostsMu, existHosts, config, &livewg)
+	go handleAliveHosts(chanHosts, hostslist, Ping, &aliveHosts, &aliveHostsMu, existHosts, config, session, &livewg)
 
 	// 根据Ping参数选择检测方式
 	if Ping {
@@ -130,7 +130,7 @@ func IsContain(items []string, item string) bool {
 	return false
 }
 
-func handleAliveHosts(chanHosts chan string, hostslist []string, isPing bool, aliveHosts *[]string, aliveHostsMu *sync.Mutex, existHosts map[string]struct{}, config *common.Config, livewg *sync.WaitGroup) {
+func handleAliveHosts(chanHosts chan string, hostslist []string, isPing bool, aliveHosts *[]string, aliveHostsMu *sync.Mutex, existHosts map[string]struct{}, config *common.Config, session *common.ScanSession, livewg *sync.WaitGroup) {
 	for ip := range chanHosts {
 		if _, ok := existHosts[ip]; !ok && IsContain(hostslist, ip) {
 			existHosts[ip] = struct{}{}
@@ -155,7 +155,7 @@ func handleAliveHosts(chanHosts chan string, hostslist []string, isPing bool, al
 					"protocol": protocol,
 				},
 			}
-			_ = common.SaveResult(result)
+			_ = session.SaveResult(result)
 
 			// 保留原有的控制台输出
 			if !config.Output.Silent {
@@ -771,7 +771,7 @@ func runTcpProbeForHosts(ctx context.Context, hosts []string, session *common.Sc
 						"protocol": "TCP",
 					},
 				}
-				_ = common.SaveResult(result)
+				_ = session.SaveResult(result)
 
 				if !config.Output.Silent {
 					common.LogInfo(i18n.Tr("host_alive", h, "TCP"))

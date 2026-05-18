@@ -25,6 +25,11 @@ type Config struct {
 
 	Plugins []string
 	Ports   []int
+	// AllowUnsafePlugins permits plugins with local side effects or long-lived
+	// behavior. It is false by default for embedded endpoint use.
+	AllowUnsafePlugins bool
+	// OnResult is called for every structured result as it is discovered.
+	OnResult func(Result)
 
 	Timeout       time.Duration
 	Threads       int

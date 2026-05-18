@@ -12,6 +12,7 @@ import (
 	"github.com/shadow1ng/fscan/common"
 	commonconfig "github.com/shadow1ng/fscan/common/config"
 	"github.com/shadow1ng/fscan/common/i18n"
+	"github.com/shadow1ng/fscan/common/output"
 	"github.com/shadow1ng/fscan/core"
 	"github.com/shadow1ng/fscan/plugins"
 
@@ -22,6 +23,56 @@ import (
 
 var scanMu sync.Mutex
 
+var defaultSafePlugins = []string{
+	"activemq",
+	"cassandra",
+	"elasticsearch",
+	"ftp",
+	"kafka",
+	"ldap",
+	"memcached",
+	"mongodb",
+	"mssql",
+	"mysql",
+	"neo4j",
+	"netbios",
+	"oracle",
+	"postgresql",
+	"rabbitmq",
+	"rdp",
+	"redis",
+	"rsync",
+	"smb",
+	"smtp",
+	"ssh",
+	"telnet",
+	"vnc",
+	"webtitle",
+}
+
+var unsafePlugins = map[string]struct{}{
+	"cleaner":        {},
+	"crontask":       {},
+	"download":       {},
+	"forwardshell":   {},
+	"keylogger":      {},
+	"ldpreload":      {},
+	"minidump":       {},
+	"reverseshell":   {},
+	"socks5proxy":    {},
+	"sshkey":         {},
+	"systemdservice": {},
+	"winbits":        {},
+	"winifeo":        {},
+	"winlogon":       {},
+	"winregistry":    {},
+	"winschtask":     {},
+	"winservice":     {},
+	"winstartup":     {},
+	"winwmi":         {},
+	"webpoc":         {},
+}
+
 // Scanner runs fscan from another Go process.
 type Scanner struct {
 	config Config
@@ -30,6 +81,12 @@ type Scanner struct {
 // NewScanner creates an embedded scanner.
 func NewScanner(config Config) *Scanner {
 	return &Scanner{config: config}
+}
+
+// DefaultSafePlugins returns the plugin set used by the SDK when Config.Plugins
+// is empty. The returned slice can be modified by callers.
+func DefaultSafePlugins() []string {
+	return append([]string(nil), defaultSafePlugins...)
 }
 
 // Scan runs the scanner for the provided targets and returns structured
@@ -48,24 +105,30 @@ func (s *Scanner) Scan(ctx context.Context, targets ...Target) ([]Result, error)
 	scanMu.Lock()
 	defer scanMu.Unlock()
 
+	previous := captureRuntime()
+	defer previous.restore()
+
 	var (
 		mu      sync.Mutex
 		results []Result
 	)
-	restoreCallback := common.ReplaceResultCallback(func(raw interface{}) {
-		if result, ok := decodeCallbackResult(raw); ok {
-			mu.Lock()
-			results = append(results, result)
-			mu.Unlock()
-		}
-	})
-	defer restoreCallback()
 
 	for _, target := range targets {
 		if err := ctx.Err(); err != nil {
 			return snapshotResults(&mu, results), err
 		}
-		if err := s.scanOne(ctx, target); err != nil {
+		sink := func(raw *output.ScanResult) error {
+			if result, ok := convertOutputResult(raw); ok {
+				mu.Lock()
+				results = append(results, result)
+				mu.Unlock()
+				if s.config.OnResult != nil {
+					s.config.OnResult(result)
+				}
+			}
+			return nil
+		}
+		if err := s.scanOne(ctx, target, sink); err != nil {
 			return snapshotResults(&mu, results), err
 		}
 	}
@@ -73,7 +136,7 @@ func (s *Scanner) Scan(ctx context.Context, targets ...Target) ([]Result, error)
 	return snapshotResults(&mu, results), ctx.Err()
 }
 
-func (s *Scanner) scanOne(ctx context.Context, target Target) error {
+func (s *Scanner) scanOne(ctx context.Context, target Target, sink common.ResultSink) error {
 	fv := buildFlagVars(s.config, target)
 	globalFV := common.GetFlagVars()
 	*globalFV = *fv
@@ -105,6 +168,7 @@ func (s *Scanner) scanOne(ctx context.Context, target Target) error {
 	common.InitLogger()
 
 	session := common.NewScanSession(cfg, state, globalFV)
+	session.ResultSink = sink
 	core.RunScan(ctx, info, session)
 	return nil
 }
@@ -120,6 +184,9 @@ func validateConfig(config Config, targets []Target) error {
 		}
 		if !plugins.Exists(name) {
 			return fmt.Errorf("fscan: plugin %q not found", name)
+		}
+		if !config.AllowUnsafePlugins && !isSafePlugin(name) {
+			return fmt.Errorf("fscan: plugin %q is not enabled for embedded safe mode", name)
 		}
 	}
 	for _, target := range targets {
@@ -184,7 +251,7 @@ func buildFlagVars(config Config, target Target) *common.FlagVars {
 	return &common.FlagVars{
 		Host:                strings.TrimSpace(target.Host),
 		Ports:               formatPorts(ports),
-		ScanMode:            formatPlugins(config.Plugins),
+		ScanMode:            formatPlugins(config),
 		ThreadNum:           threadNum,
 		ModuleThreadNum:     moduleThreads,
 		TimeoutSec:          timeout,
@@ -225,12 +292,16 @@ func buildFlagVars(config Config, target Target) *common.FlagVars {
 	}
 }
 
-func formatPlugins(plugins []string) string {
-	if len(plugins) == 0 {
+func formatPlugins(config Config) string {
+	pluginNames := config.Plugins
+	if len(pluginNames) == 0 && !config.AllowUnsafePlugins {
+		pluginNames = defaultSafePlugins
+	}
+	if len(pluginNames) == 0 {
 		return "all"
 	}
-	parts := make([]string, 0, len(plugins))
-	for _, plugin := range plugins {
+	parts := make([]string, 0, len(pluginNames))
+	for _, plugin := range pluginNames {
 		plugin = strings.TrimSpace(plugin)
 		if plugin != "" {
 			parts = append(parts, plugin)
@@ -240,6 +311,20 @@ func formatPlugins(plugins []string) string {
 		return "all"
 	}
 	return strings.Join(parts, ",")
+}
+
+func isSafePlugin(name string) bool {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return true
+	}
+	if plugins.HasType(name, plugins.PluginTypeLocal) {
+		return false
+	}
+	if _, bad := unsafePlugins[name]; bad {
+		return false
+	}
+	return true
 }
 
 func formatPorts(ports []int) string {
@@ -266,43 +351,43 @@ func secondsOrDefault(value time.Duration, fallback int) int64 {
 	return seconds
 }
 
-func decodeCallbackResult(raw interface{}) (Result, bool) {
-	item, ok := raw.(map[string]interface{})
-	if !ok {
+func convertOutputResult(raw *output.ScanResult) (Result, bool) {
+	if raw == nil {
 		return Result{}, false
 	}
-
 	result := Result{
-		Type:    stringValue(item["type"]),
-		Target:  stringValue(item["target"]),
-		Status:  stringValue(item["status"]),
-		Details: mapValue(item["details"]),
-	}
-	if t, ok := item["time"].(time.Time); ok {
-		result.Time = t
+		Time:    raw.Time,
+		Type:    string(raw.Type),
+		Target:  raw.Target,
+		Status:  raw.Status,
+		Details: raw.Details,
 	}
 	return result, result.Target != "" || result.Status != ""
-}
-
-func stringValue(value interface{}) string {
-	if s, ok := value.(string); ok {
-		return s
-	}
-	return ""
-}
-
-func mapValue(value interface{}) map[string]interface{} {
-	if value == nil {
-		return nil
-	}
-	if m, ok := value.(map[string]interface{}); ok {
-		return m
-	}
-	return nil
 }
 
 func snapshotResults(mu *sync.Mutex, results []Result) []Result {
 	mu.Lock()
 	defer mu.Unlock()
 	return append([]Result(nil), results...)
+}
+
+type runtimeSnapshot struct {
+	flagVars common.FlagVars
+	config   *common.Config
+	state    *common.State
+}
+
+func captureRuntime() runtimeSnapshot {
+	return runtimeSnapshot{
+		flagVars: *common.GetFlagVars(),
+		config:   common.GetGlobalConfig(),
+		state:    common.GetGlobalState(),
+	}
+}
+
+func (s runtimeSnapshot) restore() {
+	*common.GetFlagVars() = s.flagVars
+	common.SetGlobalConfig(s.config)
+	common.SetGlobalState(s.state)
+	common.ResetLogger()
 }

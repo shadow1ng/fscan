@@ -20,6 +20,9 @@ func main() {
 		DisablePing:  true,
 		DisableBrute: true,
 		Plugins:      []string{"ssh", "mysql", "redis"},
+		OnResult: func(result fscan.Result) {
+			fmt.Printf("%s %s %s\n", result.Type, result.Target, result.Status)
+		},
 	})
 
 	results, err := scanner.Scan(context.Background(), fscan.Target{
@@ -30,10 +33,10 @@ func main() {
 		panic(err)
 	}
 
-	for _, result := range results {
-		fmt.Printf("%s %s %s\n", result.Type, result.Target, result.Status)
-	}
+	fmt.Printf("total results: %d\n", len(results))
 }
 ```
 
 The SDK currently reuses fscan's existing scan core and plugin registry. Calls are serialized internally because the current core still keeps process-wide runtime state.
+
+By default, the SDK runs a conservative service-oriented plugin set and blocks plugins with local side effects or active POC behavior. Set `AllowUnsafePlugins` only when the embedding system explicitly wants those capabilities.

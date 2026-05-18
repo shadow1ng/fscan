@@ -281,7 +281,7 @@ func executeScanTask(ctx context.Context, session *common.ScanSession, pluginNam
 			if result != nil {
 				if result.Success {
 					// 保存成功的扫描结果到文件
-					savePluginResult(&target, pluginName, result)
+					savePluginResult(session, &target, pluginName, result)
 				} else if result.Type == plugins.ResultTypeCredential {
 					// 凭据测试完成但未发现弱密码，在error级别输出提示
 					common.LogError(i18n.Tr("brute_no_weak_pass", target.Host, target.Port, pluginName))
@@ -382,7 +382,7 @@ var defaultSerializer = resultSerializer{
 }
 
 // savePluginResult 保存插件扫描结果
-func savePluginResult(info *common.HostInfo, pluginName string, result *plugins.Result) {
+func savePluginResult(session *common.ScanSession, info *common.HostInfo, pluginName string, result *plugins.Result) {
 	if result == nil || !result.Success || result.Skipped {
 		return
 	}
@@ -402,7 +402,7 @@ func savePluginResult(info *common.HostInfo, pluginName string, result *plugins.
 
 	// 保存结果
 	target := info.Target()
-	_ = common.SaveResult(&output.ScanResult{
+	_ = session.SaveResult(&output.ScanResult{
 		Time:    time.Now(),
 		Type:    serializer.outputType,
 		Target:  target,
