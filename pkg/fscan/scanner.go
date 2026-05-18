@@ -39,6 +39,7 @@ var defaultSafePlugins = []string{
 	"rabbitmq",
 	"rdp",
 	"redis",
+	"jdwp",
 	"rsync",
 	"smb",
 	"smtp",
