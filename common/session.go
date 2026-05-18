@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -117,6 +118,43 @@ func (s *ScanSession) DialTCP(ctx context.Context, network, address string, time
 
 	s.State.IncrementTCPSuccessPacketCount()
 	return conn, nil
+}
+
+// HTTPDo executes an HTTP request with the session's packet limits and counters.
+func (s *ScanSession) HTTPDo(client *http.Client, req *http.Request) (*http.Response, error) {
+	if ok, err := CanSendPacketWith(s.Config, s.State); !ok {
+		s.LogError(fmt.Sprintf("HTTP请求 %s 受限: %s", req.URL.String(), err.Error()))
+		return nil, fmt.Errorf("%s", i18n.Tr("network_rate_limited", err.Error()))
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		s.State.IncrementTCPFailedPacketCount()
+		return nil, err
+	}
+	s.State.IncrementTCPSuccessPacketCount()
+	return resp, nil
+}
+
+// ProxyEnabled reports whether this scan session uses a network proxy.
+func (s *ScanSession) ProxyEnabled() bool {
+	if s == nil || s.Config == nil {
+		return false
+	}
+	return s.Config.Network.Socks5Proxy != "" || s.Config.Network.HTTPProxy != ""
+}
+
+// IsSOCKS5Proxy reports whether this scan session uses SOCKS5.
+func (s *ScanSession) IsSOCKS5Proxy() bool {
+	return s != nil && s.Config != nil && s.Config.Network.Socks5Proxy != ""
+}
+
+// ProxyReliable reports whether the session proxy should be treated as reliable.
+func (s *ScanSession) ProxyReliable() bool {
+	if !s.ProxyEnabled() || !s.IsSOCKS5Proxy() {
+		return true
+	}
+	return proxy.IsProxyReliable()
 }
 
 func (s *ScanSession) getDialer(timeout time.Duration) (proxy.Dialer, error) {

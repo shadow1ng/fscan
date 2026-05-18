@@ -1,6 +1,9 @@
 package common
 
 import (
+	"io"
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -64,4 +67,82 @@ func TestScanSessionDialerCacheIsTimeoutAware(t *testing.T) {
 	if got := session.createProxyConfig(shortTimeout).Timeout; got != shortTimeout {
 		t.Fatalf("proxy timeout = %v, want %v", got, shortTimeout)
 	}
+}
+
+func TestScanSessionHTTPDoUsesSessionState(t *testing.T) {
+	previousState := GetGlobalState()
+	globalState := NewState()
+	SetGlobalState(globalState)
+	t.Cleanup(func() { SetGlobalState(previousState) })
+
+	sessionState := NewState()
+	session := NewScanSession(NewConfig(), sessionState, &FlagVars{})
+	client := &http.Client{
+		Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusNoContent,
+				Body:       io.NopCloser(strings.NewReader("")),
+				Header:     make(http.Header),
+			}, nil
+		}),
+	}
+	req, err := http.NewRequest(http.MethodHead, "http://example.com", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := session.HTTPDo(client, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+
+	if got := sessionState.GetTCPSuccessPacketCount(); got != 1 {
+		t.Fatalf("session TCP success count = %d, want 1", got)
+	}
+	if got := globalState.GetTCPSuccessPacketCount(); got != 0 {
+		t.Fatalf("global TCP success count = %d, want 0", got)
+	}
+}
+
+func TestScanSessionProxyStateComesFromConfig(t *testing.T) {
+	direct := NewScanSession(NewConfig(), NewState(), &FlagVars{})
+	if direct.ProxyEnabled() {
+		t.Fatal("direct session should not report proxy enabled")
+	}
+	if direct.IsSOCKS5Proxy() {
+		t.Fatal("direct session should not report SOCKS5")
+	}
+	if !direct.ProxyReliable() {
+		t.Fatal("direct session should be reliable")
+	}
+
+	httpCfg := NewConfig()
+	httpCfg.Network.HTTPProxy = "http://127.0.0.1:8080"
+	httpSession := NewScanSession(httpCfg, NewState(), &FlagVars{})
+	if !httpSession.ProxyEnabled() {
+		t.Fatal("HTTP proxy session should report proxy enabled")
+	}
+	if httpSession.IsSOCKS5Proxy() {
+		t.Fatal("HTTP proxy session should not report SOCKS5")
+	}
+	if !httpSession.ProxyReliable() {
+		t.Fatal("HTTP proxy session should be reliable")
+	}
+
+	socksCfg := NewConfig()
+	socksCfg.Network.Socks5Proxy = "127.0.0.1:1080"
+	socksSession := NewScanSession(socksCfg, NewState(), &FlagVars{})
+	if !socksSession.ProxyEnabled() {
+		t.Fatal("SOCKS5 proxy session should report proxy enabled")
+	}
+	if !socksSession.IsSOCKS5Proxy() {
+		t.Fatal("SOCKS5 proxy session should report SOCKS5")
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }

@@ -176,7 +176,7 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 	}
 
 	// 检查代理可靠性，如果存在全回显问题则警告
-	if common.IsProxyEnabled() && !common.IsProxyReliable() {
+	if session.ProxyEnabled() && !session.ProxyReliable() {
 		session.LogError("检测到代理存在全回显问题，端口扫描结果可能不准确")
 	}
 
@@ -465,7 +465,7 @@ func scanSinglePort(ctx context.Context, host string, port int, addr string, ada
 	adaptiveTO.Record(time.Since(start))
 
 	// 步骤1.5：代理连接深度验证（防止透明代理/全回显代理的假连接问题）
-	valid, verifyMethod := verifyProxyConnectionDeep(conn, addr)
+	valid, verifyMethod := verifyProxyConnectionDeep(conn, addr, session)
 	if !valid {
 		session.LogDebug(fmt.Sprintf("代理验证失败 %s: %s", addr, verifyMethod))
 		_ = conn.Close()
@@ -474,7 +474,7 @@ func scanSinglePort(ctx context.Context, host string, port int, addr string, ada
 
 	// 步骤1.6：如果使用了代理且进行了数据交互，需要重建连接
 	// 因为验证阶段可能读取了Banner或发送了HTTP GET探测，污染了连接状态
-	if common.IsProxyEnabled() && verifyMethod != "direct" {
+	if session.ProxyEnabled() && verifyMethod != "direct" {
 		_ = conn.Close()
 		// 重新建立干净的连接用于服务识别
 		conn, err = connectWithRetry(ctx, session, addr, timeout, 2)
@@ -523,10 +523,10 @@ func handleConnectionFailure(err error, host string, port int, addr string, fail
 // 1. 快速 Banner 检测 (100ms) - 大部分服务会主动发送数据
 // 2. 轻量探测 (发送 \r\n) - 触发某些服务响应，同时不污染协议状态
 // 3. 短超时等待 (500ms) - 平衡准确性和性能
-func verifyProxyConnectionDeep(conn net.Conn, addr string) (bool, string) {
+func verifyProxyConnectionDeep(conn net.Conn, addr string, session *common.ScanSession) (bool, string) {
 	// 无代理或SOCKS5代理：跳过深度验证
 	// SOCKS5协议层已验证连接可达性，连接成功即端口开放
-	if !common.IsProxyEnabled() || common.IsSOCKS5Proxy() {
+	if !session.ProxyEnabled() || session.IsSOCKS5Proxy() {
 		return true, "direct"
 	}
 

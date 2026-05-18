@@ -136,12 +136,12 @@ func (w *WebPortDetector) DetectHTTPServiceOnly(host string, port int, config *c
 	client := createHTTPClient(config, session)
 
 	// 尝试HTTP
-	if w.tryHTTP(client, host, port, "http") {
+	if w.tryHTTP(client, session, host, port, "http") {
 		return true
 	}
 
 	// 尝试HTTPS
-	if w.tryHTTP(client, host, port, "https") {
+	if w.tryHTTP(client, session, host, port, "https") {
 		return true
 	}
 
@@ -163,7 +163,7 @@ func isPortReachable(host string, port int, config *common.Config, session *comm
 }
 
 // tryHTTP 尝试HTTP请求 - 简化的核心逻辑
-func (w *WebPortDetector) tryHTTP(client *http.Client, host string, port int, protocol string) bool {
+func (w *WebPortDetector) tryHTTP(client *http.Client, session *common.ScanSession, host string, port int, protocol string) bool {
 	// 构造URL
 	var url string
 	if (port == 80 && protocol == "http") || (port == 443 && protocol == "https") {
@@ -181,8 +181,7 @@ func (w *WebPortDetector) tryHTTP(client *http.Client, host string, port int, pr
 	req.Header.Set("User-Agent", "fscan-web-detector/2.1")
 	req.Header.Set("Accept", "*/*")
 
-	// 使用统一的SafeHTTPDo以确保遵循限速策略和代理设置
-	resp, err := common.SafeHTTPDo(client, req)
+	resp, err := session.HTTPDo(client, req)
 	if err != nil {
 		return false
 	}
