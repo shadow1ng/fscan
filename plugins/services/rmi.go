@@ -1,0 +1,87 @@
+//go:build plugin_rmi || !plugin_selective
+
+package services
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/plugins"
+)
+
+// Java RMI protocol magic: "JRMI" + version 2 + StreamProtocol
+var rmiHandshake = []byte{0x4a, 0x52, 0x4d, 0x49, 0x00, 0x02, 0x4b}
+
+type RMIPlugin struct {
+	plugins.BasePlugin
+}
+
+func NewRMIPlugin() *RMIPlugin {
+	return &RMIPlugin{BasePlugin: plugins.NewBasePlugin("rmi")}
+}
+
+func (p *RMIPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	timeout := session.Config.Timeout
+	if timeout <= 0 {
+		timeout = 3 * time.Second
+	}
+
+	addr := fmt.Sprintf("%s:%d", info.Host, info.Port)
+	conn, err := session.DialTCP(ctx, "tcp", addr, timeout)
+	if err != nil {
+		return &ScanResult{Success: false, Service: "rmi"}
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(timeout))
+
+	if _, err := conn.Write(rmiHandshake); err != nil {
+		return &ScanResult{Success: false, Service: "rmi"}
+	}
+
+	buf := make([]byte, 256)
+	n, err := conn.Read(buf)
+	if err != nil || n < 5 {
+		return &ScanResult{Success: false, Service: "rmi"}
+	}
+
+	// RMI server responds with 0x4e (ProtocolAck) followed by endpoint info
+	if buf[0] != 0x4e {
+		return &ScanResult{Success: false, Service: "rmi"}
+	}
+
+	endpoint := parseRMIEndpoint(buf[1:n])
+
+	return &ScanResult{
+		Success: true,
+		Type:    plugins.ResultTypeVuln,
+		Service: "rmi",
+		VulInfo: "Java RMI/JMX Service Exposed",
+		Banner:  endpoint,
+	}
+}
+
+func parseRMIEndpoint(data []byte) string {
+	if len(data) < 4 {
+		return "Java RMI"
+	}
+	// Skip 2 bytes (host length big-endian)
+	hostLen := int(data[0])<<8 | int(data[1])
+	if hostLen <= 0 || hostLen+2 > len(data) {
+		return "Java RMI"
+	}
+	host := string(data[2 : 2+hostLen])
+	offset := 2 + hostLen
+	if offset+4 > len(data) {
+		return fmt.Sprintf("Java RMI endpoint=%s", host)
+	}
+	port := int(data[offset])<<24 | int(data[offset+1])<<16 | int(data[offset+2])<<8 | int(data[offset+3])
+	return fmt.Sprintf("Java RMI endpoint=%s:%d", host, port)
+}
+
+func init() {
+	RegisterPluginWithPorts("rmi", func() Plugin {
+		return NewRMIPlugin()
+	}, []int{1099, 1098, 9999, 4444})
+}
