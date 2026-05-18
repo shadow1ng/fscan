@@ -25,7 +25,6 @@ web_scanner_test.go - WebScanner核心逻辑测试
 4. 指纹缓存 - SetFingerprints, GetFingerprints
 
 不测试的部分（需要集成测试）：
-- createHTTPClient - 依赖全局配置
 - tryHTTP, DetectHTTPServiceOnly - 网络IO
 - Execute - 完整流程
 
@@ -764,4 +763,58 @@ func TestDetectHTTPScheme(t *testing.T) {
 			t.Errorf("TLS 1.0服务器应被检测为https, 实际 %q", result)
 		}
 	})
+}
+
+func TestCreateHTTPClientUsesPerSessionProxy(t *testing.T) {
+	cfgA := common.NewConfig()
+	cfgA.Network.WebTimeout = time.Second
+	cfgA.Network.HTTPProxy = "http://127.0.0.1:18080"
+	sessionA := common.NewScanSession(cfgA, common.NewState(), &common.FlagVars{})
+
+	cfgB := common.NewConfig()
+	cfgB.Network.WebTimeout = time.Second
+	cfgB.Network.HTTPProxy = "http://127.0.0.1:28080"
+	sessionB := common.NewScanSession(cfgB, common.NewState(), &common.FlagVars{})
+
+	clientA := createHTTPClient(cfgA, sessionA)
+	clientB := createHTTPClient(cfgB, sessionB)
+	if clientA == clientB {
+		t.Fatal("createHTTPClient reused a process-wide client")
+	}
+
+	proxyA := proxyForTest(t, clientA)
+	proxyB := proxyForTest(t, clientB)
+	if proxyA == proxyB {
+		t.Fatalf("proxy URLs should be per config, both were %q", proxyA)
+	}
+	if proxyA != "http://127.0.0.1:18080" {
+		t.Fatalf("proxyA = %q, want http://127.0.0.1:18080", proxyA)
+	}
+	if proxyB != "http://127.0.0.1:28080" {
+		t.Fatalf("proxyB = %q, want http://127.0.0.1:28080", proxyB)
+	}
+}
+
+func proxyForTest(t *testing.T, client *http.Client) string {
+	t.Helper()
+
+	transport, ok := client.Transport.(*http.Transport)
+	if !ok {
+		t.Fatal("client transport is not *http.Transport")
+	}
+	if transport.Proxy == nil {
+		t.Fatal("client proxy is nil")
+	}
+	req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proxyURL, err := transport.Proxy(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if proxyURL == nil {
+		t.Fatal("proxy URL is nil")
+	}
+	return proxyURL.String()
 }

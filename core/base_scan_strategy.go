@@ -170,7 +170,7 @@ func (b *BaseScanStrategy) isPluginPassesFilterType(pluginName string, isCustomM
 }
 
 // LogPluginInfo 输出插件信息
-func (b *BaseScanStrategy) LogPluginInfo(config *common.Config) {
+func (b *BaseScanStrategy) LogPluginInfo(config *common.Config, session *common.ScanSession) {
 	allPlugins, isCustomMode := b.GetPlugins(config)
 
 	var prefix string
@@ -189,6 +189,7 @@ func (b *BaseScanStrategy) LogPluginInfo(config *common.Config) {
 	_ = allPlugins
 	_ = isCustomMode
 	_ = prefix
+	_ = session
 }
 
 // formatPluginList 格式化插件列表（超过5个时精简显示）
@@ -205,14 +206,14 @@ func (b *BaseScanStrategy) ValidateConfiguration() error {
 }
 
 // LogScanStart 输出扫描开始信息（已精简，仅在非服务扫描模式下显示）
-func (b *BaseScanStrategy) LogScanStart() {
+func (b *BaseScanStrategy) LogScanStart(session *common.ScanSession) {
 	// 服务扫描模式下不显示（插件信息已足够说明）
 	// 仅在本地/Web等特殊模式下显示
 	switch b.filterType {
 	case FilterLocal:
-		common.LogInfo(i18n.GetText("start_local_scan"))
+		session.LogInfo(i18n.GetText("start_local_scan"))
 	case FilterWeb:
-		common.LogInfo(i18n.GetText("start_web_scan"))
+		session.LogInfo(i18n.GetText("start_web_scan"))
 	}
 }
 
