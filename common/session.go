@@ -24,10 +24,10 @@ type ScanSession struct {
 	Params     *FlagVars  // 原始参数，只读
 	ResultSink ResultSink // 可选，覆盖全局输出
 
-	// 每会话 dialer（懒初始化，取决于代理配置）
-	dialerOnce sync.Once
-	dialer     proxy.Dialer
-	dialerErr  error
+	// 每会话 dialer（按 timeout 懒初始化，取决于代理配置）
+	dialerMu   sync.Mutex
+	dialers    map[time.Duration]proxy.Dialer
+	dialerErrs map[time.Duration]error
 }
 
 // NewScanSession 从已构建的 Config、State 和 FlagVars 创建会话
@@ -96,7 +96,7 @@ func (s *ScanSession) DialTCP(ctx context.Context, network, address string, time
 	}
 
 	// 获取 dialer
-	dialer, err := s.getDialer()
+	dialer, err := s.getDialer(timeout)
 	if err != nil {
 		s.LogError(fmt.Sprintf("获取代理拨号器失败: %v", err))
 		s.State.IncrementTCPFailedPacketCount()
@@ -119,18 +119,33 @@ func (s *ScanSession) DialTCP(ctx context.Context, network, address string, time
 	return conn, nil
 }
 
-func (s *ScanSession) getDialer() (proxy.Dialer, error) {
-	s.dialerOnce.Do(func() {
-		cfg := s.createProxyConfig()
-		manager := proxy.NewProxyManager(cfg)
-		s.dialer, s.dialerErr = manager.GetDialer()
-	})
-	return s.dialer, s.dialerErr
+func (s *ScanSession) getDialer(timeout time.Duration) (proxy.Dialer, error) {
+	if timeout <= 0 {
+		timeout = s.Config.Timeout
+	}
+
+	s.dialerMu.Lock()
+	defer s.dialerMu.Unlock()
+
+	if s.dialers == nil {
+		s.dialers = make(map[time.Duration]proxy.Dialer)
+		s.dialerErrs = make(map[time.Duration]error)
+	}
+	if dialer, ok := s.dialers[timeout]; ok {
+		return dialer, s.dialerErrs[timeout]
+	}
+
+	cfg := s.createProxyConfig(timeout)
+	manager := proxy.NewProxyManager(cfg)
+	dialer, err := manager.GetDialer()
+	s.dialers[timeout] = dialer
+	s.dialerErrs[timeout] = err
+	return dialer, err
 }
 
-func (s *ScanSession) createProxyConfig() *proxy.ProxyConfig {
+func (s *ScanSession) createProxyConfig(timeout time.Duration) *proxy.ProxyConfig {
 	cfg := proxy.DefaultProxyConfig()
-	cfg.Timeout = s.Config.Timeout
+	cfg.Timeout = timeout
 	cfg.LocalAddr = s.Config.Network.Iface
 
 	// 优先 SOCKS5
