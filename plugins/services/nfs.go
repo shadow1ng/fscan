@@ -34,28 +34,70 @@ func (p *NFSPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	defer conn.Close()
 	_ = conn.SetDeadline(time.Now().Add(timeout))
 
-	exports, err := p.getExports(conn)
-	if err != nil {
-		return &ScanResult{Success: false, Service: "nfs"}
-	}
-
-	if len(exports) == 0 {
-		return &ScanResult{
-			Success: true,
-			Type:    plugins.ResultTypeService,
-			Service: "nfs",
-			Banner:  "NFS service detected (no exports)",
+	// NFS NULL call (program=100003, version=3, procedure=0) to confirm NFS service
+	if err := p.rpcNullCall(conn, 100003, 3); err != nil {
+		// Try v4
+		_ = conn.SetDeadline(time.Now().Add(timeout))
+		if err := p.rpcNullCall(conn, 100003, 4); err != nil {
+			return &ScanResult{Success: false, Service: "nfs"}
 		}
 	}
 
-	banner := fmt.Sprintf("NFS exports: %v", exports)
+	// NFS confirmed. Try MOUNT EXPORT on a separate connection (port 2049 may also host mountd).
+	var exports []string
+	mountConn, err := session.DialTCP(ctx, "tcp", addr, timeout)
+	if err == nil {
+		_ = mountConn.SetDeadline(time.Now().Add(timeout))
+		exports, _ = p.getExports(mountConn)
+		mountConn.Close()
+	}
+
+	if len(exports) > 0 {
+		return &ScanResult{
+			Success: true,
+			Type:    plugins.ResultTypeVuln,
+			Service: "nfs",
+			VulInfo: fmt.Sprintf("NFS Exported Shares: %v", exports),
+			Banner:  fmt.Sprintf("NFS exports: %v", exports),
+		}
+	}
+
 	return &ScanResult{
 		Success: true,
-		Type:    plugins.ResultTypeVuln,
+		Type:    plugins.ResultTypeService,
 		Service: "nfs",
-		VulInfo: fmt.Sprintf("NFS Exported Shares: %v", exports),
-		Banner:  banner,
+		Banner:  "NFS service detected",
 	}
+}
+
+func (p *NFSPlugin) rpcNullCall(conn interface {
+	Read([]byte) (int, error)
+	Write([]byte) (int, error)
+}, program, version uint32) error {
+	xid := uint32(0x12340000 + program)
+	rpcCall := p.buildRPCCall(xid, program, version, 0, nil)
+	rpcFragment := p.wrapRPCFragment(rpcCall)
+
+	if _, err := conn.Write(rpcFragment); err != nil {
+		return err
+	}
+
+	buf := make([]byte, 512)
+	n, err := conn.Read(buf)
+	if err != nil || n < 28 {
+		return fmt.Errorf("short response")
+	}
+
+	reply := buf[4:n]
+	replyXID := binary.BigEndian.Uint32(reply[0:4])
+	if replyXID != xid {
+		return fmt.Errorf("xid mismatch")
+	}
+	msgType := binary.BigEndian.Uint32(reply[4:8])
+	if msgType != 1 {
+		return fmt.Errorf("not a reply")
+	}
+	return nil
 }
 
 func (p *NFSPlugin) getExports(conn interface {

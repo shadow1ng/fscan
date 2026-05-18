@@ -221,12 +221,21 @@ func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *comm
 
 // dispatchUDPPlugins 分发UDP协议插件，跳过TCP端口扫描链路
 func (s *ServiceScanStrategy) dispatchUDPPlugins(ctx context.Context, session *common.ScanSession, hosts []string, baseInfo common.HostInfo, config *common.Config, ch chan struct{}, wg *sync.WaitGroup) {
-	allPlugins, isCustomMode := s.GetPlugins(config)
+	_, isCustomMode := s.GetPlugins(config)
 
 	var udpPlugins []string
-	for _, name := range allPlugins {
-		if plugins.IsUDP(name) {
-			if isCustomMode || plugins.IsSafe(name) {
+	if isCustomMode {
+		// custom mode: 只跑用户指定的 UDP 插件
+		requested, _ := s.GetPlugins(config)
+		for _, name := range requested {
+			if plugins.IsUDP(name) {
+				udpPlugins = append(udpPlugins, name)
+			}
+		}
+	} else {
+		// auto mode: 跑所有已注册的安全 UDP 插件
+		for _, name := range plugins.All() {
+			if plugins.IsUDP(name) && plugins.IsSafe(name) {
 				udpPlugins = append(udpPlugins, name)
 			}
 		}
