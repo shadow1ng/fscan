@@ -4,13 +4,11 @@ package services
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/shadow1ng/fscan/common"
 	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/plugins"
-	_ "github.com/sijms/go-ora/v2"
 )
 
 // OraclePlugin Oracle扫描插件
@@ -74,23 +72,9 @@ func (p *OraclePlugin) doOracleAuth(ctx context.Context, info *common.HostInfo, 
 	serviceNames := []string{"ORCL", "XE", "XEPDB1", target}
 
 	for _, serviceName := range serviceNames {
-		connStr := fmt.Sprintf("oracle://%s:%s@%s/%s", cred.Username, cred.Password, target, serviceName)
-
 		connectCtx, cancel := context.WithTimeout(ctx, config.Timeout)
-
-		db, err := sql.Open("oracle", connStr)
+		err := oracleRawAuth(connectCtx, info.Host, info.Port, serviceName, cred.Username, cred.Password, config.Timeout)
 		if err != nil {
-			cancel()
-			continue
-		}
-
-		db.SetMaxOpenConns(1)
-		db.SetMaxIdleConns(0)
-		db.SetConnMaxLifetime(config.Timeout)
-
-		err = db.PingContext(connectCtx)
-		if err != nil {
-			_ = db.Close()
 			cancel()
 			errorType := classifyOracleErrorType(err)
 			if errorType == ErrorTypeAuth {
@@ -108,7 +92,6 @@ func (p *OraclePlugin) doOracleAuth(ctx context.Context, info *common.HostInfo, 
 
 		return &AuthResult{
 			Success:   true,
-			Conn:      &SQLDBWrapper{db},
 			ErrorType: ErrorTypeUnknown,
 			Error:     nil,
 		}

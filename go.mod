@@ -20,7 +20,6 @@ require (
 	github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
 	github.com/nicksnyder/go-i18n/v2 v2.4.0
 	github.com/panjf2000/ants/v2 v2.11.3
-	github.com/sijms/go-ora/v2 v2.9.0
 	github.com/stacktitan/smb v0.0.0-20190531122847-da9a425dceb8
 	github.com/tjfoc/gmsm v1.4.1
 	go.ciq.dev/go-rsync v0.0.0-20240304021629-0a3bb196e6d1
