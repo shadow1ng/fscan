@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -249,6 +250,128 @@ func TestScanEachRequiresHandler(t *testing.T) {
 
 	if err := scanner.ScanEach(context.Background(), nil); err == nil {
 		t.Fatal("expected missing handler error")
+	}
+}
+
+func TestScanEachRunsConcurrent(t *testing.T) {
+	first := startFTPListener(t)
+	defer first.Close()
+	second := startFTPListener(t)
+	defer second.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	blocked := make(chan struct{})
+	release := make(chan struct{})
+	firstErr := make(chan error, 1)
+	var blockOnce sync.Once
+
+	go func() {
+		scanner := NewScanner(Config{
+			DisablePing:  true,
+			DisableBrute: true,
+			Timeout:      time.Second,
+			Threads:      16,
+			Plugins:      []string{"ftp"},
+		})
+		port := first.Addr().(*net.TCPAddr).Port
+		firstErr <- scanner.ScanEach(ctx, func(result Result) error {
+			if result.IsPort() {
+				blockOnce.Do(func() { close(blocked) })
+				select {
+				case <-release:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
+			return nil
+		}, Target{Host: "127.0.0.1", Ports: []int{port}})
+	}()
+
+	select {
+	case <-blocked:
+	case <-time.After(2 * time.Second):
+		t.Fatal("first scan did not reach handler")
+	}
+
+	secondErr := make(chan error, 1)
+	var secondResults []Result
+	go func() {
+		scanner := NewScanner(Config{
+			DisablePing:  true,
+			DisableBrute: true,
+			Timeout:      time.Second,
+			Threads:      16,
+			Plugins:      []string{"ftp"},
+		})
+		port := second.Addr().(*net.TCPAddr).Port
+		secondErr <- scanner.ScanEach(ctx, func(result Result) error {
+			secondResults = append(secondResults, result)
+			return nil
+		}, Target{Host: "127.0.0.1", Ports: []int{port}})
+	}()
+
+	select {
+	case err := <-secondErr:
+		if err != nil {
+			close(release)
+			t.Fatalf("second scan failed: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		close(release)
+		t.Fatal("second scan blocked behind first scan")
+	}
+	if !hasResult(secondResults, ResultTypePort, "open", "") {
+		close(release)
+		t.Fatalf("missing second scan result: %#v", secondResults)
+	}
+
+	close(release)
+	if err := <-firstErr; err != nil {
+		t.Fatalf("first scan failed: %v", err)
+	}
+}
+
+func TestScanDoesNotReplaceGlobalRuntime(t *testing.T) {
+	listener := startFTPListener(t)
+	defer listener.Close()
+
+	previousConfig := common.GetGlobalConfig()
+	previousState := common.GetGlobalState()
+	previousFlags := *common.GetFlagVars()
+	defer func() {
+		common.SetGlobalConfig(previousConfig)
+		common.SetGlobalState(previousState)
+		*common.GetFlagVars() = previousFlags
+	}()
+
+	sentinelConfig := common.NewConfig()
+	sentinelState := common.NewState()
+	common.SetGlobalConfig(sentinelConfig)
+	common.SetGlobalState(sentinelState)
+	common.GetFlagVars().LogLevel = "sentinel"
+
+	scanner := NewScanner(Config{
+		DisablePing:  true,
+		DisableBrute: true,
+		Timeout:      time.Second,
+		Threads:      16,
+		Plugins:      []string{"ftp"},
+	})
+	port := listener.Addr().(*net.TCPAddr).Port
+	if _, err := scanner.Scan(context.Background(), Target{Host: "127.0.0.1", Ports: []int{port}}); err != nil {
+		t.Fatal(err)
+	}
+
+	if common.GetGlobalConfig() != sentinelConfig {
+		t.Fatal("SDK scan replaced global config")
+	}
+	if common.GetGlobalState() != sentinelState {
+		t.Fatal("SDK scan replaced global state")
+	}
+	if common.GetFlagVars().LogLevel != "sentinel" {
+		t.Fatal("SDK scan replaced global flags")
 	}
 }
 

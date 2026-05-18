@@ -14,11 +14,16 @@ import (
 )
 
 var (
-	globalLogger *logging.Logger
-	loggerOnce   sync.Once
+	globalLogger     *logging.Logger
+	loggerOnce       sync.Once
+	loggerMu         sync.Mutex
+	silentLoggerRefs int
 )
 
 func getGlobalLogger() *logging.Logger {
+	loggerMu.Lock()
+	defer loggerMu.Unlock()
+
 	loggerOnce.Do(func() {
 		fv := GetFlagVars()
 		level := getLogLevelFromString(fv.LogLevel)
@@ -27,7 +32,7 @@ func getGlobalLogger() *logging.Logger {
 			EnableColor:  !fv.NoColor,
 			SlowOutput:   false,
 			ShowProgress: !fv.DisableProgress,
-			Silent:       fv.Silent,
+			Silent:       fv.Silent || silentLoggerRefs > 0,
 			StartTime:    GetGlobalState().GetStartTime(),
 		}
 		if fv.Debug {
@@ -84,17 +89,41 @@ func LogError(errMsg string) { getGlobalLogger().Error(errMsg) }
 
 // CloseLogger 关闭日志系统，释放文件资源
 func CloseLogger() {
-	if globalLogger != nil {
-		globalLogger.Close()
+	loggerMu.Lock()
+	defer loggerMu.Unlock()
+	closeLoggerLocked()
+}
+
+// PushSilentLogger suppresses process-wide legacy log output until the returned
+// restore function is called. It is reference counted so concurrent embedded
+// scans can overlap safely.
+func PushSilentLogger() func() {
+	loggerMu.Lock()
+	silentLoggerRefs++
+	resetLoggerLocked()
+	loggerMu.Unlock()
+
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			loggerMu.Lock()
+			if silentLoggerRefs > 0 {
+				silentLoggerRefs--
+			}
+			resetLoggerLocked()
+			loggerMu.Unlock()
+		})
 	}
 }
 
-// ResetLogger clears the process-wide logger so embedded callers can rebuild it
-// after replacing runtime configuration.
-func ResetLogger() {
+func resetLoggerLocked() {
+	closeLoggerLocked()
+	globalLogger = nil
+	loggerOnce = sync.Once{}
+}
+
+func closeLoggerLocked() {
 	if globalLogger != nil {
 		globalLogger.Close()
 	}
-	globalLogger = nil
-	loggerOnce = sync.Once{}
 }

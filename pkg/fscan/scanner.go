@@ -21,8 +21,6 @@ import (
 	_ "github.com/shadow1ng/fscan/plugins/web"
 )
 
-var scanMu sync.Mutex
-
 var defaultSafePlugins = []string{
 	"activemq",
 	"cassandra",
@@ -149,12 +147,8 @@ func (s *Scanner) ScanEach(ctx context.Context, handle ResultHandler, targets ..
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-
-	scanMu.Lock()
-	defer scanMu.Unlock()
-
-	previous := captureRuntime()
-	defer previous.restore()
+	restoreLogger := common.PushSilentLogger()
+	defer restoreLogger()
 
 	var (
 		errMu      sync.Mutex
@@ -201,13 +195,11 @@ func (s *Scanner) ScanEach(ctx context.Context, handle ResultHandler, targets ..
 
 func (s *Scanner) scanOne(ctx context.Context, target Target, sink common.ResultSink) error {
 	fv := buildFlagVars(s.config, target)
-	globalFV := common.GetFlagVars()
-	*globalFV = *fv
 	info := common.HostInfo{Host: strings.TrimSpace(target.Host), URL: strings.TrimSpace(target.URL)}
 
-	i18n.SetLanguage(globalFV.Language)
+	i18n.SetLanguage(fv.Language)
 
-	cfg, state, err := common.BuildConfig(globalFV, &info)
+	cfg, state, err := common.BuildConfig(fv, &info)
 	if err != nil {
 		return err
 	}
@@ -225,12 +217,7 @@ func (s *Scanner) scanOne(ctx context.Context, target Target, sink common.Result
 	cfg.Output.DisableProgress = true
 	cfg.Output.ShowProgress = false
 
-	common.SetGlobalConfig(cfg)
-	common.SetGlobalState(state)
-	common.ResetLogger()
-	common.InitLogger()
-
-	session := common.NewScanSession(cfg, state, globalFV)
+	session := common.NewScanSession(cfg, state, fv)
 	session.ResultSink = sink
 	core.RunScan(ctx, info, session)
 	return nil
@@ -455,25 +442,4 @@ func getHandlerError(mu *sync.Mutex, err *error) error {
 	mu.Lock()
 	defer mu.Unlock()
 	return *err
-}
-
-type runtimeSnapshot struct {
-	flagVars common.FlagVars
-	config   *common.Config
-	state    *common.State
-}
-
-func captureRuntime() runtimeSnapshot {
-	return runtimeSnapshot{
-		flagVars: *common.GetFlagVars(),
-		config:   common.GetGlobalConfig(),
-		state:    common.GetGlobalState(),
-	}
-}
-
-func (s runtimeSnapshot) restore() {
-	*common.GetFlagVars() = s.flagVars
-	common.SetGlobalConfig(s.config)
-	common.SetGlobalState(s.state)
-	common.ResetLogger()
 }

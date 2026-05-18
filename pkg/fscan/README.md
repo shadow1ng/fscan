@@ -48,7 +48,7 @@ func main() {
 }
 ```
 
-The SDK currently reuses fscan's existing scan core and plugin registry. Calls are serialized internally because the current core still keeps process-wide runtime state.
+The SDK currently reuses fscan's existing scan core and plugin registry. Embedded scans build per-session runtime state and can run concurrently.
 
 By default, the SDK runs a conservative service-oriented plugin set and blocks plugins with local side effects or active POC behavior. Set `AllowUnsafePlugins` only when the embedding system explicitly wants those capabilities.
 

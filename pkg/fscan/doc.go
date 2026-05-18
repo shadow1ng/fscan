@@ -2,8 +2,8 @@
 //
 // The package is intentionally thin: it reuses the existing scan core and
 // plugin registry, while hiding CLI flags, stdout output, and result files from
-// callers. The first SDK surface is serialized internally because the current
-// scan core still uses process-wide runtime state.
+// callers. Embedded scans build per-session runtime state and can run
+// concurrently.
 //
 // Embedded callers can use ValidateConfig before starting a scan, IsSafePlugin
 // or ListPlugins to build plugin allow lists, and ResultType* constants instead
