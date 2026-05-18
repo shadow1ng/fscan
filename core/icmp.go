@@ -106,7 +106,7 @@ func tcpSupplementaryProbe(ctx context.Context, allHosts []string, aliveHosts []
 	}
 
 	// 提示用户正在进行 TCP 补充探测
-	common.LogInfo(i18n.Tr("tcp_probe_low_icmp_rate", fmt.Sprintf("%.1f%%", responseRate*100), len(unrespondedHosts)))
+	session.LogInfo(i18n.Tr("tcp_probe_low_icmp_rate", fmt.Sprintf("%.1f%%", responseRate*100), len(unrespondedHosts)))
 
 	// 执行 TCP 补充探测
 	tcpAliveHosts := runTcpProbeForHosts(ctx, unrespondedHosts, session)
@@ -114,7 +114,7 @@ func tcpSupplementaryProbe(ctx context.Context, allHosts []string, aliveHosts []
 	// 合并结果
 	if len(tcpAliveHosts) > 0 {
 		aliveHosts = append(aliveHosts, tcpAliveHosts...)
-		common.LogInfo(i18n.Tr("tcp_probe_found", len(tcpAliveHosts)))
+		session.LogInfo(i18n.Tr("tcp_probe_found", len(tcpAliveHosts)))
 	}
 
 	return aliveHosts
@@ -157,10 +157,7 @@ func handleAliveHosts(chanHosts chan string, hostslist []string, isPing bool, al
 			}
 			_ = session.SaveResult(result)
 
-			// 保留原有的控制台输出
-			if !config.Output.Silent {
-				common.LogInfo(i18n.Tr("host_alive", ip, protocol))
-			}
+			session.LogInfo(i18n.Tr("host_alive", ip, protocol))
 		}
 		livewg.Done()
 	}
@@ -730,7 +727,6 @@ func tcpProbeAlive(ctx context.Context, session *common.ScanSession, host string
 // runTcpProbeForHosts 对指定主机列表进行 TCP 补充探测
 // 返回存活的主机列表
 func runTcpProbeForHosts(ctx context.Context, hosts []string, session *common.ScanSession) []string {
-	config := session.Config
 	if len(hosts) == 0 {
 		return nil
 	}
@@ -773,9 +769,7 @@ func runTcpProbeForHosts(ctx context.Context, hosts []string, session *common.Sc
 				}
 				_ = session.SaveResult(result)
 
-				if !config.Output.Silent {
-					common.LogInfo(i18n.Tr("host_alive", h, "TCP"))
-				}
+				session.LogInfo(i18n.Tr("host_alive", h, "TCP"))
 			}
 		}(host)
 	}

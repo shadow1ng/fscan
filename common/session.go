@@ -48,18 +48,57 @@ func (s *ScanSession) SaveResult(result *output.ScanResult) error {
 	return SaveResult(result)
 }
 
+func (s *ScanSession) loggingEnabled() bool {
+	return s == nil || s.Config == nil || !s.Config.Output.Silent
+}
+
+// LogDebug writes through the session's logging policy.
+func (s *ScanSession) LogDebug(msg string) {
+	if s.loggingEnabled() {
+		LogDebug(msg)
+	}
+}
+
+// LogInfo writes through the session's logging policy.
+func (s *ScanSession) LogInfo(msg string) {
+	if s.loggingEnabled() {
+		LogInfo(msg)
+	}
+}
+
+// LogSuccess writes through the session's logging policy.
+func (s *ScanSession) LogSuccess(result string) {
+	if s.loggingEnabled() {
+		LogSuccess(result)
+	}
+}
+
+// LogVuln writes through the session's logging policy.
+func (s *ScanSession) LogVuln(result string) {
+	if s.loggingEnabled() {
+		LogVuln(result)
+	}
+}
+
+// LogError writes through the session's logging policy.
+func (s *ScanSession) LogError(errMsg string) {
+	if s.loggingEnabled() {
+		LogError(errMsg)
+	}
+}
+
 // DialTCP 创建 TCP 连接，内含限速检查、代理、计数
 func (s *ScanSession) DialTCP(ctx context.Context, network, address string, timeout time.Duration) (net.Conn, error) {
 	// 检查发包限制
 	if ok, err := CanSendPacketWith(s.Config, s.State); !ok {
-		LogError(fmt.Sprintf("TCP连接 %s 受限: %s", address, err.Error()))
+		s.LogError(fmt.Sprintf("TCP连接 %s 受限: %s", address, err.Error()))
 		return nil, fmt.Errorf("%s", i18n.Tr("network_rate_limited", err.Error()))
 	}
 
 	// 获取 dialer
 	dialer, err := s.getDialer()
 	if err != nil {
-		LogError(fmt.Sprintf("获取代理拨号器失败: %v", err))
+		s.LogError(fmt.Sprintf("获取代理拨号器失败: %v", err))
 		s.State.IncrementTCPFailedPacketCount()
 		return nil, err
 	}
@@ -67,7 +106,7 @@ func (s *ScanSession) DialTCP(ctx context.Context, network, address string, time
 	conn, err := dialer.DialContext(ctx, network, address)
 	if err != nil {
 		s.State.IncrementTCPFailedPacketCount()
-		LogDebug(fmt.Sprintf("连接 %s 失败: %v", address, err))
+		s.LogDebug(fmt.Sprintf("连接 %s 失败: %v", address, err))
 		return nil, err
 	}
 
