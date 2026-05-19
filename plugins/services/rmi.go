@@ -5,6 +5,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/shadow1ng/fscan/common"
@@ -40,18 +41,23 @@ func (p *RMIPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 		return &ScanResult{Success: false, Service: "rmi"}
 	}
 
-	buf := make([]byte, 256)
+	// RMI server responds with ProtocolAck (0x4e) followed by endpoint info.
+	// Read at least 1 byte for the ack; io.ReadFull guarantees it.
+	ack := make([]byte, 1)
+	if _, err := io.ReadFull(conn, ack); err != nil {
+		return &ScanResult{Success: false, Service: "rmi"}
+	}
+	if ack[0] != 0x4e {
+		return &ScanResult{Success: false, Service: "rmi"}
+	}
+
+	buf := make([]byte, 255)
 	n, err := conn.Read(buf)
-	if err != nil || n < 5 {
+	if err != nil && n == 0 {
 		return &ScanResult{Success: false, Service: "rmi"}
 	}
 
-	// RMI server responds with 0x4e (ProtocolAck) followed by endpoint info
-	if buf[0] != 0x4e {
-		return &ScanResult{Success: false, Service: "rmi"}
-	}
-
-	endpoint := parseRMIEndpoint(buf[1:n])
+	endpoint := parseRMIEndpoint(buf[:n])
 
 	return &ScanResult{
 		Success: true,

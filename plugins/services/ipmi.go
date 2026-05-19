@@ -4,7 +4,6 @@ package services
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"time"
 
@@ -161,5 +160,4 @@ func init() {
 	RegisterUDPPluginWithPorts("ipmi", func() Plugin {
 		return NewIPMIPlugin()
 	}, []int{623})
-	_ = binary.BigEndian // suppress unused import if needed
 }

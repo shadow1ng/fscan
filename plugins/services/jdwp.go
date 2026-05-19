@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/shadow1ng/fscan/common"
@@ -41,8 +42,7 @@ func (p *JDWPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 	}
 
 	buf := make([]byte, len(jdwpHandshake))
-	n, err := conn.Read(buf)
-	if err != nil || !bytes.Equal(buf[:n], jdwpHandshake) {
+	if _, err := io.ReadFull(conn, buf); err != nil || !bytes.Equal(buf, jdwpHandshake) {
 		return &ScanResult{Success: false, Service: "jdwp"}
 	}
 

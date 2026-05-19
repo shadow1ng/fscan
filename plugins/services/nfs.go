@@ -36,9 +36,15 @@ func (p *NFSPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 
 	// NFS NULL call (program=100003, version=3, procedure=0) to confirm NFS service
 	if err := p.rpcNullCall(conn, 100003, 3); err != nil {
-		// Try v4
-		_ = conn.SetDeadline(time.Now().Add(timeout))
-		if err := p.rpcNullCall(conn, 100003, 4); err != nil {
+		// Try v4 on a fresh connection
+		conn.Close()
+		c, dialErr := session.DialTCP(ctx, "tcp", addr, timeout)
+		if dialErr != nil {
+			return &ScanResult{Success: false, Service: "nfs"}
+		}
+		defer c.Close()
+		_ = c.SetDeadline(time.Now().Add(timeout))
+		if err := p.rpcNullCall(c, 100003, 4); err != nil {
 			return &ScanResult{Success: false, Service: "nfs"}
 		}
 	}

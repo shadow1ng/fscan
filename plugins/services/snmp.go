@@ -23,7 +23,7 @@ func NewSNMPPlugin() *SNMPPlugin {
 
 func (p *SNMPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
-	timeout := time.Duration(config.Timeout.Seconds()) * time.Second
+	timeout := config.Timeout
 	if timeout <= 0 {
 		timeout = 3 * time.Second
 	}
