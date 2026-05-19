@@ -40,8 +40,12 @@ func (p *SNMPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 	}
 
 	communities := p.buildCommunityList(config)
+	alreadyProbed := "public"
 	var found []string
 	for _, community := range communities {
+		if community == alreadyProbed {
+			continue
+		}
 		select {
 		case <-ctx.Done():
 			return result
