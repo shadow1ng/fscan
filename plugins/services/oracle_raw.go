@@ -38,7 +38,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -201,13 +200,8 @@ func (s *oracleSession) connect(ctx context.Context, host string, port int, serv
 }
 
 func oracleConnectData(host string, port int, serviceName string) string {
-	user := os.Getenv("USER")
-	if user == "" {
-		user = "fscan"
-	}
-	cid := "(CID=(PROGRAM=fscan)(HOST=" + host + ")(USER=" + user + "))"
 	address := fmt.Sprintf("(ADDRESS=(PROTOCOL=tcp)(HOST=%s)(PORT=%d))", host, port)
-	connectData := "(CONNECT_DATA=(SERVICE_NAME=" + serviceName + ")" + cid + ")"
+	connectData := "(CONNECT_DATA=(SERVICE_NAME=" + serviceName + "))"
 	return "(DESCRIPTION=" + address + connectData + ")"
 }
 
@@ -1209,15 +1203,11 @@ func (s *oracleSession) authenticate(nego *oracleTCPNego, host string, port int,
 	if username != "" {
 		s.putString(username)
 	}
-	clientHost, _ := os.Hostname()
-	if clientHost == "" {
-		clientHost = "fscan"
-	}
-	s.putKeyValString("AUTH_TERMINAL", clientHost, 0)
-	s.putKeyValString("AUTH_PROGRAM_NM", "fscan", 0)
-	s.putKeyValString("AUTH_MACHINE", clientHost, 0)
-	s.putKeyValString("AUTH_PID", strconv.Itoa(os.Getpid()), 0)
-	s.putKeyValString("AUTH_SID", os.Getenv("USER"), 0)
+	s.putKeyValString("AUTH_TERMINAL", "", 0)
+	s.putKeyValString("AUTH_PROGRAM_NM", "", 0)
+	s.putKeyValString("AUTH_MACHINE", "", 0)
+	s.putKeyValString("AUTH_PID", "0", 0)
+	s.putKeyValString("AUTH_SID", "", 0)
 	if err := s.writeData(); err != nil {
 		return err
 	}
@@ -1376,10 +1366,6 @@ func (auth *oracleAuthObject) finish(username, password string, nego *oracleTCPN
 }
 
 func (s *oracleSession) writeAuthResponse(auth *oracleAuthObject, nego *oracleTCPNego, host string, port int, serviceName, username string) error {
-	clientHost, _ := os.Hostname()
-	if clientHost == "" {
-		clientHost = "fscan"
-	}
 	keys := []struct {
 		key  string
 		val  string
@@ -1400,27 +1386,27 @@ func (s *oracleSession) writeAuthResponse(auth *oracleAuthObject, nego *oracleTC
 			key  string
 			val  string
 			flag uint8
-		}{"AUTH_TERMINAL", clientHost, 0},
+		}{"AUTH_TERMINAL", "", 0},
 		struct {
 			key  string
 			val  string
 			flag uint8
-		}{"AUTH_PROGRAM_NM", "fscan", 0},
+		}{"AUTH_PROGRAM_NM", "", 0},
 		struct {
 			key  string
 			val  string
 			flag uint8
-		}{"AUTH_MACHINE", clientHost, 0},
+		}{"AUTH_MACHINE", "", 0},
 		struct {
 			key  string
 			val  string
 			flag uint8
-		}{"AUTH_PID", strconv.Itoa(os.Getpid()), 0},
+		}{"AUTH_PID", "0", 0},
 		struct {
 			key  string
 			val  string
 			flag uint8
-		}{"AUTH_SID", os.Getenv("USER"), 0},
+		}{"AUTH_SID", "", 0},
 		struct {
 			key  string
 			val  string

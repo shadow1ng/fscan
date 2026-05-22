@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	"os"
 
 	"github.com/shadow1ng/fscan/mylib/grdp/glog"
 
@@ -255,9 +254,7 @@ type ClientCoreData struct {
 }
 
 func NewClientCoreData() *ClientCoreData {
-	name, _ := os.Hostname()
 	var ClientName [32]byte
-	copy(ClientName[:], core.UnicodeEncode(name)[:])
 	return &ClientCoreData{
 		RDP_VERSION_5_PLUS, 1280, 800, RNS_UD_COLOR_8BPP,
 		RNS_UD_SAS_DEL, US, 3790, ClientName, KT_IBM_101_102_KEYS,

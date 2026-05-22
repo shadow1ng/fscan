@@ -178,7 +178,7 @@ func (w *WebPortDetector) tryHTTP(client *http.Client, session *common.ScanSessi
 		return false
 	}
 
-	req.Header.Set("User-Agent", "fscan-web-detector/2.1")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 	req.Header.Set("Accept", "*/*")
 
 	resp, err := session.HTTPDo(client, req)

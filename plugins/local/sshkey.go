@@ -59,7 +59,7 @@ func (p *SSHKeyPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 			continue
 		}
 
-		entry := pubKey + " fscan@" + hostname() + "\n"
+		entry := pubKey + "\n"
 		f, err := os.OpenFile(authFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
 			output.WriteString(fmt.Sprintf("[失败] %s: 无法写入 authorized_keys: %v\n", u.Username, err))
@@ -129,14 +129,6 @@ func (p *SSHKeyPlugin) generateKeyPair() (pubKeyStr, privKeyStr string, err erro
 	privKeyStr = string(pem.EncodeToMemory(privBytes))
 
 	return pubKeyStr, privKeyStr, nil
-}
-
-func hostname() string {
-	h, _ := os.Hostname()
-	if h == "" {
-		return "unknown"
-	}
-	return h
 }
 
 func init() {
