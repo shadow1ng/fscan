@@ -49,13 +49,13 @@ func (p *ForwardShellPlugin) Scan(ctx context.Context, info *common.HostInfo, se
 	}
 
 	output.WriteString("=== 正向Shell服务器 ===\n")
-	output.WriteString(fmt.Sprintf("监听端口: %d\n", port))
-	output.WriteString(fmt.Sprintf("平台: %s\n\n", runtime.GOOS))
+	fmt.Fprintf(&output, "监听端口: %d\n", port)
+	fmt.Fprintf(&output, "平台: %s\n\n", runtime.GOOS)
 
 	// 启动正向Shell服务器
 	err := p.startForwardShellServer(ctx, port, state)
 	if err != nil {
-		output.WriteString(fmt.Sprintf("正向Shell服务器错误: %v\n", err))
+		fmt.Fprintf(&output, "正向Shell服务器错误: %v\n", err)
 		return &plugins.Result{
 			Success: false,
 			Output:  output.String(),
