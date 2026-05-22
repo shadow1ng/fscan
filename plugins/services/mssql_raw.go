@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"sort"
 	"time"
 	"unicode/utf16"
@@ -190,17 +189,16 @@ func mssqlParsePreloginFields(payload []byte) (map[byte][]byte, error) {
 }
 
 func mssqlSendLogin7(w io.Writer, host, username, password string) error {
-	hostname, _ := os.Hostname()
 	values := []struct {
 		text     string
 		password bool
 	}{
-		{hostname, false},
+		{"", false},
 		{username, false},
 		{password, true},
-		{"fscan", false},
-		{host, false},
-		{"fscan", false},
+		{"", false},
+		{"", false},
+		{"", false},
 		{"", false},
 		{"master", false},
 		{"", false},
@@ -233,7 +231,7 @@ func mssqlSendLogin7(w io.Writer, host, username, password string) error {
 	put32(tdsVersion74)
 	put32(tdsDefaultPacketLen)
 	put32(0)
-	put32(uint32(os.Getpid()))
+	put32(0)
 	put32(0)
 	body.WriteByte(tdsOptionUseDB | tdsOptionSetLang)
 	body.WriteByte(tdsOptionODBC)
