@@ -27,15 +27,14 @@ func NewElasticsearchPlugin() *ElasticsearchPlugin {
 
 func (p *ElasticsearchPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
-	state := session.State
 	target := info.Target()
 
 	if config.DisableBrute {
-		return p.identifyService(ctx, info, config, state)
+		return p.identifyService(ctx, info, session)
 	}
 
 	// 首先检测未授权访问
-	if p.testCredential(ctx, info, Credential{Username: "", Password: ""}, config, state) {
+	if p.testCredential(ctx, info, Credential{Username: "", Password: ""}, session) {
 		common.LogVuln(i18n.Tr("elasticsearch_unauth", target))
 		return &ScanResult{
 			Success: true,
@@ -56,7 +55,7 @@ func (p *ElasticsearchPlugin) Scan(ctx context.Context, info *common.HostInfo, s
 	}
 
 	for _, cred := range credentials {
-		if p.testCredential(ctx, info, cred, config, state) {
+		if p.testCredential(ctx, info, cred, session) {
 			common.LogVuln(i18n.Tr("elasticsearch_credential", target, cred.Username, cred.Password))
 			return &ScanResult{
 				Success:  true,
@@ -75,7 +74,8 @@ func (p *ElasticsearchPlugin) Scan(ctx context.Context, info *common.HostInfo, s
 	}
 }
 
-func (p *ElasticsearchPlugin) testCredential(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) bool {
+func (p *ElasticsearchPlugin) testCredential(ctx context.Context, info *common.HostInfo, cred Credential, session *common.ScanSession) bool {
+	config := session.Config
 	client := &http.Client{
 		Timeout: config.Timeout,
 		Transport: &http.Transport{
@@ -100,12 +100,10 @@ func (p *ElasticsearchPlugin) testCredential(ctx context.Context, info *common.H
 		req.Header.Set("Authorization", "Basic "+auth)
 	}
 
-	resp, err := client.Do(req)
+	resp, err := session.HTTPDo(client, req)
 	if err != nil {
-		state.IncrementTCPFailedPacketCount()
 		return false
 	}
-	state.IncrementTCPSuccessPacketCount()
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == 200 {
@@ -121,15 +119,15 @@ func (p *ElasticsearchPlugin) testCredential(ctx context.Context, info *common.H
 	return false
 }
 
-func (p *ElasticsearchPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *ElasticsearchPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
-	if p.testCredential(ctx, info, Credential{Username: "", Password: ""}, config, state) {
+	if p.testCredential(ctx, info, Credential{Username: "", Password: ""}, session) {
 		banner := "Elasticsearch"
 		common.LogSuccess(i18n.Tr("elasticsearch_service", target, banner))
 		return &ScanResult{
 			Success: true,
-				Type:     plugins.ResultTypeService,
+			Type:    plugins.ResultTypeService,
 			Service: "elasticsearch",
 			Banner:  banner,
 		}

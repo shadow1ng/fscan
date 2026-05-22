@@ -504,7 +504,7 @@ func scanSinglePort(ctx context.Context, host string, port int, addr string, ada
 	serviceInfo, _ := scanner.SmartIdentify()
 
 	// 步骤4：处理结果
-	processServiceResult(host, port, addr, serviceInfo, config, session)
+	processServiceResult(ctx, host, port, addr, serviceInfo, config, session)
 }
 
 // handleConnectionFailure 处理连接失败
@@ -651,10 +651,10 @@ func saveOpenPort(session *common.ScanSession, host string, port int) {
 }
 
 // processServiceResult 处理服务识别结果
-func processServiceResult(host string, port int, addr string, serviceInfo *ServiceInfo, config *common.Config, session *common.ScanSession) {
+func processServiceResult(ctx context.Context, host string, port int, addr string, serviceInfo *ServiceInfo, config *common.Config, session *common.ScanSession) {
 	if serviceInfo == nil {
 		// 服务识别失败，尝试 HTTP 回退探测
-		if !tryHTTPFallbackDetection(host, port, addr, config, session) {
+		if !tryHTTPFallbackDetection(ctx, host, port, addr, config, session) {
 			session.LogInfo(i18n.Tr("port_open", addr))
 		}
 		return
@@ -714,10 +714,10 @@ func buildServiceDetails(port int, info *ServiceInfo) map[string]interface{} {
 }
 
 // tryHTTPFallbackDetection 尝试HTTP回退探测，返回是否成功识别为HTTP服务
-func tryHTTPFallbackDetection(host string, port int, addr string, config *common.Config, session *common.ScanSession) bool {
+func tryHTTPFallbackDetection(ctx context.Context, host string, port int, addr string, config *common.Config, session *common.ScanSession) bool {
 	// 使用WebDetection进行HTTP协议探测
 	webDetector := GetWebPortDetector()
-	if !webDetector.DetectHTTPServiceOnly(host, port, config, session) {
+	if !webDetector.DetectHTTPServiceOnlyContext(ctx, host, port, config, session) {
 		return false
 	}
 
@@ -806,7 +806,7 @@ func probeSubnets(ctx context.Context, hosts []string, timeout time.Duration, se
 				limiter <- struct{}{}
 				go func(pfx, addr string) {
 					defer func() { <-limiter; wg.Done() }()
-					conn, err := net.DialTimeout("tcp", addr, subnetProbeTimeout)
+					conn, err := session.DialTCP(ctx, "tcp", addr, subnetProbeTimeout)
 					if err == nil {
 						_ = conn.Close()
 						aliveSubnets.Store(pfx, true)
@@ -844,7 +844,7 @@ func probeSubnets(ctx context.Context, hosts []string, timeout time.Duration, se
 
 			go func(pfx, h string, p int) {
 				defer func() { <-limiter; wg.Done() }()
-				conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", h, p), subnetProbeTimeout)
+				conn, err := session.DialTCP(ctx, "tcp", fmt.Sprintf("%s:%d", h, p), subnetProbeTimeout)
 				if err == nil {
 					_ = conn.Close()
 					aliveSubnets.Store(pfx, true)

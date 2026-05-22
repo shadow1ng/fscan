@@ -82,7 +82,7 @@ func (p *WebTitlePlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 
 func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo, config *common.Config, session *common.ScanSession) (string, int, int, string, []string, string, error) {
 	// 智能协议检测
-	protocol := p.detectProtocol(info, config, session)
+	protocol := p.detectProtocol(ctx, info, config, session)
 	isGM := false
 	urlScheme := protocol
 	if protocol == "https-gm" {
@@ -250,7 +250,7 @@ func (p *WebTitlePlugin) formatHeaders(headers http.Header) string {
 }
 
 // detectProtocol 智能检测HTTP/HTTPS协议（基于服务识别和主动探测）
-func (p *WebTitlePlugin) detectProtocol(info *common.HostInfo, config *common.Config, session *common.ScanSession) string {
+func (p *WebTitlePlugin) detectProtocol(ctx context.Context, info *common.HostInfo, config *common.Config, session *common.ScanSession) string {
 	host := info.Host
 	port := info.Port
 
@@ -277,7 +277,7 @@ func (p *WebTitlePlugin) detectProtocol(info *common.HostInfo, config *common.Co
 
 	// 第三优先级：主动协议检测（TLS握手）
 	// 对于-u模式或服务名为普通"http"的情况，进行主动检测确认
-	detected := core.DetectHTTPScheme(host, port, config, session)
+	detected := core.DetectHTTPSchemeContext(ctx, host, port, config, session)
 	if detected != "" {
 		// 缓存检测结果（避免重复检测）
 		if exists {

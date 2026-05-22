@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -31,6 +32,26 @@ web_scanner_test.go - WebScanner核心逻辑测试
 "服务识别和URL解析是纯逻辑，应该测试。
 缓存操作需要验证并发安全性。"
 */
+
+func TestDetectHTTPServiceOnlyContextHonorsCancellation(t *testing.T) {
+	cfg := common.GetGlobalConfig()
+	oldTimeout := cfg.Network.WebTimeout
+	cfg.Network.WebTimeout = 2 * time.Second
+	defer func() { cfg.Network.WebTimeout = oldTimeout }()
+
+	session := common.NewScanSession(cfg, common.NewState(), common.GetFlagVars())
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	start := time.Now()
+	detected := GetWebPortDetector().DetectHTTPServiceOnlyContext(ctx, "203.0.113.1", 80, cfg, session)
+	if detected {
+		t.Fatal("canceled web detection should not report a service")
+	}
+	if elapsed := time.Since(start); elapsed > 200*time.Millisecond {
+		t.Fatalf("canceled web detection took %s", elapsed)
+	}
+}
 
 // =============================================================================
 // 核心逻辑测试：Web服务识别

@@ -28,7 +28,6 @@ func NewRabbitMQPlugin() *RabbitMQPlugin {
 
 func (p *RabbitMQPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
-	state := session.State
 	target := info.Target()
 
 	if config.DisableBrute {
@@ -36,7 +35,7 @@ func (p *RabbitMQPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	}
 
 	// 先检测未授权访问
-	if result := p.testUnauthorizedAccess(ctx, info, config, state); result != nil && result.Success {
+	if result := p.testUnauthorizedAccess(ctx, info, session); result != nil && result.Success {
 		common.LogSuccess(i18n.Tr("rabbitmq_service", target, result.Banner))
 		return result
 	}
@@ -51,7 +50,7 @@ func (p *RabbitMQPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	}
 
 	// 使用公共框架进行并发凭据测试
-	authFn := p.createAuthFunc(info, config, state)
+	authFn := p.createAuthFunc(info, session)
 	testConfig := DefaultConcurrentTestConfigWithTarget(config, info)
 
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "rabbitmq", testConfig)
@@ -64,14 +63,15 @@ func (p *RabbitMQPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 }
 
 // createAuthFunc 创建RabbitMQ认证函数
-func (p *RabbitMQPlugin) createAuthFunc(info *common.HostInfo, config *common.Config, state *common.State) AuthFunc {
+func (p *RabbitMQPlugin) createAuthFunc(info *common.HostInfo, session *common.ScanSession) AuthFunc {
 	return func(ctx context.Context, cred Credential) *AuthResult {
-		return p.doRabbitMQAuth(ctx, info, cred, config, state)
+		return p.doRabbitMQAuth(ctx, info, cred, session)
 	}
 }
 
 // doRabbitMQAuth 执行RabbitMQ认证
-func (p *RabbitMQPlugin) doRabbitMQAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
+func (p *RabbitMQPlugin) doRabbitMQAuth(ctx context.Context, info *common.HostInfo, cred Credential, session *common.ScanSession) *AuthResult {
+	config := session.Config
 	// 对于AMQP端口，使用HTTP管理接口
 	port := info.Port
 	if port == 5672 || port == 5671 {
@@ -96,16 +96,14 @@ func (p *RabbitMQPlugin) doRabbitMQAuth(ctx context.Context, info *common.HostIn
 	req.SetBasicAuth(cred.Username, cred.Password)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := client.Do(req)
+	resp, err := session.HTTPDo(client, req)
 	if err != nil {
-		state.IncrementTCPFailedPacketCount()
 		return &AuthResult{
 			Success:   false,
 			ErrorType: classifyRabbitMQErrorType(err),
 			Error:     err,
 		}
 	}
-	state.IncrementTCPSuccessPacketCount()
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == 200 {
@@ -157,7 +155,8 @@ func classifyRabbitMQErrorType(err error) ErrorType {
 }
 
 // testUnauthorizedAccess 测试RabbitMQ未授权访问
-func (p *RabbitMQPlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *RabbitMQPlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
 	port := info.Port
 	if port == 5672 || port == 5671 {
 		port = 15672
@@ -172,11 +171,9 @@ func (p *RabbitMQPlugin) testUnauthorizedAccess(ctx context.Context, info *commo
 		return nil
 	}
 
-	resp, err := client.Do(req)
+	resp, err := session.HTTPDo(client, req)
 	if err != nil {
-		state.IncrementTCPFailedPacketCount()
 	} else {
-		state.IncrementTCPSuccessPacketCount()
 		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode == 200 {
@@ -193,7 +190,7 @@ func (p *RabbitMQPlugin) testUnauthorizedAccess(ctx context.Context, info *commo
 	guestReq, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/api/overview", nil)
 	if err == nil {
 		guestReq.SetBasicAuth("guest", "guest")
-		guestResp, guestErr := client.Do(guestReq)
+		guestResp, guestErr := session.HTTPDo(client, guestReq)
 		if guestErr == nil {
 			defer func() { _ = guestResp.Body.Close() }()
 			if guestResp.StatusCode == 200 {
@@ -263,7 +260,6 @@ func (p *RabbitMQPlugin) identifyService(ctx context.Context, info *common.HostI
 
 func (p *RabbitMQPlugin) testManagementInterface(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
-	state := session.State
 	target := info.Target()
 	baseURL := fmt.Sprintf("http://%s:%d", info.Host, info.Port)
 
@@ -278,16 +274,14 @@ func (p *RabbitMQPlugin) testManagementInterface(ctx context.Context, info *comm
 		}
 	}
 
-	resp, err := client.Do(req)
+	resp, err := session.HTTPDo(client, req)
 	if err != nil {
-		state.IncrementTCPFailedPacketCount()
 		return &ScanResult{
 			Success: false,
 			Service: "rabbitmq",
 			Error:   err,
 		}
 	}
-	state.IncrementTCPSuccessPacketCount()
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == 200 || resp.StatusCode == 401 {
