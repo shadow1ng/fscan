@@ -24,6 +24,8 @@ runs:
   steps:
     - name: 设置 Go 环境
       uses: actions/setup-go@v5
+      env:
+        FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       with:
         go-version: ${{ inputs.go-version }}
         cache: true
@@ -59,6 +61,8 @@ runs:
 
     - name: 上传产物
       uses: actions/upload-artifact@v4
+      env:
+        FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       if: always()
       with:
         name: build-${{ inputs.mode }}-${{ github.run_id }}

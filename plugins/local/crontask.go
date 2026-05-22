@@ -76,23 +76,23 @@ func (p *CronTaskPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	}
 
 	output.WriteString("=== 计划任务持久化 ===\n")
-	output.WriteString(fmt.Sprintf("目标文件: %s\n\n", p.targetFile))
+	fmt.Fprintf(&output, "目标文件: %s\n\n", p.targetFile)
 
 	var successCount int
 
 	// 1. 复制文件到持久化目录
 	persistPath, err := p.copyToPersistPath()
 	if err != nil {
-		output.WriteString(fmt.Sprintf("✗ 复制文件失败: %v\n", err))
+		fmt.Fprintf(&output, "✗ 复制文件失败: %v\n", err)
 	} else {
-		output.WriteString(fmt.Sprintf("✓ 文件已复制到: %s\n", persistPath))
+		fmt.Fprintf(&output, "✓ 文件已复制到: %s\n", persistPath)
 		successCount++
 	}
 
 	// 2. 添加用户crontab任务
 	err = p.addUserCronJob(persistPath)
 	if err != nil {
-		output.WriteString(fmt.Sprintf("✗ 添加用户cron任务失败: %v\n", err))
+		fmt.Fprintf(&output, "✗ 添加用户cron任务失败: %v\n", err)
 	} else {
 		output.WriteString("✓ 已添加用户crontab任务\n")
 		successCount++
@@ -101,16 +101,16 @@ func (p *CronTaskPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	// 3. 添加系统cron任务
 	systemCronFiles, err := p.addSystemCronJobs(persistPath)
 	if err != nil {
-		output.WriteString(fmt.Sprintf("✗ 添加系统cron任务失败: %v\n", err))
+		fmt.Fprintf(&output, "✗ 添加系统cron任务失败: %v\n", err)
 	} else {
-		output.WriteString(fmt.Sprintf("✓ 已添加系统cron任务: %s\n", strings.Join(systemCronFiles, ", ")))
+		fmt.Fprintf(&output, "✓ 已添加系统cron任务: %s\n", strings.Join(systemCronFiles, ", "))
 		successCount++
 	}
 
 	// 4. 创建at任务
 	err = p.addAtJob(persistPath)
 	if err != nil {
-		output.WriteString(fmt.Sprintf("✗ 添加at任务失败: %v\n", err))
+		fmt.Fprintf(&output, "✗ 添加at任务失败: %v\n", err)
 	} else {
 		output.WriteString("✓ 已添加at延时任务\n")
 		successCount++
@@ -119,14 +119,14 @@ func (p *CronTaskPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	// 5. 创建anacron任务
 	err = p.addAnacronJob(persistPath)
 	if err != nil {
-		output.WriteString(fmt.Sprintf("✗ 添加anacron任务失败: %v\n", err))
+		fmt.Fprintf(&output, "✗ 添加anacron任务失败: %v\n", err)
 	} else {
 		output.WriteString("✓ 已添加anacron任务\n")
 		successCount++
 	}
 
 	// 输出统计
-	output.WriteString(fmt.Sprintf("\n持久化完成: 成功(%d) 总计(%d)\n", successCount, 5))
+	fmt.Fprintf(&output, "\n持久化完成: 成功(%d) 总计(%d)\n", successCount, 5)
 
 	if successCount > 0 {
 		common.LogSuccess(i18n.Tr("crontask_success", successCount))
