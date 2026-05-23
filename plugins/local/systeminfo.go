@@ -257,7 +257,7 @@ func (p *SystemInfoPlugin) collectAVInfo() {
 			}
 		}
 		if len(matched) > 0 {
-			p.logSuccess("systeminfo_antivirus", fmt.Sprintf("%s (%d个进程)", avName, len(matched)))
+			p.logSuccess("systeminfo_antivirus", i18n.Tr("systeminfo_antivirus_process_count", avName, len(matched)))
 			for _, proc := range matched {
 				p.log("systeminfo_av_process", proc)
 			}

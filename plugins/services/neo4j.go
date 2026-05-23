@@ -117,7 +117,7 @@ func (p *Neo4jPlugin) doNeo4jAuth(ctx context.Context, info *common.HostInfo, cr
 	return &AuthResult{
 		Success:   false,
 		ErrorType: ErrorTypeUnknown,
-		Error:     fmt.Errorf("未知错误，状态码: %d", resp.StatusCode),
+		Error:     fmt.Errorf(i18n.GetText("unknown_status_code")+": %d", resp.StatusCode),
 	}
 }
 

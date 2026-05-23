@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/plugins"
 )
 
@@ -39,7 +40,7 @@ func (p *NetBIOSPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 		return &ScanResult{
 			Success: false,
 			Service: "netbios",
-			Error:   fmt.Errorf("NetBIOS插件仅支持137和139端口"),
+			Error:   fmt.Errorf("%s", i18n.GetText("netbios_port_only")),
 		}
 	}
 
@@ -66,7 +67,7 @@ func (p *NetBIOSPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 		return &ScanResult{
 			Success: false,
 			Service: "netbios",
-			Error:   fmt.Errorf("未发现有效的NetBIOS信息"),
+			Error:   fmt.Errorf("%s", i18n.GetText("netbios_info_not_found")),
 		}
 	}
 
@@ -79,7 +80,7 @@ func (p *NetBIOSPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 
 	return &ScanResult{
 		Success: true,
-			Type:     plugins.ResultTypeService,
+		Type:    plugins.ResultTypeService,
 		Service: "netbios",
 		Banner:  netbiosInfo.Summary(),
 	}
@@ -164,7 +165,7 @@ func (p *NetBIOSPlugin) queryNetBIOSNames(host string, config *common.Config, st
 
 	conn, err := net.DialTimeout("udp", target, config.Timeout)
 	if err != nil {
-		return nil, fmt.Errorf("连接NetBIOS名称服务失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("netbios_name_connect_failed"), err)
 	}
 	state.IncrementUDPPacketCount()
 	defer func() { _ = conn.Close() }()
@@ -173,13 +174,13 @@ func (p *NetBIOSPlugin) queryNetBIOSNames(host string, config *common.Config, st
 
 	_, err = conn.Write(queryPacket)
 	if err != nil {
-		return nil, fmt.Errorf("发送NetBIOS查询失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("netbios_query_send_failed"), err)
 	}
 
 	response := make([]byte, 1024)
 	n, err := conn.Read(response)
 	if err != nil {
-		return nil, fmt.Errorf("读取NetBIOS响应失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("netbios_response_read_failed"), err)
 	}
 
 	return p.parseNetBIOSNames(response[:n])
@@ -191,7 +192,7 @@ func (p *NetBIOSPlugin) queryNetBIOSSession(ctx context.Context, host string, se
 
 	conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
 	if err != nil {
-		return nil, fmt.Errorf("连接NetBIOS会话服务失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("netbios_session_connect_failed"), err)
 	}
 	defer func() { _ = conn.Close() }()
 
@@ -212,13 +213,13 @@ func (p *NetBIOSPlugin) queryNetBIOSSession(ctx context.Context, host string, se
 
 	_, err = conn.Write(smbNegotiate1)
 	if err != nil {
-		return nil, fmt.Errorf("发送SMB协商1失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("netbios_smb_negotiate_send_failed"), err)
 	}
 
 	response1 := make([]byte, 1024)
 	_, err = conn.Read(response1)
 	if err != nil {
-		return nil, fmt.Errorf("读取SMB协商1响应失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("netbios_smb_negotiate_read_failed"), err)
 	}
 
 	// 发送Session Setup请求
@@ -244,13 +245,13 @@ func (p *NetBIOSPlugin) queryNetBIOSSession(ctx context.Context, host string, se
 
 	_, err = conn.Write(smbSessionSetup)
 	if err != nil {
-		return nil, fmt.Errorf("发送SMB Session Setup失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("netbios_smb_session_send_failed"), err)
 	}
 
 	response2 := make([]byte, 2048)
 	n, err := conn.Read(response2)
 	if err != nil {
-		return nil, fmt.Errorf("读取SMB Session Setup响应失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("netbios_smb_session_read_failed"), err)
 	}
 
 	return p.parseNetBIOSSession(response2[:n])
@@ -261,13 +262,13 @@ func (p *NetBIOSPlugin) parseNetBIOSNames(data []byte) (*NetBIOSInfo, error) {
 	info := &NetBIOSInfo{Valid: false}
 
 	if len(data) < 57 {
-		return info, fmt.Errorf("NetBIOS响应数据过短")
+		return info, fmt.Errorf("%s", i18n.GetText("netbios_response_too_short"))
 	}
 
 	// 获取名称记录数量
 	numNames := int(data[56])
 	if numNames == 0 {
-		return info, fmt.Errorf("没有NetBIOS名称记录")
+		return info, fmt.Errorf("%s", i18n.GetText("netbios_no_name_records"))
 	}
 
 	nameData := data[57:]
@@ -333,7 +334,7 @@ func (p *NetBIOSPlugin) parseNetBIOSSession(data []byte) (*NetBIOSInfo, error) {
 	info := &NetBIOSInfo{Valid: false}
 
 	if len(data) < 47 {
-		return info, fmt.Errorf("SMB响应数据过短")
+		return info, fmt.Errorf("%s", i18n.GetText("netbios_smb_response_too_short"))
 	}
 
 	info.Valid = true

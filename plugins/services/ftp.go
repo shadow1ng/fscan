@@ -202,7 +202,7 @@ func (p *FTPPlugin) testAnonymousAccess(ctx context.Context, info *common.HostIn
 			_ = result.Conn.Close()
 
 			var output strings.Builder
-			output.WriteString(fmt.Sprintf("FTP %s 匿名访问 - %s:%s", target, cred.Username, cred.Password))
+			output.WriteString(i18n.Tr("ftp_anonymous_access_detail", target, cred.Username, cred.Password))
 			if len(fileList) > 0 {
 				for _, file := range fileList {
 					output.WriteString(fmt.Sprintf("\n   [->] %s", file))
@@ -216,7 +216,7 @@ func (p *FTPPlugin) testAnonymousAccess(ctx context.Context, info *common.HostIn
 				Service:  "ftp",
 				Username: cred.Username,
 				Password: cred.Password,
-				Banner:   "FTP匿名访问",
+				Banner:   i18n.GetText("ftp_anonymous_banner"),
 			}
 		}
 	}

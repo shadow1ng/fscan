@@ -120,24 +120,24 @@ func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int, pocCtx *POCConte
 					_ = common.SaveResult(result)
 
 					// 构造控制台输出的日志信息
-					logMsg := fmt.Sprintf("目标: %s\n  漏洞类型: %s\n  漏洞名称: %s\n  详细信息:",
+					logMsg := i18n.Tr("webscan_vuln_detail_header",
 						task.Req.URL,
 						task.Poc.Name,
 						vulName)
 
 					// 添加作者信息到日志
 					if task.Poc.Detail.Author != "" {
-						logMsg += "\n\t作者:" + task.Poc.Detail.Author
+						logMsg += "\n\t" + i18n.Tr("webscan_vuln_author", task.Poc.Detail.Author)
 					}
 
 					// 添加参考链接到日志
 					if len(task.Poc.Detail.Links) != 0 {
-						logMsg += "\n\t参考链接:" + strings.Join(task.Poc.Detail.Links, "\n")
+						logMsg += "\n\t" + i18n.Tr("webscan_vuln_references", strings.Join(task.Poc.Detail.Links, "\n"))
 					}
 
 					// 添加描述信息到日志
 					if task.Poc.Detail.Description != "" {
-						logMsg += "\n\t描述:" + task.Poc.Detail.Description
+						logMsg += "\n\t" + i18n.Tr("webscan_vuln_description", task.Poc.Detail.Description)
 					}
 
 					// 输出成功日志
@@ -191,13 +191,13 @@ func executePoc(oReq *http.Request, p *Poc, pocCtx *POCContext) (bool, string, e
 	// 从基础环境扩展（复用缓存的基础环境，仅添加变量声明）
 	env, err := ExtendEnvWithVars(varDecls)
 	if err != nil {
-		return false, "", fmt.Errorf("执行环境错误 %s: %w", p.Name, err)
+		return false, "", fmt.Errorf("%s %s: %w", i18n.GetText("webscan_exec_env_error"), p.Name, err)
 	}
 
 	// 解析请求
 	req, err := ParseRequest(oReq)
 	if err != nil {
-		return false, "", fmt.Errorf("请求解析错误 %s: %w", p.Name, err)
+		return false, "", fmt.Errorf("%s %s: %w", i18n.GetText("webscan_request_parse_error"), p.Name, err)
 	}
 
 	// 初始化变量映射
@@ -268,7 +268,7 @@ func executeRules(oReq *http.Request, p *Poc, variableMap map[string]interface{}
 			strings.NewReader(rule.Body),
 		)
 		if err != nil {
-			return false, fmt.Errorf("请求创建错误: %w", err)
+			return false, fmt.Errorf("%s: %w", i18n.GetText("webscan_request_create_error"), err)
 		}
 
 		// 设置请求头
@@ -489,9 +489,9 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 					payloadExpr = expr
 				}
 				output, err := evalset1(env, variableMap, key, expr)
-			if err != nil {
-				common.LogError(i18n.Tr("webscan_set_exec_error", key, err))
-			}
+				if err != nil {
+					common.LogError(i18n.Tr("webscan_set_exec_error", key, err))
+				}
 				payloads[key] = output
 			}
 
@@ -660,9 +660,9 @@ func recordVulnerabilityResult(targetURL string, pocDef *Poc, params StrMap, ski
 	// 生成日志消息
 	var logMsg string
 	if pocDef.Name == "poc-yaml-backup-file" || pocDef.Name == "poc-yaml-sql-file" {
-		logMsg = fmt.Sprintf("检测到漏洞 %s %s", targetURL, pocDef.Name)
+		logMsg = i18n.Tr("webscan_vuln_detected", targetURL, pocDef.Name)
 	} else {
-		logMsg = fmt.Sprintf("检测到漏洞 %s %s 参数:%v", targetURL, pocDef.Name, params)
+		logMsg = i18n.Tr("webscan_vuln_detected_params", targetURL, pocDef.Name, params)
 	}
 
 	// 输出成功日志
@@ -773,7 +773,7 @@ func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Re
 	reqURL := fmt.Sprintf("%s://%s%s", req.URL.Scheme, req.URL.Host, req.URL.Path)
 	newRequest, err := http.NewRequestWithContext(oReq.Context(), rule.Method, reqURL, strings.NewReader(rule.Body))
 	if err != nil {
-		return false, fmt.Errorf("HTTP请求错误: %w", err)
+		return false, fmt.Errorf("%s: %w", i18n.GetText("webscan_http_request_error"), err)
 	}
 	defer func() { newRequest = nil }()
 
@@ -786,7 +786,7 @@ func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Re
 	// 发送请求
 	resp, err := DoRequest(newRequest, rule.FollowRedirects)
 	if err != nil {
-		return false, fmt.Errorf("请求发送错误: %w", err)
+		return false, fmt.Errorf("%s: %w", i18n.GetText("webscan_request_send_error"), err)
 	}
 
 	// 更新响应到变量映射

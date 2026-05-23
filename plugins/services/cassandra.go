@@ -291,7 +291,7 @@ func (p *CassandraPlugin) tryNoAuthConnection(ctx context.Context, info *common.
 		Type:    plugins.ResultTypeService,
 		Success: true,
 		Service: "cassandra",
-		Banner:  fmt.Sprintf("Cassandra (无认证, 集群: %s)", dummy),
+		Banner:  i18n.Tr("cassandra_no_auth_cluster", dummy),
 	}
 }
 
@@ -322,7 +322,7 @@ func (p *CassandraPlugin) identifyService(ctx context.Context, info *common.Host
 	state.IncrementTCPSuccessPacketCount()
 
 	if opcode == cqlOpAuthChl {
-		banner := "Cassandra (需要认证)"
+		banner := i18n.GetText("cassandra_auth_required")
 		common.LogSuccess(i18n.Tr("cassandra_service", target, banner))
 		return &ScanResult{Type: plugins.ResultTypeService, Success: true, Service: "cassandra", Banner: banner}
 	}

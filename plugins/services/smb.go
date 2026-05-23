@@ -34,7 +34,7 @@ func (p *SmbPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 		return &ScanResult{
 			Success: false,
 			Service: "smb",
-			Error:   fmt.Errorf("SMB插件仅支持139和445端口"),
+			Error:   fmt.Errorf("%s", i18n.GetText("smb_port_only")),
 		}
 	}
 
@@ -44,7 +44,7 @@ func (p *SmbPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 		return &ScanResult{
 			Success: false,
 			Service: "smb",
-			Error:   fmt.Errorf("SMB协议探测失败: %w", err),
+			Error:   fmt.Errorf("%s: %w", i18n.GetText("smb_probe_failed"), err),
 		}
 	}
 
@@ -71,9 +71,9 @@ func (p *SmbPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	if result := p.testUnauthorizedAccess(ctx, info, auth, config, state, session); result != nil && result.Success {
 		var successMsg string
 		if config.Credentials.Domain != "" {
-			successMsg = fmt.Sprintf("SMB %s 未授权访问 - %s\\%s:%s", target, config.Credentials.Domain, result.Username, result.Password)
+			successMsg = i18n.Tr("smb_unauth_domain_access", target, config.Credentials.Domain, result.Username, result.Password)
 		} else {
-			successMsg = fmt.Sprintf("SMB %s 未授权访问 - %s:%s", target, result.Username, result.Password)
+			successMsg = i18n.Tr("smb_unauth_access", target, result.Username, result.Password)
 		}
 		common.LogVuln(successMsg)
 		return result
@@ -143,7 +143,7 @@ func (p *SmbPlugin) testUnauthorizedAccess(ctx context.Context, info *common.Hos
 			if displayUser == "" {
 				displayUser = "<empty>"
 			}
-			output.WriteString(fmt.Sprintf("SMB %s 匿名访问 - %s:%s", target, displayUser, cred.Password))
+			output.WriteString(i18n.Tr("smb_anonymous_access_detail", target, displayUser, cred.Password))
 			for _, share := range shareInfo {
 				output.WriteString(fmt.Sprintf("\n%s", share))
 			}
@@ -156,7 +156,7 @@ func (p *SmbPlugin) testUnauthorizedAccess(ctx context.Context, info *common.Hos
 				Service:  "smb",
 				Username: cred.Username,
 				Password: cred.Password,
-				Banner:   "SMB匿名访问",
+				Banner:   i18n.GetText("smb_anonymous_banner"),
 			}
 		}
 	}

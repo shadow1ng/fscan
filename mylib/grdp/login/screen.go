@@ -251,7 +251,7 @@ func (g *Client) ProbeOSInfo(host, domain, user, pwd string, timeout int64, rdpP
 	g.pdu.On("bitmap", func(rectangles []pdu.BitmapData) {
 	})
 	g.pdu.On("done", func() {
-		glog.Debug("done信号触发")
+		glog.Debug("done signal triggered")
 		exitFlag <- true
 	})
 
@@ -266,10 +266,10 @@ loop:
 		case <-exitFlag:
 			break loop
 		case <-ctx.Done():
-			glog.Debug("总超时已达到，退出")
+			glog.Debug("total timeout reached, exiting")
 			break loop
 		}
 	}
-	glog.Debug("循环结束，总时间过去了：", time.Since(start))
+	glog.Debug("loop ended, elapsed time: ", time.Since(start))
 	return info
 }

@@ -42,7 +42,7 @@ func (p *MemcachedPlugin) Scan(ctx context.Context, info *common.HostInfo, sessi
 	return &ScanResult{
 		Success: false,
 		Service: "memcached",
-		Error:   fmt.Errorf("无法访问Memcached服务"),
+		Error:   fmt.Errorf("%s", i18n.GetText("memcached_access_failed")),
 	}
 }
 
@@ -121,7 +121,7 @@ func (p *MemcachedPlugin) identifyService(ctx context.Context, info *common.Host
 		return &ScanResult{
 			Success: false,
 			Service: "memcached",
-			Error:   fmt.Errorf("无法连接到Memcached服务"),
+			Error:   fmt.Errorf("%s", i18n.GetText("memcached_connect_failed")),
 		}
 	}
 	defer func() { _ = conn.Close() }()

@@ -2,6 +2,8 @@ package proxy
 
 import (
 	"time"
+
+	"github.com/shadow1ng/fscan/common/i18n"
 )
 
 /*
@@ -151,41 +153,41 @@ const (
 // 错误消息常量
 // =============================================================================
 
-const (
+var (
 	// ErrMsgUnsupportedProxyType Manager错误消息 - 不支持的代理类型
-	ErrMsgUnsupportedProxyType = "不支持的代理类型"
+	ErrMsgUnsupportedProxyType = i18n.GetText("proxy_unsupported_type")
 	// ErrMsgEmptyConfig 配置不能为空
-	ErrMsgEmptyConfig = "配置不能为空"
+	ErrMsgEmptyConfig = i18n.GetText("proxy_empty_config")
 
 	// ErrMsgSOCKS5ParseFailed SOCKS5错误消息 - 地址解析失败
-	ErrMsgSOCKS5ParseFailed = "SOCKS5代理地址解析失败"
+	ErrMsgSOCKS5ParseFailed = i18n.GetText("proxy_socks5_parse_failed")
 	// ErrMsgSOCKS5CreateFailed 拨号器创建失败
-	ErrMsgSOCKS5CreateFailed = "SOCKS5拨号器创建失败"
+	ErrMsgSOCKS5CreateFailed = i18n.GetText("proxy_socks5_create_failed")
 	// ErrMsgSOCKS5ConnTimeout 连接超时
-	ErrMsgSOCKS5ConnTimeout = "SOCKS5连接超时"
+	ErrMsgSOCKS5ConnTimeout = i18n.GetText("proxy_socks5_conn_timeout")
 	// ErrMsgSOCKS5ConnFailed 连接失败
-	ErrMsgSOCKS5ConnFailed = "SOCKS5连接失败"
+	ErrMsgSOCKS5ConnFailed = i18n.GetText("proxy_socks5_conn_failed")
 
 	// ErrMsgDirectConnFailed 直连错误消息 - 直连失败
-	ErrMsgDirectConnFailed = "直连失败"
+	ErrMsgDirectConnFailed = i18n.GetText("proxy_direct_conn_failed")
 
 	// ErrMsgHTTPConnFailed HTTP代理错误消息 - 连接失败
-	ErrMsgHTTPConnFailed = "连接HTTP代理服务器失败"
+	ErrMsgHTTPConnFailed = i18n.GetText("proxy_http_conn_failed")
 	// ErrMsgHTTPSetWriteTimeout 设置写超时失败
-	ErrMsgHTTPSetWriteTimeout = "设置写超时失败"
+	ErrMsgHTTPSetWriteTimeout = i18n.GetText("proxy_http_set_write_timeout")
 	// ErrMsgHTTPSendConnectFail 发送CONNECT请求失败
-	ErrMsgHTTPSendConnectFail = "发送CONNECT请求失败"
+	ErrMsgHTTPSendConnectFail = i18n.GetText("proxy_http_send_connect_failed")
 	// ErrMsgHTTPSetReadTimeout 设置读超时失败
-	ErrMsgHTTPSetReadTimeout = "设置读超时失败"
+	ErrMsgHTTPSetReadTimeout = i18n.GetText("proxy_http_set_read_timeout")
 	// ErrMsgHTTPReadRespFailed 读取响应失败
-	ErrMsgHTTPReadRespFailed = "读取HTTP响应失败"
+	ErrMsgHTTPReadRespFailed = i18n.GetText("proxy_http_read_response_failed")
 	// ErrMsgHTTPProxyAuthFailed 代理认证失败
-	ErrMsgHTTPProxyAuthFailed = "HTTP代理连接失败，状态码: %d"
+	ErrMsgHTTPProxyAuthFailed = i18n.GetText("proxy_http_status_failed")
 
 	// ErrMsgTLSTCPConnFailed TLS错误消息 - TCP连接失败
-	ErrMsgTLSTCPConnFailed = "建立TCP连接失败"
+	ErrMsgTLSTCPConnFailed = i18n.GetText("proxy_tls_tcp_conn_failed")
 	// ErrMsgTLSHandshakeFailed TLS握手失败
-	ErrMsgTLSHandshakeFailed = "TLS握手失败"
+	ErrMsgTLSHandshakeFailed = i18n.GetText("proxy_tls_handshake_failed")
 )
 
 // =============================================================================

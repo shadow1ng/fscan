@@ -35,7 +35,8 @@ var resourceExhaustedPatterns = []string{
 	"no buffer space available",
 	"cannot assign requested address",
 	"connection reset by peer",
-	"发包受限",
+	i18n.GetText("network_rate_limited_pattern"),
+	"rate limited",
 }
 
 // closedPatterns 连接已关闭的错误模式
@@ -143,7 +144,7 @@ func (f *failedPortCollector) Count() int {
 func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout int64, session *common.ScanSession, stream chan<- string) []string {
 	config := session.Config
 	state := session.State
-	session.LogDebug(fmt.Sprintf("[PortScan] 开始: %d个主机, 线程数=%d", len(hosts), config.ThreadNum))
+	session.LogDebug(i18n.Tr("port_scan_debug_start", len(hosts), config.ThreadNum))
 
 	// 大规模扫描预筛：跨多个 /24 时先做网段探活，跳过空网段
 	if len(hosts) > subnetProbeThreshold {
@@ -166,7 +167,7 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 		}
 		return nil
 	}
-	session.LogDebug(fmt.Sprintf("[PortScan] 端口解析完成: %d个端口", len(portList)))
+	session.LogDebug(i18n.Tr("port_scan_debug_ports_parsed", len(portList)))
 
 	// 使用config中的排除端口配置
 	excludePorts := parsers.ParsePort(config.Target.ExcludePorts)
@@ -177,34 +178,34 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 
 	// 检查代理可靠性，如果存在全回显问题则警告
 	if session.ProxyEnabled() && !session.ProxyReliable() {
-		session.LogError("检测到代理存在全回显问题，端口扫描结果可能不准确")
+		session.LogError(i18n.GetText("proxy_echo_warning"))
 	}
 
 	// 创建流式迭代器（O(1) 内存，端口喷洒策略）
 	iter := NewSocketIterator(hosts, portList, exclude)
 	totalTasks := iter.Total()
-	session.LogDebug(fmt.Sprintf("[PortScan] 总任务数: %d", totalTasks))
+	session.LogDebug(i18n.Tr("port_scan_debug_total_tasks", totalTasks))
 
 	// 使用传入的配置
 	threadNum := config.ThreadNum
 
 	// 大规模扫描警告和线程数自动调整
 	if totalTasks > 100000 {
-		session.LogInfo(fmt.Sprintf("大规模扫描: %d 个目标 (%d主机 × %d端口)", totalTasks, len(hosts), len(portList)))
+		session.LogInfo(i18n.Tr("large_scan_notice", totalTasks, len(hosts), len(portList)))
 		// 如果任务数超过100万且线程数大于300，自动降低线程数
 		if totalTasks > 1000000 && threadNum > 300 {
 			oldThreadNum := threadNum
 			threadNum = 300
-			session.LogInfo(fmt.Sprintf("自动调整线程数: %d -> %d (大规模扫描优化)", oldThreadNum, threadNum))
+			session.LogInfo(i18n.Tr("large_scan_thread_adjusted", oldThreadNum, threadNum))
 		}
 	}
 
 	// 初始化端口扫描进度条
 	if totalTasks > 0 && config.Output.ShowProgress {
-		description := fmt.Sprintf("端口扫描中（%d线程）", threadNum)
+		description := i18n.Tr("port_scan_progress_description", threadNum)
 		common.InitProgressBar(int64(totalTasks), description)
 	}
-	session.LogDebug("[PortScan] 进度条初始化完成")
+	session.LogDebug(i18n.GetText("port_scan_debug_progress_ready"))
 
 	// 初始化并发控制
 	to := time.Duration(timeout) * time.Second
@@ -214,7 +215,7 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 	failedCollector := &failedPortCollector{}
 	var wg sync.WaitGroup
 
-	session.LogDebug(fmt.Sprintf("[PortScan] 开始创建线程池, size=%d", threadNum))
+	session.LogDebug(i18n.Tr("port_scan_debug_pool_create", threadNum))
 	// 创建自适应线程池（支持动态调整）
 	pool, err := NewAdaptivePool(threadNum, func(task interface{}) {
 		taskInfo, ok := task.(portScanTask)
@@ -236,13 +237,13 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 		}
 		return nil
 	}
-	session.LogDebug("[PortScan] 线程池创建成功")
+	session.LogDebug(i18n.GetText("port_scan_debug_pool_created"))
 	defer pool.Release()
 
-	session.LogDebug("[PortScan] 开始滑动窗口调度")
+	session.LogDebug(i18n.GetText("port_scan_debug_schedule_start"))
 	// 滑动窗口调度：维护固定数量的"飞行中"任务
 	slidingWindowSchedule(iter, pool, &wg, threadNum)
-	session.LogDebug("[PortScan] 滑动窗口调度完成")
+	session.LogDebug(i18n.GetText("port_scan_debug_schedule_done"))
 
 	// 收集结果
 	aliveAddrs := collector.GetAll()
@@ -467,7 +468,7 @@ func scanSinglePort(ctx context.Context, host string, port int, addr string, ada
 	// 步骤1.5：代理连接深度验证（防止透明代理/全回显代理的假连接问题）
 	valid, verifyMethod := verifyProxyConnectionDeep(conn, addr, session)
 	if !valid {
-		session.LogDebug(fmt.Sprintf("代理验证失败 %s: %s", addr, verifyMethod))
+		session.LogDebug(i18n.Tr("proxy_verify_failed", addr, verifyMethod))
 		_ = conn.Close()
 		return
 	}
@@ -541,7 +542,7 @@ func verifyProxyConnectionDeep(conn net.Conn, addr string, session *common.ScanS
 
 	if n > 0 {
 		if isProxyErrorResponse(buf[:n]) {
-			common.LogDebug(fmt.Sprintf("代理返回错误响应 %s", addr))
+			common.LogDebug(i18n.Tr("proxy_error_response", addr))
 			return false, "proxy_error"
 		}
 		return true, "banner"
@@ -558,7 +559,7 @@ func verifyProxyConnectionDeep(conn net.Conn, addr string, session *common.ScanS
 	_ = conn.SetWriteDeadline(time.Time{})
 
 	if writeErr != nil && isConnectionClosed(writeErr) {
-		common.LogDebug(fmt.Sprintf("探测写入失败 %s: %v", addr, writeErr))
+		common.LogDebug(i18n.Tr("proxy_probe_write_failed", addr, writeErr))
 		return false, "write_failed"
 	}
 
@@ -570,7 +571,7 @@ func verifyProxyConnectionDeep(conn net.Conn, addr string, session *common.ScanS
 
 	if n > 0 {
 		if isProxyErrorResponse(buf[:n]) {
-			common.LogDebug(fmt.Sprintf("代理探测返回错误 %s", addr))
+			common.LogDebug(i18n.Tr("proxy_probe_error_response", addr))
 			return false, "proxy_error"
 		}
 		return true, "probe"
@@ -581,7 +582,7 @@ func verifyProxyConnectionDeep(conn net.Conn, addr string, session *common.ScanS
 		errStr := readErr.Error()
 		for _, pattern := range proxyFailurePatterns {
 			if containsFold(errStr, pattern) {
-				common.LogDebug(fmt.Sprintf("代理连接被拒绝 %s: %v", addr, readErr))
+				common.LogDebug(i18n.Tr("proxy_connection_rejected", addr, readErr))
 				return false, "proxy_reject"
 			}
 		}
@@ -591,7 +592,7 @@ func verifyProxyConnectionDeep(conn net.Conn, addr string, session *common.ScanS
 	// 在透明代理环境下，ProxyReliable 检测可能被污染，不可信
 	// 因此采用更保守的策略：无响应一律判定为关闭
 	// 这样可以避免透明代理导致的全端口误报问题
-	common.LogDebug(fmt.Sprintf("代理连接无响应，判定为端口关闭 %s", addr))
+	common.LogDebug(i18n.Tr("proxy_no_response_closed", addr))
 	return false, "no_response"
 }
 
@@ -790,7 +791,7 @@ func probeSubnets(ctx context.Context, hosts []string, timeout time.Duration, se
 		return hosts
 	}
 
-	session.LogInfo(fmt.Sprintf("网段预筛: %d 个 /24 子网, %d 个主机", len(subnets), len(hosts)))
+	session.LogInfo(i18n.Tr("subnet_prefilter_start", len(subnets), len(hosts)))
 
 	aliveSubnets := sync.Map{}
 	var wg sync.WaitGroup
@@ -872,8 +873,7 @@ done:
 	}
 
 	skipped := len(subnets) - aliveCount
-	session.LogInfo(fmt.Sprintf("网段预筛完成: %d 个存活 (网关命中 %d), %d 个跳过, 剩余 %d 主机",
-		aliveCount, gwHits, skipped, len(result)))
+	session.LogInfo(i18n.Tr("subnet_prefilter_done", aliveCount, gwHits, skipped, len(result)))
 	return result
 }
 

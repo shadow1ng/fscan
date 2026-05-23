@@ -184,11 +184,11 @@ func (p *PostgreSQLPlugin) testUnauthorizedAccess(ctx context.Context, info *com
 			Type:    plugins.ResultTypeVuln,
 			Success: true,
 			Service: "postgresql",
-			VulInfo: "未授权访问(trust认证)",
+			VulInfo: i18n.GetText("postgresql_trust_unauth"),
 		}
 	}
 
-	vulInfo := fmt.Sprintf("未授权访问(trust认证) - %s", version)
+	vulInfo := i18n.Tr("postgresql_trust_unauth_version", version)
 	if len(vulInfo) > 100 {
 		vulInfo = vulInfo[:100] + "..."
 	}

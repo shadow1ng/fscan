@@ -31,10 +31,10 @@ const (
 
 // 错误定义
 var (
-	ErrInvalidURL    = errors.New("无效的URL格式")
-	ErrEmptyTarget   = errors.New("目标URL为空")
-	ErrPocNotFound   = errors.New("未找到匹配的POC")
-	ErrPocLoadFailed = errors.New("POC加载失败")
+	ErrInvalidURL    = errors.New(i18n.GetText("webscan_err_invalid_url"))
+	ErrEmptyTarget   = errors.New(i18n.GetText("webscan_err_empty_target"))
+	ErrPocNotFound   = errors.New(i18n.GetText("webscan_err_poc_not_found"))
+	ErrPocLoadFailed = errors.New(i18n.GetText("webscan_err_poc_load_failed"))
 )
 
 //go:embed pocs

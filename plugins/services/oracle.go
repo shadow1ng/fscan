@@ -101,7 +101,7 @@ func (p *OraclePlugin) doOracleAuth(ctx context.Context, info *common.HostInfo, 
 	return &AuthResult{
 		Success:   false,
 		ErrorType: ErrorTypeNetwork,
-		Error:     fmt.Errorf("无法连接到Oracle数据库"),
+		Error:     fmt.Errorf("%s", i18n.GetText("oracle_connect_failed")),
 	}
 }
 
@@ -155,7 +155,7 @@ func (p *OraclePlugin) testUnauthorizedAccess(ctx context.Context, info *common.
 				Service:  "oracle",
 				Username: cred.Username,
 				Password: cred.Password,
-				Banner:   "未授权访问 - 默认账户",
+				Banner:   i18n.GetText("oracle_default_account_banner"),
 			}
 		}
 	}

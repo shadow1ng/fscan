@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/shadow1ng/fscan/common/config"
+	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/common/parsers"
 )
 
@@ -28,12 +29,12 @@ func BuildConfig(fv *FlagVars, info *HostInfo) (*Config, *State, error) {
 
 	// 3. 解析凭据
 	if err := parseCredentials(fv, cfg); err != nil {
-		return nil, nil, fmt.Errorf("凭据解析失败: %w", err)
+		return nil, nil, fmt.Errorf("%s: %w", i18n.GetText("config_credentials_parse_failed"), err)
 	}
 
 	// 4. 解析目标（主机、端口、URL）
 	if err := parseTargets(fv, info, cfg, state); err != nil {
-		return nil, nil, fmt.Errorf("目标解析失败: %w", err)
+		return nil, nil, fmt.Errorf("%s: %w", i18n.GetText("config_targets_parse_failed"), err)
 	}
 
 	// 5. 应用日志级别
@@ -101,7 +102,7 @@ func parseUsernames(fv *FlagVars) []string {
 		if lines, err := parsers.ReadLinesFromFile(fv.UsersFile); err == nil {
 			usernames = append(usernames, lines...)
 		} else {
-			LogError(fmt.Sprintf("读取用户名文件 %s 失败: %v", fv.UsersFile, err))
+			LogError(i18n.Tr("config_read_users_failed", fv.UsersFile, err))
 		}
 	}
 
@@ -131,7 +132,7 @@ func parsePasswords(fv *FlagVars) []string {
 		if lines, err := parsers.ReadLinesFromFile(fv.PasswordsFile); err == nil {
 			passwords = append(passwords, lines...)
 		} else {
-			LogError(fmt.Sprintf("读取密码文件 %s 失败: %v", fv.PasswordsFile, err))
+			LogError(i18n.Tr("config_read_passwords_failed", fv.PasswordsFile, err))
 		}
 	}
 
@@ -251,7 +252,7 @@ func parseURLs(fv *FlagVars) []string {
 				urls = append(urls, normalizeURL(line))
 			}
 		} else {
-			LogError(fmt.Sprintf("读取URL文件 %s 失败: %v", fv.URLsFile, err))
+			LogError(i18n.Tr("config_read_urls_failed", fv.URLsFile, err))
 		}
 	}
 

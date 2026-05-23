@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/shadow1ng/fscan/common/i18n"
 )
 
 // 解析指令语法,返回指令结构
@@ -37,12 +39,12 @@ func (p *Probe) parseProbeInfo(probeStr string) error {
 
 	// 验证协议类型
 	if proto != "TCP " && proto != "UDP " {
-		return fmt.Errorf("探测器协议必须是 TCP 或 UDP")
+		return fmt.Errorf("%s", i18n.GetText("portfinger_probe_protocol_invalid"))
 	}
 
 	// 验证其他信息不为空
 	if len(other) == 0 {
-		return fmt.Errorf("nmap-service-probes - 探测器名称无效")
+		return fmt.Errorf("%s", i18n.GetText("portfinger_probe_name_invalid"))
 	}
 
 	// 解析指令
@@ -64,7 +66,7 @@ func (p *Probe) fromString(data string) error {
 	data = strings.TrimSpace(data)
 	lines := strings.Split(data, "\n")
 	if len(lines) == 0 {
-		return fmt.Errorf("输入数据为空")
+		return fmt.Errorf("%s", i18n.GetText("portfinger_input_empty"))
 	}
 
 	probeStr := lines[0]
@@ -172,7 +174,7 @@ func (v *VScan) parseProbesFromContent(content string) error {
 
 	// 验证文件内容
 	if len(lines) == 0 {
-		return fmt.Errorf("读取nmap-service-probes文件失败: 内容为空")
+		return fmt.Errorf("%s", i18n.GetText("portfinger_probe_file_empty"))
 	}
 
 	// 检查Exclude指令
@@ -182,14 +184,14 @@ func (v *VScan) parseProbesFromContent(content string) error {
 			excludeCount++
 		}
 		if excludeCount > 1 {
-			return fmt.Errorf("nmap-service-probes文件中只允许有一个Exclude指令")
+			return fmt.Errorf("%s", i18n.GetText("portfinger_probe_exclude_duplicate"))
 		}
 	}
 
 	// 验证第一行格式
 	firstLine := lines[0]
 	if !strings.HasPrefix(firstLine, "Exclude ") && !strings.HasPrefix(firstLine, "Probe ") {
-		return fmt.Errorf("解析错误: 首行必须以\"Probe \"或\"Exclude \"开头")
+		return fmt.Errorf("%s", i18n.GetText("portfinger_probe_first_line_invalid"))
 	}
 
 	// 处理Exclude指令

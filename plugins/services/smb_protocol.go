@@ -216,13 +216,13 @@ func probeTarget(ctx context.Context, host string, port int, timeout time.Durati
 	// 首先尝试SMBv1协商
 	_, err = conn.Write(smbv1NegotiatePacket)
 	if err != nil {
-		return nil, fmt.Errorf("发送SMBv1协商包失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("smbv1_negotiate_send_failed"), err)
 	}
 
 	// 读取SMBv1协商响应
 	r1, err := readSMBMessage(conn)
 	if err != nil {
-		common.LogDebug(fmt.Sprintf("读取SMBv1协商响应失败: %v", err))
+		common.LogDebug(i18n.Tr("smbv1_negotiate_read_failed", err))
 	}
 
 	// 检查是否支持SMBv1
@@ -239,12 +239,12 @@ func probeSMBv1(conn net.Conn, target string, timeout time.Duration) (*SMBTarget
 	// 发送Session Setup请求
 	_, err := conn.Write(smbv1SessionSetupPacket)
 	if err != nil {
-		return nil, fmt.Errorf("发送SMBv1 Session Setup失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("smbv1_session_send_failed"), err)
 	}
 
 	ret, err := readSMBMessage(conn)
 	if err != nil || len(ret) < 47 {
-		return nil, fmt.Errorf("读取SMBv1 Session Setup响应失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("smbv1_session_read_failed"), err)
 	}
 
 	info := &SMBTarget{
@@ -301,12 +301,12 @@ func probeSMBv2(ctx context.Context, target string, timeout time.Duration, sessi
 	// 发送SMBv2协商包
 	_, err = conn2.Write(smbv2NegotiatePacket)
 	if err != nil {
-		return nil, fmt.Errorf("发送SMBv2协商包失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("smbv2_negotiate_send_failed"), err)
 	}
 
 	r2, err := readSMBMessage(conn2)
 	if err != nil {
-		return nil, fmt.Errorf("读取SMBv2协商响应失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("smbv2_negotiate_read_failed"), err)
 	}
 
 	// 构建NTLM数据包
@@ -322,23 +322,23 @@ func probeSMBv2(ctx context.Context, target string, timeout time.Duration, sessi
 	// 发送Session Setup
 	_, err = conn2.Write(smbv2SessionSetupPacket)
 	if err != nil {
-		return nil, fmt.Errorf("发送SMBv2 Session Setup失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("smbv2_session_send_failed"), err)
 	}
 
 	_, err = readSMBMessage(conn2)
 	if err != nil {
-		return nil, fmt.Errorf("读取SMBv2 Session Setup响应失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("smbv2_session_read_failed"), err)
 	}
 
 	// 发送NTLM协商包
 	_, err = conn2.Write(ntlmData)
 	if err != nil {
-		return nil, fmt.Errorf("发送SMBv2 NTLM包失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("smbv2_ntlm_send_failed"), err)
 	}
 
 	ret, err := readSMBMessage(conn2)
 	if err != nil {
-		return nil, fmt.Errorf("读取SMBv2 NTLM响应失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("smbv2_ntlm_read_failed"), err)
 	}
 
 	ntlmOff := bytes.Index(ret, []byte("NTLMSSP"))
@@ -455,7 +455,7 @@ func (a *SMB1Authenticator) Authenticate(ctx context.Context, host string, port 
 		return &AuthResult{
 			Success:   false,
 			ErrorType: ErrorTypeNetwork,
-			Error:     fmt.Errorf("连接超时"),
+			Error:     fmt.Errorf("%s", i18n.GetText("connection_timeout")),
 		}, nil
 	case <-ctx.Done():
 		go func() {
@@ -701,13 +701,13 @@ func readSMBMessage(conn net.Conn) ([]byte, error) {
 		return nil, err
 	}
 	if n != 4 {
-		return nil, fmt.Errorf("NetBIOS头部长度不足: %d", n)
+		return nil, fmt.Errorf(i18n.GetText("netbios_header_too_short")+": %d", n)
 	}
 
 	messageLength := int(headerBuf[0])<<24 | int(headerBuf[1])<<16 | int(headerBuf[2])<<8 | int(headerBuf[3])
 
 	if messageLength > 1024*1024 {
-		return nil, fmt.Errorf("消息长度过大: %d", messageLength)
+		return nil, fmt.Errorf(i18n.GetText("message_length_too_large")+": %d", messageLength)
 	}
 
 	if messageLength == 0 {

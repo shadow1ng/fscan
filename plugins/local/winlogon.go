@@ -26,22 +26,22 @@ func NewWinLogonPlugin() *WinLogonPlugin {
 func (p *WinLogonPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
 	pePath := session.Config.WinPEFile
 	if pePath == "" {
-		return &plugins.Result{Success: false, Error: 		fmt.Errorf("%s", i18n.GetText("local_pe_not_specified"))}
+		return &plugins.Result{Success: false, Error: fmt.Errorf("%s", i18n.GetText("local_pe_not_specified"))}
 	}
 	if _, err := os.Stat(pePath); err != nil {
-		return &plugins.Result{Success: false, Error: 		fmt.Errorf("%s", i18n.Tr("local_pe_not_found", pePath))}
+		return &plugins.Result{Success: false, Error: fmt.Errorf("%s", i18n.Tr("local_pe_not_found", pePath))}
 	}
 
 	absPath, _ := filepath.Abs(pePath)
 	key := `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon`
 
 	entries := []struct {
-		name    string
-		value   string
-		desc    string
+		name  string
+		value string
+		desc  string
 	}{
-		{"Userinit", fmt.Sprintf(`C:\Windows\system32\userinit.exe,%s`, absPath), "Userinit 追加"},
-		{"Shell", fmt.Sprintf(`explorer.exe,%s`, absPath), "Shell 追加"},
+		{"Userinit", fmt.Sprintf(`C:\Windows\system32\userinit.exe,%s`, absPath), i18n.GetText("winlogon_userinit_append")},
+		{"Shell", fmt.Sprintf(`explorer.exe,%s`, absPath), i18n.GetText("winlogon_shell_append")},
 	}
 
 	var output strings.Builder
@@ -50,10 +50,10 @@ func (p *WinLogonPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	for _, e := range entries {
 		out, err := exec.Command("reg", "add", key, "/v", e.name, "/t", "REG_SZ", "/d", e.value, "/f").CombinedOutput()
 		if err != nil {
-			output.WriteString(fmt.Sprintf("[失败] %s: %s\n", e.desc, strings.TrimSpace(string(out))))
+			output.WriteString(i18n.Tr("local_step_failed", e.desc, strings.TrimSpace(string(out))) + "\n")
 			continue
 		}
-		output.WriteString(fmt.Sprintf("[成功] %s\n", e.desc))
+		output.WriteString(i18n.Tr("local_step_success", e.desc) + "\n")
 		successCount++
 	}
 

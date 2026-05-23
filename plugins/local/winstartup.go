@@ -28,10 +28,10 @@ func NewWinStartupPlugin() *WinStartupPlugin {
 func (p *WinStartupPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
 	pePath := session.Config.WinPEFile
 	if pePath == "" {
-		return &plugins.Result{Success: false, Error: 		fmt.Errorf("%s", i18n.GetText("local_pe_not_specified"))}
+		return &plugins.Result{Success: false, Error: fmt.Errorf("%s", i18n.GetText("local_pe_not_specified"))}
 	}
 	if _, err := os.Stat(pePath); err != nil {
-		return &plugins.Result{Success: false, Error: 		fmt.Errorf("%s", i18n.Tr("local_pe_not_found", pePath))}
+		return &plugins.Result{Success: false, Error: fmt.Errorf("%s", i18n.Tr("local_pe_not_found", pePath))}
 	}
 
 	absPath, _ := filepath.Abs(pePath)
@@ -41,8 +41,8 @@ func (p *WinStartupPlugin) Scan(ctx context.Context, info *common.HostInfo, sess
 		name string
 		dir  string
 	}{
-		{"用户启动文件夹", filepath.Join(os.Getenv("APPDATA"), "Microsoft", "Windows", "Start Menu", "Programs", "Startup")},
-		{"公共启动文件夹", filepath.Join(os.Getenv("ProgramData"), "Microsoft", "Windows", "Start Menu", "Programs", "Startup")},
+		{i18n.GetText("winstartup_user_folder"), filepath.Join(os.Getenv("APPDATA"), "Microsoft", "Windows", "Start Menu", "Programs", "Startup")},
+		{i18n.GetText("winstartup_common_folder"), filepath.Join(os.Getenv("ProgramData"), "Microsoft", "Windows", "Start Menu", "Programs", "Startup")},
 	}
 
 	var output strings.Builder
@@ -51,10 +51,10 @@ func (p *WinStartupPlugin) Scan(ctx context.Context, info *common.HostInfo, sess
 	for _, loc := range locations {
 		target := filepath.Join(loc.dir, fileName)
 		if err := copyFile(absPath, target); err != nil {
-			output.WriteString(fmt.Sprintf("[失败] %s: %v\n", loc.name, err))
+			output.WriteString(i18n.Tr("local_step_failed", loc.name, err) + "\n")
 			continue
 		}
-		output.WriteString(fmt.Sprintf("[成功] %s -> %s\n", loc.name, target))
+		output.WriteString(i18n.Tr("local_step_success_arrow", loc.name, target) + "\n")
 		successCount++
 	}
 

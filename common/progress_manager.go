@@ -221,7 +221,7 @@ func (pm *ProgressManager) generateProgressBar() string {
 
 	if pm.total == 0 {
 		spinner := pm.getActivityIndicator()
-		base := fmt.Sprintf("%s %s 等待中...", pm.description, spinner)
+		base := fmt.Sprintf("%s %s %s", pm.description, spinner, i18n.GetText("progress_waiting"))
 		if packetInfo != "" {
 			return base + " " + packetInfo
 		}
@@ -319,13 +319,15 @@ func (pm *ProgressManager) showCompletionInfo() {
 	fmt.Print("\n")
 
 	completionMsg := i18n.GetText("progress_scan_completed")
+	doneMsg := i18n.GetText("progress_done")
+	durationMsg := i18n.GetText("progress_duration")
 	if pm.noColor {
-		fmt.Printf("[完成] %s %d/%d (耗时: %s)\n",
-			completionMsg, pm.total, pm.total, formatDuration(elapsed))
+		fmt.Printf("[%s] %s %d/%d (%s: %s)\n",
+			doneMsg, completionMsg, pm.total, pm.total, durationMsg, formatDuration(elapsed))
 	} else {
-		fmt.Printf("%s[完成] %s %d/%d%s %s(耗时: %s)%s\n",
-			AnsiGreen, completionMsg, pm.total, pm.total, AnsiReset,
-			AnsiGray, formatDuration(elapsed), AnsiReset)
+		fmt.Printf("%s[%s] %s %d/%d%s %s(%s: %s)%s\n",
+			AnsiGreen, doneMsg, completionMsg, pm.total, pm.total, AnsiReset,
+			AnsiGray, durationMsg, formatDuration(elapsed), AnsiReset)
 	}
 }
 

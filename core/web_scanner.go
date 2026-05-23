@@ -303,7 +303,7 @@ type WebScanStrategy struct {
 // NewWebScanStrategy 创建新的Web扫描策略
 func NewWebScanStrategy() *WebScanStrategy {
 	return &WebScanStrategy{
-		BaseScanStrategy: NewBaseScanStrategy("Web扫描", FilterWeb),
+		BaseScanStrategy: NewBaseScanStrategy(i18n.GetText("scan_strategy_web_name"), FilterWeb),
 	}
 }
 

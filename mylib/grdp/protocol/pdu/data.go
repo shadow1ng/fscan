@@ -473,7 +473,7 @@ func readDataPDU(r io.Reader) (*DataPDU, error) {
 		d = &FontMapDataPDU{}
 
 	case PDUTYPE2_SAVE_SESSION_INFO:
-		glog.Debug("SAVE_SESSION_INFO 事件触发，登录成功")
+		glog.Debug("SAVE_SESSION_INFO event triggered, login successful")
 		d = &SaveSessionInfo{}
 
 	default:

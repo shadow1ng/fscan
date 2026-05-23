@@ -17,7 +17,7 @@ type LocalScanStrategy struct {
 // NewLocalScanStrategy 创建新的本地扫描策略
 func NewLocalScanStrategy() *LocalScanStrategy {
 	return &LocalScanStrategy{
-		BaseScanStrategy: NewBaseScanStrategy("本地扫描", FilterLocal),
+		BaseScanStrategy: NewBaseScanStrategy(i18n.GetText("scan_strategy_local_name"), FilterLocal),
 	}
 }
 

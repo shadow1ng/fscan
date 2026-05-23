@@ -108,7 +108,7 @@ func GetBaseProgramOptions() []cel.ProgramOption {
 func ExtendEnvWithVars(varDecls []*exprpb.Decl) (*cel.Env, error) {
 	base := GetBaseEnv()
 	if base == nil {
-		return nil, fmt.Errorf("基础CEL环境未初始化")
+		return nil, fmt.Errorf("%s", i18n.GetText("webscan_cel_env_not_initialized"))
 	}
 	if len(varDecls) == 0 {
 		return base, nil
@@ -142,19 +142,19 @@ func Evaluate(env *cel.Env, expression string, params map[string]interface{}) (r
 	// 编译表达式
 	ast, issues := env.Compile(expression)
 	if issues.Err() != nil {
-		return nil, fmt.Errorf("表达式编译错误: %w", issues.Err())
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_expression_compile_failed"), issues.Err())
 	}
 
 	// 创建程序（使用缓存的程序选项）
 	program, err := env.Program(ast, GetBaseProgramOptions()...)
 	if err != nil {
-		return nil, fmt.Errorf("程序创建错误: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_program_create_failed"), err)
 	}
 
 	// 执行评估
 	result, _, err := program.Eval(params)
 	if err != nil {
-		return nil, fmt.Errorf("表达式评估错误: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_expression_eval_failed"), err)
 	}
 
 	return result, nil
@@ -435,7 +435,7 @@ func DoRequest(req *http.Request, redirect bool) (*Response, error) {
 	// 检查发包限制
 	if canSend, reason := common.CanSendPacket(); !canSend {
 		common.LogError(i18n.Tr("webscan_request_restricted", req.URL.String(), reason))
-		return nil, fmt.Errorf("发包受限: %s", reason)
+		return nil, fmt.Errorf("%s", i18n.Tr("network_rate_limited", reason))
 	}
 
 	var (
@@ -465,7 +465,7 @@ func DoRequest(req *http.Request, redirect bool) (*Response, error) {
 	if err != nil {
 		// HTTP请求失败，计为TCP失败
 		common.GetGlobalState().IncrementTCPFailedPacketCount()
-		return nil, fmt.Errorf("请求执行失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_request_execute_failed"), err)
 	}
 
 	// HTTP请求成功，计为TCP成功
@@ -512,7 +512,7 @@ func ParseRequest(oReq *http.Request) (*Request, error) {
 	if oReq.Body != nil && oReq.Body != http.NoBody {
 		data, err := io.ReadAll(oReq.Body)
 		if err != nil {
-			return nil, fmt.Errorf("读取请求体失败: %w", err)
+			return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_request_body_read_failed"), err)
 		}
 		req.Body = data
 		// 重新设置请求体，允许后续重复读取
@@ -545,7 +545,7 @@ func ParseResponse(oResp *http.Response) (*Response, error) {
 	// 读取并解析响应体
 	body, err := getRespBody(oResp)
 	if err != nil {
-		return nil, fmt.Errorf("处理响应体失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_response_body_process_failed"), err)
 	}
 	resp.Body = body
 

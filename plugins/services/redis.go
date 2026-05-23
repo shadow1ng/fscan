@@ -170,7 +170,7 @@ func (p *RedisPlugin) doRedisAuth(ctx context.Context, info *common.HostInfo, cr
 		return &AuthResult{
 			Success:   false,
 			ErrorType: ErrorTypeUnknown,
-			Error:     fmt.Errorf("redis PING测试失败: %s", strings.TrimSpace(responseStr)),
+			Error:     fmt.Errorf("%s", i18n.Tr("redis_ping_failed", strings.TrimSpace(responseStr))),
 		}
 	}
 
@@ -212,7 +212,7 @@ func (p *RedisPlugin) testUnauthorizedAccess(ctx context.Context, info *common.H
 			Type:    plugins.ResultTypeVuln,
 			Success: true,
 			Service: "redis",
-			VulInfo: "未授权访问",
+			VulInfo: i18n.GetText("unauthorized_access"),
 		}
 	}
 
@@ -288,13 +288,13 @@ func (p *RedisPlugin) identifyService(ctx context.Context, info *common.HostInfo
 	var banner string
 
 	if strings.Contains(responseStr, "PONG") {
-		banner = "Redis服务 (PONG响应)"
+		banner = i18n.GetText("redis_service_pong")
 	} else if strings.Contains(responseStr, "-NOAUTH") {
-		banner = "Redis服务 (需要认证)"
+		banner = i18n.GetText("redis_service_auth_required")
 	} else if strings.Contains(responseStr, "-ERR") {
-		banner = "Redis服务 (协议响应)"
+		banner = i18n.GetText("redis_service_protocol_response")
 	} else {
-		banner = "Redis服务"
+		banner = i18n.GetText("redis_service_plain")
 	}
 
 	common.LogSuccess(i18n.Tr("redis_service_identified", target, banner)) //nolint:govet
@@ -552,10 +552,10 @@ func (p *RedisPlugin) writeKey(conn net.Conn, filename string) (flag bool, text 
 	// 读取密钥文件
 	key, err := p.readFile(filename)
 	if err != nil {
-		return false, fmt.Sprintf("读取密钥文件 %s 失败: %v", filename, err), err
+		return false, i18n.Tr("redis_key_file_read_failed", filename, err), err
 	}
 	if len(key) == 0 {
-		return false, fmt.Sprintf("密钥文件 %s 为空", filename), nil
+		return false, i18n.Tr("redis_key_file_empty", filename), nil
 	}
 
 	// 写入密钥
@@ -596,7 +596,7 @@ func (p *RedisPlugin) writeCron(conn net.Conn, host string) (flag bool, text str
 	// 解析目标地址
 	target := strings.Split(host, ":")
 	if len(target) < 2 {
-		return false, "主机地址格式错误", nil
+		return false, i18n.GetText("redis_host_format_invalid"), nil
 	}
 	scanIp, scanPort := target[0], target[1]
 

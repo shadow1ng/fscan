@@ -75,7 +75,7 @@ func (p *RDPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 		common.LogSuccess(i18n.Tr("rdp_service", target, banner))
 		return &ScanResult{
 			Success: true,
-				Type:     plugins.ResultTypeService,
+			Type:    plugins.ResultTypeService,
 			Service: "rdp",
 			Banner:  banner,
 		}
@@ -130,7 +130,7 @@ func (p *RDPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 
 			return &ScanResult{
 				Success:  true,
-					Type:     plugins.ResultTypeCredential,
+				Type:     plugins.ResultTypeCredential,
 				Service:  "rdp",
 				Username: cred.Username,
 				Password: cred.Password,
@@ -144,7 +144,7 @@ func (p *RDPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 			return &ScanResult{
 				Success: false,
 				Service: "rdp",
-				Error:   fmt.Errorf("RDP端口未开放"),
+				Error:   fmt.Errorf("%s", i18n.GetText("rdp_port_closed")),
 			}
 		}
 	}
@@ -242,7 +242,7 @@ func (p *RDPPlugin) logOSInfo(target string, osInfo map[string]any) {
 // buildBanner 构建服务识别Banner
 func (p *RDPPlugin) buildBanner(osInfo map[string]any) string {
 	if len(osInfo) == 0 {
-		return "RDP远程桌面服务"
+		return i18n.GetText("rdp_remote_desktop_service")
 	}
 
 	osVersion := p.extractStringField(osInfo, "OsVerion")
@@ -256,7 +256,7 @@ func (p *RDPPlugin) buildBanner(osInfo map[string]any) string {
 		return fmt.Sprintf("RDP (Hostname:%s)", hostname)
 	}
 
-	return "RDP远程桌面服务"
+	return i18n.GetText("rdp_remote_desktop_service")
 }
 
 // extractStringField 安全提取字符串字段

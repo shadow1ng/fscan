@@ -30,7 +30,7 @@ func Initialize(info *HostInfo) (*InitResult, error) {
 	// 2. 从 FlagVars 构建 Config 和 State
 	cfg, state, err := BuildConfig(GetFlagVars(), info)
 	if err != nil {
-		return nil, fmt.Errorf("配置构建失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("config_build_failed"), err)
 	}
 
 	// 3. 设置全局实例
@@ -39,7 +39,7 @@ func Initialize(info *HostInfo) (*InitResult, error) {
 
 	// 4. 初始化输出系统
 	if err := InitOutput(); err != nil {
-		return nil, fmt.Errorf("输出初始化失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("output_init_failed"), err)
 	}
 
 	session := NewScanSession(cfg, state, GetFlagVars())
@@ -67,7 +67,7 @@ func ValidateExclusiveParams(info *HostInfo) error {
 	if fv.TargetURL != "" {
 		paramCount++
 		if activeParam != "" {
-			activeParam += " 和 -u"
+			activeParam = i18n.Tr("param_join_and", activeParam, "-u")
 		} else {
 			activeParam = "-u"
 		}
@@ -75,7 +75,7 @@ func ValidateExclusiveParams(info *HostInfo) error {
 	if fv.LocalPlugin != "" {
 		paramCount++
 		if activeParam != "" {
-			activeParam += " 和 -local"
+			activeParam = i18n.Tr("param_join_and", activeParam, "-local")
 		} else {
 			activeParam = "-local"
 		}

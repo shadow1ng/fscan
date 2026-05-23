@@ -146,6 +146,10 @@ flag_language:
   other: "语言: zh, en"
 flag_help:
   other: "显示帮助信息"
+flag_web_mode:
+  other: "启动Web管理界面"
+flag_web_port:
+  other: "Web服务器端口"
 # ========================= 扫描模式消息 =========================
 scan_mode_service_selected:
   other: "已选择服务扫描模式"
@@ -195,6 +199,12 @@ progress_scanning_description:
   other: "扫描进度"
 progress_scan_completed:
   other: "扫描完成:"
+progress_waiting:
+  other: "等待中..."
+progress_done:
+  other: "完成"
+progress_duration:
+  other: "耗时"
 concurrency_plugin:
   other: "插件"
 concurrency_local_plugin:
@@ -243,12 +253,26 @@ parser_start_gt_end:
   other: "起始IP大于结束IP"
 network_rate_limited:
   other: "发包受限: {{.Arg1}}"
+tcp_connection_restricted:
+  other: "TCP连接 {{.Arg1}} 受限: {{.Arg2}}"
+http_request_restricted:
+  other: "HTTP请求 {{.Arg1}} 受限: {{.Arg2}}"
+proxy_dialer_failed:
+  other: "获取代理拨号器失败: {{.Arg1}}"
+connection_failed:
+  other: "连接 {{.Arg1}} 失败: {{.Arg2}}"
+packet_limit_max_reached:
+  other: "已达到最大发包数量限制: {{.Arg1}}"
+packet_limit_rate_limited:
+  other: "发包速率受限: {{.Arg1}}包/分钟"
 target_local_mode:
   other: "本地扫描模式"
 param_conflict_ao_icmp_both:
   other: "提示: 同时指定了 -ao 和 -m icmp，两者功能相同，使用存活探测模式"
 param_local_multi_plugin:
   other: "本地插件只能指定单个插件，不支持使用 '{{.Arg1}}' 分隔的多个插件"
+param_join_and:
+  other: "{{.Arg1}} 和 {{.Arg2}}"
 
 # ========================= 解析器消息 =========================
 parser_empty_input:
@@ -267,6 +291,20 @@ parser_hash_invalid_format:
 # ========================= 配置消息 =========================
 config_web_timeout_warning:
   other: "Web超时时间大于普通超时时间，可能导致不期望的行为"
+config_build_failed:
+  other: "配置构建失败"
+output_init_failed:
+  other: "输出初始化失败"
+config_credentials_parse_failed:
+  other: "凭据解析失败"
+config_targets_parse_failed:
+  other: "目标解析失败"
+config_read_users_failed:
+  other: "读取用户名文件 {{.Arg1}} 失败: {{.Arg2}}"
+config_read_passwords_failed:
+  other: "读取密码文件 {{.Arg1}} 失败: {{.Arg2}}"
+config_read_urls_failed:
+  other: "读取URL文件 {{.Arg1}} 失败: {{.Arg2}}"
 
 # ========================= 插件扫描消息 (带参数) =========================
 scan_plugin_not_found:
@@ -383,6 +421,48 @@ port_open_http:
   other: "端口开放 {{.Arg1}} [http](HTTP探测)"
 port_scan_no_alive_subnet:
   other: "网段预筛未发现存活子网，跳过端口扫描"
+network_rate_limited_pattern:
+  other: "发包受限"
+port_scan_debug_start:
+  other: "[PortScan] 开始: {{.Arg1}}个主机, 线程数={{.Arg2}}"
+port_scan_debug_ports_parsed:
+  other: "[PortScan] 端口解析完成: {{.Arg1}}个端口"
+proxy_echo_warning:
+  other: "检测到代理存在全回显问题，端口扫描结果可能不准确"
+port_scan_debug_total_tasks:
+  other: "[PortScan] 总任务数: {{.Arg1}}"
+large_scan_notice:
+  other: "大规模扫描: {{.Arg1}} 个目标 ({{.Arg2}}主机 × {{.Arg3}}端口)"
+large_scan_thread_adjusted:
+  other: "自动调整线程数: {{.Arg1}} -> {{.Arg2}} (大规模扫描优化)"
+port_scan_progress_description:
+  other: "端口扫描中（{{.Arg1}}线程）"
+port_scan_debug_progress_ready:
+  other: "[PortScan] 进度条初始化完成"
+port_scan_debug_pool_create:
+  other: "[PortScan] 开始创建线程池, size={{.Arg1}}"
+port_scan_debug_pool_created:
+  other: "[PortScan] 线程池创建成功"
+port_scan_debug_schedule_start:
+  other: "[PortScan] 开始滑动窗口调度"
+port_scan_debug_schedule_done:
+  other: "[PortScan] 滑动窗口调度完成"
+proxy_verify_failed:
+  other: "代理验证失败 {{.Arg1}}: {{.Arg2}}"
+proxy_error_response:
+  other: "代理返回错误响应 {{.Arg1}}"
+proxy_probe_write_failed:
+  other: "探测写入失败 {{.Arg1}}: {{.Arg2}}"
+proxy_probe_error_response:
+  other: "代理探测返回错误 {{.Arg1}}"
+proxy_connection_rejected:
+  other: "代理连接被拒绝 {{.Arg1}}: {{.Arg2}}"
+proxy_no_response_closed:
+  other: "代理连接无响应，判定为端口关闭 {{.Arg1}}"
+subnet_prefilter_start:
+  other: "网段预筛: {{.Arg1}} 个 /24 子网, {{.Arg2}} 个主机"
+subnet_prefilter_done:
+  other: "网段预筛完成: {{.Arg1}} 个存活 (网关命中 {{.Arg2}}), {{.Arg3}} 个跳过, 剩余 {{.Arg4}} 主机"
 
 # ========================= 本地扫描消息 =========================
 local_plugin_info:
@@ -439,6 +519,28 @@ start_web_scan:
   other: "开始Web扫描"
 start_scan:
   other: "开始扫描"
+plugin_list_summary:
+  other: "{{.Arg1}} ... 等{{.Arg2}}个"
+service_probe_empty_response:
+  other: "响应数据为空"
+service_probe_microsoft_ds:
+  other: "特殊处理 microsoft-ds 服务"
+service_probe_identified:
+  other: "服务识别结果: {{.Arg1}}, Banner: {{.Arg2}}"
+service_probe_http_identified:
+  other: "识别为HTTP服务"
+service_probe_unknown:
+  other: "未知服务"
+service_probe_soft_match:
+  other: "软匹配服务: {{.Arg1}}"
+icmp_debug_all_responded:
+  other: "[ICMP] 全部响应，耗时 {{.Arg1}}"
+icmp_debug_max_wait:
+  other: "[ICMP] 达到最大等待时间 {{.Arg1}}，存活 {{.Arg2}}/{{.Arg3}}"
+icmp_debug_stable_done:
+  other: "[ICMP] 响应稳定，提前结束，耗时 {{.Arg1}}，存活 {{.Arg2}}/{{.Arg3}}"
+adaptive_pool_resource_exhausted:
+  other: "[AdaptivePool] 资源耗尽率 {{.Arg1}}%, 线程数 {{.Arg2}} -> {{.Arg3}}"
 
 # ========================= 服务插件通用消息 =========================
 # 格式: {service}_{type} - type: credential/unauth/service/vuln
@@ -562,6 +664,654 @@ ms17010_pipe_decrypt_error:
   other: "管道请求解密错误: {{.Arg1}}"
 ms17010_pipe_decode_error:
   other: "管道请求解码错误: {{.Arg1}}"
+ms17010_port_only:
+  other: "MS17-010漏洞检测仅支持445端口"
+ms17010_vuln_banner:
+  other: "MS17-010漏洞 ({{.Arg1}})"
+ms17010_not_vulnerable:
+  other: "目标不存在MS17-010漏洞"
+ms17010_exploit_header:
+  other: "=== MS17-010漏洞利用结果 - {{.Arg1}} ==="
+ms17010_exploit_check_failed:
+  other: "[漏洞检测失败] {{.Arg1}}"
+ms17010_exploit_not_vulnerable:
+  other: "[漏洞状态] 目标不存在MS17-010漏洞"
+ms17010_exploit_confirmed:
+  other: "[漏洞确认] MS17-010漏洞存在"
+ms17010_exploit_os:
+  other: "[操作系统] {{.Arg1}}"
+ms17010_exploit_backdoor_found:
+  other: "[后门检测] 发现DOUBLEPULSAR后门"
+ms17010_exploit_backdoor_not_found:
+  other: "[后门检测] 未发现DOUBLEPULSAR后门"
+ms17010_exploit_mode:
+  other: "[利用模式] {{.Arg1}}"
+ms17010_exploit_start_attack:
+  other: "[利用状态] 开始执行EternalBlue攻击..."
+ms17010_exploit_failed:
+  other: "[利用结果] 利用失败: {{.Arg1}}"
+ms17010_exploit_success:
+  other: "[利用结果] 漏洞利用成功完成"
+ms17010_exploit_bind_hint:
+  other: "[连接建议] 使用以下命令连接Bind Shell:"
+ms17010_exploit_add_hint:
+  other: "[访问建议] 已添加管理员账户，可以通过以下方式连接:"
+ms17010_exploit_add_credential:
+  other: "  用户名: sysadmin  密码: 1qaz@WSX!@#4"
+ms17010_exploit_guest_hint:
+  other: "[访问建议] 已激活Guest账户，可以直接远程连接"
+ms17010_exploit_detect_only:
+  other: "[利用模式] 仅检测模式 (未配置Shellcode)"
+ms17010_exploit_shellcode_hint:
+  other: "[建议] 可使用 -sc 参数配置Shellcode进行实际利用"
+ms17010_exploit_supported_modes:
+  other: "  支持的模式: bind, add, guest 或自定义shellcode"
+ms17010_base64_decode_failed:
+  other: "base64解码失败"
+ms17010_aes_cipher_failed:
+  other: "创建AES密码块失败"
+ms17010_ciphertext_too_short:
+  other: "密文长度过短"
+ms17010_invalid_padding:
+  other: "无效的填充"
+ms17010_padding_check_failed:
+  other: "填充验证失败"
+ms17010_connection_error:
+  other: "连接错误"
+ms17010_set_timeout_error:
+  other: "设置超时错误"
+ms17010_send_protocol_error:
+  other: "发送协议请求错误"
+ms17010_smbv1_unsupported:
+  other: "目标可能不支持SMBv1"
+ms17010_smbv1_rejected:
+  other: "SMBv1协议协商被拒绝"
+ms17010_send_session_error:
+  other: "发送会话请求错误"
+ms17010_session_failed:
+  other: "SMB会话建立失败"
+ms17010_session_rejected:
+  other: "SMB会话被拒绝"
+ms17010_send_tree_error:
+  other: "发送树连接请求错误"
+ms17010_read_tree_error:
+  other: "读取树连接响应错误"
+ms17010_tree_response_incomplete:
+  other: "树连接响应不完整"
+ms17010_send_pipe_error:
+  other: "发送管道请求错误"
+ms17010_read_pipe_error:
+  other: "读取管道响应错误"
+ms17010_pipe_response_incomplete:
+  other: "管道响应不完整"
+ms17010_bind_shellcode_decrypt_failed:
+  other: "解密bind shellcode失败"
+ms17010_add_shellcode_decrypt_failed:
+  other: "解密add shellcode失败"
+ms17010_guest_shellcode_decrypt_failed:
+  other: "解密guest shellcode失败"
+ms17010_shellcode_file_read_failed:
+  other: "读取Shellcode文件失败"
+ms17010_invalid_shellcode:
+  other: "无效的Shellcode"
+ms17010_shellcode_decode_failed:
+  other: "shellcode解码失败"
+findnet_discovery_failed:
+  other: "网络发现失败"
+findnet_hostname:
+  other: "主机名: {{.Arg1}}"
+findnet_ipv4_count:
+  other: "IPv4: {{.Arg1}}个"
+findnet_ipv6_count:
+  other: "IPv6: {{.Arg1}}个"
+findnet_complete:
+  other: "网络信息收集完成"
+findnet_rpc_request1_failed:
+  other: "发送RPC请求1失败"
+findnet_rpc_response1_failed:
+  other: "读取RPC响应1失败"
+findnet_rpc_request2_failed:
+  other: "发送RPC请求2失败"
+findnet_rpc_response2_failed:
+  other: "读取RPC响应2失败"
+netbios_port_only:
+  other: "NetBIOS插件仅支持137和139端口"
+netbios_info_not_found:
+  other: "未发现有效的NetBIOS信息"
+netbios_name_connect_failed:
+  other: "连接NetBIOS名称服务失败"
+netbios_query_send_failed:
+  other: "发送NetBIOS查询失败"
+netbios_response_read_failed:
+  other: "读取NetBIOS响应失败"
+netbios_session_connect_failed:
+  other: "连接NetBIOS会话服务失败"
+netbios_smb_negotiate_send_failed:
+  other: "发送SMB协商1失败"
+netbios_smb_negotiate_read_failed:
+  other: "读取SMB协商1响应失败"
+netbios_smb_session_send_failed:
+  other: "发送SMB Session Setup失败"
+netbios_smb_session_read_failed:
+  other: "读取SMB Session Setup响应失败"
+netbios_response_too_short:
+  other: "NetBIOS响应数据过短"
+netbios_no_name_records:
+  other: "没有NetBIOS名称记录"
+netbios_smb_response_too_short:
+  other: "SMB响应数据过短"
+rdp_port_closed:
+  other: "RDP端口未开放"
+rdp_remote_desktop_service:
+  other: "RDP远程桌面服务"
+ssh_service_banner:
+  other: "SSH服务: {{.Arg1}}"
+kafka_auth_required:
+  other: "Kafka (需要认证)"
+oracle_connect_failed:
+  other: "无法连接到Oracle数据库"
+oracle_default_account_banner:
+  other: "未授权访问 - 默认账户"
+ftp_anonymous_access_detail:
+  other: "FTP {{.Arg1}} 匿名访问 - {{.Arg2}}:{{.Arg3}}"
+ftp_anonymous_banner:
+  other: "FTP匿名访问"
+unauthorized_access:
+  other: "未授权访问"
+redis_ping_failed:
+  other: "redis PING测试失败: {{.Arg1}}"
+redis_service_pong:
+  other: "Redis服务 (PONG响应)"
+redis_service_auth_required:
+  other: "Redis服务 (需要认证)"
+redis_service_protocol_response:
+  other: "Redis服务 (协议响应)"
+redis_service_plain:
+  other: "Redis服务"
+redis_key_file_read_failed:
+  other: "读取密钥文件 {{.Arg1}} 失败: {{.Arg2}}"
+redis_key_file_empty:
+  other: "密钥文件 {{.Arg1}} 为空"
+redis_host_format_invalid:
+  other: "主机地址格式错误"
+smtp_anonymous_mail_allowed:
+  other: "未授权访问 - 允许匿名邮件发送"
+smtp_open_relay:
+  other: "未授权访问 - 开放中继"
+smtp_vrfy_user_enum:
+  other: "未授权访问 - VRFY命令枚举用户({{.Arg1}})"
+smtp_expn_list_enum:
+  other: "未授权访问 - EXPN命令枚举邮件列表({{.Arg1}})"
+smtp_mail_service_info:
+  other: "SMTP邮件服务 ({{.Arg1}})"
+smtp_mail_service:
+  other: "SMTP邮件服务"
+auth_required:
+  other: "需要认证"
+empty_response_received:
+  other: "收到空响应"
+unexpected_status_code:
+  other: "意外响应状态码"
+unknown_status_code:
+  other: "未知错误，状态码"
+ldap_all_dn_failed:
+  other: "所有DN格式都失败"
+memcached_access_failed:
+  other: "无法访问Memcached服务"
+memcached_connect_failed:
+  other: "无法连接到Memcached服务"
+rsync_connect_failed:
+  other: "无法连接到Rsync服务"
+rsync_modules_failed:
+  other: "无法获取模块列表"
+rsync_unauth_modules:
+  other: "未授权访问 - 可用模块: {{.Arg1}}"
+rsync_service_info:
+  other: "Rsync服务 ({{.Arg1}})"
+rsync_file_sync_service:
+  other: "Rsync文件同步服务"
+rabbitmq_guest_default_password:
+  other: "未授权访问 - guest默认密码"
+cassandra_no_auth_cluster:
+  other: "Cassandra (无认证, 集群: {{.Arg1}})"
+cassandra_auth_required:
+  other: "Cassandra (需要认证)"
+telnet_unauth_service:
+  other: "Telnet远程终端服务 (未授权访问)"
+telnet_auth_required:
+  other: "Telnet远程终端服务 (需要认证)"
+telnet_password_only:
+  other: "Telnet远程终端服务 (只需密码)"
+telnet_custom_welcome:
+  other: "Telnet远程终端服务 (自定义欢迎: {{.Arg1}})"
+telnet_remote_terminal_service:
+  other: "Telnet远程终端服务"
+postgresql_trust_unauth:
+  other: "未授权访问(trust认证)"
+postgresql_trust_unauth_version:
+  other: "未授权访问(trust认证) - {{.Arg1}}"
+activemq_stomp_send_failed:
+  other: "STOMP请求发送失败"
+activemq_stomp_read_failed:
+  other: "STOMP响应读取失败"
+activemq_stomp_empty_response:
+  other: "STOMP无响应数据"
+activemq_stomp_auth_error:
+  other: "STOMP认证错误"
+activemq_stomp_unknown_response:
+  other: "STOMP未知响应格式"
+smb_port_only:
+  other: "SMB插件仅支持139和445端口"
+smb_probe_failed:
+  other: "SMB协议探测失败"
+smb_unauth_domain_access:
+  other: "SMB {{.Arg1}} 未授权访问 - {{.Arg2}}\\{{.Arg3}}:{{.Arg4}}"
+smb_unauth_access:
+  other: "SMB {{.Arg1}} 未授权访问 - {{.Arg2}}:{{.Arg3}}"
+smb_anonymous_access_detail:
+  other: "SMB {{.Arg1}} 匿名访问 - {{.Arg2}}:{{.Arg3}}"
+smb_anonymous_banner:
+  other: "SMB匿名访问"
+smbv1_negotiate_send_failed:
+  other: "发送SMBv1协商包失败"
+smbv1_negotiate_read_failed:
+  other: "读取SMBv1协商响应失败: {{.Arg1}}"
+smbv1_session_send_failed:
+  other: "发送SMBv1 Session Setup失败"
+smbv1_session_read_failed:
+  other: "读取SMBv1 Session Setup响应失败"
+smbv2_negotiate_send_failed:
+  other: "发送SMBv2协商包失败"
+smbv2_negotiate_read_failed:
+  other: "读取SMBv2协商响应失败"
+smbv2_session_send_failed:
+  other: "发送SMBv2 Session Setup失败"
+smbv2_session_read_failed:
+  other: "读取SMBv2 Session Setup响应失败"
+smbv2_ntlm_send_failed:
+  other: "发送SMBv2 NTLM包失败"
+smbv2_ntlm_read_failed:
+  other: "读取SMBv2 NTLM响应失败"
+connection_timeout:
+  other: "连接超时"
+netbios_header_too_short:
+  other: "NetBIOS头部长度不足"
+message_length_too_large:
+  other: "消息长度过大"
+local_target:
+  other: "目标: {{.Arg1}}"
+local_platform:
+  other: "平台: {{.Arg1}}"
+local_listen_port:
+  other: "监听端口: {{.Arg1}}"
+local_output_file:
+  other: "输出文件: {{.Arg1}}"
+local_start_time:
+  other: "开始时间: {{.Arg1}}"
+unsupported_platform:
+  other: "不支持的平台: {{.Arg1}}"
+unsupported_os:
+  other: "不支持的操作系统: {{.Arg1}}"
+connection_failed_plain:
+  other: "连接失败"
+listen_port_failed:
+  other: "监听端口失败"
+command_timeout:
+  other: "命令执行超时"
+command_exec_failed:
+  other: "命令执行失败: {{.Arg1}}"
+command_success_no_output:
+  other: "(命令执行成功，无输出)"
+command_error_with_output:
+  other: "错误: {{.Arg1}}\n{{.Arg2}}"
+reverseshell_header:
+  other: "=== Go原生反弹Shell ==="
+reverseshell_error:
+  other: "反弹Shell错误: {{.Arg1}}"
+reverseshell_done:
+  other: "✓ 反弹Shell已完成"
+forwardshell_header:
+  other: "=== 正向Shell服务器 ==="
+forwardshell_server_error:
+  other: "正向Shell服务器错误: {{.Arg1}}"
+forwardshell_done:
+  other: "✓ 正向Shell服务已完成"
+socks5_header:
+  other: "=== SOCKS5代理服务器 ==="
+socks5_server_error:
+  other: "SOCKS5代理服务器错误: {{.Arg1}}"
+socks5_done:
+  other: "✓ SOCKS5代理已完成"
+socks5_handshake_read_failed:
+  other: "读取握手请求失败"
+socks5_unsupported_version:
+  other: "不支持的SOCKS版本"
+socks5_handshake_write_failed:
+  other: "发送握手响应失败"
+socks5_request_read_failed:
+  other: "读取连接请求失败"
+socks5_invalid_request:
+  other: "无效的SOCKS5请求"
+socks5_unsupported_command:
+  other: "不支持的命令"
+ipv4_address_invalid:
+  other: "IPv4地址格式错误"
+domain_format_invalid:
+  other: "域名格式错误"
+domain_length_invalid:
+  other: "域名长度错误"
+ipv6_address_invalid:
+  other: "IPv6地址格式错误"
+socks5_unsupported_address_type:
+  other: "不支持的地址类型"
+socks5_target_connect_failed:
+  other: "连接目标服务器失败"
+local_address_unavailable:
+  other: "无法获取本地地址"
+socks5_success_response_failed:
+  other: "发送成功响应失败"
+socks5_proxy_connection_established:
+  other: "建立代理连接: {{.Arg1}}"
+keylogger_header:
+  other: "=== 键盘记录 ==="
+keylogger_output_permission_failed:
+  other: "输出文件权限检查失败: {{.Arg1}}"
+platform_requirement_failed:
+  other: "平台要求检查失败: {{.Arg1}}"
+keylogger_failed:
+  other: "键盘记录失败: {{.Arg1}}"
+keylogger_failed_plain:
+  other: "键盘记录失败"
+keylogger_done:
+  other: "✓ 键盘记录已完成"
+keylogger_event_count:
+  other: "捕获事件数: {{.Arg1}}"
+keylogger_log_file:
+  other: "日志文件: {{.Arg1}}"
+output_file_create_failed:
+  other: "无法创建输出文件 {{.Arg1}}"
+output_file_open_failed:
+  other: "无法打开输出文件"
+keylogger_log_header:
+  other: "=== 键盘记录日志 ==="
+keylogger_header_write_failed:
+  other: "写入头部信息失败"
+keylogger_entry_write_failed:
+  other: "写入键盘记录失败"
+keylogger_demo_windows:
+  other: "演示键盘记录 - Windows平台"
+keylogger_demo_linux:
+  other: "演示键盘记录 - Linux平台"
+keylogger_demo_darwin:
+  other: "演示键盘记录 - macOS平台"
+command_read_failed:
+  other: "读取命令错误"
+local_target_file:
+  other: "目标文件: {{.Arg1}}"
+persistence_file_required:
+  other: "必须通过 -persistence-file 参数指定目标文件路径"
+target_file_not_specified:
+  other: "未指定目标文件"
+target_file_not_exist:
+  other: "目标文件不存在: {{.Arg1}}"
+copy_file_failed:
+  other: "✗ 复制文件失败: {{.Arg1}}"
+file_copied_to:
+  other: "✓ 文件已复制到: {{.Arg1}}"
+persistence_complete_summary:
+  other: "持久化完成: 成功({{.Arg1}}) 总计({{.Arg2}})"
+crontask_linux_only:
+  other: "计划任务持久化只支持Linux平台"
+crontab_unavailable:
+  other: "crontab命令不可用"
+crontask_header:
+  other: "=== 计划任务持久化 ==="
+crontask_user_add_failed:
+  other: "✗ 添加用户cron任务失败: {{.Arg1}}"
+crontask_user_added:
+  other: "✓ 已添加用户crontab任务"
+crontask_system_add_failed:
+  other: "✗ 添加系统cron任务失败: {{.Arg1}}"
+crontask_system_added:
+  other: "✓ 已添加系统cron任务: {{.Arg1}}"
+crontask_at_add_failed:
+  other: "✗ 添加at任务失败: {{.Arg1}}"
+crontask_at_added:
+  other: "✓ 已添加at延时任务"
+crontask_anacron_add_failed:
+  other: "✗ 添加anacron任务失败: {{.Arg1}}"
+crontask_anacron_added:
+  other: "✓ 已添加anacron任务"
+persistence_dir_create_failed:
+  other: "无法创建持久化目录"
+crontask_system_create_none:
+  other: "无法创建任何系统cron任务"
+systemdservice_linux_only:
+  other: "系统服务持久化只支持Linux平台"
+systemctl_unavailable:
+  other: "systemctl命令不可用: {{.Arg1}}"
+systemdservice_header:
+  other: "=== 系统服务持久化 ==="
+systemdservice_create_failed:
+  other: "✗ 创建systemd服务失败: {{.Arg1}}"
+systemdservice_created:
+  other: "✓ 已创建systemd服务: {{.Arg1}}"
+systemdservice_start_failed:
+  other: "✗ 启动服务失败: {{.Arg1}}"
+systemdservice_started:
+  other: "✓ 服务已启用并启动"
+systemdservice_user_create_failed:
+  other: "✗ 创建用户服务失败: {{.Arg1}}"
+systemdservice_user_created:
+  other: "✓ 已创建用户服务: {{.Arg1}}"
+systemdservice_timer_create_failed:
+  other: "✗ 创建定时器服务失败: {{.Arg1}}"
+systemdservice_timer_created:
+  other: "✓ 已创建systemd定时器"
+systemdservice_complete_summary:
+  other: "系统服务持久化完成: 成功({{.Arg1}}) 总计({{.Arg2}})"
+service_dir_create_failed:
+  other: "无法创建服务目录"
+systemdservice_create_none:
+  other: "无法创建任何systemd服务文件"
+service_operation_error:
+  other: "服务操作错误"
+ldpreload_linux_only:
+  other: "LD_PRELOAD持久化只支持Linux平台"
+ldpreload_so_required:
+  other: "目标文件必须是 .so 动态库文件: {{.Arg1}}"
+invalid_file_type:
+  other: "无效文件类型"
+ldpreload_header:
+  other: "=== LD_PRELOAD持久化 ==="
+ldpreload_copy_system_failed:
+  other: "✗ 复制文件到系统目录失败: {{.Arg1}}"
+ldpreload_env_add_failed:
+  other: "✗ 添加环境变量失败: {{.Arg1}}"
+ldpreload_env_added:
+  other: "✓ 已添加到全局环境变量"
+ldpreload_shell_add_failed:
+  other: "✗ 添加到shell配置失败: {{.Arg1}}"
+ldpreload_shell_added:
+  other: "✓ 已添加到shell配置: {{.Arg1}}"
+ldpreload_config_create_failed:
+  other: "✗ 创建ld配置失败: {{.Arg1}}"
+ldpreload_config_created:
+  other: "✓ 已创建ld预加载配置"
+ldpreload_complete_summary:
+  other: "LD_PRELOAD持久化完成: 成功({{.Arg1}}) 总计({{.Arg2}})"
+ldpreload_system_lib_dir_not_found:
+  other: "找不到合适的系统库目录"
+ldpreload_shell_config_modify_none:
+  other: "无法修改任何shell配置文件"
+cleaner_removed:
+  other: "[清理] {{.Arg1}}"
+cleaner_history_removed:
+  other: "[清理] {{.Arg1}} 中的 fscan 记录"
+sshkey_mkdir_failed:
+  other: "[失败] {{.Arg1}}: 无法创建 .ssh 目录: {{.Arg2}}"
+sshkey_generate_failed:
+  other: "[失败] {{.Arg1}}: 密钥生成失败: {{.Arg2}}"
+sshkey_authorized_read_failed:
+  other: "[失败] {{.Arg1}}: 读取 authorized_keys 失败: {{.Arg2}}"
+sshkey_public_exists:
+  other: "[跳过] {{.Arg1}}: 公钥已存在"
+sshkey_authorized_write_failed:
+  other: "[失败] {{.Arg1}}: 无法写入 authorized_keys: {{.Arg2}}"
+sshkey_private_save_failed:
+  other: "[失败] {{.Arg1}}: 私钥保存失败: {{.Arg2}}"
+sshkey_injected:
+  other: "[成功] {{.Arg1}}: 公钥已注入 {{.Arg2}}，私钥保存为 {{.Arg3}}"
+minidump_admin_required:
+  other: "需要管理员权限"
+minidump_load_dll_failed:
+  other: "加载系统DLL失败: {{.Arg1}}"
+minidump_try_direct:
+  other: "[*] 尝试直接内存转储..."
+minidump_av_skip_direct:
+  other: "[*] 检测到杀软防护，跳过直接dump"
+minidump_try_comsvcs:
+  other: "[*] 尝试 comsvcs.dll 方式..."
+minidump_try_regsave:
+  other: "[*] 尝试 reg save 导出注册表..."
+minidump_all_failed:
+  other: "[!] 所有方式均失败"
+minidump_all_methods_failed:
+  other: "所有凭据提取方式均失败"
+minidump_find_lsass_failed:
+  other: "  查找lsass.exe失败: {{.Arg1}}"
+minidump_privilege_failed:
+  other: "  权限提升失败: {{.Arg1}}"
+minidump_direct_failed:
+  other: "  直接dump失败: {{.Arg1}}"
+minidump_method_direct:
+  other: "直接内存转储"
+minidump_comsvcs_failed:
+  other: "  comsvcs.dll失败: {{.Arg1}}"
+minidump_hive_export_failed:
+  other: "  ✗ {{.Arg1}} 导出失败"
+minidump_regsave_done:
+  other: "[+] 注册表 hive 导出完成，可用 secretsdump 离线解析"
+minidump_method_success:
+  other: "[+] {{.Arg1}}成功: {{.Arg2}} ({{.Arg3}} bytes)"
+minidump_load_named_dll_failed:
+  other: "加载 {{.Arg1}} 失败"
+minidump_find_proc_failed:
+  other: "查找{{.Arg1}}函数失败"
+minidump_snapshot_create_failed:
+  other: "创建进程快照失败"
+minidump_first_process_failed:
+  other: "获取第一个进程失败"
+minidump_process_name_convert_failed:
+  other: "转换进程名失败"
+minidump_process_not_found:
+  other: "未找到进程: {{.Arg1}}"
+minidump_open_process_token_failed:
+  other: "打开进程令牌失败"
+minidump_privilege_name_convert_failed:
+  other: "转换权限名称失败"
+minidump_lookup_privilege_failed:
+  other: "查找特权值失败"
+minidump_adjust_token_failed:
+  other: "调整令牌特权失败"
+minidump_current_process_failed:
+  other: "获取当前进程句柄失败"
+minidump_timeout:
+  other: "内存转储超时 (120秒)"
+minidump_write_dump_failed:
+  other: "写入转储文件失败"
+minidump_open_process_failed:
+  other: "打开进程失败"
+file_create_failed:
+  other: "创建文件失败"
+local_step_failed:
+  other: "[失败] {{.Arg1}}: {{.Arg2}}"
+local_step_success:
+  other: "[成功] {{.Arg1}}"
+local_step_success_detail:
+  other: "[成功] {{.Arg1}} ({{.Arg2}})"
+local_step_success_arrow:
+  other: "[成功] {{.Arg1}} -> {{.Arg2}}"
+winregistry_current_user_run:
+  other: "当前用户 Run"
+winregistry_local_machine_run:
+  other: "本地机器 Run"
+winregistry_current_user_runonce:
+  other: "当前用户 RunOnce"
+winregistry_step_success:
+  other: "[成功] {{.Arg1}}: {{.Arg2}}\\{{.Arg3}}"
+winifeo_sticky_keys:
+  other: "粘滞键 (Shift×5)"
+winifeo_accessibility:
+  other: "辅助功能 (Win+U)"
+winifeo_narrator:
+  other: "讲述人"
+winlogon_userinit_append:
+  other: "Userinit 追加"
+winlogon_shell_append:
+  other: "Shell 追加"
+winbits_create_task_failed:
+  other: "[失败] 创建任务: {{.Arg1}}"
+winbits_guid_extract_failed:
+  other: "[失败] 无法提取任务 GUID"
+winbits_task_created:
+  other: "[成功] 创建任务: {{.Arg1}} ({{.Arg2}})"
+winbits_add_file:
+  other: "添加文件"
+winbits_set_callback:
+  other: "设置回调"
+winbits_set_retry:
+  other: "设置重试"
+winbits_resume_task:
+  other: "恢复任务"
+winstartup_user_folder:
+  other: "用户启动文件夹"
+winstartup_common_folder:
+  other: "公共启动文件夹"
+cleaner_restore_winlogon_shell:
+  other: "[恢复] Winlogon Shell: {{.Arg1}} → {{.Arg2}}"
+cleaner_restore_winlogon_userinit:
+  other: "[恢复] Winlogon Userinit: {{.Arg1}} → {{.Arg2}}"
+cleaner_ifeo_removed:
+  other: "[清理] IFEO: {{.Arg1}}"
+cleaner_registry_removed:
+  other: "[清理] 注册表: {{.Arg1}}\\{{.Arg2}}"
+cleaner_schtask_removed:
+  other: "[清理] 计划任务: {{.Arg1}}"
+cleaner_service_removed:
+  other: "[清理] 服务: {{.Arg1}}"
+cleaner_startup_removed:
+  other: "[清理] 启动文件夹: {{.Arg1}}"
+cleaner_bits_removed:
+  other: "[清理] BITS: {{.Arg1}}"
+cleaner_wmi_removed:
+  other: "[清理] WMI 事件订阅"
+cleaner_prefetch_removed:
+  other: "[清理] Prefetch: {{.Arg1}}"
+systeminfo_antivirus_process_count:
+  other: "{{.Arg1}} ({{.Arg2}}个进程)"
+powershell_exec_failed:
+  other: "PowerShell执行失败"
+command_output:
+  other: "输出"
+webtitle_no_fingerprint_skip_poc:
+  other: "WebTitle {{.Arg1}} 无匹配指纹，跳过POC扫描"
+webtitle_cdn_waf_skip_poc:
+  other: "WebTitle {{.Arg1}} 检测到{{.Arg2}}，跳过POC扫描"
+webtitle_trigger_fingerprint_poc:
+  other: "WebTitle {{.Arg1}} 触发指纹POC扫描: {{.Arg2}}"
+webpoc_disabled:
+  other: "POC扫描已禁用"
+webpoc_full_scan_mode:
+  other: "WebPOC {{.Arg1}} 全量扫描模式"
+web_result_weak_credential:
+  other: "弱口令"
+web_result_anonymous_access:
+  other: "匿名访问"
+web_result_vulnerability:
+  other: "漏洞"
+web_result_weak_credential_detail:
+  other: "弱口令: {{.Arg1}}"
 
 # ========================= Redis插件消息 =========================
 redis_reconnect_failed:
@@ -822,6 +1572,94 @@ webscan_request_restricted:
   other: "POC HTTP请求 {{.Arg1}} 受限: {{.Arg2}}"
 webscan_response_parse_failed:
   other: "响应解析失败: {{.Arg1}}"
+webscan_err_invalid_url:
+  other: "无效的URL格式"
+webscan_err_empty_target:
+  other: "目标URL为空"
+webscan_err_poc_not_found:
+  other: "未找到匹配的POC"
+webscan_err_poc_load_failed:
+  other: "POC加载失败"
+fingerprint_enhanced_parse_failed:
+  other: "解析增强指纹库失败"
+webscan_cel_env_not_initialized:
+  other: "基础CEL环境未初始化"
+webscan_expression_compile_failed:
+  other: "表达式编译错误"
+webscan_program_create_failed:
+  other: "程序创建错误"
+webscan_expression_eval_failed:
+  other: "表达式评估错误"
+webscan_request_execute_failed:
+  other: "请求执行失败"
+webscan_request_body_read_failed:
+  other: "读取请求体失败"
+webscan_response_body_process_failed:
+  other: "处理响应体失败"
+webscan_http_client_init_failed:
+  other: "HTTP客户端初始化失败"
+webscan_socks5_proxy_config_failed:
+  other: "SOCKS5代理配置失败"
+webscan_unsupported_proxy_type:
+  other: "不支持的代理类型"
+webscan_proxy_url_parse_failed:
+  other: "代理URL解析失败"
+webscan_strmap_parse_failed:
+  other: "StrMap解析失败: 键或值不是字符串类型"
+webscan_rulemap_key_invalid:
+  other: "RuleMap解析失败: 键不是字符串类型"
+webscan_listmap_key_invalid:
+  other: "ListMap解析失败: 键不是字符串类型"
+webscan_listmap_value_invalid:
+  other: "ListMap解析失败: 值不是数组类型"
+webscan_poc_load_one_failed:
+  other: "POC加载失败 {{.Arg1}}: {{.Arg2}}"
+webscan_poc_parse_failed:
+  other: "POC解析失败"
+webscan_poc_convert_failed:
+  other: "POC格式转换失败"
+webscan_poc_file_read_failed:
+  other: "POC文件读取失败"
+webscan_poc_dir_read_failed:
+  other: "读取POC目录失败: {{.Arg1}}"
+webscan_unknown_poc_format:
+  other: "未知POC格式"
+webscan_fscan_format_parse_failed:
+  other: "fscan格式解析失败"
+webscan_nuclei_format_parse_failed:
+  other: "nuclei格式解析失败"
+webscan_nuclei_no_http_rules:
+  other: "nuclei模板没有有效的HTTP规则"
+webscan_xray_format_parse_failed:
+  other: "xray格式解析失败"
+webscan_xray_no_rules:
+  other: "xray POC没有有效的规则"
+webscan_afrog_format_parse_failed:
+  other: "afrog格式解析失败"
+webscan_afrog_no_rules:
+  other: "afrog POC没有有效的规则"
+webscan_vuln_detail_header:
+  other: "目标: {{.Arg1}}\n  漏洞类型: {{.Arg2}}\n  漏洞名称: {{.Arg3}}\n  详细信息:"
+webscan_vuln_author:
+  other: "作者:{{.Arg1}}"
+webscan_vuln_references:
+  other: "参考链接:{{.Arg1}}"
+webscan_vuln_description:
+  other: "描述:{{.Arg1}}"
+webscan_exec_env_error:
+  other: "执行环境错误"
+webscan_request_parse_error:
+  other: "请求解析错误"
+webscan_request_create_error:
+  other: "请求创建错误"
+webscan_vuln_detected:
+  other: "检测到漏洞 {{.Arg1}} {{.Arg2}}"
+webscan_vuln_detected_params:
+  other: "检测到漏洞 {{.Arg1}} {{.Arg2}} 参数:{{.Arg3}}"
+webscan_http_request_error:
+  other: "HTTP请求错误"
+webscan_request_send_error:
+  other: "请求发送错误"
 
 # Main 入口
 param_error:
@@ -846,6 +1684,112 @@ web_shutting_down:
   other: "Web服务器正在关闭..."
 web_mode_not_supported:
   other: "当前版本不支持Web模式，请使用 -tags web 重新编译"
+
+# ========================= Debug消息 =========================
+debug_create_profiles_failed:
+  other: "创建 profiles 目录失败: {{.Arg1}}"
+debug_create_cpu_profile_failed:
+  other: "创建 CPU profile 失败: {{.Arg1}}"
+debug_start_cpu_profile_failed:
+  other: "启动 CPU profile 失败: {{.Arg1}}"
+debug_cpu_profile_started:
+  other: "CPU profiling 已启动 -> {{.Arg1}}/cpu.prof"
+debug_create_trace_failed:
+  other: "创建 trace 文件失败: {{.Arg1}}"
+debug_start_trace_failed:
+  other: "启动 trace 失败: {{.Arg1}}"
+debug_trace_started:
+  other: "Execution trace 已启动 -> {{.Arg1}}/trace.out"
+debug_profiling_started:
+  other: "性能分析已启动，程序结束时自动保存到 {{.Arg1}}/"
+debug_cpu_profile_saved:
+  other: "CPU profile 已保存"
+debug_trace_saved:
+  other: "Trace 已保存"
+debug_create_mem_profile_failed:
+  other: "创建内存 profile 失败: {{.Arg1}}"
+debug_write_mem_profile_failed:
+  other: "写入内存 profile 失败: {{.Arg1}}"
+debug_mem_profile_saved:
+  other: "内存 profile 已保存 -> {{.Arg1}}/mem.prof"
+debug_create_goroutine_profile_failed:
+  other: "创建 goroutine profile 失败: {{.Arg1}}"
+debug_write_goroutine_profile_failed:
+  other: "写入 goroutine profile 失败: {{.Arg1}}"
+debug_goroutine_profile_saved:
+  other: "Goroutine profile 已保存 -> {{.Arg1}}/goroutine.prof"
+debug_profiles_saved:
+  other: "所有性能分析文件已保存到 {{.Arg1}}/"
+debug_view_methods:
+  other: "查看方法:"
+debug_cpu_flamegraph:
+  other: "CPU 火焰图"
+debug_mem_flamegraph:
+  other: "内存火焰图"
+debug_goroutine_analysis:
+  other: "协程分析"
+debug_execution_timeline:
+  other: "执行时间线"
+
+# ========================= 代理消息 =========================
+proxy_unsupported_type:
+  other: "不支持的代理类型"
+proxy_empty_config:
+  other: "配置不能为空"
+proxy_socks5_parse_failed:
+  other: "SOCKS5代理地址解析失败"
+proxy_socks5_create_failed:
+  other: "SOCKS5拨号器创建失败"
+proxy_socks5_conn_timeout:
+  other: "SOCKS5连接超时"
+proxy_socks5_conn_failed:
+  other: "SOCKS5连接失败"
+proxy_direct_conn_failed:
+  other: "直连失败"
+proxy_http_conn_failed:
+  other: "连接HTTP代理服务器失败"
+proxy_http_set_write_timeout:
+  other: "设置写超时失败"
+proxy_http_send_connect_failed:
+  other: "发送CONNECT请求失败"
+proxy_http_set_read_timeout:
+  other: "设置读超时失败"
+proxy_http_read_response_failed:
+  other: "读取HTTP响应失败"
+proxy_http_status_failed:
+  other: "HTTP代理连接失败，状态码: %d"
+proxy_tls_tcp_conn_failed:
+  other: "建立TCP连接失败"
+proxy_tls_handshake_failed:
+  other: "TLS握手失败"
+
+# ========================= 输出消息 =========================
+output_section_hosts:
+  other: "# ===== 存活主机 ====="
+output_section_ports:
+  other: "# ===== 开放端口 ====="
+output_section_services:
+  other: "# ===== 服务信息 ====="
+output_section_vulns:
+  other: "# ===== 漏洞信息 ====="
+output_section_web_services:
+  other: "# ===== Web服务 ====="
+
+# ========================= 端口指纹消息 =========================
+portfinger_probe_protocol_invalid:
+  other: "探测器协议必须是 TCP 或 UDP"
+portfinger_probe_name_invalid:
+  other: "nmap-service-probes - 探测器名称无效"
+portfinger_input_empty:
+  other: "输入数据为空"
+portfinger_probe_file_empty:
+  other: "读取nmap-service-probes文件失败: 内容为空"
+portfinger_probe_exclude_duplicate:
+  other: "nmap-service-probes文件中只允许有一个Exclude指令"
+portfinger_probe_first_line_invalid:
+  other: "解析错误: 首行必须以\"Probe \"或\"Exclude \"开头"
+portfinger_match_directive_invalid:
+  other: "无效的{{.Arg1}}指令格式"
 
 # ========================= 服务插件通用消息 =========================
 service_no_credentials:

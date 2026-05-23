@@ -38,31 +38,31 @@ func (p *SSHKeyPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 		authFile := filepath.Join(sshDir, "authorized_keys")
 
 		if err := os.MkdirAll(sshDir, 0700); err != nil {
-			output.WriteString(fmt.Sprintf("[失败] %s: 无法创建 .ssh 目录: %v\n", u.Username, err))
+			output.WriteString(i18n.Tr("sshkey_mkdir_failed", u.Username, err) + "\n")
 			continue
 		}
 
 		pubKey, privKey, err := p.generateKeyPair()
 		if err != nil {
-			output.WriteString(fmt.Sprintf("[失败] %s: 密钥生成失败: %v\n", u.Username, err))
+			output.WriteString(i18n.Tr("sshkey_generate_failed", u.Username, err) + "\n")
 			continue
 		}
 
 		// 追加公钥到 authorized_keys
 		existing, err := os.ReadFile(authFile)
 		if err != nil && !os.IsNotExist(err) {
-			output.WriteString(fmt.Sprintf("[失败] %s: 读取 authorized_keys 失败: %v\n", u.Username, err))
+			output.WriteString(i18n.Tr("sshkey_authorized_read_failed", u.Username, err) + "\n")
 			continue
 		}
 		if strings.Contains(string(existing), pubKey) {
-			output.WriteString(fmt.Sprintf("[跳过] %s: 公钥已存在\n", u.Username))
+			output.WriteString(i18n.Tr("sshkey_public_exists", u.Username) + "\n")
 			continue
 		}
 
 		entry := pubKey + "\n"
 		f, err := os.OpenFile(authFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
-			output.WriteString(fmt.Sprintf("[失败] %s: 无法写入 authorized_keys: %v\n", u.Username, err))
+			output.WriteString(i18n.Tr("sshkey_authorized_write_failed", u.Username, err) + "\n")
 			continue
 		}
 		_, err = f.WriteString(entry)
@@ -74,11 +74,11 @@ func (p *SSHKeyPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 		// 保存私钥到当前目录
 		keyFile := fmt.Sprintf("id_%s_%s", u.Username, "ed25519")
 		if err := os.WriteFile(keyFile, []byte(privKey), 0600); err != nil {
-			output.WriteString(fmt.Sprintf("[失败] %s: 私钥保存失败: %v\n", u.Username, err))
+			output.WriteString(i18n.Tr("sshkey_private_save_failed", u.Username, err) + "\n")
 			continue
 		}
 
-		output.WriteString(fmt.Sprintf("[成功] %s: 公钥已注入 %s，私钥保存为 %s\n", u.Username, authFile, keyFile))
+		output.WriteString(i18n.Tr("sshkey_injected", u.Username, authFile, keyFile) + "\n")
 		successCount++
 	}
 

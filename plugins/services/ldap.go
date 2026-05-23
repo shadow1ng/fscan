@@ -102,7 +102,7 @@ func (p *LDAPPlugin) doLDAPAuth(ctx context.Context, info *common.HostInfo, cred
 	return &AuthResult{
 		Success:   false,
 		ErrorType: ErrorTypeAuth,
-		Error:     fmt.Errorf("所有DN格式都失败"),
+		Error:     fmt.Errorf("%s", i18n.GetText("ldap_all_dn_failed")),
 	}
 }
 

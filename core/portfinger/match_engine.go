@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/shadow1ng/fscan/common/i18n"
 )
 
 // BytesToRegexSafeString 将字节切片转换为 Go regexp 安全的正则表达式模式字符串
@@ -43,7 +45,7 @@ func (p *Probe) parseMatchDirective(data, prefix string, isSoft bool) (Match, er
 	// 分割文本获取pattern和版本信息
 	textSplited := strings.Split(directive.DirectiveStr, directive.Delimiter)
 	if len(textSplited) == 0 {
-		return match, fmt.Errorf("无效的%s指令格式", prefix)
+		return match, fmt.Errorf("%s", i18n.Tr("portfinger_match_directive_invalid", prefix))
 	}
 
 	pattern := textSplited[0]

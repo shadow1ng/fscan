@@ -206,7 +206,7 @@ func formatPluginList(plugins []string) string {
 	if len(plugins) <= 5 {
 		return strings.Join(plugins, ", ")
 	}
-	return fmt.Sprintf("%s ... 等%d个", strings.Join(plugins[:5], ", "), len(plugins))
+	return i18n.Tr("plugin_list_summary", strings.Join(plugins[:5], ", "), len(plugins))
 }
 
 // ValidateConfiguration 验证扫描配置

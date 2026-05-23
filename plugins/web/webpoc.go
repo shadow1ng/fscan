@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/plugins"
 	WebScan "github.com/shadow1ng/fscan/webscan"
 )
@@ -92,7 +93,7 @@ func (p *WebPocPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 	if config.POC.Disabled {
 		return &WebScanResult{
 			Success: false,
-			Error:   fmt.Errorf("POC扫描已禁用"),
+			Error:   fmt.Errorf("%s", i18n.GetText("webpoc_disabled")),
 		}
 	}
 
@@ -106,7 +107,7 @@ func (p *WebPocPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 
 	// 全量模式：忽略指纹和CDN/WAF检测，直接扫描所有POC
 	target := info.Target()
-	common.LogDebug(fmt.Sprintf("WebPOC %s 全量扫描模式", target))
+	common.LogDebug(i18n.Tr("webpoc_full_scan_mode", target))
 	WebScan.WebScan(ctx, info, config)
 
 	return &WebScanResult{

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+
+	"github.com/shadow1ng/fscan/common/i18n"
 )
 
 /*
@@ -92,9 +94,9 @@ type PacketLimitError struct {
 
 func (e *PacketLimitError) Error() string {
 	if e.Sentinel == ErrMaxPacketReached {
-		return fmt.Sprintf("已达到最大发包数量限制: %d", e.Limit)
+		return i18n.Tr("packet_limit_max_reached", e.Limit)
 	}
-	return fmt.Sprintf("发包速率受限: %d包/分钟", e.Limit)
+	return i18n.Tr("packet_limit_rate_limited", e.Limit)
 }
 
 func (e *PacketLimitError) Unwrap() error {

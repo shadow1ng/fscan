@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/common/proxy"
 	gmtls "github.com/tjfoc/gmsm/gmtls"
 	"gopkg.in/yaml.v2"
@@ -31,12 +32,12 @@ const (
 
 // 全局HTTP客户端变量
 var (
-	Client              *http.Client      // 标准HTTP客户端
-	ClientNoRedirect    *http.Client      // 不自动跟随重定向的HTTP客户端
-	ClientGM            *http.Client      // 国密TLS HTTP客户端
-	ClientNoRedirectGM  *http.Client      // 国密TLS 不跟随重定向
-	dialTimeout         = 5 * time.Second // 连接超时时间
-	keepAlive           = 5 * time.Second // 连接保持时间
+	Client             *http.Client      // 标准HTTP客户端
+	ClientNoRedirect   *http.Client      // 不自动跟随重定向的HTTP客户端
+	ClientGM           *http.Client      // 国密TLS HTTP客户端
+	ClientNoRedirectGM *http.Client      // 国密TLS 不跟随重定向
+	dialTimeout        = 5 * time.Second // 连接超时时间
+	keepAlive          = 5 * time.Second // 连接保持时间
 )
 
 // Inithttp 初始化HTTP客户端配置
@@ -50,7 +51,7 @@ func Inithttp(cfg *common.Config) error {
 	// 初始化HTTP客户端
 	err := InitHTTPClient(pocNum, cfg.Network.HTTPProxy, cfg.Network.WebTimeout, cfg.Network.MaxRedirects, &cfg.Network)
 	if err != nil {
-		return fmt.Errorf("HTTP客户端初始化失败: %w", err)
+		return fmt.Errorf("%s: %w", i18n.GetText("webscan_http_client_init_failed"), err)
 	}
 	return nil
 }
@@ -85,7 +86,7 @@ func configureHTTPProxy(tr *http.Transport, legacyProxy string, networkConfig *c
 		proxyManager := proxy.NewProxyManager(proxyConfig)
 		proxyDialer, err := proxyManager.GetDialer()
 		if err != nil {
-			return fmt.Errorf("SOCKS5代理配置失败: %w", err)
+			return fmt.Errorf("%s: %w", i18n.GetText("webscan_socks5_proxy_config_failed"), err)
 		}
 		tr.DialContext = proxyDialer.DialContext
 		return nil
@@ -110,13 +111,13 @@ func configureHTTPProxy(tr *http.Transport, legacyProxy string, networkConfig *c
 
 		// 验证代理类型
 		if !strings.HasPrefix(httpProxyURL, "socks5://") && !strings.HasPrefix(httpProxyURL, "http://") && !strings.HasPrefix(httpProxyURL, "https://") {
-			return fmt.Errorf("不支持的代理类型: %s", httpProxyURL)
+			return fmt.Errorf("%s: %s", i18n.GetText("webscan_unsupported_proxy_type"), httpProxyURL)
 		}
 
 		// 解析代理URL
 		parsedURL, err := url.Parse(httpProxyURL)
 		if err != nil {
-			return fmt.Errorf("代理URL解析失败: %w", err)
+			return fmt.Errorf("%s: %w", i18n.GetText("webscan_proxy_url_parse_failed"), err)
 		}
 		tr.Proxy = http.ProxyURL(parsedURL)
 		return nil
@@ -137,9 +138,9 @@ func InitHTTPClient(ThreadsNum int, DownProxy string, Timeout time.Duration, max
 	// 配置Transport参数
 	tr := &http.Transport{
 		DialContext:         dialer.DialContext,
-		MaxConnsPerHost:     100,                 // 增加到100，避免连接池耗尽
-		MaxIdleConns:        100,                 // 保留100个空闲连接
-		MaxIdleConnsPerHost: 10,                  // 每主机保留10个空闲连接
+		MaxConnsPerHost:     100, // 增加到100，避免连接池耗尽
+		MaxIdleConns:        100, // 保留100个空闲连接
+		MaxIdleConnsPerHost: 10,  // 每主机保留10个空闲连接
 		IdleConnTimeout:     keepAlive,
 		TLSClientConfig:     &tls.Config{MinVersion: tls.VersionTLS10, InsecureSkipVerify: true},
 		TLSHandshakeTimeout: 5 * time.Second,
@@ -266,7 +267,7 @@ func (r *StrMap) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		key, keyOk := one.Key.(string)
 		value, valueOk := one.Value.(string)
 		if !keyOk || !valueOk {
-			return fmt.Errorf("StrMap解析失败: 键或值不是字符串类型")
+			return fmt.Errorf("%s", i18n.GetText("webscan_strmap_parse_failed"))
 		}
 		*r = append(*r, StrItem{key, value})
 	}
@@ -297,7 +298,7 @@ func (r *RuleMap) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	for _, one := range tmp1 {
 		key, ok := one.Key.(string)
 		if !ok {
-			return fmt.Errorf("RuleMap解析失败: 键不是字符串类型")
+			return fmt.Errorf("%s", i18n.GetText("webscan_rulemap_key_invalid"))
 		}
 		value := tmp[key]
 		*r = append(*r, RuleItem{key, value})
@@ -322,12 +323,12 @@ func (r *ListMap) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	for _, one := range tmp {
 		key, keyOk := one.Key.(string)
 		if !keyOk {
-			return fmt.Errorf("ListMap解析失败: 键不是字符串类型")
+			return fmt.Errorf("%s", i18n.GetText("webscan_listmap_key_invalid"))
 		}
 
 		valueSlice, valueOk := one.Value.([]interface{})
 		if !valueOk {
-			return fmt.Errorf("ListMap解析失败: 值不是数组类型")
+			return fmt.Errorf("%s", i18n.GetText("webscan_listmap_value_invalid"))
 		}
 
 		var value []string
@@ -369,7 +370,7 @@ func LoadMultiPoc(Pocs embed.FS, pocname string) []*Poc {
 		if p, err := LoadPoc(f, Pocs); err == nil {
 			pocs = append(pocs, p)
 		} else {
-			common.LogError(fmt.Sprintf("POC加载失败 %s: %v", f, err))
+			common.LogError(i18n.Tr("webscan_poc_load_one_failed", f, err))
 		}
 	}
 	return pocs
@@ -380,13 +381,13 @@ func parsePocYAML(data []byte, fileName string) (*Poc, error) {
 	// 使用通用适配器加载POC（自动识别格式）
 	universalPoc, err := LoadUniversalPoc(fileName, data)
 	if err != nil {
-		return nil, fmt.Errorf("POC解析失败 %s: %w", fileName, err)
+		return nil, fmt.Errorf("%s %s: %w", i18n.GetText("webscan_poc_parse_failed"), fileName, err)
 	}
 
 	// 转换为fscan内部格式
 	poc, err := universalPoc.ToFscanPoc()
 	if err != nil {
-		return nil, fmt.Errorf("POC格式转换失败 %s: %w", fileName, err)
+		return nil, fmt.Errorf("%s %s: %w", i18n.GetText("webscan_poc_convert_failed"), fileName, err)
 	}
 
 	return poc, nil
@@ -397,7 +398,7 @@ func LoadPoc(fileName string, Pocs embed.FS) (*Poc, error) {
 	// 读取POC文件内容
 	yamlFile, err := Pocs.ReadFile("pocs/" + fileName)
 	if err != nil {
-		return nil, fmt.Errorf("POC文件读取失败 %s: %w", fileName, err)
+		return nil, fmt.Errorf("%s %s: %w", i18n.GetText("webscan_poc_file_read_failed"), fileName, err)
 	}
 
 	// 解析YAML内容
@@ -408,7 +409,7 @@ func LoadPoc(fileName string, Pocs embed.FS) (*Poc, error) {
 func SelectPoc(Pocs embed.FS, pocname string) []string {
 	entries, err := Pocs.ReadDir("pocs")
 	if err != nil {
-		common.LogError(fmt.Sprintf("读取POC目录失败: %v", err))
+		common.LogError(i18n.Tr("webscan_poc_dir_read_failed", err))
 	}
 
 	var foundFiles []string
@@ -426,7 +427,7 @@ func LoadPocbyPath(fileName string) (*Poc, error) {
 	// 读取POC文件内容
 	data, err := os.ReadFile(fileName)
 	if err != nil {
-		return nil, fmt.Errorf("POC文件读取失败 %s: %w", fileName, err)
+		return nil, fmt.Errorf("%s %s: %w", i18n.GetText("webscan_poc_file_read_failed"), fileName, err)
 	}
 
 	// 解析YAML内容

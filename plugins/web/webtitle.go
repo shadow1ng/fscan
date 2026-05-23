@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/core"
 	"github.com/shadow1ng/fscan/plugins"
 	WebScan "github.com/shadow1ng/fscan/webscan"
@@ -222,18 +223,18 @@ func (p *WebTitlePlugin) triggerPocScan(ctx context.Context, info *common.HostIn
 
 	// 无指纹，跳过
 	if len(fingerprints) == 0 {
-		common.LogDebug(fmt.Sprintf("WebTitle %s 无匹配指纹，跳过POC扫描", target))
+		common.LogDebug(i18n.Tr("webtitle_no_fingerprint_skip_poc", target))
 		return
 	}
 
 	// 检测CDN/WAF
 	if cdnName := matchCDNorWAF(fingerprints); cdnName != "" {
-		common.LogDebug(fmt.Sprintf("WebTitle %s 检测到%s，跳过POC扫描", target, cdnName))
+		common.LogDebug(i18n.Tr("webtitle_cdn_waf_skip_poc", target, cdnName))
 		return
 	}
 
 	// 基于指纹执行POC扫描
-	common.LogDebug(fmt.Sprintf("WebTitle %s 触发指纹POC扫描: %v", target, fingerprints))
+	common.LogDebug(i18n.Tr("webtitle_trigger_fingerprint_poc", target, fingerprints))
 	info.Info = fingerprints
 	WebScan.WebScan(ctx, info, config)
 }

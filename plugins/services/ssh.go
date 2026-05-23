@@ -167,11 +167,11 @@ func classifySSHErrorType(err error) ErrorType {
 
 	// SSH 特有的网络/临时错误（需要重试）
 	sshNetworkErrors := append(CommonNetworkErrors,
-		"handshake failed",           // 握手失败，可能是服务端限流
-		"ssh: disconnect",            // SSH 主动断开
-		"connection closed",          // 连接被关闭
-		"max startups",               // SSH MaxStartups 限制
-		"too many authentication",    // 认证次数过多
+		"handshake failed",        // 握手失败，可能是服务端限流
+		"ssh: disconnect",         // SSH 主动断开
+		"connection closed",       // 连接被关闭
+		"max startups",            // SSH MaxStartups 限制
+		"too many authentication", // 认证次数过多
 	)
 
 	return ClassifyError(err, sshAuthErrors, sshNetworkErrors)
@@ -268,7 +268,7 @@ func (p *SSHPlugin) readSSHBanner(conn net.Conn, config *common.Config) string {
 		if matched := sshBannerRegex.FindStringSubmatch(bannerStr); len(matched) >= 3 {
 			return fmt.Sprintf("SSH %s (%s)", matched[1], matched[2])
 		}
-		return fmt.Sprintf("SSH服务: %s", bannerStr)
+		return i18n.Tr("ssh_service_banner", bannerStr)
 	}
 
 	return ""

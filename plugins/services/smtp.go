@@ -269,7 +269,7 @@ func (p *SMTPPlugin) testAnonymousAccess(ctx context.Context, info *common.HostI
 			Success: true,
 			Type:    plugins.ResultTypeVuln,
 			Service: "smtp",
-			Banner:  "未授权访问 - 允许匿名邮件发送",
+			Banner:  i18n.GetText("smtp_anonymous_mail_allowed"),
 		}
 	}()
 
@@ -321,7 +321,7 @@ func (p *SMTPPlugin) testOpenRelay(ctx context.Context, info *common.HostInfo, s
 			Success: true,
 			Type:    plugins.ResultTypeVuln,
 			Service: "smtp",
-			Banner:  "未授权访问 - 开放中继",
+			Banner:  i18n.GetText("smtp_open_relay"),
 		}
 	}()
 
@@ -386,7 +386,7 @@ func (p *SMTPPlugin) testVRFYCommand(ctx context.Context, info *common.HostInfo,
 					Success: true,
 					Type:    plugins.ResultTypeVuln,
 					Service: "smtp",
-					Banner:  fmt.Sprintf("未授权访问 - VRFY命令枚举用户(%s)", user),
+					Banner:  i18n.Tr("smtp_vrfy_user_enum", user),
 				}
 				return
 			}
@@ -456,7 +456,7 @@ func (p *SMTPPlugin) testEXPNCommand(ctx context.Context, info *common.HostInfo,
 					Success: true,
 					Type:    plugins.ResultTypeVuln,
 					Service: "smtp",
-					Banner:  fmt.Sprintf("未授权访问 - EXPN命令枚举邮件列表(%s)", list),
+					Banner:  i18n.Tr("smtp_expn_list_enum", list),
 				}
 				return
 			}
@@ -522,7 +522,7 @@ func (p *SMTPPlugin) identifyService(ctx context.Context, info *common.HostInfo,
 	var banner string
 
 	if serverInfo != "" {
-		banner = fmt.Sprintf("SMTP邮件服务 (%s)", serverInfo)
+		banner = i18n.Tr("smtp_mail_service_info", serverInfo)
 	} else {
 		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
 		if err != nil {
@@ -533,7 +533,7 @@ func (p *SMTPPlugin) identifyService(ctx context.Context, info *common.HostInfo,
 			}
 		}
 		defer func() { _ = conn.Close() }()
-		banner = "SMTP邮件服务"
+		banner = i18n.GetText("smtp_mail_service")
 	}
 
 	common.LogSuccess(i18n.Tr("smtp_service", target, banner))

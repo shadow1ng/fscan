@@ -126,7 +126,7 @@ func (p *RabbitMQPlugin) doRabbitMQAuth(ctx context.Context, info *common.HostIn
 	return &AuthResult{
 		Success:   false,
 		ErrorType: ErrorTypeUnknown,
-		Error:     fmt.Errorf("意外响应状态码: %d", resp.StatusCode),
+		Error:     fmt.Errorf(i18n.GetText("unexpected_status_code")+": %d", resp.StatusCode),
 	}
 }
 
@@ -198,7 +198,7 @@ func (p *RabbitMQPlugin) testUnauthorizedAccess(ctx context.Context, info *commo
 					Type:    plugins.ResultTypeVuln,
 					Success: true,
 					Service: "rabbitmq",
-					Banner:  "未授权访问 - guest默认密码",
+					Banner:  i18n.GetText("rabbitmq_guest_default_password"),
 				}
 			}
 		}

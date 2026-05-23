@@ -231,7 +231,7 @@ func (emitter *Emitter) callListeners(listeners []reflect.Value, event interface
 						argValue = argValue.Convert(expectedType)
 					} else {
 						// 打印错误信息，类型不匹配
-						fmt.Printf("无法将参数 %v（类型 %v）转换为所需类型 %v\n", arguments[i], argValue.Type(), expectedType)
+						fmt.Printf("failed to convert argument %v (type %v) to required type %v\n", arguments[i], argValue.Type(), expectedType)
 						continue
 					}
 

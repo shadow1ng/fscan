@@ -93,14 +93,14 @@ func (s *ScanSession) LogError(errMsg string) {
 func (s *ScanSession) DialTCP(ctx context.Context, network, address string, timeout time.Duration) (net.Conn, error) {
 	// 检查发包限制
 	if ok, err := CanSendPacketWith(s.Config, s.State); !ok {
-		s.LogError(fmt.Sprintf("TCP连接 %s 受限: %s", address, err.Error()))
+		s.LogError(i18n.Tr("tcp_connection_restricted", address, err.Error()))
 		return nil, fmt.Errorf("%s", i18n.Tr("network_rate_limited", err.Error()))
 	}
 
 	// 获取 dialer
 	dialer, err := s.getDialer(timeout)
 	if err != nil {
-		s.LogError(fmt.Sprintf("获取代理拨号器失败: %v", err))
+		s.LogError(i18n.Tr("proxy_dialer_failed", err))
 		s.State.IncrementTCPFailedPacketCount()
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func (s *ScanSession) DialTCP(ctx context.Context, network, address string, time
 	conn, err := dialer.DialContext(ctx, network, address)
 	if err != nil {
 		s.State.IncrementTCPFailedPacketCount()
-		s.LogDebug(fmt.Sprintf("连接 %s 失败: %v", address, err))
+		s.LogDebug(i18n.Tr("connection_failed", address, err))
 		return nil, err
 	}
 
@@ -141,7 +141,7 @@ func (s *ScanSession) DialUDP(ctx context.Context, address string, timeout time.
 // HTTPDo executes an HTTP request with the session's packet limits and counters.
 func (s *ScanSession) HTTPDo(client *http.Client, req *http.Request) (*http.Response, error) {
 	if ok, err := CanSendPacketWith(s.Config, s.State); !ok {
-		s.LogError(fmt.Sprintf("HTTP请求 %s 受限: %s", req.URL.String(), err.Error()))
+		s.LogError(i18n.Tr("http_request_restricted", req.URL.String(), err.Error()))
 		return nil, fmt.Errorf("%s", i18n.Tr("network_rate_limited", err.Error()))
 	}
 

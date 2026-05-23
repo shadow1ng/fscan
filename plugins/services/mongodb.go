@@ -49,7 +49,7 @@ func (p *MongoDBPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 			Type:    plugins.ResultTypeVuln,
 			Success: true,
 			Service: "mongodb",
-			VulInfo: "未授权访问",
+			VulInfo: i18n.GetText("unauthorized_access"),
 		}
 	}
 
@@ -148,9 +148,9 @@ func (p *MongoDBPlugin) doMongoDBAuth(ctx context.Context, info *common.HostInfo
 // ── MongoDB wire protocol 工具 ──────────────────────────────────
 
 const (
-	opMsg    uint32 = 2013
-	opQuery  uint32 = 2004
-	opReply  uint32 = 1
+	opMsg   uint32 = 2013
+	opQuery uint32 = 2004
+	opReply uint32 = 1
 )
 
 var mongoRequestID uint32
@@ -376,11 +376,11 @@ func (p *MongoDBPlugin) identifyService(ctx context.Context, info *common.HostIn
 
 	if isUnauth {
 		common.LogVuln(i18n.Tr("mongodb_unauth", target))
-		return &ScanResult{Type: plugins.ResultTypeVuln, Success: true, Service: "mongodb", VulInfo: "未授权访问"}
+		return &ScanResult{Type: plugins.ResultTypeVuln, Success: true, Service: "mongodb", VulInfo: i18n.GetText("unauthorized_access")}
 	}
 
 	common.LogSuccess(i18n.Tr("mongodb_auth_required", target))
-	return &ScanResult{Type: plugins.ResultTypeService, Success: true, Service: "mongodb", Banner: "需要认证"}
+	return &ScanResult{Type: plugins.ResultTypeService, Success: true, Service: "mongodb", Banner: i18n.GetText("auth_required")}
 }
 
 func (p *MongoDBPlugin) mongodbUnauth(ctx context.Context, info *common.HostInfo, session *common.ScanSession) (bool, error) {
@@ -439,7 +439,7 @@ func (p *MongoDBPlugin) checkMongoAuth(ctx context.Context, address string, pack
 	}
 
 	if count == 0 {
-		return "", fmt.Errorf("收到空响应")
+		return "", fmt.Errorf("%s", i18n.GetText("empty_response_received"))
 	}
 
 	return string(reply[:count]), nil

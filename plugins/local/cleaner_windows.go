@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/shadow1ng/fscan/common/i18n"
 )
 
 func cleanPersistence(output *strings.Builder) int {
@@ -52,7 +54,7 @@ func fixWinlogon(output *strings.Builder) int {
 		val := extractRegValue(string(out))
 		if val != "explorer.exe" && val != "" {
 			exec.Command("reg", "add", key, "/v", "Shell", "/t", "REG_SZ", "/d", "explorer.exe", "/f").Run()
-			output.WriteString(fmt.Sprintf("[恢复] Winlogon Shell: %s → explorer.exe\n", val))
+			output.WriteString(i18n.Tr("cleaner_restore_winlogon_shell", val, "explorer.exe") + "\n")
 			cleaned++
 		}
 	}
@@ -63,7 +65,7 @@ func fixWinlogon(output *strings.Builder) int {
 		defaultVal := `C:\Windows\system32\userinit.exe,`
 		if val != defaultVal && val != strings.TrimSuffix(defaultVal, ",") && val != "" {
 			exec.Command("reg", "add", key, "/v", "Userinit", "/t", "REG_SZ", "/d", defaultVal, "/f").Run()
-			output.WriteString(fmt.Sprintf("[恢复] Winlogon Userinit: %s → %s\n", val, defaultVal))
+			output.WriteString(i18n.Tr("cleaner_restore_winlogon_userinit", val, defaultVal) + "\n")
 			cleaned++
 		}
 	}
@@ -77,7 +79,7 @@ func cleanIFEO(output *strings.Builder) int {
 		key := fmt.Sprintf(`HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\%s`, t)
 		if out, err := exec.Command("reg", "query", key, "/v", "Debugger").CombinedOutput(); err == nil && strings.Contains(string(out), "Debugger") {
 			exec.Command("reg", "delete", key, "/f").Run()
-			output.WriteString(fmt.Sprintf("[清理] IFEO: %s\n", t))
+			output.WriteString(i18n.Tr("cleaner_ifeo_removed", t) + "\n")
 			cleaned++
 		}
 	}
@@ -104,7 +106,7 @@ func cleanRegistryRun(output *strings.Builder) int {
 					fields := strings.Fields(strings.TrimSpace(line))
 					if len(fields) > 0 {
 						exec.Command("reg", "delete", key, "/v", fields[0], "/f").Run()
-						output.WriteString(fmt.Sprintf("[清理] 注册表: %s\\%s\n", key, fields[0]))
+						output.WriteString(i18n.Tr("cleaner_registry_removed", key, fields[0]) + "\n")
 						cleaned++
 					}
 					break
@@ -129,7 +131,7 @@ func cleanScheduledTasks(output *strings.Builder) int {
 				if len(parts) > 0 {
 					name := strings.Trim(parts[0], "\"\\")
 					exec.Command("schtasks", "/delete", "/tn", name, "/f").Run()
-					output.WriteString(fmt.Sprintf("[清理] 计划任务: %s\n", name))
+					output.WriteString(i18n.Tr("cleaner_schtask_removed", name) + "\n")
 					cleaned++
 				}
 				break
@@ -152,7 +154,7 @@ func cleanServices(output *strings.Builder) int {
 				name := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "SERVICE_NAME:"))
 				exec.Command("sc", "stop", name).Run()
 				exec.Command("sc", "delete", name).Run()
-				output.WriteString(fmt.Sprintf("[清理] 服务: %s\n", name))
+				output.WriteString(i18n.Tr("cleaner_service_removed", name) + "\n")
 				cleaned++
 			}
 		}
@@ -170,7 +172,7 @@ func cleanStartupFolders(output *strings.Builder) int {
 		matches, _ := filepath.Glob(filepath.Join(dir, "test_payload*"))
 		for _, f := range matches {
 			if os.Remove(f) == nil {
-				output.WriteString(fmt.Sprintf("[清理] 启动文件夹: %s\n", f))
+				output.WriteString(i18n.Tr("cleaner_startup_removed", f) + "\n")
 				cleaned++
 			}
 		}
@@ -191,7 +193,7 @@ func cleanBITS(output *strings.Builder) int {
 				if end := strings.Index(line[idx:], "}"); end != -1 {
 					guid := line[idx : idx+end+1]
 					exec.Command("bitsadmin", "/cancel", guid).Run()
-					output.WriteString(fmt.Sprintf("[清理] BITS: %s\n", guid))
+					output.WriteString(i18n.Tr("cleaner_bits_removed", guid) + "\n")
 					cleaned++
 				}
 			}
@@ -210,7 +212,7 @@ Write-Output 'WMI_CLEANED'
 `
 	out, err := exec.Command("powershell", "-NoProfile", "-Command", ps).CombinedOutput()
 	if err == nil && strings.Contains(string(out), "WMI_CLEANED") {
-		output.WriteString("[清理] WMI 事件订阅\n")
+		output.WriteString(i18n.GetText("cleaner_wmi_removed") + "\n")
 		cleaned++
 	}
 	return cleaned
@@ -221,7 +223,7 @@ func cleanPrefetch(output *strings.Builder) int {
 	matches, _ := filepath.Glob(`C:\Windows\Prefetch\FSCAN*.pf`)
 	for _, f := range matches {
 		if os.Remove(f) == nil {
-			output.WriteString(fmt.Sprintf("[清理] Prefetch: %s\n", f))
+			output.WriteString(i18n.Tr("cleaner_prefetch_removed", f) + "\n")
 			cleaned++
 		}
 	}

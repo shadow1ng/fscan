@@ -21,7 +21,7 @@ type ServiceScanStrategy struct {
 // NewServiceScanStrategy 创建新的服务扫描策略
 func NewServiceScanStrategy() *ServiceScanStrategy {
 	return &ServiceScanStrategy{
-		BaseScanStrategy: NewBaseScanStrategy("服务扫描", FilterService),
+		BaseScanStrategy: NewBaseScanStrategy(i18n.GetText("scan_strategy_service_name"), FilterService),
 	}
 }
 

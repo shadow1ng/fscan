@@ -249,7 +249,7 @@ func (p *TelnetPlugin) testUnauthAccess(ctx context.Context, info *common.HostIn
 					Success: true,
 					Type:    plugins.ResultTypeVuln,
 					Service: "telnet",
-					Banner:  "Telnet远程终端服务 (未授权访问)",
+					Banner:  i18n.GetText("telnet_unauth_service"),
 				}
 				return
 			}
@@ -541,21 +541,21 @@ func (p *TelnetPlugin) identifyService(ctx context.Context, info *common.HostInf
 		var banner string
 
 		if p.isShellPrompt(cleaned) {
-			banner = "Telnet远程终端服务 (未授权访问)"
+			banner = i18n.GetText("telnet_unauth_service")
 		} else if strings.Contains(cleanedLower, "login") ||
 			strings.Contains(cleanedLower, "username") ||
 			strings.Contains(cleanedLower, "user") {
-			banner = "Telnet远程终端服务 (需要认证)"
+			banner = i18n.GetText("telnet_auth_required")
 		} else if strings.Contains(cleanedLower, "password") {
-			banner = "Telnet远程终端服务 (只需密码)"
+			banner = i18n.GetText("telnet_password_only")
 		} else if cleaned != "" {
 			displayCleaned := cleaned
 			if len(displayCleaned) > 50 {
 				displayCleaned = displayCleaned[:50] + "..."
 			}
-			banner = fmt.Sprintf("Telnet远程终端服务 (自定义欢迎: %s)", displayCleaned)
+			banner = i18n.Tr("telnet_custom_welcome", displayCleaned)
 		} else {
-			banner = "Telnet远程终端服务"
+			banner = i18n.GetText("telnet_remote_terminal_service")
 		}
 
 		if p.isShellPrompt(cleaned) {

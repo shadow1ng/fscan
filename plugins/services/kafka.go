@@ -254,7 +254,7 @@ func (p *KafkaPlugin) identifyService(ctx context.Context, info *common.HostInfo
 	if err != nil {
 		state.IncrementTCPFailedPacketCount()
 		if p.isKafkaError(err) {
-			banner := "Kafka (需要认证)"
+			banner := i18n.GetText("kafka_auth_required")
 			common.LogSuccess(i18n.Tr("kafka_service", target, banner))
 			return &ScanResult{Type: plugins.ResultTypeService, Success: true, Service: "kafka", Banner: banner}
 		}

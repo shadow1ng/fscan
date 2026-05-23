@@ -164,17 +164,17 @@ func (p *ActiveMQPlugin) authenticateSTOMP(conn net.Conn, username, password str
 
 	_ = conn.SetWriteDeadline(time.Now().Add(timeout))
 	if _, err := conn.Write([]byte(stompConnect)); err != nil {
-		return false, fmt.Errorf("STOMP请求发送失败: %w", err)
+		return false, fmt.Errorf("%s: %w", i18n.GetText("activemq_stomp_send_failed"), err)
 	}
 
 	_ = conn.SetReadDeadline(time.Now().Add(timeout))
 	response := make([]byte, 1024)
 	n, err := conn.Read(response)
 	if err != nil {
-		return false, fmt.Errorf("STOMP响应读取失败: %w", err)
+		return false, fmt.Errorf("%s: %w", i18n.GetText("activemq_stomp_read_failed"), err)
 	}
 	if n == 0 {
-		return false, fmt.Errorf("STOMP无响应数据")
+		return false, fmt.Errorf("%s", i18n.GetText("activemq_stomp_empty_response"))
 	}
 
 	responseStr := string(response[:n])
@@ -182,7 +182,7 @@ func (p *ActiveMQPlugin) authenticateSTOMP(conn net.Conn, username, password str
 	if strings.Contains(responseStr, "CONNECTED") {
 		return true, nil
 	} else if strings.Contains(responseStr, "ERROR") {
-		errorMsg := "STOMP认证错误"
+		errorMsg := i18n.GetText("activemq_stomp_auth_error")
 		if strings.Contains(responseStr, "Authentication failed") {
 			errorMsg = "Authentication failed"
 		} else if strings.Contains(responseStr, "Access denied") {
@@ -193,7 +193,7 @@ func (p *ActiveMQPlugin) authenticateSTOMP(conn net.Conn, username, password str
 		return false, fmt.Errorf("%s", errorMsg)
 	}
 
-	return false, fmt.Errorf("STOMP未知响应格式")
+	return false, fmt.Errorf("%s", i18n.GetText("activemq_stomp_unknown_response"))
 }
 
 // identifyService ActiveMQ服务识别
@@ -236,7 +236,7 @@ func (p *ActiveMQPlugin) identifyService(ctx context.Context, info *common.HostI
 		return &ScanResult{
 			Success: false,
 			Service: "activemq",
-			Error:   fmt.Errorf("无响应数据"),
+			Error:   fmt.Errorf("%s", i18n.GetText("activemq_stomp_empty_response")),
 		}
 	}
 

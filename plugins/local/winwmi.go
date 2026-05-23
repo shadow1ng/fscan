@@ -28,10 +28,10 @@ func NewWinWMIPlugin() *WinWMIPlugin {
 func (p *WinWMIPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
 	pePath := session.Config.WinPEFile
 	if pePath == "" {
-		return &plugins.Result{Success: false, Error: 		fmt.Errorf("%s", i18n.GetText("local_pe_not_specified"))}
+		return &plugins.Result{Success: false, Error: fmt.Errorf("%s", i18n.GetText("local_pe_not_specified"))}
 	}
 	if _, err := os.Stat(pePath); err != nil {
-		return &plugins.Result{Success: false, Error: 		fmt.Errorf("%s", i18n.Tr("local_pe_not_found", pePath))}
+		return &plugins.Result{Success: false, Error: fmt.Errorf("%s", i18n.Tr("local_pe_not_found", pePath))}
 	}
 
 	absPath, _ := filepath.Abs(pePath)
@@ -64,7 +64,7 @@ Write-Output "TOTAL:$ok"`,
 
 	out, err := exec.Command("powershell", "-NoProfile", "-Command", ps).CombinedOutput()
 	if err != nil {
-		common.LogError(i18n.Tr("error_generic", fmt.Errorf("PowerShell执行失败: %w, 输出: %s", err, strings.TrimSpace(string(out)))))
+		common.LogError(i18n.Tr("error_generic", fmt.Errorf("%s: %w, %s: %s", i18n.GetText("powershell_exec_failed"), err, i18n.GetText("command_output"), strings.TrimSpace(string(out)))))
 	}
 	result := string(out)
 

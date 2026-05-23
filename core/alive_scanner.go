@@ -38,7 +38,7 @@ type AliveStats struct {
 // NewAliveScanStrategy 创建新的存活探测扫描策略
 func NewAliveScanStrategy() *AliveScanStrategy {
 	return &AliveScanStrategy{
-		BaseScanStrategy: NewBaseScanStrategy("存活探测", FilterNone),
+		BaseScanStrategy: NewBaseScanStrategy(i18n.GetText("scan_strategy_alive_name"), FilterNone),
 		startTime:        time.Now(),
 	}
 }

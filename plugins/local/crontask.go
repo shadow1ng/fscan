@@ -42,8 +42,8 @@ func (p *CronTaskPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	if runtime.GOOS != "linux" {
 		return &plugins.Result{
 			Success: false,
-			Output:  "计划任务持久化只支持Linux平台",
-			Error:   fmt.Errorf("不支持的平台: %s", runtime.GOOS),
+			Output:  i18n.GetText("crontask_linux_only"),
+			Error:   fmt.Errorf("%s", i18n.Tr("unsupported_platform", runtime.GOOS)),
 		}
 	}
 
@@ -52,8 +52,8 @@ func (p *CronTaskPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	if p.targetFile == "" {
 		return &plugins.Result{
 			Success: false,
-			Output:  "必须通过 -persistence-file 参数指定目标文件路径",
-			Error:   fmt.Errorf("未指定目标文件"),
+			Output:  i18n.GetText("persistence_file_required"),
+			Error:   fmt.Errorf("%s", i18n.GetText("target_file_not_specified")),
 		}
 	}
 
@@ -61,7 +61,7 @@ func (p *CronTaskPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	if _, err := os.Stat(p.targetFile); os.IsNotExist(err) {
 		return &plugins.Result{
 			Success: false,
-			Output:  fmt.Sprintf("目标文件不存在: %s", p.targetFile),
+			Output:  i18n.Tr("target_file_not_exist", p.targetFile),
 			Error:   err,
 		}
 	}
@@ -70,63 +70,63 @@ func (p *CronTaskPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	if _, err := exec.LookPath("crontab"); err != nil {
 		return &plugins.Result{
 			Success: false,
-			Output:  "crontab命令不可用",
+			Output:  i18n.GetText("crontab_unavailable"),
 			Error:   err,
 		}
 	}
 
-	output.WriteString("=== 计划任务持久化 ===\n")
-	fmt.Fprintf(&output, "目标文件: %s\n\n", p.targetFile)
+	output.WriteString(i18n.GetText("crontask_header") + "\n")
+	output.WriteString(i18n.Tr("local_target_file", p.targetFile) + "\n\n")
 
 	var successCount int
 
 	// 1. 复制文件到持久化目录
 	persistPath, err := p.copyToPersistPath()
 	if err != nil {
-		fmt.Fprintf(&output, "✗ 复制文件失败: %v\n", err)
+		output.WriteString(i18n.Tr("copy_file_failed", err) + "\n")
 	} else {
-		fmt.Fprintf(&output, "✓ 文件已复制到: %s\n", persistPath)
+		output.WriteString(i18n.Tr("file_copied_to", persistPath) + "\n")
 		successCount++
 	}
 
 	// 2. 添加用户crontab任务
 	err = p.addUserCronJob(persistPath)
 	if err != nil {
-		fmt.Fprintf(&output, "✗ 添加用户cron任务失败: %v\n", err)
+		output.WriteString(i18n.Tr("crontask_user_add_failed", err) + "\n")
 	} else {
-		output.WriteString("✓ 已添加用户crontab任务\n")
+		output.WriteString(i18n.GetText("crontask_user_added") + "\n")
 		successCount++
 	}
 
 	// 3. 添加系统cron任务
 	systemCronFiles, err := p.addSystemCronJobs(persistPath)
 	if err != nil {
-		fmt.Fprintf(&output, "✗ 添加系统cron任务失败: %v\n", err)
+		output.WriteString(i18n.Tr("crontask_system_add_failed", err) + "\n")
 	} else {
-		fmt.Fprintf(&output, "✓ 已添加系统cron任务: %s\n", strings.Join(systemCronFiles, ", "))
+		output.WriteString(i18n.Tr("crontask_system_added", strings.Join(systemCronFiles, ", ")) + "\n")
 		successCount++
 	}
 
 	// 4. 创建at任务
 	err = p.addAtJob(persistPath)
 	if err != nil {
-		fmt.Fprintf(&output, "✗ 添加at任务失败: %v\n", err)
+		output.WriteString(i18n.Tr("crontask_at_add_failed", err) + "\n")
 	} else {
-		output.WriteString("✓ 已添加at延时任务\n")
+		output.WriteString(i18n.GetText("crontask_at_added") + "\n")
 		successCount++
 	}
 
 	// 5. 创建anacron任务
 	err = p.addAnacronJob(persistPath)
 	if err != nil {
-		fmt.Fprintf(&output, "✗ 添加anacron任务失败: %v\n", err)
+		output.WriteString(i18n.Tr("crontask_anacron_add_failed", err) + "\n")
 	} else {
-		output.WriteString("✓ 已添加anacron任务\n")
+		output.WriteString(i18n.GetText("crontask_anacron_added") + "\n")
 		successCount++
 	}
 
 	// 输出统计
-	fmt.Fprintf(&output, "\n持久化完成: 成功(%d) 总计(%d)\n", successCount, 5)
+	output.WriteString("\n" + i18n.Tr("persistence_complete_summary", successCount, 5) + "\n")
 
 	if successCount > 0 {
 		common.LogSuccess(i18n.Tr("crontask_success", successCount))
@@ -166,7 +166,7 @@ func (p *CronTaskPlugin) copyToPersistPath() (string, error) {
 	}
 
 	if targetDir == "" {
-		return "", fmt.Errorf("无法创建持久化目录")
+		return "", fmt.Errorf("%s", i18n.GetText("persistence_dir_create_failed"))
 	}
 
 	// 生成隐藏文件名
@@ -258,7 +258,7 @@ func (p *CronTaskPlugin) addSystemCronJobs(execPath string) ([]string, error) {
 	}
 
 	if len(modified) == 0 {
-		return nil, fmt.Errorf("无法创建任何系统cron任务")
+		return nil, fmt.Errorf("%s", i18n.GetText("crontask_system_create_none"))
 	}
 
 	return modified, nil

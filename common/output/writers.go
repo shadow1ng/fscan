@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/shadow1ng/fscan/common/i18n"
 )
 
 // escapeControlChars 转义控制字符
@@ -112,13 +114,13 @@ func (w *TXTWriter) Write(result *ScanResult) error {
 func (w *TXTWriter) getSeparator(newType ResultType) string {
 	switch newType {
 	case TypeHost:
-		return "# ===== 存活主机 ====="
+		return i18n.GetText("output_section_hosts")
 	case TypePort:
-		return "# ===== 开放端口 ====="
+		return i18n.GetText("output_section_ports")
 	case TypeService:
-		return "# ===== 服务信息 ====="
+		return i18n.GetText("output_section_services")
 	case TypeVuln:
-		return "# ===== 漏洞信息 ====="
+		return i18n.GetText("output_section_vulns")
 	default:
 		return "# ===================="
 	}
@@ -376,7 +378,7 @@ func (w *TXTWriter) writeWebServices() {
 		return
 	}
 
-	_, _ = w.bufWriter.WriteString("# ===== Web服务 =====\n")
+	_, _ = w.bufWriter.WriteString(i18n.GetText("output_section_web_services") + "\n")
 	for _, url := range urls {
 		_, _ = w.bufWriter.WriteString(url + "\n")
 	}

@@ -286,13 +286,13 @@ func waitAdaptive(hostslist []string, aliveHosts *[]string, aliveHostsMu *sync.M
 
 		// 条件1：所有主机都已响应，立即结束
 		if aliveCount >= totalHosts {
-			common.LogDebug(fmt.Sprintf("[ICMP] 全部响应，耗时 %v", elapsed.Round(time.Millisecond)))
+			common.LogDebug(i18n.Tr("icmp_debug_all_responded", elapsed.Round(time.Millisecond)))
 			break
 		}
 
 		// 条件2：超过最大等待时间，兜底结束
 		if elapsed >= maxWait {
-			common.LogDebug(fmt.Sprintf("[ICMP] 达到最大等待时间 %v，存活 %d/%d", maxWait, aliveCount, totalHosts))
+			common.LogDebug(i18n.Tr("icmp_debug_max_wait", maxWait, aliveCount, totalHosts))
 			break
 		}
 
@@ -305,8 +305,7 @@ func waitAdaptive(hostslist []string, aliveHosts *[]string, aliveHostsMu *sync.M
 				lastAliveCount = aliveCount
 			} else if time.Since(lastChangeTime) >= icmpStableThreshold {
 				// 连续 500ms 没有新响应，认为响应已稳定，提前结束
-				common.LogDebug(fmt.Sprintf("[ICMP] 响应稳定，提前结束，耗时 %v，存活 %d/%d",
-					elapsed.Round(time.Millisecond), aliveCount, totalHosts))
+				common.LogDebug(i18n.Tr("icmp_debug_stable_done", elapsed.Round(time.Millisecond), aliveCount, totalHosts))
 				break
 			}
 		} else {

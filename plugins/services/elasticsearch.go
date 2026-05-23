@@ -40,7 +40,7 @@ func (p *ElasticsearchPlugin) Scan(ctx context.Context, info *common.HostInfo, s
 			Success: true,
 			Type:    plugins.ResultTypeVuln,
 			Service: "elasticsearch",
-			VulInfo: "未授权访问",
+			VulInfo: i18n.GetText("unauthorized_access"),
 		}
 	}
 

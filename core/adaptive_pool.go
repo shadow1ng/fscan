@@ -8,6 +8,7 @@ import (
 
 	"github.com/panjf2000/ants/v2"
 	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/common/i18n"
 )
 
 // AdaptivePool 自适应线程池
@@ -106,7 +107,7 @@ func (ap *AdaptivePool) maybeAdjust() {
 			newSize = ap.minSize
 		}
 		ap.tune(newSize)
-		common.LogInfo(fmt.Sprintf("[AdaptivePool] 资源耗尽率 %.1f%%, 线程数 %d -> %d", rate*100, currentSize, newSize))
+		common.LogInfo(i18n.Tr("adaptive_pool_resource_exhausted", fmt.Sprintf("%.1f", rate*100), currentSize, newSize))
 	} else if rate < ap.recoveryThreshold && currentSize < ap.maxSize {
 		// 恢复：增加 10% 线程（保守恢复）
 		newSize := int(float64(currentSize) * 1.1)
