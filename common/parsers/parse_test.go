@@ -590,15 +590,15 @@ func TestParseIP_IPRange(t *testing.T) {
 	}
 }
 
-func TestParseIP_IPRangeLimit(t *testing.T) {
-	result, err := parseIPRangeString("192.168.1.1-5", 3)
+func TestParseIP_IPRangeNoLimit(t *testing.T) {
+	result, err := parseIPRangeString("192.168.1.1-5")
 	if err != nil {
 		t.Fatalf("parseIPRangeString error = %v", err)
 	}
 
-	expected := []string{"192.168.1.1", "192.168.1.2", "192.168.1.3"}
+	expected := []string{"192.168.1.1", "192.168.1.2", "192.168.1.3", "192.168.1.4", "192.168.1.5"}
 	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("parseIPRangeString limit = %v, want %v", result, expected)
+		t.Errorf("parseIPRangeString = %v, want %v", result, expected)
 	}
 }
 
@@ -981,8 +981,8 @@ func TestParseIP_FullIPRange(t *testing.T) {
 	}
 }
 
-func TestParseIP_FullIPRangeNoLimit(t *testing.T) {
-	result, err := parseIPRangeString("192.168.1.1-192.168.1.5", -1)
+func TestParseIP_FullIPRangeComplete(t *testing.T) {
+	result, err := parseIPRangeString("192.168.1.1-192.168.1.5")
 	if err != nil {
 		t.Fatalf("parseIPRangeString error = %v", err)
 	}
