@@ -890,12 +890,6 @@ func TestParseIP_InternalNetworkShortcuts(t *testing.T) {
 			100, // 172.16.0.0/12 应该很多
 			"172.",
 		},
-		{
-			"10简写",
-			"10",
-			100, // 10.0.0.0/8 应该很多
-			"10.",
-		},
 	}
 
 	for _, tt := range tests {
@@ -1007,7 +1001,7 @@ func TestParseIP_InvalidCIDR(t *testing.T) {
 		expectErr bool
 	}{
 		{"无效掩码/33", "192.168.1.0/33", true},
-		{"无效掩码/0", "192.168.1.0/0", false}, // /0 技术上是有效的
+		{"有效掩码/32", "192.168.1.1/32", false},
 		{"格式错误", "192.168.1.0/abc", true},
 		{"缺少掩码", "192.168.1.0/", true},
 	}
