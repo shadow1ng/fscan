@@ -49,10 +49,8 @@ func (t *tlsDialerWrapper) DialTLSContext(ctx context.Context, network, address 
 	// 进行TLS握手
 	if err := tlsConn.Handshake(); err != nil {
 		_ = tcpConn.Close() // TLS握手失败，Close错误可忽略
-		atomic.AddInt64(&t.stats.FailedConnections, 1)
-		t.stats.mu.Lock()
-		t.stats.LastError = err.Error()
-		t.stats.mu.Unlock()
+		t.stats.addFailed(1)
+		t.stats.setLastError(err.Error())
 		return nil, NewProxyError(ErrTypeConnection, ErrMsgTLSHandshakeFailed, ErrCodeTLSHandshakeFailed, err)
 	}
 
@@ -84,16 +82,16 @@ func (t *tlsDialerWrapper) updateAverageConnectTime(duration time.Duration) {
 
 // trackedConn 带统计的连接
 type trackedConn struct {
+	bytesSent atomic.Int64
+	bytesRecv atomic.Int64
 	net.Conn
-	stats     *ProxyStats
-	bytesSent int64
-	bytesRecv int64
+	stats *ProxyStats
 }
 
 func (tc *trackedConn) Read(b []byte) (n int, err error) {
 	n, err = tc.Conn.Read(b)
 	if n > 0 {
-		atomic.AddInt64(&tc.bytesRecv, int64(n))
+		tc.bytesRecv.Add(int64(n))
 	}
 	return n, err
 }
@@ -101,13 +99,13 @@ func (tc *trackedConn) Read(b []byte) (n int, err error) {
 func (tc *trackedConn) Write(b []byte) (n int, err error) {
 	n, err = tc.Conn.Write(b)
 	if n > 0 {
-		atomic.AddInt64(&tc.bytesSent, int64(n))
+		tc.bytesSent.Add(int64(n))
 	}
 	return n, err
 }
 
 func (tc *trackedConn) Close() error {
-	atomic.AddInt64(&tc.stats.ActiveConnections, -1)
+	tc.stats.addActive(-1)
 	return tc.Conn.Close()
 }
 

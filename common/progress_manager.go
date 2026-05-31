@@ -28,8 +28,8 @@ ProgressManager.go - 固定底部进度条管理器
 type ProgressManager struct {
 	mu              sync.RWMutex
 	enabled         bool
-	total           int64
-	current         int64
+	total           atomic.Int64
+	current         atomic.Int64
 	description     string
 	startTime       time.Time
 	isActive        bool
@@ -117,8 +117,8 @@ func (pm *ProgressManager) InitProgress(total int64, description string) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	pm.total = total
-	pm.current = 0
+	pm.total.Store(total)
+	pm.current.Store(0)
 	pm.description = description
 	pm.startTime = time.Now()
 	pm.isActive = true
@@ -144,9 +144,9 @@ func (pm *ProgressManager) UpdateProgress(increment int64) {
 	}
 
 	// 原子累加，避免高并发下的锁竞争
-	newCurrent := atomic.AddInt64(&pm.current, increment)
-	if newCurrent > pm.total {
-		atomic.StoreInt64(&pm.current, pm.total)
+	newCurrent := pm.current.Add(increment)
+	if newCurrent > pm.total.Load() {
+		pm.current.Store(pm.total.Load())
 	}
 
 	// 节流渲染：距上次渲染不足 50ms 则跳过
@@ -178,7 +178,7 @@ func (pm *ProgressManager) FinishProgress() {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	atomic.StoreInt64(&pm.current, pm.total)
+	pm.current.Store(pm.total.Load())
 	pm.renderProgress()
 
 	// 停止活跃指示器
@@ -219,7 +219,7 @@ func (pm *ProgressManager) generateProgressBar() string {
 	// 获取发包统计
 	packetInfo := pm.getPacketInfo()
 
-	if pm.total == 0 {
+	if pm.total.Load() == 0 {
 		spinner := pm.getActivityIndicator()
 		base := fmt.Sprintf("%s %s %s", pm.description, spinner, i18n.GetText("progress_waiting"))
 		if packetInfo != "" {
@@ -228,9 +228,9 @@ func (pm *ProgressManager) generateProgressBar() string {
 		return base
 	}
 
-	percentage := float64(atomic.LoadInt64(&pm.current)) / float64(pm.total) * 100
+	percentage := float64(pm.current.Load()) / float64(pm.total.Load()) * 100
 	elapsed := time.Since(pm.startTime)
-	current := atomic.LoadInt64(&pm.current)
+	current := pm.current.Load()
 
 	// 计算速度
 	speed := float64(current) / elapsed.Seconds()
@@ -241,8 +241,8 @@ func (pm *ProgressManager) generateProgressBar() string {
 
 	// 计算预估剩余时间
 	var eta string
-	if current > 0 && current < pm.total {
-		totalTime := elapsed * time.Duration(pm.total) / time.Duration(current)
+	if current > 0 && current < pm.total.Load() {
+		totalTime := elapsed * time.Duration(pm.total.Load()) / time.Duration(current)
 		remaining := totalTime - elapsed
 		if remaining > 0 {
 			eta = fmt.Sprintf(" ETA:%s", formatDuration(remaining))
@@ -254,7 +254,7 @@ func (pm *ProgressManager) generateProgressBar() string {
 
 	// 计算固定部分的宽度
 	fixedPart := fmt.Sprintf("%s %s %5.1f%% [] (%d/%d)%s%s %s",
-		pm.description, spinner, percentage, current, pm.total, speedStr, eta, packetInfo)
+		pm.description, spinner, percentage, current, pm.total.Load(), speedStr, eta, packetInfo)
 	fixedWidth := displayWidth(fixedPart)
 
 	// 计算进度条槽位可用宽度（预留2字符余量）
@@ -281,7 +281,7 @@ func (pm *ProgressManager) generateProgressBar() string {
 
 	// 构建最终进度条
 	result := fmt.Sprintf("%s %s %5.1f%% %s (%d/%d)%s%s",
-		pm.description, spinner, percentage, bar, current, pm.total, speedStr, eta)
+		pm.description, spinner, percentage, bar, current, pm.total.Load(), speedStr, eta)
 
 	if packetInfo != "" {
 		result += " " + packetInfo
@@ -323,10 +323,10 @@ func (pm *ProgressManager) showCompletionInfo() {
 	durationMsg := i18n.GetText("progress_duration")
 	if pm.noColor {
 		fmt.Printf("[%s] %s %d/%d (%s: %s)\n",
-			doneMsg, completionMsg, pm.total, pm.total, durationMsg, formatDuration(elapsed))
+			doneMsg, completionMsg, pm.total.Load(), pm.total.Load(), durationMsg, formatDuration(elapsed))
 	} else {
 		fmt.Printf("%s[%s] %s %d/%d%s %s(%s: %s)%s\n",
-			AnsiGreen, doneMsg, completionMsg, pm.total, pm.total, AnsiReset,
+			AnsiGreen, doneMsg, completionMsg, pm.total.Load(), pm.total.Load(), AnsiReset,
 			AnsiGray, durationMsg, formatDuration(elapsed), AnsiReset)
 	}
 }
@@ -478,10 +478,10 @@ func (pm *ProgressManager) GetPercent() float64 {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
 
-	if !pm.isActive || pm.total == 0 {
+	if !pm.isActive || pm.total.Load() == 0 {
 		return 0
 	}
-	return float64(atomic.LoadInt64(&pm.current)) / float64(pm.total) * 100
+	return float64(pm.current.Load()) / float64(pm.total.Load()) * 100
 }
 
 // =============================================================================
@@ -522,8 +522,8 @@ func (pm *ProgressManager) renderProgressUnsafe() {
 
 	// 计算当前百分比（避免除零）
 	currentPercent := 0
-	if pm.total > 0 {
-		currentPercent = int((atomic.LoadInt64(&pm.current) * 100) / pm.total)
+	if pm.total.Load() > 0 {
+		currentPercent = int((pm.current.Load() * 100) / pm.total.Load())
 	}
 
 	// 只在百分比变化时更新，减少不必要的渲染
@@ -642,8 +642,8 @@ ConcurrencyMonitor - 并发监控器
 // ConcurrencyMonitor 并发监控器
 type ConcurrencyMonitor struct {
 	// 主扫描器层级
-	activePluginTasks int64 // 当前活跃的插件任务数
-	totalPluginTasks  int64 // 总插件任务数
+	activePluginTasks atomic.Int64 // 当前活跃的插件任务数
+	totalPluginTasks  atomic.Int64 // 总插件任务数
 
 	// 插件内连接层级已移除 - 原代码为死代码，无任何调用者
 }
@@ -658,10 +658,7 @@ var (
 // GetConcurrencyMonitor 获取全局并发监控器
 func GetConcurrencyMonitor() *ConcurrencyMonitor {
 	concurrencyMutex.Do(func() {
-		globalConcurrencyMonitor = &ConcurrencyMonitor{
-			activePluginTasks: 0,
-			totalPluginTasks:  0,
-		}
+		globalConcurrencyMonitor = &ConcurrencyMonitor{}
 	})
 	return globalConcurrencyMonitor
 }
@@ -672,18 +669,18 @@ func GetConcurrencyMonitor() *ConcurrencyMonitor {
 
 // StartPluginTask 开始插件任务
 func (m *ConcurrencyMonitor) StartPluginTask() {
-	atomic.AddInt64(&m.activePluginTasks, 1)
-	atomic.AddInt64(&m.totalPluginTasks, 1)
+	m.activePluginTasks.Add(1)
+	m.totalPluginTasks.Add(1)
 }
 
 // FinishPluginTask 完成插件任务
 func (m *ConcurrencyMonitor) FinishPluginTask() {
-	atomic.AddInt64(&m.activePluginTasks, -1)
+	m.activePluginTasks.Add(-1)
 }
 
 // GetPluginTaskStats 获取插件任务统计
 func (m *ConcurrencyMonitor) GetPluginTaskStats() (active int64, total int64) {
-	return atomic.LoadInt64(&m.activePluginTasks), atomic.LoadInt64(&m.totalPluginTasks)
+	return m.activePluginTasks.Load(), m.totalPluginTasks.Load()
 }
 
 // =============================================================================

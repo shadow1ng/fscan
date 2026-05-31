@@ -23,17 +23,17 @@ state.go - 运行时状态管理
 // State 扫描器运行时状态 - 线程安全
 type State struct {
 	// 计数器 - 原子操作
-	packetCount            int64
-	tcpPacketCount         int64
-	tcpSuccessPacketCount  int64
-	tcpFailedPacketCount   int64
-	udpPacketCount         int64
-	httpPacketCount        int64
-	resourceExhaustedCount int64
+	packetCount            atomic.Int64
+	tcpPacketCount         atomic.Int64
+	tcpSuccessPacketCount  atomic.Int64
+	tcpFailedPacketCount   atomic.Int64
+	udpPacketCount         atomic.Int64
+	httpPacketCount        atomic.Int64
+	resourceExhaustedCount atomic.Int64
 
 	// 任务计数
-	end int64
-	num int64
+	end atomic.Int64
+	num atomic.Int64
 
 	// 时间
 	startTime time.Time
@@ -71,38 +71,38 @@ func NewState() *State {
 
 // IncrementPacketCount 增加总包计数
 func (s *State) IncrementPacketCount() int64 {
-	return atomic.AddInt64(&s.packetCount, 1)
+	return s.packetCount.Add(1)
 }
 
 // IncrementTCPSuccessPacketCount 增加TCP成功连接包计数
 func (s *State) IncrementTCPSuccessPacketCount() int64 {
-	atomic.AddInt64(&s.tcpSuccessPacketCount, 1)
-	atomic.AddInt64(&s.tcpPacketCount, 1)
-	return atomic.AddInt64(&s.packetCount, 1)
+	s.tcpSuccessPacketCount.Add(1)
+	s.tcpPacketCount.Add(1)
+	return s.packetCount.Add(1)
 }
 
 // IncrementTCPFailedPacketCount 增加TCP失败连接包计数
 func (s *State) IncrementTCPFailedPacketCount() int64 {
-	atomic.AddInt64(&s.tcpFailedPacketCount, 1)
-	atomic.AddInt64(&s.tcpPacketCount, 1)
-	return atomic.AddInt64(&s.packetCount, 1)
+	s.tcpFailedPacketCount.Add(1)
+	s.tcpPacketCount.Add(1)
+	return s.packetCount.Add(1)
 }
 
 // IncrementUDPPacketCount 增加UDP包计数
 func (s *State) IncrementUDPPacketCount() int64 {
-	atomic.AddInt64(&s.udpPacketCount, 1)
-	return atomic.AddInt64(&s.packetCount, 1)
+	s.udpPacketCount.Add(1)
+	return s.packetCount.Add(1)
 }
 
 // IncrementHTTPPacketCount 增加HTTP包计数
 func (s *State) IncrementHTTPPacketCount() int64 {
-	atomic.AddInt64(&s.httpPacketCount, 1)
-	return atomic.AddInt64(&s.packetCount, 1)
+	s.httpPacketCount.Add(1)
+	return s.packetCount.Add(1)
 }
 
 // IncrementResourceExhaustedCount 增加资源耗尽错误计数
 func (s *State) IncrementResourceExhaustedCount() {
-	atomic.AddInt64(&s.resourceExhaustedCount, 1)
+	s.resourceExhaustedCount.Add(1)
 }
 
 // =============================================================================
@@ -111,48 +111,48 @@ func (s *State) IncrementResourceExhaustedCount() {
 
 // GetPacketCount 获取总包计数
 func (s *State) GetPacketCount() int64 {
-	return atomic.LoadInt64(&s.packetCount)
+	return s.packetCount.Load()
 }
 
 // GetTCPPacketCount 获取TCP包计数
 func (s *State) GetTCPPacketCount() int64 {
-	return atomic.LoadInt64(&s.tcpPacketCount)
+	return s.tcpPacketCount.Load()
 }
 
 // GetTCPSuccessPacketCount 获取TCP成功连接包计数
 func (s *State) GetTCPSuccessPacketCount() int64 {
-	return atomic.LoadInt64(&s.tcpSuccessPacketCount)
+	return s.tcpSuccessPacketCount.Load()
 }
 
 // GetTCPFailedPacketCount 获取TCP失败连接包计数
 func (s *State) GetTCPFailedPacketCount() int64 {
-	return atomic.LoadInt64(&s.tcpFailedPacketCount)
+	return s.tcpFailedPacketCount.Load()
 }
 
 // GetUDPPacketCount 获取UDP包计数
 func (s *State) GetUDPPacketCount() int64 {
-	return atomic.LoadInt64(&s.udpPacketCount)
+	return s.udpPacketCount.Load()
 }
 
 // GetHTTPPacketCount 获取HTTP包计数
 func (s *State) GetHTTPPacketCount() int64 {
-	return atomic.LoadInt64(&s.httpPacketCount)
+	return s.httpPacketCount.Load()
 }
 
 // GetResourceExhaustedCount 获取资源耗尽错误计数
 func (s *State) GetResourceExhaustedCount() int64 {
-	return atomic.LoadInt64(&s.resourceExhaustedCount)
+	return s.resourceExhaustedCount.Load()
 }
 
 // ResetPacketCounters 重置所有包计数器
 func (s *State) ResetPacketCounters() {
-	atomic.StoreInt64(&s.packetCount, 0)
-	atomic.StoreInt64(&s.tcpPacketCount, 0)
-	atomic.StoreInt64(&s.tcpSuccessPacketCount, 0)
-	atomic.StoreInt64(&s.tcpFailedPacketCount, 0)
-	atomic.StoreInt64(&s.udpPacketCount, 0)
-	atomic.StoreInt64(&s.httpPacketCount, 0)
-	atomic.StoreInt64(&s.resourceExhaustedCount, 0)
+	s.packetCount.Store(0)
+	s.tcpPacketCount.Store(0)
+	s.tcpSuccessPacketCount.Store(0)
+	s.tcpFailedPacketCount.Store(0)
+	s.udpPacketCount.Store(0)
+	s.httpPacketCount.Store(0)
+	s.resourceExhaustedCount.Store(0)
 }
 
 // =============================================================================
@@ -161,32 +161,32 @@ func (s *State) ResetPacketCounters() {
 
 // GetEnd 获取结束计数
 func (s *State) GetEnd() int64 {
-	return atomic.LoadInt64(&s.end)
+	return s.end.Load()
 }
 
 // GetNum 获取数量计数
 func (s *State) GetNum() int64 {
-	return atomic.LoadInt64(&s.num)
+	return s.num.Load()
 }
 
 // IncrementEnd 增加结束计数
 func (s *State) IncrementEnd() int64 {
-	return atomic.AddInt64(&s.end, 1)
+	return s.end.Add(1)
 }
 
 // IncrementNum 增加数量计数
 func (s *State) IncrementNum() int64 {
-	return atomic.AddInt64(&s.num, 1)
+	return s.num.Add(1)
 }
 
 // SetEnd 设置结束计数
 func (s *State) SetEnd(val int64) {
-	atomic.StoreInt64(&s.end, val)
+	s.end.Store(val)
 }
 
 // SetNum 设置数量计数
 func (s *State) SetNum(val int64) {
-	atomic.StoreInt64(&s.num, val)
+	s.num.Store(val)
 }
 
 // =============================================================================
@@ -271,10 +271,10 @@ type PerfStatsData struct {
 func (s *State) GetPerfStats() PerfStatsData {
 	duration := time.Since(s.startTime)
 	durationMs := duration.Milliseconds()
-	totalPackets := atomic.LoadInt64(&s.packetCount)
-	tcpSuccess := atomic.LoadInt64(&s.tcpSuccessPacketCount)
-	tcpFailed := atomic.LoadInt64(&s.tcpFailedPacketCount)
-	tcpTotal := atomic.LoadInt64(&s.tcpPacketCount)
+	totalPackets := s.packetCount.Load()
+	tcpSuccess := s.tcpSuccessPacketCount.Load()
+	tcpFailed := s.tcpFailedPacketCount.Load()
+	tcpTotal := s.tcpPacketCount.Load()
 
 	var pps float64
 	if durationMs > 0 {
@@ -291,13 +291,13 @@ func (s *State) GetPerfStats() PerfStatsData {
 		TCPPackets:        tcpTotal,
 		TCPSuccess:        tcpSuccess,
 		TCPFailed:         tcpFailed,
-		UDPPackets:        atomic.LoadInt64(&s.udpPacketCount),
-		HTTPPackets:       atomic.LoadInt64(&s.httpPacketCount),
-		ResourceExhausted: atomic.LoadInt64(&s.resourceExhaustedCount),
+		UDPPackets:        s.udpPacketCount.Load(),
+		HTTPPackets:       s.httpPacketCount.Load(),
+		ResourceExhausted: s.resourceExhaustedCount.Load(),
 		ScanDurationMs:    durationMs,
 		PacketsPerSecond:  pps,
 		SuccessRate:       successRate,
-		TargetsScanned:    atomic.LoadInt64(&s.num),
+		TargetsScanned:    s.num.Load(),
 	}
 }
 

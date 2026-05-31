@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"golang.org/x/net/proxy"
@@ -127,19 +126,7 @@ func (m *manager) Stats() *ProxyStats {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	m.stats.mu.Lock()
-	defer m.stats.mu.Unlock()
-
-	return &ProxyStats{
-		TotalConnections:   atomic.LoadInt64(&m.stats.TotalConnections),
-		ActiveConnections:  atomic.LoadInt64(&m.stats.ActiveConnections),
-		FailedConnections:  atomic.LoadInt64(&m.stats.FailedConnections),
-		AverageConnectTime: m.stats.AverageConnectTime,
-		LastConnectTime:    m.stats.LastConnectTime,
-		LastError:          m.stats.LastError,
-		ProxyType:          m.stats.ProxyType,
-		ProxyAddress:       m.stats.ProxyAddress,
-	}
+	return m.stats.snapshot()
 }
 
 // createDirectDialer 创建直连拨号器
@@ -246,7 +233,7 @@ func (d *directDialer) Dial(network, address string) (net.Conn, error) {
 
 func (d *directDialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
 	start := time.Now()
-	atomic.AddInt64(&d.stats.TotalConnections, 1)
+	d.stats.addTotal(1)
 
 	dialer := &net.Dialer{
 		Timeout: d.timeout,
@@ -263,19 +250,15 @@ func (d *directDialer) DialContext(ctx context.Context, network, address string)
 
 	duration := time.Since(start)
 
-	d.stats.mu.Lock()
-	d.stats.LastConnectTime = start
-	d.stats.mu.Unlock()
+	d.stats.setLastConnectTime(start)
 
 	if err != nil {
-		atomic.AddInt64(&d.stats.FailedConnections, 1)
-		d.stats.mu.Lock()
-		d.stats.LastError = err.Error()
-		d.stats.mu.Unlock()
+		d.stats.addFailed(1)
+		d.stats.setLastError(err.Error())
 		return nil, NewProxyError(ErrTypeConnection, ErrMsgDirectConnFailed, ErrCodeDirectConnFailed, err)
 	}
 
-	atomic.AddInt64(&d.stats.ActiveConnections, 1)
+	d.stats.addActive(1)
 	d.updateAverageConnectTime(duration)
 
 	return &trackedConn{
@@ -297,7 +280,7 @@ func (s *socks5Dialer) Dial(network, address string) (net.Conn, error) {
 
 func (s *socks5Dialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
 	start := time.Now()
-	atomic.AddInt64(&s.stats.TotalConnections, 1)
+	s.stats.addTotal(1)
 
 	// 创建一个带超时的上下文
 	dialCtx, cancel := context.WithTimeout(ctx, s.config.Timeout)
@@ -325,27 +308,21 @@ func (s *socks5Dialer) DialContext(ctx context.Context, network, address string)
 
 	select {
 	case <-dialCtx.Done():
-		atomic.AddInt64(&s.stats.FailedConnections, 1)
-		s.stats.mu.Lock()
-		s.stats.LastError = dialCtx.Err().Error()
-		s.stats.mu.Unlock()
+		s.stats.addFailed(1)
+		s.stats.setLastError(dialCtx.Err().Error())
 		return nil, NewProxyError(ErrTypeTimeout, ErrMsgSOCKS5ConnTimeout, ErrCodeSOCKS5ConnTimeout, dialCtx.Err())
 	case result := <-connChan:
 		duration := time.Since(start)
 
-		s.stats.mu.Lock()
-		s.stats.LastConnectTime = start
-		s.stats.mu.Unlock()
+		s.stats.setLastConnectTime(start)
 
 		if result.err != nil {
-			atomic.AddInt64(&s.stats.FailedConnections, 1)
-			s.stats.mu.Lock()
-			s.stats.LastError = result.err.Error()
-			s.stats.mu.Unlock()
+			s.stats.addFailed(1)
+			s.stats.setLastError(result.err.Error())
 			return nil, NewProxyError(ErrTypeConnection, ErrMsgSOCKS5ConnFailed, ErrCodeSOCKS5ConnFailed, result.err)
 		}
 
-		atomic.AddInt64(&s.stats.ActiveConnections, 1)
+		s.stats.addActive(1)
 		s.updateAverageConnectTime(duration)
 
 		return &trackedConn{

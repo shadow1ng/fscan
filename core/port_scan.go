@@ -210,7 +210,7 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 	// 初始化并发控制
 	to := time.Duration(timeout) * time.Second
 	adaptiveTO := NewAdaptiveTimeout(to)
-	var count int64
+	var count atomic.Int64
 	collector := newResultCollector(stream)
 	failedCollector := &failedPortCollector{}
 	var wg sync.WaitGroup
@@ -258,7 +258,7 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 		common.FinishProgressBar()
 	}
 
-	session.LogInfo(i18n.Tr("port_scan_complete", count))
+	session.LogInfo(i18n.Tr("port_scan_complete", count.Load()))
 
 	// 检查扫描失败率，如果过高则警告用户
 	resourceErrors := state.GetResourceExhaustedCount()
@@ -453,7 +453,7 @@ func buildServiceLogMessage(addr string, serviceInfo *ServiceInfo, isWeb bool) s
 }
 
 // scanSinglePort 扫描单个端口并进行服务识别（重构后的简洁版本）
-func scanSinglePort(ctx context.Context, host string, port int, addr string, adaptiveTO *AdaptiveTimeout, count *int64, collector *resultCollector, failedCollector *failedPortCollector, session *common.ScanSession) {
+func scanSinglePort(ctx context.Context, host string, port int, addr string, adaptiveTO *AdaptiveTimeout, count *atomic.Int64, collector *resultCollector, failedCollector *failedPortCollector, session *common.ScanSession) {
 	config := session.Config
 	timeout := adaptiveTO.Timeout()
 	// 步骤1：建立连接
@@ -486,7 +486,7 @@ func scanSinglePort(ctx context.Context, host string, port int, addr string, ada
 	}
 
 	// 步骤2：记录开放端口
-	atomic.AddInt64(count, 1)
+	count.Add(1)
 	collector.Add(addr)
 	saveOpenPort(session, host, port)
 

@@ -24,7 +24,7 @@ type AdaptivePool struct {
 
 	// 监控参数
 	checkInterval      time.Duration
-	lastCheckNano      int64 // 原子, UnixNano
+	lastCheckNano      atomic.Int64 // UnixNano
 	lastExhaustedCount int64
 	lastPacketCount    int64
 
@@ -70,12 +70,12 @@ func (ap *AdaptivePool) Invoke(task interface{}) error {
 // maybeAdjust 检查并可能调整线程池大小
 // 使用原子 CAS 进行时间检查，99%+ 的调用零锁开销
 func (ap *AdaptivePool) maybeAdjust() {
-	lastCheck := atomic.LoadInt64(&ap.lastCheckNano)
+	lastCheck := ap.lastCheckNano.Load()
 	now := time.Now().UnixNano()
 	if now-lastCheck < int64(ap.checkInterval) {
 		return
 	}
-	if !atomic.CompareAndSwapInt64(&ap.lastCheckNano, lastCheck, now) {
+	if !ap.lastCheckNano.CompareAndSwap(lastCheck, now) {
 		return // 其他 goroutine 已在检查
 	}
 
