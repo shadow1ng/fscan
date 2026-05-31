@@ -422,8 +422,19 @@ func RandomStr(randSource *rand.Rand, letterBytes string, n int) string {
 func DoRequest(req *http.Request, redirect bool) (*Response, error) {
 	// 处理请求头
 	if req.Body != nil && req.Body != http.NoBody {
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_request_body_read_failed"), err)
+		}
+		_ = req.Body.Close()
+		req.Body = io.NopCloser(bytes.NewReader(body))
+		req.GetBody = func() (io.ReadCloser, error) {
+			return io.NopCloser(bytes.NewReader(body)), nil
+		}
+		req.ContentLength = int64(len(body))
+
 		// 设置 Content-Length
-		req.Header.Set("Content-Length", strconv.Itoa(int(req.ContentLength)))
+		req.Header.Set("Content-Length", strconv.FormatInt(req.ContentLength, 10))
 
 		// 如果未指定 Content-Type，设置默认值
 		if req.Header.Get("Content-Type") == "" {
@@ -451,6 +462,11 @@ func DoRequest(req *http.Request, redirect bool) (*Response, error) {
 
 	// 标准TLS连接失败时，尝试国密TLS客户端
 	if err != nil && req.URL.Scheme == "https" {
+		if req.GetBody != nil {
+			if body, bodyErr := req.GetBody(); bodyErr == nil {
+				req.Body = body
+			}
+		}
 		if redirect {
 			if oResp2, err2 := ClientGM.Do(req); err2 == nil {
 				oResp, err = oResp2, nil

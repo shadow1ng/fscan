@@ -53,18 +53,27 @@ func ParseIP(host string, filename string, nohosts ...string) ([]string, error) 
 	if host != "" {
 		hostList, err := parseHostString(host)
 		if err != nil {
-			return nil, 		fmt.Errorf(i18n.GetText("parser_parse_host_failed")+": %w", err)
+			return nil, fmt.Errorf(i18n.GetText("parser_parse_host_failed")+": %w", err)
 		}
 		hosts = append(hosts, hostList...)
 	}
 
 	// 处理排除主机
-	if len(nohosts) > 0 && nohosts[0] != "" {
-		excludeList, err := parseHostString(nohosts[0])
-		if err != nil {
-			return nil, 		fmt.Errorf(i18n.GetText("parser_parse_exclude_failed")+": %w", err)
+	if len(nohosts) > 0 {
+		matcher := newHostMatcher()
+		hasExclude := false
+		for _, exclude := range nohosts {
+			if strings.TrimSpace(exclude) == "" {
+				continue
+			}
+			hasExclude = true
+			if err := matcher.add(exclude); err != nil {
+				return nil, fmt.Errorf(i18n.GetText("parser_parse_exclude_failed")+": %w", err)
+			}
 		}
-		hosts = excludeFromList(hosts, excludeList)
+		if hasExclude {
+			hosts = excludeFromList(hosts, matcher)
+		}
 	}
 
 	// 去重和排序
@@ -212,6 +221,7 @@ func ReadLinesFromFile(filename string) ([]string, error) {
 
 	var lines []string
 	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" && !strings.HasPrefix(line, "#") {
@@ -420,19 +430,14 @@ func incrementIP(ip net.IP) {
 }
 
 // excludeFromList 从列表中排除指定项
-func excludeFromList(hosts, excludeList []string) []string {
-	if len(excludeList) == 0 {
+func excludeFromList(hosts []string, matcher *hostMatcher) []string {
+	if matcher == nil {
 		return hosts
-	}
-
-	excludeMap := make(map[string]struct{}, len(excludeList))
-	for _, e := range excludeList {
-		excludeMap[e] = struct{}{}
 	}
 
 	result := make([]string, 0, len(hosts))
 	for _, h := range hosts {
-		if _, found := excludeMap[h]; !found {
+		if !matcher.match(h) {
 			result = append(result, h)
 		}
 	}

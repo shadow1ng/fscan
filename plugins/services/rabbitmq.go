@@ -285,7 +285,14 @@ func (p *RabbitMQPlugin) testManagementInterface(ctx context.Context, info *comm
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == 200 || resp.StatusCode == 401 {
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return &ScanResult{
+				Success: false,
+				Service: "rabbitmq",
+				Error:   err,
+			}
+		}
 		if strings.Contains(strings.ToLower(string(body)), "rabbitmq") {
 			banner := "RabbitMQ Management"
 			common.LogSuccess(i18n.Tr("rabbitmq_detected", target, banner))

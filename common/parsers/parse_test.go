@@ -696,6 +696,18 @@ func TestParseIP_Exclude(t *testing.T) {
 	}
 }
 
+func TestParseIPMultipleExcludeSources(t *testing.T) {
+	result, err := ParseIP("192.168.1.1-192.168.1.4", "", "192.168.1.2", "192.168.1.4")
+	if err != nil {
+		t.Fatalf("ParseIP error = %v", err)
+	}
+
+	expected := []string{"192.168.1.1", "192.168.1.3"}
+	if !reflect.DeepEqual(result, expected) {
+		t.Fatalf("ParseIP with multiple excludes = %v, want %v", result, expected)
+	}
+}
+
 // TestParseIP_Deduplicate 测试去重
 func TestParseIP_Deduplicate(t *testing.T) {
 	result, err := ParseIP("192.168.1.1,192.168.1.1,192.168.1.2,192.168.1.2", "", "")
@@ -800,7 +812,9 @@ func TestParsePortRange(t *testing.T) {
 // TestExcludeHosts 测试排除主机
 func TestExcludeHosts(t *testing.T) {
 	hosts := []string{"host1", "host2", "host3", "host4"}
-	exclude := []string{"host2", "host4"}
+	exclude := newHostMatcher()
+	exclude.exact["host2"] = struct{}{}
+	exclude.exact["host4"] = struct{}{}
 
 	result := excludeFromList(hosts, exclude)
 	expected := []string{"host1", "host3"}
@@ -815,7 +829,7 @@ func TestExcludeHosts(t *testing.T) {
 // TestExcludeHosts_EmptyExclude 测试空排除列表
 func TestExcludeHosts_EmptyExclude(t *testing.T) {
 	hosts := []string{"host1", "host2"}
-	result := excludeFromList(hosts, []string{})
+	result := excludeFromList(hosts, nil)
 
 	if !reflect.DeepEqual(result, hosts) {
 		t.Errorf("excludeFromList(空排除列表) 应该返回原列表")

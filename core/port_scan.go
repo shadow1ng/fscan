@@ -203,7 +203,7 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 	// 初始化端口扫描进度条
 	if totalTasks > 0 && config.Output.ShowProgress {
 		description := i18n.Tr("port_scan_progress_description", threadNum)
-		common.InitProgressBar(int64(totalTasks), description)
+		common.InitProgressBar(totalTasks, description)
 	}
 	session.LogDebug(i18n.GetText("port_scan_debug_progress_ready"))
 

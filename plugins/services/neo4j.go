@@ -163,6 +163,21 @@ func (p *Neo4jPlugin) testUnauthorizedAccess(ctx context.Context, info *common.H
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == 200 {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return &ScanResult{
+				Success: false,
+				Service: "neo4j",
+				Error:   err,
+			}
+		}
+		if !strings.Contains(strings.ToLower(string(body)), "neo4j") {
+			return &ScanResult{
+				Success: false,
+				Service: "neo4j",
+				Error:   fmt.Errorf("%s", i18n.Tr("service_not_identified", "Neo4j")),
+			}
+		}
 		return &ScanResult{
 			Type:    plugins.ResultTypeVuln,
 			Success: true,
@@ -206,11 +221,22 @@ func (p *Neo4jPlugin) identifyService(ctx context.Context, info *common.HostInfo
 	if serverHeader != "" && strings.Contains(strings.ToLower(serverHeader), "neo4j") {
 		banner = "Neo4j"
 	} else if resp.StatusCode == 200 || resp.StatusCode == 401 {
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return &ScanResult{
+				Success: false,
+				Service: "neo4j",
+				Error:   err,
+			}
+		}
 		if strings.Contains(strings.ToLower(string(body)), "neo4j") {
 			banner = "Neo4j"
 		} else {
-			banner = "Neo4j"
+			return &ScanResult{
+				Success: false,
+				Service: "neo4j",
+				Error:   fmt.Errorf("%s", i18n.Tr("service_not_identified", "Neo4j")),
+			}
 		}
 	} else {
 		return &ScanResult{

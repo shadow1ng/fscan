@@ -39,8 +39,11 @@ func NewHostIterator(host string, filename string, nohosts ...string) (*HostIter
 	sources = append(sources, hostSources...)
 
 	matcher := newHostMatcher()
-	if len(nohosts) > 0 && strings.TrimSpace(nohosts[0]) != "" {
-		if err := matcher.add(nohosts[0]); err != nil {
+	for _, exclude := range nohosts {
+		if strings.TrimSpace(exclude) == "" {
+			continue
+		}
+		if err := matcher.add(exclude); err != nil {
 			closeHostSources(sources)
 			return nil, err
 		}
@@ -180,10 +183,12 @@ func newFileHostSource(filename string) (*fileHostSource, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &fileHostSource{
+	src := &fileHostSource{
 		file:    file,
 		scanner: bufio.NewScanner(file),
-	}, nil
+	}
+	src.scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
+	return src, nil
 }
 
 func (s *fileHostSource) Next() (string, bool, error) {

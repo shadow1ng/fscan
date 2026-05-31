@@ -67,7 +67,12 @@ func (s *AliveScanStrategy) Execute(ctx context.Context, session *common.ScanSes
 
 // performAliveScan 执行存活探测
 func (s *AliveScanStrategy) performAliveScan(ctx context.Context, info common.HostInfo, session *common.ScanSession) {
-	iter, err := parsers.NewHostIterator(info.Host, session.Params.HostsFile, session.Params.ExcludeHosts)
+	excludes, err := loadHostExcludes(session.Params)
+	if err != nil {
+		session.LogError(i18n.Tr("parse_target_failed", err))
+		return
+	}
+	iter, err := parsers.NewHostIterator(info.Host, session.Params.HostsFile, excludes...)
 	if err != nil {
 		session.LogError(i18n.Tr("parse_target_failed", err))
 		return

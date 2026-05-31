@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +11,12 @@ import (
 
 	"github.com/google/cel-go/common/types"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
 
 // =============================================================================
 // eval_encoding.go 测试 - 编码解码函数
@@ -1067,6 +1074,84 @@ func TestGetRespBody(t *testing.T) {
 				t.Errorf("getRespBody() = %q, want %q", result, tt.wantContent)
 			}
 		})
+	}
+}
+
+func TestDoRequestBuffersUnknownLengthBody(t *testing.T) {
+	previous := ClientNoRedirect
+	defer func() { ClientNoRedirect = previous }()
+
+	var gotContentLength string
+	var gotBody string
+	ClientNoRedirect = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		gotContentLength = req.Header.Get("Content-Length")
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			return nil, err
+		}
+		gotBody = string(body)
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(strings.NewReader("ok")),
+			Request:    req,
+		}, nil
+	})}
+
+	req, err := http.NewRequest(http.MethodPost, "http://example.com", io.NopCloser(strings.NewReader("abc")))
+	if err != nil {
+		t.Fatalf("NewRequest error = %v", err)
+	}
+	req.ContentLength = -1
+
+	if _, err := DoRequest(req, false); err != nil {
+		t.Fatalf("DoRequest error = %v", err)
+	}
+	if gotContentLength != "3" {
+		t.Fatalf("Content-Length = %q, want 3", gotContentLength)
+	}
+	if gotBody != "abc" {
+		t.Fatalf("body = %q, want abc", gotBody)
+	}
+}
+
+func TestDoRequestReplaysBodyForGMTLSFallback(t *testing.T) {
+	previousNR, previousGM := ClientNoRedirect, ClientNoRedirectGM
+	defer func() {
+		ClientNoRedirect = previousNR
+		ClientNoRedirectGM = previousGM
+	}()
+
+	ClientNoRedirect = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		_, _ = io.ReadAll(req.Body)
+		return nil, errors.New("standard tls failed")
+	})}
+
+	var gotBody string
+	ClientNoRedirectGM = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			return nil, err
+		}
+		gotBody = string(body)
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(strings.NewReader("ok")),
+			Request:    req,
+		}, nil
+	})}
+
+	req, err := http.NewRequest(http.MethodPost, "https://example.com", strings.NewReader("payload"))
+	if err != nil {
+		t.Fatalf("NewRequest error = %v", err)
+	}
+
+	if _, err := DoRequest(req, false); err != nil {
+		t.Fatalf("DoRequest error = %v", err)
+	}
+	if gotBody != "payload" {
+		t.Fatalf("fallback body = %q, want payload", gotBody)
 	}
 }
 

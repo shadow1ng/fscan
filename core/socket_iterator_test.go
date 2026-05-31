@@ -182,6 +182,17 @@ func TestSocketIterator_EmptyInputs(t *testing.T) {
 	})
 }
 
+func TestSocketIteratorTotalUsesInt64(t *testing.T) {
+	hosts := make([]string, 1<<20)
+	ports := make([]int, 4096)
+	it := NewSocketIterator(hosts, ports, nil)
+
+	want := int64(len(hosts)) * int64(len(ports))
+	if it.Total() != want {
+		t.Fatalf("Total() = %d, want %d", it.Total(), want)
+	}
+}
+
 // TestSocketIterator_PortPrioritySort 验证端口优先级排序
 // 高价值端口（80, 443, 22等）应该排在前面
 func TestSocketIterator_PortPrioritySort(t *testing.T) {

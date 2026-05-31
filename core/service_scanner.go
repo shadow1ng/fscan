@@ -145,7 +145,12 @@ func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *comm
 	config := session.Config
 	state := session.State
 
-	iter, err := parsers.NewHostIterator(info.Host, session.Params.HostsFile, session.Params.ExcludeHosts)
+	excludes, err := loadHostExcludes(session.Params)
+	if err != nil {
+		session.LogError(fmt.Sprintf("%s: %v", i18n.GetText("parse_target_failed"), err))
+		return
+	}
+	iter, err := parsers.NewHostIterator(info.Host, session.Params.HostsFile, excludes...)
 	if err != nil {
 		session.LogError(fmt.Sprintf("%s: %v", i18n.GetText("parse_target_failed"), err))
 		return
@@ -157,6 +162,7 @@ func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *comm
 	pluginsToRun, isCustomMode := s.GetPlugins(config)
 	totalAlive := 0
 	sawHosts := false
+	performedLiveness := false
 
 	for {
 		hosts, err := iter.NextBatch(ctx, targetHostBatchSize(config))
@@ -170,6 +176,7 @@ func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *comm
 		sawHosts = true
 
 		if s.shouldPerformLivenessCheck(hosts, config) {
+			performedLiveness = true
 			hosts = CheckLive(ctx, hosts, false, session)
 		}
 		totalAlive += len(hosts)
@@ -181,7 +188,7 @@ func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *comm
 		s.scanHostBatch(ctx, session, hosts, info, pluginsToRun, isCustomMode, ch, wg)
 	}
 
-	if sawHosts && s.shouldReportAliveCount(config) {
+	if sawHosts && performedLiveness {
 		session.LogInfo(i18n.Tr("alive_hosts_count_info", totalAlive))
 	}
 
@@ -232,10 +239,6 @@ func (s *ServiceScanStrategy) scanHostBatch(ctx context.Context, session *common
 			}
 		}
 	}
-}
-
-func (s *ServiceScanStrategy) shouldReportAliveCount(config *common.Config) bool {
-	return !config.DisablePing
 }
 
 // dispatchUDPPlugins 分发UDP协议插件，跳过TCP端口扫描链路
@@ -341,7 +344,11 @@ func (s *ServiceScanStrategy) discoverTargets(ctx context.Context, hostInput str
 	config := session.Config
 	state := session.State
 	// 标准流程：解析目标主机
-	hosts, err := parsers.ParseIP(hostInput, session.Params.HostsFile, session.Params.ExcludeHosts)
+	excludes, err := loadHostExcludes(session.Params)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("parse_target_failed"), err)
+	}
+	hosts, err := parsers.ParseIP(hostInput, session.Params.HostsFile, excludes...)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", i18n.GetText("parse_target_failed"), err)
 	}

@@ -124,7 +124,7 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 	body, err := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
 	contentLen := len(body)
-	if contentLen <= 0 && err != nil {
+	if err != nil {
 		return "", resp.StatusCode, 0, resp.Header.Get("Server"), nil, displayURL, err
 	}
 
@@ -133,7 +133,7 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 	checkDataList = append(checkDataList, WebScan.CheckDatas{
 		Body:    body,
 		Headers: p.formatHeaders(resp.Header),
-		Favicon: p.fetchFaviconHash(baseURL),
+		Favicon: p.fetchFaviconHash(ctx, baseURL),
 	})
 
 	title := p.extractTitle(string(body))
@@ -153,15 +153,14 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 					reqRedirect.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 					respRedirect, err := clientR.Do(reqRedirect)
 					if err == nil {
-						bodyRedirect, _ := io.ReadAll(respRedirect.Body)
+						bodyRedirect, err := io.ReadAll(respRedirect.Body)
 						_ = respRedirect.Body.Close()
-
-						if len(bodyRedirect) > 0 {
+						if err == nil && len(bodyRedirect) > 0 {
 							// 添加跳转后页面的指纹数据
 							checkDataList = append(checkDataList, WebScan.CheckDatas{
 								Body:    bodyRedirect,
 								Headers: p.formatHeaders(respRedirect.Header),
-								Favicon: p.fetchFaviconHash(redirectURL),
+								Favicon: p.fetchFaviconHash(ctx, redirectURL),
 							})
 
 							// 如果原始页面没有标题，使用跳转后页面的标题
@@ -314,7 +313,7 @@ func (p *WebTitlePlugin) extractTitle(html string) string {
 }
 
 // fetchFaviconHash 下载 favicon.ico 并计算 hash
-func (p *WebTitlePlugin) fetchFaviconHash(baseURL string) fingerprint.FaviconHashes {
+func (p *WebTitlePlugin) fetchFaviconHash(ctx context.Context, baseURL string) fingerprint.FaviconHashes {
 	// 构造 favicon URL
 	u, err := url.Parse(baseURL)
 	if err != nil {
@@ -323,7 +322,7 @@ func (p *WebTitlePlugin) fetchFaviconHash(baseURL string) fingerprint.FaviconHas
 	faviconURL := fmt.Sprintf("%s://%s/favicon.ico", u.Scheme, u.Host)
 
 	// 请求 favicon
-	req, err := http.NewRequest("GET", faviconURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", faviconURL, nil)
 	if err != nil {
 		return fingerprint.FaviconHashes{}
 	}
