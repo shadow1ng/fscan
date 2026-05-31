@@ -43,7 +43,7 @@ flag_password:
 flag_add_users:
   other: "Additional usernames"
 flag_add_passwords:
-  other: "Additional passwords"
+  other: "Additional passwords, separated by commas or spaces"
 flag_users_file:
   other: "Username dictionary file"
 flag_passwords_file:

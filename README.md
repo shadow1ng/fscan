@@ -212,6 +212,8 @@ yay -S fscan-git
 `fscan.exe -h 192.168.x.x -m ssh -user root -pwd password`
 ![](image/3.png)
 
+`fscan.exe -h 192.168.x.x -m ssh -user root -pwda pass1 pass2 pass3` (追加多个密码)
+
 `fscan.exe -h 192.168.x.x -p80 -proxy http://127.0.0.1:8080`
 ![](image/2020-12-12-13-34-44.png)
 

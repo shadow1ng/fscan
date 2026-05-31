@@ -43,7 +43,7 @@ flag_password:
 flag_add_users:
   other: "额外用户名"
 flag_add_passwords:
-  other: "额外密码"
+  other: "额外密码，支持逗号或空格分隔多个值"
 flag_users_file:
   other: "用户名字典文件"
 flag_passwords_file:

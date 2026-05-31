@@ -227,13 +227,72 @@ func Flag(Info *HostInfo) error {
 
 // parseCommandLineArgs 解析命令行参数
 func parseCommandLineArgs() error {
-	flag.Parse()
+	if err := flag.CommandLine.Parse(normalizeMultiValueFlagArgs(os.Args[1:], "-pwda")); err != nil {
+		return err
+	}
 
 	// 显示Banner
 	Banner()
 
 	// 检查参数冲突
 	return checkParameterConflicts()
+}
+
+func normalizeMultiValueFlagArgs(args []string, names ...string) []string {
+	multiValueFlags := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		multiValueFlags[name] = struct{}{}
+	}
+
+	normalized := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		name, value, ok := splitMultiValueFlag(arg, multiValueFlags)
+		if !ok {
+			normalized = append(normalized, arg)
+			continue
+		}
+
+		values := []string{}
+		if value != "" {
+			values = append(values, value)
+		}
+
+		j := i + 1
+		for ; j < len(args); j++ {
+			if strings.HasPrefix(args[j], "-") {
+				break
+			}
+			values = append(values, args[j])
+		}
+		i = j - 1
+
+		if strings.Contains(arg, "=") {
+			normalized = append(normalized, name+"="+strings.Join(values, ","))
+		} else {
+			normalized = append(normalized, name)
+			if len(values) > 0 {
+				normalized = append(normalized, strings.Join(values, ","))
+			}
+		}
+	}
+
+	return normalized
+}
+
+func splitMultiValueFlag(arg string, names map[string]struct{}) (string, string, bool) {
+	if _, ok := names[arg]; ok {
+		return arg, "", true
+	}
+
+	for name := range names {
+		prefix := name + "="
+		if strings.HasPrefix(arg, prefix) {
+			return name, strings.TrimPrefix(arg, prefix), true
+		}
+	}
+
+	return "", "", false
 }
 
 // preProcessLanguage 预处理语言参数，在定义flag之前设置语言

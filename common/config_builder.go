@@ -124,7 +124,7 @@ func parsePasswords(fv *FlagVars) []string {
 
 	// 命令行密码
 	if fv.Password != "" {
-		passwords = append(passwords, strings.Split(fv.Password, ",")...)
+		passwords = append(passwords, splitCredentialValues(fv.Password)...)
 	}
 
 	// 从文件读取
@@ -138,10 +138,25 @@ func parsePasswords(fv *FlagVars) []string {
 
 	// 额外密码
 	if fv.AddPasswords != "" {
-		passwords = append(passwords, strings.Split(fv.AddPasswords, ",")...)
+		passwords = append(passwords, splitCredentialValues(fv.AddPasswords)...)
 	}
 
 	return removeDuplicate(passwords)
+}
+
+func splitCredentialValues(input string) []string {
+	fields := strings.FieldsFunc(input, func(r rune) bool {
+		return r == ',' || r == ' ' || r == '\t' || r == '\n' || r == '\r'
+	})
+
+	values := make([]string, 0, len(fields))
+	for _, field := range fields {
+		field = strings.TrimSpace(field)
+		if field != "" {
+			values = append(values, field)
+		}
+	}
+	return values
 }
 
 func parseUserPassPairs(fv *FlagVars) ([]config.CredentialPair, error) {
