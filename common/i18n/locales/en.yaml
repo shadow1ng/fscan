@@ -71,7 +71,7 @@ flag_max_redirects:
 flag_http_proxy:
   other: "HTTP proxy"
 flag_socks5_proxy:
-  other: "Use SOCKS5 proxy (e.g.: 127.0.0.1:1080)"
+  other: "Use SOCKS5 proxy (e.g.: 127.0.0.1:1080 or socks5://user:pass@127.0.0.1:1080)"
 flag_iface:
   other: "Specify local interface IP address (VPN scenario, e.g.: 10.8.0.5)"
 flag_poc_path:

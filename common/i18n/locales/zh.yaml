@@ -71,7 +71,7 @@ flag_max_redirects:
 flag_http_proxy:
   other: "HTTP代理"
 flag_socks5_proxy:
-  other: "使用SOCKS5代理 (如: 127.0.0.1:1080)"
+  other: "使用SOCKS5代理 (如: 127.0.0.1:1080 或 socks5://user:pass@127.0.0.1:1080)"
 flag_iface:
   other: "指定本地网卡IP地址 (VPN场景，如: 10.8.0.5)"
 flag_poc_path:

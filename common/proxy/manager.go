@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/url"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -156,6 +155,9 @@ func (m *manager) createDirectDialer() Dialer {
 func (m *manager) createSOCKS5Dialer() (Dialer, error) {
 	// 检查缓存
 	cacheKey := fmt.Sprintf(CacheKeySOCKS5, m.config.Address)
+	if m.config.Username != "" || m.config.Password != "" {
+		cacheKey = fmt.Sprintf("%s_%s_%s", cacheKey, m.config.Username, m.config.Password)
+	}
 	m.cacheMu.RLock()
 	if time.Now().Before(m.cacheExpiry) {
 		if cached, exists := m.dialerCache[cacheKey]; exists {
@@ -165,18 +167,6 @@ func (m *manager) createSOCKS5Dialer() (Dialer, error) {
 	}
 	m.cacheMu.RUnlock()
 
-	// 解析代理地址
-	proxyURL := fmt.Sprintf(SOCKS5URLFormat, m.config.Address)
-	if m.config.Username != "" {
-		proxyURL = fmt.Sprintf(SOCKS5URLAuthFormat,
-			m.config.Username, m.config.Password, m.config.Address)
-	}
-
-	u, err := url.Parse(proxyURL)
-	if err != nil {
-		return nil, NewProxyError(ErrTypeConfig, ErrMsgSOCKS5ParseFailed, ErrCodeSOCKS5ParseFailed, err)
-	}
-
 	// 创建基础拨号器
 	baseDial := &net.Dialer{
 		Timeout:   m.config.Timeout,
@@ -185,16 +175,14 @@ func (m *manager) createSOCKS5Dialer() (Dialer, error) {
 
 	// 创建SOCKS5拨号器
 	var auth *proxy.Auth
-	if u.User != nil {
+	if m.config.Username != "" || m.config.Password != "" {
 		auth = &proxy.Auth{
-			User: u.User.Username(),
-		}
-		if password, hasPassword := u.User.Password(); hasPassword {
-			auth.Password = password
+			User:     m.config.Username,
+			Password: m.config.Password,
 		}
 	}
 
-	socksDialer, err := proxy.SOCKS5(NetworkTCP, u.Host, auth, baseDial)
+	socksDialer, err := proxy.SOCKS5(NetworkTCP, m.config.Address, auth, baseDial)
 	if err != nil {
 		return nil, NewProxyError(ErrTypeConnection, ErrMsgSOCKS5CreateFailed, ErrCodeSOCKS5CreateFailed, err)
 	}

@@ -214,6 +214,8 @@ yay -S fscan-git
 `fscan.exe -h 192.168.x.x -p80 -proxy http://127.0.0.1:8080`
 ![](image/2020-12-12-13-34-44.png)
 
+`fscan.exe -h 192.168.x.x -socks5 socks5://user:pass@127.0.0.1:1080` (SOCKS5 proxy with authentication)
+
 `fscan.exe -h 192.168.x.x -p 139 -m netbios`
 ![](image/netbios.png)
 
