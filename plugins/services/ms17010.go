@@ -143,11 +143,11 @@ func (p *MS17010Plugin) Exploit(ctx context.Context, info *common.HostInfo, cred
 		switch config.Shellcode {
 		case "bind":
 			output.WriteString("\n" + i18n.GetText("ms17010_exploit_bind_hint") + "\n")
-			output.WriteString(fmt.Sprintf("  nc %s 64531\n", info.Host))
+			fmt.Fprintf(&output, "  nc %s 64531\n", info.Host)
 		case "add":
 			output.WriteString("\n" + i18n.GetText("ms17010_exploit_add_hint") + "\n")
 			output.WriteString(i18n.GetText("ms17010_exploit_add_credential") + "\n")
-			output.WriteString(fmt.Sprintf("  RDP: mstsc /v:%s\n", info.Host))
+			fmt.Fprintf(&output, "  RDP: mstsc /v:%s\n", info.Host)
 		case "guest":
 			output.WriteString("\n" + i18n.GetText("ms17010_exploit_guest_hint") + "\n")
 		}

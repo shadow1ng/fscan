@@ -145,7 +145,7 @@ func (p *SmbPlugin) testUnauthorizedAccess(ctx context.Context, info *common.Hos
 			}
 			output.WriteString(i18n.Tr("smb_anonymous_access_detail", target, displayUser, cred.Password))
 			for _, share := range shareInfo {
-				output.WriteString(fmt.Sprintf("\n%s", share))
+				fmt.Fprintf(&output, "\n%s", share)
 			}
 
 			common.LogSuccess(output.String())

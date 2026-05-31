@@ -57,10 +57,10 @@ func (p *FTPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 		// 成功后重新连接获取文件列表
 		fileList := p.getFileListAfterAuth(info, result.Username, result.Password, config, state)
 		var output strings.Builder
-		output.WriteString(fmt.Sprintf("FTP %s %s:%s", target, result.Username, result.Password))
+		fmt.Fprintf(&output, "FTP %s %s:%s", target, result.Username, result.Password)
 		if len(fileList) > 0 {
 			for _, file := range fileList {
-				output.WriteString(fmt.Sprintf("\n   [->] %s", file))
+				fmt.Fprintf(&output, "\n   [->] %s", file)
 			}
 		}
 		session.LogVuln(output.String())
@@ -205,7 +205,7 @@ func (p *FTPPlugin) testAnonymousAccess(ctx context.Context, info *common.HostIn
 			output.WriteString(i18n.Tr("ftp_anonymous_access_detail", target, cred.Username, cred.Password))
 			if len(fileList) > 0 {
 				for _, file := range fileList {
-					output.WriteString(fmt.Sprintf("\n   [->] %s", file))
+					fmt.Fprintf(&output, "\n   [->] %s", file)
 				}
 			}
 			session.LogVuln(output.String())

@@ -63,49 +63,51 @@ func (s *AliveScanStrategy) Execute(ctx context.Context, session *common.ScanSes
 
 	// 执行存活探测
 	s.performAliveScan(ctx, info, session)
-
-	// 输出统计信息
-	s.outputStats(session)
 }
 
 // performAliveScan 执行存活探测
 func (s *AliveScanStrategy) performAliveScan(ctx context.Context, info common.HostInfo, session *common.ScanSession) {
-	// 解析目标主机
-	hosts, err := parsers.ParseIP(info.Host, session.Params.HostsFile, session.Params.ExcludeHosts)
+	iter, err := parsers.NewHostIterator(info.Host, session.Params.HostsFile, session.Params.ExcludeHosts)
 	if err != nil {
 		session.LogError(i18n.Tr("parse_target_failed", err))
 		return
 	}
+	defer func() {
+		_ = iter.Close()
+	}()
 
-	if len(hosts) == 0 {
+	s.stats.TotalHosts = 0
+	s.stats.AliveHosts = 0
+	s.stats.DeadHosts = 0
+
+	for {
+		hosts, err := iter.NextBatch(ctx, targetHostBatchSize(session.Config))
+		if err != nil {
+			session.LogError(i18n.Tr("parse_target_failed", err))
+			return
+		}
+		if len(hosts) == 0 {
+			break
+		}
+
+		s.stats.TotalHosts += len(hosts)
+		aliveList := CheckLive(ctx, hosts, false, session)
+		s.stats.AliveHosts += len(aliveList)
+		for _, host := range aliveList {
+			session.LogSuccess(fmt.Sprintf("alive %s", host))
+		}
+	}
+
+	if s.stats.TotalHosts == 0 {
 		session.LogError(i18n.GetText("parse_error_no_hosts"))
 		return
 	}
 
-	// 初始化统计信息
-	s.stats.TotalHosts = len(hosts)
-	s.stats.AliveHosts = 0
-	s.stats.DeadHosts = 0
-
-	// 执行存活检测
-	aliveList := CheckLive(ctx, hosts, false, session) // 使用ICMP探测
-
-	// 更新统计信息
-	s.stats.AliveHosts = len(aliveList)
 	s.stats.DeadHosts = s.stats.TotalHosts - s.stats.AliveHosts
 	s.stats.ScanDuration = time.Since(s.startTime)
-	s.stats.AliveHostList = aliveList // 存储存活主机列表
 
 	if s.stats.TotalHosts > 0 {
 		s.stats.SuccessRate = float64(s.stats.AliveHosts) / float64(s.stats.TotalHosts) * 100
-	}
-}
-
-// outputStats 输出统计信息（精简版）
-func (s *AliveScanStrategy) outputStats(session *common.ScanSession) {
-	// 只输出存活主机列表，不输出冗余统计
-	for _, host := range s.stats.AliveHostList {
-		session.LogSuccess(fmt.Sprintf("alive %s", host))
 	}
 }
 

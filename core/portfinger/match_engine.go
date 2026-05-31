@@ -15,7 +15,7 @@ func BytesToRegexSafeString(b []byte) string {
 	for _, c := range b {
 		if c < 32 || c >= 128 {
 			// 控制字符和高位字节转换为 \x{NN} 格式
-			result.WriteString(fmt.Sprintf("\\x{%02x}", c))
+			fmt.Fprintf(&result, "\\x{%02x}", c)
 		} else {
 			result.WriteByte(c)
 		}

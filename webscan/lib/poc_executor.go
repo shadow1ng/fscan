@@ -899,7 +899,7 @@ func CheckInfoPoc(infostr string) string {
 func GetHeader(header map[string]string) string {
 	var builder strings.Builder
 	for name, values := range header {
-		builder.WriteString(fmt.Sprintf("%s: %s\n", name, values))
+		fmt.Fprintf(&builder, "%s: %s\n", name, values)
 	}
 	builder.WriteString("\r\n")
 	return builder.String()

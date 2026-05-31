@@ -145,46 +145,76 @@ func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *comm
 	config := session.Config
 	state := session.State
 
-	// 解析目标主机
-	hosts, err := parsers.ParseIP(info.Host, session.Params.HostsFile, session.Params.ExcludeHosts)
+	iter, err := parsers.NewHostIterator(info.Host, session.Params.HostsFile, session.Params.ExcludeHosts)
 	if err != nil {
 		session.LogError(fmt.Sprintf("%s: %v", i18n.GetText("parse_target_failed"), err))
 		return
 	}
+	defer func() {
+		_ = iter.Close()
+	}()
 
-	// 主机存活检测
-	if s.shouldPerformLivenessCheck(hosts, config) {
-		hosts = CheckLive(ctx, hosts, false, session)
-		session.LogInfo(i18n.Tr("alive_hosts_count_info", len(hosts)))
+	pluginsToRun, isCustomMode := s.GetPlugins(config)
+	totalAlive := 0
+	sawHosts := false
+
+	for {
+		hosts, err := iter.NextBatch(ctx, targetHostBatchSize(config))
+		if err != nil {
+			session.LogError(fmt.Sprintf("%s: %v", i18n.GetText("parse_target_failed"), err))
+			return
+		}
+		if len(hosts) == 0 {
+			break
+		}
+		sawHosts = true
+
+		if s.shouldPerformLivenessCheck(hosts, config) {
+			hosts = CheckLive(ctx, hosts, false, session)
+		}
+		totalAlive += len(hosts)
+		if len(hosts) == 0 {
+			continue
+		}
+
+		s.dispatchUDPPlugins(ctx, session, hosts, info, config, ch, wg)
+		s.scanHostBatch(ctx, session, hosts, info, pluginsToRun, isCustomMode, ch, wg)
 	}
 
-	if len(hosts) == 0 && len(state.GetHostPorts()) == 0 {
+	if sawHosts && s.shouldReportAliveCount(config) {
+		session.LogInfo(i18n.Tr("alive_hosts_count_info", totalAlive))
+	}
+
+	if !sawHosts && len(state.GetHostPorts()) == 0 {
 		return
 	}
 
-	// UDP 插件并行分发：直接对存活主机发协议探测包，不走端口扫描
-	if len(hosts) > 0 {
-		s.dispatchUDPPlugins(ctx, session, hosts, info, config, ch, wg)
+	// 合并预设的 host:port
+	hostPorts := state.GetHostPorts()
+	if len(hostPorts) > 0 {
+		merged := mergeHostPorts(nil, hostPorts)
+		targets := s.convertToTargetInfos(merged, info)
+		for _, target := range targets {
+			for _, pluginName := range pluginsToRun {
+				if s.IsPluginApplicableByName(pluginName, target.Host, target.Port, isCustomMode, config) {
+					executeScanTask(ctx, session, pluginName, target, ch, wg)
+				}
+			}
+		}
+		state.ClearHostPorts()
 	}
+}
 
-	// 流式 channel：端口扫描发现开放端口后立即通知插件执行
+func (s *ServiceScanStrategy) scanHostBatch(ctx context.Context, session *common.ScanSession, hosts []string, info common.HostInfo, pluginsToRun []string, isCustomMode bool, ch chan struct{}, wg *sync.WaitGroup) {
+	config := session.Config
 	stream := make(chan string, 64)
 
-	// 启动端口扫描 goroutine
-	go func() {
-		if len(hosts) > 0 {
-			EnhancedPortScan(ctx, hosts, config.Target.Ports, int64(config.Timeout.Seconds()), session, stream)
-		} else {
-			close(stream)
-		}
-	}()
+	go EnhancedPortScan(ctx, hosts, config.Target.Ports, int64(config.Timeout.Seconds()), session, stream)
 
-	// pipeline 消费：边收开放端口边执行插件
-	pluginsToRun, isCustomMode := s.GetPlugins(config)
 	cancelled := false
 	for addr := range stream {
 		if cancelled {
-			continue // ctx 已取消，排空 stream 防止写端阻塞
+			continue
 		}
 		select {
 		case <-ctx.Done():
@@ -202,21 +232,10 @@ func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *comm
 			}
 		}
 	}
+}
 
-	// 合并预设的 host:port
-	hostPorts := state.GetHostPorts()
-	if len(hostPorts) > 0 {
-		merged := mergeHostPorts(nil, hostPorts)
-		targets := s.convertToTargetInfos(merged, info)
-		for _, target := range targets {
-			for _, pluginName := range pluginsToRun {
-				if s.IsPluginApplicableByName(pluginName, target.Host, target.Port, isCustomMode, config) {
-					executeScanTask(ctx, session, pluginName, target, ch, wg)
-				}
-			}
-		}
-		state.ClearHostPorts()
-	}
+func (s *ServiceScanStrategy) shouldReportAliveCount(config *common.Config) bool {
+	return !config.DisablePing
 }
 
 // dispatchUDPPlugins 分发UDP协议插件，跳过TCP端口扫描链路

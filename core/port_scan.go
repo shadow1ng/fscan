@@ -437,7 +437,7 @@ func buildServiceLogMessage(addr string, serviceInfo *ServiceInfo, isWeb bool) s
 		info = append(info, fmt.Sprintf("Version:%s", serviceInfo.Version))
 	}
 	if len(info) > 0 {
-		msg.WriteString(fmt.Sprintf(" [%s]", strings.Join(info, " ||")))
+		fmt.Fprintf(&msg, " [%s]", strings.Join(info, " ||"))
 	}
 
 	// Banner 信息
@@ -446,7 +446,7 @@ func buildServiceLogMessage(addr string, serviceInfo *ServiceInfo, isWeb bool) s
 		if len(banner) > 80 {
 			banner = banner[:80] + "..."
 		}
-		msg.WriteString(fmt.Sprintf(" Banner:(%s)", banner))
+		fmt.Fprintf(&msg, " Banner:(%s)", banner)
 	}
 
 	return msg.String()
