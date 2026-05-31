@@ -5,7 +5,6 @@ package services
 import (
 	"context"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"time"
 
@@ -27,7 +26,7 @@ func (p *ModbusPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 		timeout = 3 * time.Second
 	}
 
-	addr := fmt.Sprintf("%s:%d", info.Host, info.Port)
+	addr := info.Target()
 	conn, err := session.DialTCP(ctx, "tcp", addr, timeout)
 	if err != nil {
 		return &ScanResult{Success: false, Service: "modbus"}

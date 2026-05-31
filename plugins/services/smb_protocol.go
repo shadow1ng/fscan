@@ -203,7 +203,7 @@ var (
 
 // probeTarget 探测目标SMB信息（协议版本、系统信息）
 func probeTarget(ctx context.Context, host string, port int, timeout time.Duration, session *common.ScanSession) (*SMBTarget, error) {
-	target := fmt.Sprintf("%s:%d", host, port)
+	target := net.JoinHostPort(host, strconv.Itoa(port))
 
 	conn, err := session.DialTCP(ctx, "tcp", target, timeout)
 	if err != nil {
@@ -485,7 +485,7 @@ func (a *SMB2Authenticator) Authenticate(ctx context.Context, host string, port 
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	conn, err := session.DialTCP(ctx, "tcp", fmt.Sprintf("%s:%d", host, port), timeout)
+	conn, err := session.DialTCP(ctx, "tcp", net.JoinHostPort(host, strconv.Itoa(port)), timeout)
 	if err != nil {
 		return &AuthResult{
 			Success:   false,

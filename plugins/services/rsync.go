@@ -125,11 +125,23 @@ func (p *RsyncPlugin) doRsyncAuth(ctx context.Context, info *common.HostInfo, cr
 	}
 
 	// 提取第一个模块名
-	firstModuleLine := modules[0]
-	firstModule := strings.Fields(firstModuleLine)[0]
+	var firstModule string
+	for _, moduleLine := range modules {
+		if fields := strings.Fields(moduleLine); len(fields) > 0 {
+			firstModule = fields[0]
+			break
+		}
+	}
+	if firstModule == "" {
+		return &AuthResult{
+			Success:   false,
+			ErrorType: ErrorTypeUnknown,
+			Error:     fmt.Errorf("%s", i18n.GetText("rsync_modules_failed")),
+		}
+	}
 
 	// 使用 go-rsync 库进行认证测试
-	address := fmt.Sprintf("%s:%d", info.Host, info.Port)
+	address := info.Target()
 	dummyFS := &dummyStorage{}
 
 	_, err := rsync.SocketClient(

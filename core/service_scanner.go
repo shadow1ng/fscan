@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"sync"
@@ -422,15 +423,21 @@ func (s *ServiceScanStrategy) convertToTargetInfos(ports []string, baseInfo comm
 	var infos []common.HostInfo
 
 	for _, targetIP := range ports {
-		hostParts := strings.Split(targetIP, ":")
-		if len(hostParts) != 2 {
+		targetIP = strings.TrimSpace(targetIP)
+		host, portStr, err := net.SplitHostPort(targetIP)
+		if err != nil && strings.Count(targetIP, ":") == 1 {
+			parts := strings.SplitN(targetIP, ":", 2)
+			host, portStr = parts[0], parts[1]
+			err = nil
+		}
+		if err != nil {
 			common.LogError(i18n.Tr("invalid_target_format", targetIP))
 			continue
 		}
 
 		// 去除空格并过滤空值
-		host := strings.TrimSpace(hostParts[0])
-		portStr := strings.TrimSpace(hostParts[1])
+		host = strings.TrimSpace(host)
+		portStr = strings.TrimSpace(portStr)
 		if host == "" || portStr == "" {
 			common.LogError(i18n.Tr("invalid_target_format", targetIP))
 			continue

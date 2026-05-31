@@ -96,7 +96,7 @@ type oracleSummary struct {
 }
 
 func oracleRawAuth(ctx context.Context, host string, port int, serviceName, username, password string, timeout time.Duration) error {
-	addr := fmt.Sprintf("%s:%d", host, port)
+	addr := net.JoinHostPort(host, strconv.Itoa(port))
 	dialer := net.Dialer{Timeout: timeout}
 	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {

@@ -28,7 +28,7 @@ func (p *SNMPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 		timeout = 3 * time.Second
 	}
 
-	target := fmt.Sprintf("%s:%d", info.Host, info.Port)
+	target := info.Target()
 
 	result := p.probe(ctx, target, "public", timeout, session)
 	if result == nil {
@@ -257,4 +257,3 @@ func init() {
 		return NewSNMPPlugin()
 	}, []int{161})
 }
-

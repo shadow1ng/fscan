@@ -71,7 +71,7 @@ func (p *Neo4jPlugin) createAuthFunc(info *common.HostInfo, session *common.Scan
 // doNeo4jAuth 执行Neo4j认证
 func (p *Neo4jPlugin) doNeo4jAuth(ctx context.Context, info *common.HostInfo, cred Credential, session *common.ScanSession) *AuthResult {
 	config := session.Config
-	baseURL := fmt.Sprintf("http://%s:%d", info.Host, info.Port)
+	baseURL := "http://" + info.Target()
 
 	client := &http.Client{Timeout: config.Timeout}
 
@@ -147,7 +147,7 @@ func classifyNeo4jErrorType(err error) ErrorType {
 
 func (p *Neo4jPlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
-	baseURL := fmt.Sprintf("http://%s:%d", info.Host, info.Port)
+	baseURL := "http://" + info.Target()
 
 	client := &http.Client{Timeout: config.Timeout}
 
@@ -192,7 +192,7 @@ func (p *Neo4jPlugin) testUnauthorizedAccess(ctx context.Context, info *common.H
 func (p *Neo4jPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
 	target := info.Target()
-	baseURL := fmt.Sprintf("http://%s:%d", info.Host, info.Port)
+	baseURL := "http://" + info.Target()
 
 	client := &http.Client{Timeout: config.Timeout}
 

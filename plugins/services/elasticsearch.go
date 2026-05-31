@@ -88,7 +88,7 @@ func (p *ElasticsearchPlugin) testCredential(ctx context.Context, info *common.H
 	if info.Port == 9443 {
 		protocol = "https"
 	}
-	url := fmt.Sprintf("%s://%s:%d/", protocol, info.Host, info.Port)
+	url := fmt.Sprintf("%s://%s/", protocol, info.Target())
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {

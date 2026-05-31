@@ -84,7 +84,7 @@ const (
 )
 
 func (p *CassandraPlugin) doCassandraAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
-	addr := fmt.Sprintf("%s:%d", info.Host, info.Port)
+	addr := info.Target()
 	timeout := config.Timeout
 
 	dialer := net.Dialer{Timeout: timeout}
@@ -251,7 +251,7 @@ func classifyCassandraErrorType(err error) ErrorType {
 
 func (p *CassandraPlugin) tryNoAuthConnection(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
 	target := info.Target()
-	addr := fmt.Sprintf("%s:%d", info.Host, info.Port)
+	addr := info.Target()
 	timeout := config.Timeout
 
 	dialer := net.Dialer{Timeout: timeout}
@@ -297,7 +297,7 @@ func (p *CassandraPlugin) tryNoAuthConnection(ctx context.Context, info *common.
 
 func (p *CassandraPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
 	target := info.Target()
-	addr := fmt.Sprintf("%s:%d", info.Host, info.Port)
+	addr := info.Target()
 	timeout := config.Timeout
 
 	dialer := net.Dialer{Timeout: timeout}

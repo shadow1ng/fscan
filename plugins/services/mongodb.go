@@ -83,7 +83,7 @@ func (p *MongoDBPlugin) createAuthFunc(info *common.HostInfo, config *common.Con
 // ── raw TCP MongoDB SCRAM 认证 ──────────────────────────────────
 
 func (p *MongoDBPlugin) doMongoDBAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
-	addr := fmt.Sprintf("%s:%d", info.Host, info.Port)
+	addr := info.Target()
 	timeout := config.Timeout
 
 	conn, err := dialTCP(ctx, addr, timeout)
@@ -384,7 +384,7 @@ func (p *MongoDBPlugin) identifyService(ctx context.Context, info *common.HostIn
 }
 
 func (p *MongoDBPlugin) mongodbUnauth(ctx context.Context, info *common.HostInfo, session *common.ScanSession) (bool, error) {
-	realhost := fmt.Sprintf("%s:%d", info.Host, info.Port)
+	realhost := info.Target()
 
 	reply, err := p.checkMongoAuth(ctx, realhost, createOpMsgPacket(), session)
 	if err != nil {

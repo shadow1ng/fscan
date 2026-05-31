@@ -25,7 +25,7 @@ func (p *IPMIPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 		timeout = 3 * time.Second
 	}
 
-	target := fmt.Sprintf("%s:%d", info.Host, info.Port)
+	target := info.Target()
 
 	if result := p.rmcpPing(ctx, target, timeout, session); result != nil {
 		return result
@@ -42,15 +42,15 @@ func (p *IPMIPlugin) rmcpPing(ctx context.Context, target string, timeout time.D
 
 	// ASF Presence Ping: RMCP header + ASF message
 	ping := []byte{
-		0x06,       // RMCP version 1.0
-		0x00,       // reserved
-		0xff,       // sequence number (no ack)
-		0x06,       // class = ASF
+		0x06,                   // RMCP version 1.0
+		0x00,                   // reserved
+		0xff,                   // sequence number (no ack)
+		0x06,                   // class = ASF
 		0x00, 0x00, 0x11, 0xbe, // IANA enterprise = ASF (4542)
-		0x80,       // message type = Presence Ping
-		0x00,       // message tag
-		0x00,       // reserved
-		0x00,       // data length = 0
+		0x80, // message type = Presence Ping
+		0x00, // message tag
+		0x00, // reserved
+		0x00, // data length = 0
 	}
 
 	if _, err := conn.Write(ping); err != nil {
@@ -108,16 +108,16 @@ func (p *IPMIPlugin) getChannelAuth(conn interface {
 		0x00, 0x00, 0x00, 0x00, // auth type = none
 		0x00, 0x00, 0x00, 0x00, // session seq
 		0x00, 0x00, 0x00, 0x00, // session id
-		0x09,                   // message length
-		0x20,                   // target = BMC
-		0x18,                   // netFn=App(6) << 2 | lun=0
-		0xc8,                   // checksum
-		0x81,                   // source
-		0x00,                   // seq
-		0x38,                   // cmd = Get Channel Auth Capabilities
-		0x8e,                   // channel=14 (current), IPMI v2.0
-		0x04,                   // privilege = Administrator
-		0xb5,                   // checksum
+		0x09, // message length
+		0x20, // target = BMC
+		0x18, // netFn=App(6) << 2 | lun=0
+		0xc8, // checksum
+		0x81, // source
+		0x00, // seq
+		0x38, // cmd = Get Channel Auth Capabilities
+		0x8e, // channel=14 (current), IPMI v2.0
+		0x04, // privilege = Administrator
+		0xb5, // checksum
 	}
 
 	if _, err := conn.Write(pkt); err != nil {

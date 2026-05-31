@@ -8,6 +8,7 @@ import (
 	"net"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -704,7 +705,7 @@ func tcpProbeAlive(ctx context.Context, session *common.ScanSession, host string
 	result := make(chan bool, len(tcpProbeCommonPorts))
 	for _, port := range tcpProbeCommonPorts {
 		go func(p int) {
-			addr := fmt.Sprintf("%s:%d", host, p)
+			addr := net.JoinHostPort(host, strconv.Itoa(p))
 			conn, err := session.DialTCP(ctx, "tcp", addr, tcpProbeTimeout)
 			if err == nil {
 				_ = conn.Close()

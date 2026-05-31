@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -673,7 +674,7 @@ func processServiceResult(ctx context.Context, host string, port int, addr strin
 	_ = session.SaveResult(&output.ScanResult{
 		Time:    time.Now(),
 		Type:    output.TypeService,
-		Target:  fmt.Sprintf("%s:%d", host, port),
+		Target:  net.JoinHostPort(host, strconv.Itoa(port)),
 		Status:  "identified",
 		Details: details,
 	})
@@ -741,7 +742,7 @@ func tryHTTPFallbackDetection(ctx context.Context, host string, port int, addr s
 	_ = session.SaveResult(&output.ScanResult{
 		Time:    time.Now(),
 		Type:    output.TypeService,
-		Target:  fmt.Sprintf("%s:%d", host, port),
+		Target:  net.JoinHostPort(host, strconv.Itoa(port)),
 		Status:  "identified",
 		Details: details,
 	})
@@ -812,7 +813,7 @@ func probeSubnets(ctx context.Context, hosts []string, timeout time.Duration, se
 						_ = conn.Close()
 						aliveSubnets.Store(pfx, true)
 					}
-				}(prefix, fmt.Sprintf("%s:%d", gw, port))
+				}(prefix, net.JoinHostPort(gw, strconv.Itoa(port)))
 			}
 		}
 	}
@@ -845,7 +846,7 @@ func probeSubnets(ctx context.Context, hosts []string, timeout time.Duration, se
 
 			go func(pfx, h string, p int) {
 				defer func() { <-limiter; wg.Done() }()
-				conn, err := session.DialTCP(ctx, "tcp", fmt.Sprintf("%s:%d", h, p), subnetProbeTimeout)
+				conn, err := session.DialTCP(ctx, "tcp", net.JoinHostPort(h, strconv.Itoa(p)), subnetProbeTimeout)
 				if err == nil {
 					_ = conn.Close()
 					aliveSubnets.Store(pfx, true)

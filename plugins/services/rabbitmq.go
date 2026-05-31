@@ -6,7 +6,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -81,7 +83,7 @@ func (p *RabbitMQPlugin) doRabbitMQAuth(ctx context.Context, info *common.HostIn
 		}
 	}
 
-	baseURL := fmt.Sprintf("http://%s:%d", info.Host, port)
+	baseURL := "http://" + net.JoinHostPort(info.Host, strconv.Itoa(port))
 	client := &http.Client{Timeout: config.Timeout}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/api/overview", nil)
@@ -162,7 +164,7 @@ func (p *RabbitMQPlugin) testUnauthorizedAccess(ctx context.Context, info *commo
 		port = 15672
 	}
 
-	baseURL := fmt.Sprintf("http://%s:%d", info.Host, port)
+	baseURL := "http://" + net.JoinHostPort(info.Host, strconv.Itoa(port))
 	client := &http.Client{Timeout: config.Timeout}
 
 	// 测试无认证访问
@@ -261,7 +263,7 @@ func (p *RabbitMQPlugin) identifyService(ctx context.Context, info *common.HostI
 func (p *RabbitMQPlugin) testManagementInterface(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
 	target := info.Target()
-	baseURL := fmt.Sprintf("http://%s:%d", info.Host, info.Port)
+	baseURL := "http://" + info.Target()
 
 	client := &http.Client{Timeout: config.Timeout}
 

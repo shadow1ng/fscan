@@ -545,11 +545,25 @@ func TestConvertToTargetInfos(t *testing.T) {
 			},
 		},
 		{
-			name:         "IPv6地址",
+			name:         "裸IPv6地址缺少方括号",
 			ports:        []string{"::1:8080"},
 			baseInfo:     common.HostInfo{},
-			expectedLen:  0, // Split会产生多个部分，被判定为非法
+			expectedLen:  0,
 			validateFunc: nil,
+		},
+		{
+			name:        "IPv6地址",
+			ports:       []string{"[2001:db8::1]:8080"},
+			baseInfo:    common.HostInfo{},
+			expectedLen: 1,
+			validateFunc: func(t *testing.T, infos []common.HostInfo) {
+				if infos[0].Host != "2001:db8::1" {
+					t.Errorf("Host = %q, 期望 '2001:db8::1'", infos[0].Host)
+				}
+				if infos[0].Port != 8080 {
+					t.Errorf("Port = %d, 期望 8080", infos[0].Port)
+				}
+			},
 		},
 		{
 			name:        "域名+端口",

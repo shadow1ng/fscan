@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"sync"
@@ -35,6 +36,20 @@ func escapeControlChars(s string) string {
 		}
 	}
 	return b.String()
+}
+
+func targetWithPort(target string, port interface{}) string {
+	if port == nil {
+		return target
+	}
+	if _, _, err := net.SplitHostPort(target); err == nil {
+		return target
+	}
+	portText := fmt.Sprint(port)
+	if strings.Count(target, ":") == 1 {
+		return target
+	}
+	return net.JoinHostPort(target, portText)
 }
 
 // =============================================================================
@@ -134,7 +149,7 @@ func (w *TXTWriter) formatLine(result *ScanResult) string {
 	case TypePort:
 		port := w.getDetail(result, "port")
 		if port != nil {
-			return fmt.Sprintf("%s:%v", result.Target, port)
+			return targetWithPort(result.Target, port)
 		}
 		return result.Target
 	case TypeService:
@@ -167,12 +182,7 @@ func (w *TXTWriter) formatServiceLine(result *ScanResult) string {
 	}
 
 	// 非Web服务：ip:port service banner
-	target := result.Target
-	if !strings.Contains(target, ":") {
-		if port := w.getDetail(result, "port"); port != nil {
-			target = fmt.Sprintf("%s:%v", target, port)
-		}
-	}
+	target := targetWithPort(result.Target, w.getDetail(result, "port"))
 
 	var parts []string
 	parts = append(parts, target)
@@ -191,12 +201,7 @@ func (w *TXTWriter) formatServiceLine(result *ScanResult) string {
 
 // formatWebServiceLine 格式化Web服务结果
 func (w *TXTWriter) formatWebServiceLine(result *ScanResult) string {
-	target := result.Target
-	if !strings.Contains(target, ":") {
-		if port := w.getDetail(result, "port"); port != nil {
-			target = fmt.Sprintf("%s:%v", target, port)
-		}
-	}
+	target := targetWithPort(result.Target, w.getDetail(result, "port"))
 
 	url := fmt.Sprintf("%s://%s", w.webProtocol(result, target), target)
 	title := w.getDetailStr(result, "title")
@@ -364,12 +369,7 @@ func (w *TXTWriter) writeWebServices() {
 			continue
 		}
 
-		target := result.Target
-		if !strings.Contains(target, ":") {
-			if port := w.getDetail(result, "port"); port != nil {
-				target = fmt.Sprintf("%s:%v", target, port)
-			}
-		}
+		target := targetWithPort(result.Target, w.getDetail(result, "port"))
 
 		urls = append(urls, fmt.Sprintf("%s://%s", w.webProtocol(result, target), target))
 	}
@@ -745,10 +745,8 @@ func (w *CSVWriter) formatServiceRecord(result *ScanResult) []string {
 		}
 	}
 	target := result.Target
-	if !strings.Contains(target, ":") {
-		if p, ok := result.Details["port"]; ok {
-			target = fmt.Sprintf("%s:%v", target, p)
-		}
+	if result.Details != nil {
+		target = targetWithPort(target, result.Details["port"])
 	}
 	return []string{target, service, version, title, status, server, fingerprints, banner}
 }

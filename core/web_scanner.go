@@ -38,7 +38,7 @@ func DetectHTTPSchemeContext(ctx context.Context, host string, port int, config 
 	}
 
 	timeout := config.Network.WebTimeout
-	addr := fmt.Sprintf("%s:%d", host, port)
+	addr := net.JoinHostPort(host, strconv.Itoa(port))
 
 	// 第一步：尝试标准TLS握手（优先检测HTTPS）
 	tlsDialer := &net.Dialer{Timeout: timeout}
@@ -179,15 +179,10 @@ func isPortReachable(ctx context.Context, host string, port int, config *common.
 // tryHTTP 尝试HTTP请求 - 简化的核心逻辑
 func (w *WebPortDetector) tryHTTP(ctx context.Context, client *http.Client, session *common.ScanSession, host string, port int, protocol string) bool {
 	// 构造URL
-	var url string
-	if (port == 80 && protocol == "http") || (port == 443 && protocol == "https") {
-		url = fmt.Sprintf("%s://%s", protocol, host)
-	} else {
-		url = fmt.Sprintf("%s://%s:%d", protocol, host, port)
-	}
+	targetURL := (&url.URL{Scheme: protocol, Host: net.JoinHostPort(host, strconv.Itoa(port))}).String()
 
 	// 发送HEAD请求
-	req, err := http.NewRequestWithContext(ctx, "HEAD", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "HEAD", targetURL, nil)
 	if err != nil {
 		return false
 	}
@@ -266,7 +261,7 @@ func IsWebServiceByFingerprint(serviceInfo *ServiceInfo) bool {
 
 // MarkAsWebService 标记Web服务 - 保持API兼容
 func MarkAsWebService(host string, port int, serviceInfo *ServiceInfo) {
-	cacheKey := fmt.Sprintf("%s:%d", host, port)
+	cacheKey := net.JoinHostPort(host, strconv.Itoa(port))
 
 	webCacheMutex.Lock()
 	defer webCacheMutex.Unlock()
@@ -276,7 +271,7 @@ func MarkAsWebService(host string, port int, serviceInfo *ServiceInfo) {
 
 // GetWebServiceInfo 获取Web服务信息
 func GetWebServiceInfo(host string, port int) (*ServiceInfo, bool) {
-	cacheKey := fmt.Sprintf("%s:%d", host, port)
+	cacheKey := net.JoinHostPort(host, strconv.Itoa(port))
 
 	webCacheMutex.RLock()
 	defer webCacheMutex.RUnlock()

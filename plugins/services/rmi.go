@@ -29,7 +29,7 @@ func (p *RMIPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 		timeout = 3 * time.Second
 	}
 
-	addr := fmt.Sprintf("%s:%d", info.Host, info.Port)
+	addr := info.Target()
 	conn, err := session.DialTCP(ctx, "tcp", addr, timeout)
 	if err != nil {
 		return &ScanResult{Success: false, Service: "rmi"}

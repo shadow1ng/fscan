@@ -2,7 +2,8 @@ package common
 
 import (
 	"errors"
-	"fmt"
+	"net"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -30,7 +31,7 @@ type HostInfo struct {
 
 // Target 返回 host:port 格式字符串
 func (h *HostInfo) Target() string {
-	return fmt.Sprintf("%s:%d", h.Host, h.Port)
+	return net.JoinHostPort(h.Host, strconv.Itoa(h.Port))
 }
 
 // =============================================================================

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -76,8 +77,8 @@ func (p *MySQLPlugin) createAuthFunc(info *common.HostInfo, config *common.Confi
 
 // doMySQLAuth 执行MySQL认证
 func (p *MySQLPlugin) doMySQLAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
-	connStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/information_schema?charset=utf8&timeout=%ds",
-		cred.Username, cred.Password, info.Host, info.Port, int64(config.Timeout.Seconds()))
+	connStr := fmt.Sprintf("%s:%s@tcp(%s)/information_schema?charset=utf8&timeout=%ds",
+		cred.Username, cred.Password, net.JoinHostPort(info.Host, strconv.Itoa(info.Port)), int64(config.Timeout.Seconds()))
 
 	db, err := sql.Open("mysql", connStr)
 	if err != nil {

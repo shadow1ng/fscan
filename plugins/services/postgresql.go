@@ -6,6 +6,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
+	"strconv"
 	"strings"
 
 	_ "github.com/lib/pq" // PostgreSQL driver
@@ -71,8 +73,7 @@ func (p *PostgreSQLPlugin) createAuthFunc(info *common.HostInfo, config *common.
 
 // doPostgreSQLAuth 执行PostgreSQL认证
 func (p *PostgreSQLPlugin) doPostgreSQLAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
-	connStr := fmt.Sprintf("postgres://%s:%s@%s:%d/postgres?sslmode=disable&connect_timeout=%d",
-		cred.Username, cred.Password, info.Host, info.Port, int64(config.Timeout.Seconds()))
+	connStr := postgreSQLConnString(cred.Username, cred.Password, info, int64(config.Timeout.Seconds()))
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -148,10 +149,27 @@ func classifyPostgreSQLErrorType(err error) ErrorType {
 	return ClassifyError(err, pgAuthErrors, pgNetworkErrors)
 }
 
+func postgreSQLConnString(username, password string, info *common.HostInfo, timeoutSeconds int64) string {
+	u := &url.URL{
+		Scheme: "postgres",
+		Host:   info.Target(),
+		Path:   "postgres",
+	}
+	if password == "" {
+		u.User = url.User(username)
+	} else {
+		u.User = url.UserPassword(username, password)
+	}
+	q := u.Query()
+	q.Set("sslmode", "disable")
+	q.Set("connect_timeout", strconv.FormatInt(timeoutSeconds, 10))
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
 // testUnauthorizedAccess 测试PostgreSQL未授权访问
 func (p *PostgreSQLPlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
-	connStr := fmt.Sprintf("postgres://postgres@%s:%d/postgres?sslmode=disable&connect_timeout=%d",
-		info.Host, info.Port, int64(config.Timeout.Seconds()))
+	connStr := postgreSQLConnString("postgres", "", info, int64(config.Timeout.Seconds()))
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -204,8 +222,7 @@ func (p *PostgreSQLPlugin) testUnauthorizedAccess(ctx context.Context, info *com
 func (p *PostgreSQLPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
 	target := info.Target()
 
-	connStr := fmt.Sprintf("postgres://invalid:invalid@%s:%d/postgres?sslmode=disable&connect_timeout=%d",
-		info.Host, info.Port, int64(config.Timeout.Seconds()))
+	connStr := postgreSQLConnString("invalid", "invalid", info, int64(config.Timeout.Seconds()))
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {

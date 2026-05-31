@@ -114,6 +114,26 @@ func TestBuildTargetURL(t *testing.T) {
 			expected:    "http://test.example.com:9090",
 			expectError: false,
 		},
+		{
+			name: "ipv6 builds bracketed host and port",
+			hostInfo: &common.HostInfo{
+				Host: "2001:db8::1",
+				Port: 8080,
+				URL:  "",
+			},
+			expected:    "http://[2001:db8::1]:8080",
+			expectError: false,
+		},
+		{
+			name: "ipv6 url without protocol keeps brackets",
+			hostInfo: &common.HostInfo{
+				Host: "2001:db8::1",
+				Port: 443,
+				URL:  "[2001:db8::1]:443/admin",
+			},
+			expected:    "http://[2001:db8::1]:443",
+			expectError: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -190,8 +210,8 @@ func TestHasProtocolPrefix(t *testing.T) {
 		{"only http", "http://", true},
 		{"only https", "https://", true},
 		{"http in middle", "example.http://com", false},
-		{"uppercase HTTP", "HTTP://example.com", false}, // 区分大小写
-		{"uppercase HTTPS", "HTTPS://example.com", false},
+		{"uppercase HTTP", "HTTP://example.com", true},
+		{"uppercase HTTPS", "HTTPS://example.com", true},
 		{"ftp protocol", "ftp://example.com", false},
 		{"http no slashes", "http:example.com", false},
 		{"partial prefix", "http:/example.com", false},

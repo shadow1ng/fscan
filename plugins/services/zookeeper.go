@@ -4,7 +4,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -26,7 +25,7 @@ func (p *ZooKeeperPlugin) Scan(ctx context.Context, info *common.HostInfo, sessi
 		timeout = 3 * time.Second
 	}
 
-	addr := fmt.Sprintf("%s:%d", info.Host, info.Port)
+	addr := info.Target()
 	conn, err := session.DialTCP(ctx, "tcp", addr, timeout)
 	if err != nil {
 		return &ScanResult{Success: false, Service: "zookeeper"}

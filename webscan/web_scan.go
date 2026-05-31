@@ -5,6 +5,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -104,7 +105,7 @@ func WebScan(ctx context.Context, info *common.HostInfo, cfg *common.Config) {
 func buildTargetURL(info *common.HostInfo) (string, error) {
 	// 自动构建URL
 	if info.URL == "" {
-		info.URL = fmt.Sprintf("%s%s:%d", protocolHTTP, info.Host, info.Port)
+		info.URL = protocolHTTP + net.JoinHostPort(info.Host, fmt.Sprint(info.Port))
 	} else if !hasProtocolPrefix(info.URL) {
 		info.URL = protocolHTTP + info.URL
 	}
@@ -120,6 +121,7 @@ func buildTargetURL(info *common.HostInfo) (string, error) {
 
 // hasProtocolPrefix 检查URL是否包含协议前缀
 func hasProtocolPrefix(urlStr string) bool {
+	urlStr = strings.ToLower(urlStr)
 	return strings.HasPrefix(urlStr, protocolHTTP) || strings.HasPrefix(urlStr, protocolHTTPS)
 }
 

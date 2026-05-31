@@ -133,7 +133,7 @@ func DefaultConcurrentTestConfig(config *common.Config) ConcurrentTestConfig {
 // DefaultConcurrentTestConfigWithTarget 带目标预检的默认配置
 func DefaultConcurrentTestConfigWithTarget(config *common.Config, info *common.HostInfo) ConcurrentTestConfig {
 	cfg := DefaultConcurrentTestConfig(config)
-	cfg.TargetAddr = fmt.Sprintf("%s:%d", info.Host, info.Port)
+	cfg.TargetAddr = info.Target()
 	return cfg
 }
 

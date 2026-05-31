@@ -374,15 +374,17 @@ func optimizeCookies(rawCookie string) string {
 	var output strings.Builder
 
 	// 解析Cookie键值对
-	pairs := strings.Split(rawCookie, "; ")
+	pairs := strings.Split(rawCookie, ";")
 	for _, pair := range pairs {
+		pair = strings.TrimSpace(pair)
 		nameVal := strings.SplitN(pair, "=", 2)
 		if len(nameVal) < 2 {
 			continue
 		}
+		name := strings.TrimSpace(nameVal[0])
 
 		// 跳过Cookie属性
-		switch strings.ToLower(nameVal[0]) {
+		switch strings.ToLower(name) {
 		case "expires", "max-age", "path", "domain",
 			"version", "comment", "secure", "samesite", "httponly":
 			continue
@@ -392,9 +394,9 @@ func optimizeCookies(rawCookie string) string {
 		if output.Len() > 0 {
 			output.WriteString("; ")
 		}
-		output.WriteString(nameVal[0])
+		output.WriteString(name)
 		output.WriteString("=")
-		output.WriteString(strings.Join(nameVal[1:], "="))
+		output.WriteString(nameVal[1])
 	}
 
 	return output.String()

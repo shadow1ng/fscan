@@ -26,7 +26,7 @@ func (p *TFTPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 		timeout = 3 * time.Second
 	}
 
-	target := fmt.Sprintf("%s:%d", info.Host, info.Port)
+	target := info.Target()
 	conn, err := session.DialUDP(ctx, target, timeout)
 	if err != nil {
 		return &ScanResult{Success: false, Service: "tftp"}

@@ -5,7 +5,6 @@ package services
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"time"
 
@@ -29,7 +28,7 @@ func (p *JDWPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 		timeout = 3 * time.Second
 	}
 
-	addr := fmt.Sprintf("%s:%d", info.Host, info.Port)
+	addr := info.Target()
 	conn, err := session.DialTCP(ctx, "tcp", addr, timeout)
 	if err != nil {
 		return &ScanResult{Success: false, Service: "jdwp"}
@@ -57,16 +56,20 @@ func (p *JDWPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 	}
 }
 
-func (p *JDWPPlugin) getVersion(conn interface{ Read([]byte) (int, error); Write([]byte) (int, error); SetDeadline(time.Time) error }, timeout time.Duration) string {
+func (p *JDWPPlugin) getVersion(conn interface {
+	Read([]byte) (int, error)
+	Write([]byte) (int, error)
+	SetDeadline(time.Time) error
+}, timeout time.Duration) string {
 	_ = conn.SetDeadline(time.Now().Add(timeout))
 
 	// JDWP Version command: length=11, id=1, flags=0, commandSet=1, command=1
 	pkt := []byte{
 		0x00, 0x00, 0x00, 0x0b, // length = 11
 		0x00, 0x00, 0x00, 0x01, // id = 1
-		0x00,                   // flags = 0 (request)
-		0x01,                   // commandSet = 1 (VirtualMachine)
-		0x01,                   // command = 1 (Version)
+		0x00, // flags = 0 (request)
+		0x01, // commandSet = 1 (VirtualMachine)
+		0x01, // command = 1 (Version)
 	}
 	if _, err := conn.Write(pkt); err != nil {
 		return ""

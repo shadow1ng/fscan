@@ -65,7 +65,7 @@ func (p *KafkaPlugin) createAuthFunc(info *common.HostInfo, config *common.Confi
 // ── raw TCP Kafka 实现 ──────────────────────────────────────────
 
 func (p *KafkaPlugin) doKafkaAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
-	target := fmt.Sprintf("%s:%d", info.Host, info.Port)
+	target := info.Target()
 	timeout := config.Timeout
 
 	dialer := net.Dialer{Timeout: timeout}

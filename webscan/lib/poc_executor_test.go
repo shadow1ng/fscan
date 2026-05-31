@@ -182,6 +182,16 @@ func TestOptimizeCookies(t *testing.T) {
 			want: "sid=simple",
 		},
 		{
+			name: "分号后无空格",
+			raw:  "token=xyz;user=admin;Path=/app;HttpOnly",
+			want: "token=xyz; user=admin",
+		},
+		{
+			name: "键名周围空格",
+			raw:  " token =xyz; user =admin; Path =/",
+			want: "token=xyz; user=admin",
+		},
+		{
 			name: "空字符串",
 			raw:  "",
 			want: "",

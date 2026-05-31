@@ -3,9 +3,9 @@ package core
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -264,7 +264,7 @@ func (s *SmartPortInfoScanner) reconnectIfNeeded() {
 	}
 
 	// 重新建立连接
-	newConn, err := s.session.DialTCP(s.info.ctx, "tcp", fmt.Sprintf("%s:%d", s.Address, s.Port), s.Timeout)
+	newConn, err := s.session.DialTCP(s.info.ctx, "tcp", net.JoinHostPort(s.Address, strconv.Itoa(s.Port)), s.Timeout)
 	if err != nil {
 		return
 	}
@@ -542,7 +542,7 @@ func (i *Info) Write(msg []byte) error {
 		_ = oldConn.Close()
 
 		// 尝试重新连接 - 支持SOCKS5代理
-		newConn, retryErr := i.session.DialTCP(i.ctx, "tcp", fmt.Sprintf("%s:%d", i.Address, i.Port), time.Duration(6)*time.Second)
+		newConn, retryErr := i.session.DialTCP(i.ctx, "tcp", net.JoinHostPort(i.Address, strconv.Itoa(i.Port)), time.Duration(6)*time.Second)
 		if retryErr != nil {
 			return retryErr
 		}

@@ -5,7 +5,6 @@ package services
 import (
 	"context"
 	"encoding/binary"
-	"fmt"
 	"time"
 
 	"github.com/shadow1ng/fscan/common"
@@ -28,7 +27,7 @@ func (p *BACnetPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 		timeout = 3 * time.Second
 	}
 
-	target := fmt.Sprintf("%s:%d", info.Host, info.Port)
+	target := info.Target()
 	conn, err := session.DialUDP(ctx, target, timeout)
 	if err != nil {
 		return &ScanResult{Success: false, Service: "bacnet"}

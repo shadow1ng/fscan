@@ -1,9 +1,6 @@
 package output
 
-import (
-	"fmt"
-	"sync"
-)
+import "sync"
 
 // ResultBuffer 公共的去重缓冲逻辑，供各Writer复用
 type ResultBuffer struct {
@@ -103,7 +100,7 @@ func (b *ResultBuffer) generateKey(result *ScanResult) string {
 	case TypePort:
 		if result.Details != nil {
 			if port, ok := result.Details["port"]; ok {
-				return fmt.Sprintf("%s:%v", result.Target, port)
+				return targetWithPort(result.Target, port)
 			}
 		}
 		return result.Target
