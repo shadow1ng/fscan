@@ -9,9 +9,9 @@ import (
 
 	"github.com/shadow1ng/fscan/common"
 	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/mylib/grdp/glog"
-	"github.com/shadow1ng/fscan/mylib/grdp/login"
-	"github.com/shadow1ng/fscan/mylib/grdp/protocol/x224"
+	"github.com/shadow1ng/fscan/libs/grdp/glog"
+	"github.com/shadow1ng/fscan/libs/grdp/login"
+	"github.com/shadow1ng/fscan/libs/grdp/protocol/x224"
 	"github.com/shadow1ng/fscan/plugins"
 )
 

@@ -103,7 +103,7 @@ func createProxyConfig(timeout time.Duration) *proxy.ProxyConfig {
 // TCP 连接
 // =============================================================================
 
-// Deprecated: WrapperTcpWithTimeout 仅供 mylib/grdp 兼容使用，新代码请用 ScanSession.DialTCP
+// Deprecated: WrapperTcpWithTimeout 仅供 libs/grdp 兼容使用，新代码请用 ScanSession.DialTCP
 //
 //nolint:revive
 func WrapperTcpWithTimeout(network, address string, timeout time.Duration) (net.Conn, error) {
