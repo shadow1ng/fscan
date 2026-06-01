@@ -71,7 +71,7 @@ func (p *KeyloggerPlugin) Scan(ctx context.Context, info *common.HostInfo, sessi
 	}
 
 	// 启动键盘记录
-	err := p.startKeylogging(ctx, outputFile)
+	err := p.startKeylogging(ctx, outputFile, session)
 	if err != nil {
 		output.WriteString(i18n.Tr("keylogger_failed", err) + "\n")
 		return &plugins.Result{
@@ -86,7 +86,7 @@ func (p *KeyloggerPlugin) Scan(ctx context.Context, info *common.HostInfo, sessi
 	output.WriteString(i18n.Tr("keylogger_event_count", len(p.keyBuffer)) + "\n")
 	output.WriteString(i18n.Tr("keylogger_log_file", outputFile) + "\n")
 
-	common.LogSuccess(i18n.Tr("keylogger_success", len(p.keyBuffer)))
+	session.LogSuccess(i18n.Tr("keylogger_success", len(p.keyBuffer)))
 
 	return &plugins.Result{
 		Success: true,
@@ -97,7 +97,7 @@ func (p *KeyloggerPlugin) Scan(ctx context.Context, info *common.HostInfo, sessi
 }
 
 // startKeylogging 启动键盘记录
-func (p *KeyloggerPlugin) startKeylogging(ctx context.Context, outputFile string) error {
+func (p *KeyloggerPlugin) startKeylogging(ctx context.Context, outputFile string, session *common.ScanSession) error {
 
 	// 根据平台启动相应的键盘记录
 	var err error
@@ -117,8 +117,8 @@ func (p *KeyloggerPlugin) startKeylogging(ctx context.Context, outputFile string
 	}
 
 	// 保存到文件
-	if err := p.saveKeysToFile(outputFile); err != nil {
-		common.LogError(i18n.Tr("keylogger_save_failed", err))
+	if err := p.saveKeysToFile(outputFile, session); err != nil {
+		session.LogError(i18n.Tr("keylogger_save_failed", err))
 	}
 
 	return nil
@@ -159,12 +159,12 @@ func (p *KeyloggerPlugin) addKeyToBuffer(key string) {
 }
 
 // saveKeysToFile 保存键盘记录到文件
-func (p *KeyloggerPlugin) saveKeysToFile(outputFile string) error {
+func (p *KeyloggerPlugin) saveKeysToFile(outputFile string, session *common.ScanSession) error {
 	p.bufferMutex.RLock()
 	defer p.bufferMutex.RUnlock()
 
 	if len(p.keyBuffer) == 0 {
-		common.LogInfo(i18n.GetText("keylogger_no_input"))
+		session.LogInfo(i18n.GetText("keylogger_no_input"))
 		return nil
 	}
 

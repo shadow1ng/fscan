@@ -32,11 +32,11 @@ func (p *CassandraPlugin) Scan(ctx context.Context, info *common.HostInfo, sessi
 	target := info.Target()
 
 	if config.DisableBrute {
-		return p.identifyService(ctx, info, config, state)
+		return p.identifyService(ctx, info, session)
 	}
 
 	// 先尝试无认证连接
-	if result := p.tryNoAuthConnection(ctx, info, config, state); result != nil && result.Success {
+	if result := p.tryNoAuthConnection(ctx, info, session); result != nil && result.Success {
 		return result
 	}
 
@@ -55,7 +55,7 @@ func (p *CassandraPlugin) Scan(ctx context.Context, info *common.HostInfo, sessi
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "cassandra", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("cassandra_credential", target, result.Username, result.Password))
+		session.LogVuln(i18n.Tr("cassandra_credential", target, result.Username, result.Password))
 	}
 
 	return result
@@ -249,7 +249,9 @@ func classifyCassandraErrorType(err error) ErrorType {
 
 // ── 无认证 + 服务识别 ──────────────────────────────────────────
 
-func (p *CassandraPlugin) tryNoAuthConnection(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *CassandraPlugin) tryNoAuthConnection(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 	addr := info.Target()
 	timeout := config.Timeout
@@ -286,7 +288,7 @@ func (p *CassandraPlugin) tryNoAuthConnection(ctx context.Context, info *common.
 	state.IncrementTCPSuccessPacketCount()
 	dummy := extractClusterName(body)
 
-	common.LogVuln(i18n.Tr("cassandra_unauth", target))
+	session.LogVuln(i18n.Tr("cassandra_unauth", target))
 	return &ScanResult{
 		Type:    plugins.ResultTypeService,
 		Success: true,
@@ -295,7 +297,9 @@ func (p *CassandraPlugin) tryNoAuthConnection(ctx context.Context, info *common.
 	}
 }
 
-func (p *CassandraPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *CassandraPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 	addr := info.Target()
 	timeout := config.Timeout
@@ -323,12 +327,12 @@ func (p *CassandraPlugin) identifyService(ctx context.Context, info *common.Host
 
 	if opcode == cqlOpAuthChl {
 		banner := i18n.GetText("cassandra_auth_required")
-		common.LogSuccess(i18n.Tr("cassandra_service", target, banner))
+		session.LogSuccess(i18n.Tr("cassandra_service", target, banner))
 		return &ScanResult{Type: plugins.ResultTypeService, Success: true, Service: "cassandra", Banner: banner}
 	}
 
 	banner := "Cassandra"
-	common.LogSuccess(i18n.Tr("cassandra_service", target, banner))
+	session.LogSuccess(i18n.Tr("cassandra_service", target, banner))
 	return &ScanResult{Type: plugins.ResultTypeService, Success: true, Service: "cassandra", Banner: banner}
 }
 

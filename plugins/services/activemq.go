@@ -55,7 +55,7 @@ func (p *ActiveMQPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "activemq", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("activemq_credential", target, result.Username, result.Password))
+		session.LogVuln(i18n.Tr("activemq_credential", target, result.Username, result.Password))
 	}
 
 	return result
@@ -254,7 +254,7 @@ func (p *ActiveMQPlugin) identifyService(ctx context.Context, info *common.HostI
 			}
 		}
 
-		common.LogSuccess(i18n.Tr("activemq_service", target, banner))
+		session.LogSuccess(i18n.Tr("activemq_service", target, banner))
 
 		return &ScanResult{
 			Success: true,

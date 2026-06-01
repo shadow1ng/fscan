@@ -40,7 +40,7 @@ func (p *RsyncPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 
 	// 检测未授权访问
 	if result := p.testUnauthorizedAccess(ctx, info, session); result != nil && result.Success {
-		common.LogSuccess(i18n.Tr("rsync_service", target, result.Banner))
+		session.LogSuccess(i18n.Tr("rsync_service", target, result.Banner))
 		findings = append(findings, result.Banner)
 	}
 
@@ -75,7 +75,7 @@ func (p *RsyncPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 	result := TestCredentialsConcurrently(ctx, creds, authFn, "rsync", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("rsync_credential", target, result.Username, result.Password))
+		session.LogVuln(i18n.Tr("rsync_credential", target, result.Username, result.Password))
 		return result
 	}
 
@@ -390,7 +390,7 @@ func (p *RsyncPlugin) identifyService(ctx context.Context, info *common.HostInfo
 		}
 	}
 
-	common.LogSuccess(i18n.Tr("rsync_service", target, banner))
+	session.LogSuccess(i18n.Tr("rsync_service", target, banner))
 
 	return &ScanResult{
 		Success: true,

@@ -65,9 +65,9 @@ func (p *WebTitlePlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 
 	// 有指纹用绿色，无指纹用白色
 	if len(fingerprints) > 0 {
-		common.LogSuccess(msg)
+		session.LogSuccess(msg)
 	} else {
-		common.LogInfo(msg)
+		session.LogInfo(msg)
 	}
 
 	return &WebScanResult{
@@ -175,7 +175,7 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 	}
 
 	// 执行指纹识别（合并原始响应和跳转后响应的指纹）
-	fingerprints := p.identifyFingerprintsMulti(ctx, info, baseURL, checkDataList, config)
+	fingerprints := p.identifyFingerprintsMulti(ctx, info, baseURL, checkDataList, config, session)
 
 	return title, statusCode, contentLen, server, fingerprints, displayURL, nil
 }
@@ -204,38 +204,38 @@ func (p *WebTitlePlugin) resolveRedirectURL(baseURL, location string) string {
 }
 
 // identifyFingerprintsMulti 识别多个响应的指纹并合并
-func (p *WebTitlePlugin) identifyFingerprintsMulti(ctx context.Context, info *common.HostInfo, baseURL string, checkDataList []WebScan.CheckDatas, config *common.Config) []string {
+func (p *WebTitlePlugin) identifyFingerprintsMulti(ctx context.Context, info *common.HostInfo, baseURL string, checkDataList []WebScan.CheckDatas, config *common.Config, session *common.ScanSession) []string {
 	// 调用指纹识别
 	fingerprints := WebScan.InfoCheck(baseURL, &checkDataList)
 
 	// 非全量模式下，基于指纹触发POC扫描
 	if !config.POC.Full && !config.POC.Disabled {
-		p.triggerPocScan(ctx, info, fingerprints, config)
+		p.triggerPocScan(ctx, info, fingerprints, config, session)
 	}
 
 	return fingerprints
 }
 
 // triggerPocScan 基于指纹触发POC扫描
-func (p *WebTitlePlugin) triggerPocScan(ctx context.Context, info *common.HostInfo, fingerprints []string, config *common.Config) {
+func (p *WebTitlePlugin) triggerPocScan(ctx context.Context, info *common.HostInfo, fingerprints []string, config *common.Config, session *common.ScanSession) {
 	target := info.Target()
 
 	// 无指纹，跳过
 	if len(fingerprints) == 0 {
-		common.LogDebug(i18n.Tr("webtitle_no_fingerprint_skip_poc", target))
+		session.LogDebug(i18n.Tr("webtitle_no_fingerprint_skip_poc", target))
 		return
 	}
 
 	// 检测CDN/WAF
 	if cdnName := matchCDNorWAF(fingerprints); cdnName != "" {
-		common.LogDebug(i18n.Tr("webtitle_cdn_waf_skip_poc", target, cdnName))
+		session.LogDebug(i18n.Tr("webtitle_cdn_waf_skip_poc", target, cdnName))
 		return
 	}
 
 	// 基于指纹执行POC扫描
-	common.LogDebug(i18n.Tr("webtitle_trigger_fingerprint_poc", target, fingerprints))
+	session.LogDebug(i18n.Tr("webtitle_trigger_fingerprint_poc", target, fingerprints))
 	info.Info = fingerprints
-	WebScan.WebScan(ctx, info, config)
+	WebScan.WebScan(ctx, info, config, session)
 }
 
 // formatHeaders 将 HTTP Header 格式化为字符串

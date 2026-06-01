@@ -38,7 +38,7 @@ func (p *RabbitMQPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 
 	// 先检测未授权访问
 	if result := p.testUnauthorizedAccess(ctx, info, session); result != nil && result.Success {
-		common.LogSuccess(i18n.Tr("rabbitmq_service", target, result.Banner))
+		session.LogSuccess(i18n.Tr("rabbitmq_service", target, result.Banner))
 		return result
 	}
 
@@ -58,7 +58,7 @@ func (p *RabbitMQPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "rabbitmq", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("rabbitmq_credential", target, result.Username, result.Password))
+		session.LogVuln(i18n.Tr("rabbitmq_credential", target, result.Username, result.Password))
 	}
 
 	return result
@@ -236,7 +236,7 @@ func (p *RabbitMQPlugin) testAMQPProtocol(ctx context.Context, info *common.Host
 
 	if string(buffer[:4]) == "AMQP" || (n >= 8 && buffer[0] == 0x01) {
 		banner := "RabbitMQ AMQP"
-		common.LogSuccess(i18n.Tr("rabbitmq_service", target, banner))
+		session.LogSuccess(i18n.Tr("rabbitmq_service", target, banner))
 		return &ScanResult{
 			Type:    plugins.ResultTypeService,
 			Success: true,
@@ -297,7 +297,7 @@ func (p *RabbitMQPlugin) testManagementInterface(ctx context.Context, info *comm
 		}
 		if strings.Contains(strings.ToLower(string(body)), "rabbitmq") {
 			banner := "RabbitMQ Management"
-			common.LogSuccess(i18n.Tr("rabbitmq_detected", target, banner))
+			session.LogSuccess(i18n.Tr("rabbitmq_detected", target, banner))
 			return &ScanResult{
 				Type:    plugins.ResultTypeService,
 				Success: true,

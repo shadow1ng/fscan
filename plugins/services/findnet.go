@@ -86,7 +86,7 @@ func (p *FindNetPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 		}
 		// 一次性输出所有行
 		if len(lines) > 0 {
-			common.LogSuccess(strings.Join(lines, "\n"))
+			session.LogSuccess(strings.Join(lines, "\n"))
 		}
 	}
 

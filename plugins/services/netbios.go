@@ -76,7 +76,7 @@ func (p *NetBIOSPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 	if netbiosInfo.Summary() != "" {
 		msg += fmt.Sprintf(" %s", netbiosInfo.Summary())
 	}
-	common.LogSuccess(msg)
+	session.LogSuccess(msg)
 
 	return &ScanResult{
 		Success: true,

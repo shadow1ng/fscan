@@ -129,7 +129,7 @@ func (p *CronTaskPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	output.WriteString("\n" + i18n.Tr("persistence_complete_summary", successCount, 5) + "\n")
 
 	if successCount > 0 {
-		common.LogSuccess(i18n.Tr("crontask_success", successCount))
+		session.LogSuccess(i18n.Tr("crontask_success", successCount))
 	}
 
 	return &plugins.Result{

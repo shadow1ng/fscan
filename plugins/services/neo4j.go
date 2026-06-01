@@ -35,7 +35,7 @@ func (p *Neo4jPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 
 	// 先测试未授权访问
 	if result := p.testUnauthorizedAccess(ctx, info, session); result != nil && result.Success {
-		common.LogVuln(i18n.Tr("neo4j_unauth", target))
+		session.LogVuln(i18n.Tr("neo4j_unauth", target))
 		return result
 	}
 
@@ -55,7 +55,7 @@ func (p *Neo4jPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "neo4j", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("neo4j_credential", target, result.Username, result.Password))
+		session.LogVuln(i18n.Tr("neo4j_credential", target, result.Username, result.Password))
 	}
 
 	return result
@@ -246,7 +246,7 @@ func (p *Neo4jPlugin) identifyService(ctx context.Context, info *common.HostInfo
 		}
 	}
 
-	common.LogSuccess(i18n.Tr("neo4j_service", target, banner))
+	session.LogSuccess(i18n.Tr("neo4j_service", target, banner))
 
 	return &ScanResult{
 		Type:    plugins.ResultTypeService,

@@ -51,10 +51,10 @@ func (p *Socks5ProxyPlugin) Scan(ctx context.Context, info *common.HostInfo, ses
 	output.WriteString(i18n.Tr("local_listen_port", port) + "\n")
 	output.WriteString(i18n.Tr("local_platform", runtime.GOOS) + "\n\n")
 
-	common.LogInfo(i18n.Tr("socks5_starting", port))
+	session.LogInfo(i18n.Tr("socks5_starting", port))
 
 	// 启动SOCKS5代理服务器
-	err := p.startSocks5Server(ctx, port, state)
+	err := p.startSocks5Server(ctx, port, state, session)
 	if err != nil {
 		output.WriteString(i18n.Tr("socks5_server_error", err) + "\n")
 		return &plugins.Result{
@@ -65,7 +65,7 @@ func (p *Socks5ProxyPlugin) Scan(ctx context.Context, info *common.HostInfo, ses
 	}
 
 	output.WriteString(i18n.GetText("socks5_done") + "\n")
-	common.LogSuccess(i18n.Tr("socks5_complete", port))
+	session.LogSuccess(i18n.Tr("socks5_complete", port))
 
 	return &plugins.Result{
 		Success: true,
@@ -76,7 +76,7 @@ func (p *Socks5ProxyPlugin) Scan(ctx context.Context, info *common.HostInfo, ses
 }
 
 // startSocks5Server 启动SOCKS5代理服务器 - 核心实现
-func (p *Socks5ProxyPlugin) startSocks5Server(ctx context.Context, port int, state *common.State) error {
+func (p *Socks5ProxyPlugin) startSocks5Server(ctx context.Context, port int, state *common.State, session *common.ScanSession) error {
 	// 监听指定端口
 	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
@@ -85,7 +85,7 @@ func (p *Socks5ProxyPlugin) startSocks5Server(ctx context.Context, port int, sta
 	defer func() { _ = listener.Close() }()
 
 	p.listener = listener
-	common.LogSuccess(i18n.Tr("socks5_started", port))
+	session.LogSuccess(i18n.Tr("socks5_started", port))
 
 	// 设置SOCKS5代理为活跃状态，告诉主程序保持运行
 	state.SetSocks5ProxyActive(true)
@@ -98,7 +98,7 @@ func (p *Socks5ProxyPlugin) startSocks5Server(ctx context.Context, port int, sta
 	for {
 		select {
 		case <-ctx.Done():
-			common.LogInfo(i18n.GetText("socks5_cancelled"))
+			session.LogInfo(i18n.GetText("socks5_cancelled"))
 			return ctx.Err()
 		default:
 		}
@@ -115,17 +115,17 @@ func (p *Socks5ProxyPlugin) startSocks5Server(ctx context.Context, port int, sta
 			if errors.As(err, &netErr) && netErr.Timeout() {
 				continue // 超时继续循环
 			}
-			common.LogError(i18n.Tr("socks5_accept_failed", err))
+			session.LogError(i18n.Tr("socks5_accept_failed", err))
 			continue
 		}
 
 		// 并发处理客户端连接
-		go p.handleClient(ctx, conn)
+		go p.handleClient(ctx, conn, session)
 	}
 }
 
 // handleClient 处理客户端连接
-func (p *Socks5ProxyPlugin) handleClient(ctx context.Context, clientConn net.Conn) {
+func (p *Socks5ProxyPlugin) handleClient(ctx context.Context, clientConn net.Conn, session *common.ScanSession) {
 	defer func() { _ = clientConn.Close() }()
 
 	// ctx 取消时关闭连接，解除阻塞的 IO
@@ -137,22 +137,22 @@ func (p *Socks5ProxyPlugin) handleClient(ctx context.Context, clientConn net.Con
 	// SOCKS5握手阶段
 	if err := p.handleSocks5Handshake(clientConn); err != nil {
 		if ctx.Err() == nil {
-			common.LogError(i18n.Tr("socks5_handshake_failed", err))
+			session.LogError(i18n.Tr("socks5_handshake_failed", err))
 		}
 		return
 	}
 
 	// SOCKS5请求阶段
-	targetConn, _, err := p.handleSocks5Request(clientConn)
+	targetConn, _, err := p.handleSocks5Request(clientConn, session)
 	if err != nil {
 		if ctx.Err() == nil {
-			common.LogError(i18n.Tr("socks5_request_failed", err))
+			session.LogError(i18n.Tr("socks5_request_failed", err))
 		}
 		return
 	}
 	defer func() { _ = targetConn.Close() }()
 
-	common.LogSuccess(i18n.GetText("socks5_connected"))
+	session.LogSuccess(i18n.GetText("socks5_connected"))
 
 	// 双向数据转发
 	p.relayData(clientConn, targetConn)
@@ -182,7 +182,7 @@ func (p *Socks5ProxyPlugin) handleSocks5Handshake(conn net.Conn) error {
 }
 
 // handleSocks5Request 处理SOCKS5连接请求
-func (p *Socks5ProxyPlugin) handleSocks5Request(clientConn net.Conn) (net.Conn, int, error) {
+func (p *Socks5ProxyPlugin) handleSocks5Request(clientConn net.Conn, session *common.ScanSession) (net.Conn, int, error) {
 	// 读取连接请求
 	buffer := make([]byte, 256)
 	n, err := clientConn.Read(buffer)
@@ -272,7 +272,7 @@ func (p *Socks5ProxyPlugin) handleSocks5Request(clientConn net.Conn) (net.Conn, 
 		return nil, 0, fmt.Errorf("%s: %w", i18n.GetText("socks5_success_response_failed"), err)
 	}
 
-	common.LogDebug(i18n.Tr("socks5_proxy_connection_established", targetAddr))
+	session.LogDebug(i18n.Tr("socks5_proxy_connection_established", targetAddr))
 	return targetConn, localPort, nil
 }
 

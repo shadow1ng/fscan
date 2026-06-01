@@ -107,8 +107,8 @@ func (p *WebPocPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 
 	// 全量模式：忽略指纹和CDN/WAF检测，直接扫描所有POC
 	target := info.Target()
-	common.LogDebug(i18n.Tr("webpoc_full_scan_mode", target))
-	WebScan.WebScan(ctx, info, config)
+	session.LogDebug(i18n.Tr("webpoc_full_scan_mode", target))
+	WebScan.WebScan(ctx, info, config, session)
 
 	return &WebScanResult{
 		Type:    plugins.ResultTypeWeb,

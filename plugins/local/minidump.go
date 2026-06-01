@@ -88,7 +88,7 @@ func (p *MiniDumpPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	_ = session.State
 	defer func() {
 		if r := recover(); r != nil {
-			common.LogError(i18n.Tr("minidump_panic", r))
+			session.LogError(i18n.Tr("minidump_panic", r))
 		}
 	}()
 
@@ -110,7 +110,7 @@ func (p *MiniDumpPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	// 方式1：直接 MiniDumpWriteDump（无杀软时尝试）
 	if !avActive {
 		output.WriteString(i18n.GetText("minidump_try_direct") + "\n")
-		if ok := p.tryDirectDump(ctx, pm, &output); ok {
+		if ok := p.tryDirectDump(ctx, pm, &output, session); ok {
 			return &plugins.Result{Success: true, Type: plugins.ResultTypeService, Output: output.String()}
 		}
 	} else {
@@ -119,13 +119,13 @@ func (p *MiniDumpPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 
 	// 方式2：comsvcs.dll（系统签名DLL，部分杀软不拦截）
 	output.WriteString(i18n.GetText("minidump_try_comsvcs") + "\n")
-	if ok := p.tryComsvcsDump(pm, &output); ok {
+	if ok := p.tryComsvcsDump(pm, &output, session); ok {
 		return &plugins.Result{Success: true, Type: plugins.ResultTypeService, Output: output.String()}
 	}
 
 	// 方式3：reg save 导出注册表 hive（离线破解，不碰 LSASS）
 	output.WriteString(i18n.GetText("minidump_try_regsave") + "\n")
-	if ok := p.tryRegSave(&output); ok {
+	if ok := p.tryRegSave(&output, session); ok {
 		return &plugins.Result{Success: true, Type: plugins.ResultTypeService, Output: output.String()}
 	}
 
@@ -133,7 +133,7 @@ func (p *MiniDumpPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	return &plugins.Result{Success: false, Output: output.String(), Error: errors.New(i18n.GetText("minidump_all_methods_failed"))}
 }
 
-func (p *MiniDumpPlugin) tryDirectDump(ctx context.Context, pm *ProcessManager, output *strings.Builder) bool {
+func (p *MiniDumpPlugin) tryDirectDump(ctx context.Context, pm *ProcessManager, output *strings.Builder, session *common.ScanSession) bool {
 	pid, err := pm.findProcess("lsass.exe")
 	if err != nil {
 		output.WriteString(i18n.Tr("minidump_find_lsass_failed", err) + "\n")
@@ -155,10 +155,10 @@ func (p *MiniDumpPlugin) tryDirectDump(ctx context.Context, pm *ProcessManager, 
 		return false
 	}
 
-	return p.reportSuccess(output, outputPath, i18n.GetText("minidump_method_direct"))
+	return p.reportSuccess(output, outputPath, i18n.GetText("minidump_method_direct"), session)
 }
 
-func (p *MiniDumpPlugin) tryComsvcsDump(pm *ProcessManager, output *strings.Builder) bool {
+func (p *MiniDumpPlugin) tryComsvcsDump(pm *ProcessManager, output *strings.Builder, session *common.ScanSession) bool {
 	pid, err := pm.findProcess("lsass.exe")
 	if err != nil {
 		output.WriteString(i18n.Tr("minidump_find_lsass_failed", err) + "\n")
@@ -175,10 +175,10 @@ func (p *MiniDumpPlugin) tryComsvcsDump(pm *ProcessManager, output *strings.Buil
 		return false
 	}
 
-	return p.reportSuccess(output, outputPath, "comsvcs.dll")
+	return p.reportSuccess(output, outputPath, "comsvcs.dll", session)
 }
 
-func (p *MiniDumpPlugin) tryRegSave(output *strings.Builder) bool {
+func (p *MiniDumpPlugin) tryRegSave(output *strings.Builder, session *common.ScanSession) bool {
 	files := map[string]string{
 		"SAM":      filepath.Join(".", "sam.hiv"),
 		"SECURITY": filepath.Join(".", "security.hiv"),
@@ -199,19 +199,19 @@ func (p *MiniDumpPlugin) tryRegSave(output *strings.Builder) bool {
 
 	if saved == 3 {
 		output.WriteString(i18n.GetText("minidump_regsave_done") + "\n")
-		common.LogSuccess(i18n.Tr("minidump_regsave_success"))
+		session.LogSuccess(i18n.Tr("minidump_regsave_success"))
 		return true
 	}
 	return false
 }
 
-func (p *MiniDumpPlugin) reportSuccess(output *strings.Builder, path, method string) bool {
+func (p *MiniDumpPlugin) reportSuccess(output *strings.Builder, path, method string, session *common.ScanSession) bool {
 	fi, err := os.Stat(path)
 	if err != nil || fi.Size() == 0 {
 		return false
 	}
 	output.WriteString(i18n.Tr("minidump_method_success", method, path, fi.Size()) + "\n")
-	common.LogSuccess(i18n.Tr("minidump_success", path, fi.Size()))
+	session.LogSuccess(i18n.Tr("minidump_success", path, fi.Size()))
 	return true
 }
 

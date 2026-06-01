@@ -61,7 +61,7 @@ func (p *WinRegistryPlugin) Scan(ctx context.Context, info *common.HostInfo, ses
 	}
 
 	if successCount > 0 {
-		common.LogSuccess(i18n.Tr("winregistry_success", successCount))
+		session.LogSuccess(i18n.Tr("winregistry_success", successCount))
 	}
 
 	return &plugins.Result{

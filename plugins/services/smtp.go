@@ -35,7 +35,7 @@ func (p *SMTPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 
 	// 检测未授权访问
 	if result := p.testUnauthorizedAccess(ctx, info, session); result != nil && result.Success {
-		common.LogSuccess(i18n.Tr("smtp_service", target, result.Banner))
+		session.LogSuccess(i18n.Tr("smtp_service", target, result.Banner))
 		return result
 	}
 
@@ -62,7 +62,7 @@ func (p *SMTPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 	result := TestCredentialsConcurrently(ctx, creds, authFn, "smtp", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("smtp_credential", target, result.Username, result.Password))
+		session.LogVuln(i18n.Tr("smtp_credential", target, result.Username, result.Password))
 	}
 
 	return result
@@ -536,7 +536,7 @@ func (p *SMTPPlugin) identifyService(ctx context.Context, info *common.HostInfo,
 		banner = i18n.GetText("smtp_mail_service")
 	}
 
-	common.LogSuccess(i18n.Tr("smtp_service", target, banner))
+	session.LogSuccess(i18n.Tr("smtp_service", target, banner))
 
 	return &ScanResult{
 		Success: true,

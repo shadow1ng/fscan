@@ -62,7 +62,7 @@ func (p *MySQLPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "mysql", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("mysql_credential", target, result.Username, result.Password))
+		session.LogVuln(i18n.Tr("mysql_credential", target, result.Username, result.Password))
 	}
 
 	return result
@@ -154,7 +154,7 @@ func (p *MySQLPlugin) identifyService(ctx context.Context, info *common.HostInfo
 	defer func() { _ = conn.Close() }()
 
 	if banner := p.readMySQLBanner(conn, session.Config); banner != "" {
-		common.LogSuccess(i18n.Tr("mysql_service", target, banner))
+		session.LogSuccess(i18n.Tr("mysql_service", target, banner))
 		return &ScanResult{
 			Type:    plugins.ResultTypeService,
 			Success: true,

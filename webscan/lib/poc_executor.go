@@ -52,6 +52,7 @@ type VulnResult struct {
 type POCContext struct {
 	DNSLog  bool // 是否启用DNSLog检测
 	POCFull bool // 是否完整POC扫描
+	Session *common.ScanSession
 }
 
 // CheckMultiPoc 并发执行多个POC检测
@@ -82,7 +83,7 @@ func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int, pocCtx *POCConte
 
 				// 处理执行过程中的错误
 				if err != nil {
-					common.LogError(i18n.Tr("webscan_poc_exec_error", task.Poc.Name, err))
+					pocCtx.Session.LogError(i18n.Tr("webscan_poc_exec_error", task.Poc.Name, err))
 					continue
 				}
 
@@ -117,7 +118,7 @@ func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int, pocCtx *POCConte
 						Status:  "vulnerable",
 						Details: details,
 					}
-					_ = common.SaveResult(result)
+					_ = pocCtx.Session.SaveResult(result)
 
 					// 构造控制台输出的日志信息
 					logMsg := i18n.Tr("webscan_vuln_detail_header",
@@ -141,7 +142,7 @@ func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int, pocCtx *POCConte
 					}
 
 					// 输出成功日志
-					common.LogVuln(logMsg)
+					pocCtx.Session.LogVuln(logMsg)
 				}
 			}
 		}()
@@ -216,7 +217,7 @@ func executePoc(oReq *http.Request, p *Poc, pocCtx *POCContext) (bool, string, e
 			continue
 		}
 		if _, err = evalset(env, variableMap, key, expression); err != nil {
-			common.LogError(i18n.Tr("webscan_set_exec_error", p.Name, err))
+			pocCtx.Session.LogError(i18n.Tr("webscan_set_exec_error", p.Name, err))
 		}
 	}
 
@@ -226,11 +227,11 @@ func executePoc(oReq *http.Request, p *Poc, pocCtx *POCContext) (bool, string, e
 		return success, "", err
 	}
 
-	return executeRules(oReq, p, variableMap, req, env)
+	return executeRules(oReq, p, variableMap, req, env, pocCtx.Session)
 }
 
 // executeRules 执行POC规则并返回结果
-func executeRules(oReq *http.Request, p *Poc, variableMap map[string]interface{}, req *Request, env *cel.Env) (bool, string, error) {
+func executeRules(oReq *http.Request, p *Poc, variableMap map[string]interface{}, req *Request, env *cel.Env, session *common.ScanSession) (bool, string, error) {
 	// 处理单个规则的函数
 	executeRule := func(rule Rules) (bool, error) {
 		Headers := cloneMap(rule.Headers)
@@ -279,7 +280,7 @@ func executeRules(oReq *http.Request, p *Poc, variableMap map[string]interface{}
 		_ = Headers // 清空Headers
 
 		// 发送请求
-		resp, err := DoRequest(newRequest, rule.FollowRedirects)
+		resp, err := DoRequest(newRequest, rule.FollowRedirects, session)
 		newRequest = nil
 		if err != nil {
 			return false, err
@@ -447,7 +448,7 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 		// 检查是否需要进行参数Fuzz测试
 		if !isFuzz(rule, p.Sets) {
 			// 不需要Fuzz,直接发送请求
-			success, err = clustersend(oReq, variableMap, req, env, rule)
+			success, err = clustersend(oReq, variableMap, req, env, rule, pocCtx.Session)
 			if err != nil {
 				return false, err
 			}
@@ -492,7 +493,7 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 				}
 				output, err := evalset1(env, variableMap, key, expr)
 				if err != nil {
-					common.LogError(i18n.Tr("webscan_set_exec_error", key, err))
+					pocCtx.Session.LogError(i18n.Tr("webscan_set_exec_error", key, err))
 				}
 				payloads[key] = output
 			}
@@ -513,7 +514,7 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 			ruleHash[ruleMD5] = struct{}{}
 
 			// 发送请求并处理结果
-			success, err = clustersend(oReq, variableMap, req, env, currentRule)
+			success, err = clustersend(oReq, variableMap, req, env, currentRule, pocCtx.Session)
 			if err != nil {
 				return false, err
 			}
@@ -524,7 +525,7 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 				// 处理成功情况
 				if currentRule.Continue {
 					// 使用Continue标志时，记录但继续测试其他参数
-					recordVulnerabilityResult(targetURL, p, currentParams, false)
+					recordVulnerabilityResult(targetURL, p, currentParams, false, pocCtx.Session)
 					continue
 				}
 
@@ -532,7 +533,7 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 				strMap = append(strMap, currentParams...)
 				if ruleIndex == len(p.Rules)-1 {
 					// 最终规则成功，记录完整的结果并返回
-					recordVulnerabilityResult(targetURL, p, strMap, false)
+					recordVulnerabilityResult(targetURL, p, strMap, false, pocCtx.Session)
 					return false, nil
 				}
 				break paramLoop
@@ -617,7 +618,7 @@ func getRuleHash(rule *Rules) string {
 }
 
 // recordVulnerabilityResult 记录漏洞检测结果
-func recordVulnerabilityResult(targetURL string, pocDef *Poc, params StrMap, skipSave bool) {
+func recordVulnerabilityResult(targetURL string, pocDef *Poc, params StrMap, skipSave bool, session *common.ScanSession) {
 	// 构造详细信息
 	details := make(map[string]interface{})
 	details["vulnerability_type"] = pocDef.Name
@@ -656,7 +657,7 @@ func recordVulnerabilityResult(targetURL string, pocDef *Poc, params StrMap, ski
 			Status:  "vulnerable",
 			Details: details,
 		}
-		_ = common.SaveResult(result)
+		_ = session.SaveResult(result)
 	}
 
 	// 生成日志消息
@@ -668,7 +669,7 @@ func recordVulnerabilityResult(targetURL string, pocDef *Poc, params StrMap, ski
 	}
 
 	// 输出成功日志
-	common.LogVuln(logMsg)
+	session.LogVuln(logMsg)
 }
 
 // isFuzz 检查规则是否包含需要Fuzz测试的参数
@@ -738,7 +739,7 @@ func MakeData(base [][]string, nextData []string) [][]string {
 }
 
 // clustersend 执行单个规则的HTTP请求和响应检测
-func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Request, env *cel.Env, rule Rules) (bool, error) {
+func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Request, env *cel.Env, rule Rules, session *common.ScanSession) (bool, error) {
 	// 替换请求中的变量
 	for varName, varValue := range variableMap {
 		// 跳过map类型的变量
@@ -786,7 +787,7 @@ func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Re
 	}
 
 	// 发送请求
-	resp, err := DoRequest(newRequest, rule.FollowRedirects)
+	resp, err := DoRequest(newRequest, rule.FollowRedirects, session)
 	if err != nil {
 		return false, fmt.Errorf("%s: %w", i18n.GetText("webscan_request_send_error"), err)
 	}

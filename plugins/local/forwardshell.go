@@ -53,7 +53,7 @@ func (p *ForwardShellPlugin) Scan(ctx context.Context, info *common.HostInfo, se
 	output.WriteString(i18n.Tr("local_platform", runtime.GOOS) + "\n\n")
 
 	// 启动正向Shell服务器
-	err := p.startForwardShellServer(ctx, port, state)
+	err := p.startForwardShellServer(ctx, port, state, session)
 	if err != nil {
 		output.WriteString(i18n.Tr("forwardshell_server_error", err) + "\n")
 		return &plugins.Result{
@@ -64,7 +64,7 @@ func (p *ForwardShellPlugin) Scan(ctx context.Context, info *common.HostInfo, se
 	}
 
 	output.WriteString(i18n.GetText("forwardshell_done") + "\n")
-	common.LogSuccess(i18n.Tr("forwardshell_complete", port))
+	session.LogSuccess(i18n.Tr("forwardshell_complete", port))
 
 	return &plugins.Result{
 		Success: true,
@@ -75,7 +75,7 @@ func (p *ForwardShellPlugin) Scan(ctx context.Context, info *common.HostInfo, se
 }
 
 // startForwardShellServer 启动正向Shell服务器
-func (p *ForwardShellPlugin) startForwardShellServer(ctx context.Context, port int, state *common.State) error {
+func (p *ForwardShellPlugin) startForwardShellServer(ctx context.Context, port int, state *common.State, session *common.ScanSession) error {
 	// 监听指定端口
 	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
@@ -84,7 +84,7 @@ func (p *ForwardShellPlugin) startForwardShellServer(ctx context.Context, port i
 	defer func() { _ = listener.Close() }()
 
 	p.listener = listener
-	common.LogSuccess(i18n.Tr("forwardshell_started", port))
+	session.LogSuccess(i18n.Tr("forwardshell_started", port))
 
 	// 设置正向Shell为活跃状态
 	state.SetForwardShellActive(true)
@@ -111,17 +111,17 @@ func (p *ForwardShellPlugin) startForwardShellServer(ctx context.Context, port i
 			if errors.As(err, &netErr) && netErr.Timeout() {
 				continue
 			}
-			common.LogError(i18n.Tr("forwardshell_accept_failed", err))
+			session.LogError(i18n.Tr("forwardshell_accept_failed", err))
 			continue
 		}
 
-		common.LogSuccess(i18n.Tr("forwardshell_client_connected", conn.RemoteAddr().String()))
-		go p.handleClient(ctx, conn)
+		session.LogSuccess(i18n.Tr("forwardshell_client_connected", conn.RemoteAddr().String()))
+		go p.handleClient(ctx, conn, session)
 	}
 }
 
 // handleClient 处理客户端连接
-func (p *ForwardShellPlugin) handleClient(ctx context.Context, clientConn net.Conn) {
+func (p *ForwardShellPlugin) handleClient(ctx context.Context, clientConn net.Conn, session *common.ScanSession) {
 	defer func() { _ = clientConn.Close() }()
 
 	// ctx 取消时关闭连接，解除阻塞的读操作
@@ -154,7 +154,7 @@ func (p *ForwardShellPlugin) handleClient(ctx context.Context, clientConn net.Co
 	}
 
 	if err := scanner.Err(); err != nil && ctx.Err() == nil {
-		common.LogError(i18n.Tr("forwardshell_read_failed", err))
+		session.LogError(i18n.Tr("forwardshell_read_failed", err))
 	}
 }
 

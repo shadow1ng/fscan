@@ -59,7 +59,7 @@ func (p *WinIFEOPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 	}
 
 	if successCount > 0 {
-		common.LogSuccess(i18n.Tr("winifeo_success", successCount))
+		session.LogSuccess(i18n.Tr("winifeo_success", successCount))
 	}
 
 	return &plugins.Result{

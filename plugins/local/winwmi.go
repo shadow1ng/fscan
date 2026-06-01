@@ -64,7 +64,7 @@ Write-Output "TOTAL:$ok"`,
 
 	out, err := exec.Command("powershell", "-NoProfile", "-Command", ps).CombinedOutput()
 	if err != nil {
-		common.LogError(i18n.Tr("error_generic", fmt.Errorf("%s: %w, %s: %s", i18n.GetText("powershell_exec_failed"), err, i18n.GetText("command_output"), strings.TrimSpace(string(out)))))
+		session.LogError(i18n.Tr("error_generic", fmt.Errorf("%s: %w, %s: %s", i18n.GetText("powershell_exec_failed"), err, i18n.GetText("command_output"), strings.TrimSpace(string(out)))))
 	}
 	result := string(out)
 
@@ -81,7 +81,7 @@ Write-Output "TOTAL:$ok"`,
 	}
 
 	if successCount > 0 {
-		common.LogSuccess(i18n.Tr("winwmi_success", successCount))
+		session.LogSuccess(i18n.Tr("winwmi_success", successCount))
 	}
 
 	return &plugins.Result{

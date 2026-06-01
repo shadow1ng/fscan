@@ -74,7 +74,7 @@ func (p *WinSchTaskPlugin) Scan(ctx context.Context, info *common.HostInfo, sess
 	}
 
 	if successCount > 0 {
-		common.LogSuccess(i18n.Tr("winschtask_success", successCount))
+		session.LogSuccess(i18n.Tr("winschtask_success", successCount))
 	}
 
 	return &plugins.Result{

@@ -41,7 +41,7 @@ func (p *SSHPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	// 如果指定了SSH密钥，优先使用密钥认证
 	if config.Credentials.SSHKeyPath != "" {
 		if result := p.scanWithKey(ctx, info, session); result != nil && result.Success {
-			common.LogVuln(i18n.Tr("ssh_key_auth_success", target, result.Username)) //nolint:govet
+			session.LogVuln(i18n.Tr("ssh_key_auth_success", target, result.Username)) //nolint:govet
 			return result
 		}
 	}
@@ -71,7 +71,7 @@ func (p *SSHPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 
 	// 记录成功
 	if result.Success {
-		common.LogVuln(i18n.Tr("ssh_pwd_auth_success", target, result.Username, result.Password)) //nolint:govet
+		session.LogVuln(i18n.Tr("ssh_pwd_auth_success", target, result.Username, result.Password)) //nolint:govet
 	}
 
 	return result
@@ -182,7 +182,7 @@ func (p *SSHPlugin) scanWithKey(ctx context.Context, info *common.HostInfo, sess
 	config := session.Config
 	keyData, err := os.ReadFile(config.Credentials.SSHKeyPath)
 	if err != nil {
-		common.LogError(i18n.Tr("ssh_key_read_failed", err)) //nolint:govet
+		session.LogError(i18n.Tr("ssh_key_read_failed", err)) //nolint:govet
 		return nil
 	}
 
@@ -236,7 +236,7 @@ func (p *SSHPlugin) identifyService(ctx context.Context, info *common.HostInfo, 
 	defer func() { _ = conn.Close() }()
 
 	if banner := p.readSSHBanner(conn, session.Config); banner != "" {
-		common.LogSuccess(i18n.Tr("ssh_service_identified", target, banner)) //nolint:govet
+		session.LogSuccess(i18n.Tr("ssh_service_identified", target, banner)) //nolint:govet
 		return &ScanResult{
 			Type:    plugins.ResultTypeService,
 			Success: true,

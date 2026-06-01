@@ -82,7 +82,7 @@ func (p *WinBITSPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 	}
 
 	if successCount >= 3 {
-		common.LogSuccess(i18n.Tr("winbits_success", jobName))
+		session.LogSuccess(i18n.Tr("winbits_success", jobName))
 	}
 
 	return &plugins.Result{

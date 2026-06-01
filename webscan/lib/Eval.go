@@ -367,7 +367,7 @@ func reverseCheck(r *Reverse, timeout int64) bool {
 	if err != nil {
 		return false
 	}
-	resp, err := DoRequest(req, false)
+	resp, err := DoRequest(req, false, nil)
 	if err != nil {
 		return false
 	}
@@ -419,7 +419,8 @@ func RandomStr(randSource *rand.Rand, letterBytes string, n int) string {
 }
 
 // DoRequest 执行 HTTP 请求
-func DoRequest(req *http.Request, redirect bool) (*Response, error) {
+// session 为 nil 时回退到全局 state（兼容 CEL runtime 等无 session 场景）
+func DoRequest(req *http.Request, redirect bool, session *common.ScanSession) (*Response, error) {
 	// 处理请求头
 	if req.Body != nil && req.Body != http.NoBody {
 		body, err := io.ReadAll(req.Body)
@@ -444,9 +445,23 @@ func DoRequest(req *http.Request, redirect bool) (*Response, error) {
 
 	// 执行请求
 	// 检查发包限制
-	if canSend, reason := common.CanSendPacket(); !canSend {
-		common.LogError(i18n.Tr("webscan_request_restricted", req.URL.String(), reason))
-		return nil, fmt.Errorf("%s", i18n.Tr("network_rate_limited", reason))
+	var state *common.State
+	if session != nil {
+		state = session.State
+		if canSend, err := common.CanSendPacketWith(session.Config, state); !canSend {
+			reason := ""
+			if err != nil {
+				reason = err.Error()
+			}
+			common.LogError(i18n.Tr("webscan_request_restricted", req.URL.String(), reason))
+			return nil, fmt.Errorf("%s", i18n.Tr("network_rate_limited", reason))
+		}
+	} else {
+		state = common.GetGlobalState()
+		if canSend, reason := common.CanSendPacket(); !canSend {
+			common.LogError(i18n.Tr("webscan_request_restricted", req.URL.String(), reason))
+			return nil, fmt.Errorf("%s", i18n.Tr("network_rate_limited", reason))
+		}
 	}
 
 	var (
@@ -480,12 +495,12 @@ func DoRequest(req *http.Request, redirect bool) (*Response, error) {
 
 	if err != nil {
 		// HTTP请求失败，计为TCP失败
-		common.GetGlobalState().IncrementTCPFailedPacketCount()
+		state.IncrementTCPFailedPacketCount()
 		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_request_execute_failed"), err)
 	}
 
 	// HTTP请求成功，计为TCP成功
-	common.GetGlobalState().IncrementTCPSuccessPacketCount()
+	state.IncrementTCPSuccessPacketCount()
 	defer func() { _ = oResp.Body.Close() }()
 
 	// 解析响应

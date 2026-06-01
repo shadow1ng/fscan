@@ -49,13 +49,13 @@ func (p *SmbPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	}
 
 	// 输出信息收集结果
-	p.logSMBInfo(target, smbTarget)
+	p.logSMBInfo(target, smbTarget, session)
 
 	// 2. 漏洞检测 (仅SMBv2+且端口445)
 	if smbTarget.Protocol == SMBProtocol2 && info.Port == 445 {
 		if checkSMBGhost(ctx, info.Host, config.Timeout, session) {
 			smbTarget.Vulnerable = &SMBVuln{CVE20200796: true}
-			common.LogVuln(i18n.Tr("smbghost_vuln", target))
+			session.LogVuln(i18n.Tr("smbghost_vuln", target))
 		}
 	}
 
@@ -75,7 +75,7 @@ func (p *SmbPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 		} else {
 			successMsg = i18n.Tr("smb_unauth_access", target, result.Username, result.Password)
 		}
-		common.LogVuln(successMsg)
+		session.LogVuln(successMsg)
 		return result
 	}
 
@@ -102,7 +102,7 @@ func (p *SmbPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 		} else {
 			successMsg = fmt.Sprintf("SMB %s %s:%s", target, result.Username, result.Password)
 		}
-		common.LogVuln(successMsg)
+		session.LogVuln(successMsg)
 	}
 
 	return result
@@ -148,7 +148,7 @@ func (p *SmbPlugin) testUnauthorizedAccess(ctx context.Context, info *common.Hos
 				fmt.Fprintf(&output, "\n%s", share)
 			}
 
-			common.LogSuccess(output.String())
+			session.LogSuccess(output.String())
 
 			return &ScanResult{
 				Success:  true,
@@ -165,7 +165,7 @@ func (p *SmbPlugin) testUnauthorizedAccess(ctx context.Context, info *common.Hos
 }
 
 // logSMBInfo 输出SMB信息
-func (p *SmbPlugin) logSMBInfo(target string, info *SMBTarget) {
+func (p *SmbPlugin) logSMBInfo(target string, info *SMBTarget, session *common.ScanSession) {
 	msg := fmt.Sprintf("SMBInfo %s", target)
 	if info.OSVersion != "" {
 		msg += fmt.Sprintf(" [%s]", info.OSVersion)
@@ -174,7 +174,7 @@ func (p *SmbPlugin) logSMBInfo(target string, info *SMBTarget) {
 		msg += fmt.Sprintf(" %s", info.ComputerName)
 	}
 	msg += fmt.Sprintf(" %s", info.Protocol.String())
-	common.LogSuccess(msg)
+	session.LogSuccess(msg)
 }
 
 // buildInfoResult 构建信息收集结果

@@ -123,7 +123,7 @@ func (p *LDPreloadPlugin) Scan(ctx context.Context, info *common.HostInfo, sessi
 	output.WriteString("\n" + i18n.Tr("ldpreload_complete_summary", successCount, 4) + "\n")
 
 	if successCount > 0 {
-		common.LogSuccess(i18n.Tr("ldpreload_success", successCount))
+		session.LogSuccess(i18n.Tr("ldpreload_success", successCount))
 	}
 
 	return &plugins.Result{

@@ -33,12 +33,12 @@ func (p *PostgreSQLPlugin) Scan(ctx context.Context, info *common.HostInfo, sess
 	target := info.Target()
 
 	if config.DisableBrute {
-		return p.identifyService(ctx, info, config, state)
+		return p.identifyService(ctx, info, session)
 	}
 
 	// 先测试未授权访问
 	if result := p.testUnauthorizedAccess(ctx, info, config, state); result != nil && result.Success {
-		common.LogVuln(i18n.Tr("postgresql_vuln", target, result.VulInfo))
+		session.LogVuln(i18n.Tr("postgresql_vuln", target, result.VulInfo))
 		return result
 	}
 
@@ -58,7 +58,7 @@ func (p *PostgreSQLPlugin) Scan(ctx context.Context, info *common.HostInfo, sess
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "postgresql", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("postgresql_credential", target, result.Username, result.Password))
+		session.LogVuln(i18n.Tr("postgresql_credential", target, result.Username, result.Password))
 	}
 
 	return result
@@ -219,7 +219,9 @@ func (p *PostgreSQLPlugin) testUnauthorizedAccess(ctx context.Context, info *com
 	}
 }
 
-func (p *PostgreSQLPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *PostgreSQLPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 
 	connStr := postgreSQLConnString("invalid", "invalid", info, int64(config.Timeout.Seconds()))
@@ -267,7 +269,7 @@ func (p *PostgreSQLPlugin) identifyService(ctx context.Context, info *common.Hos
 		banner = "PostgreSQL"
 	}
 
-	common.LogSuccess(i18n.Tr("postgresql_service", target, banner))
+	session.LogSuccess(i18n.Tr("postgresql_service", target, banner))
 
 	return &ScanResult{
 		Type:    plugins.ResultTypeService,

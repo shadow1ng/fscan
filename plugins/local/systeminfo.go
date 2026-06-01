@@ -30,7 +30,8 @@ type avProduct struct {
 
 type SystemInfoPlugin struct {
 	plugins.BasePlugin
-	output strings.Builder
+	output  strings.Builder
+	session *common.ScanSession
 }
 
 func NewSystemInfoPlugin() *SystemInfoPlugin {
@@ -41,18 +42,19 @@ func NewSystemInfoPlugin() *SystemInfoPlugin {
 
 func (p *SystemInfoPlugin) log(key string, args ...interface{}) {
 	msg := i18n.Tr(key, args...)
-	common.LogInfo(msg)
+	p.session.LogInfo(msg)
 	p.output.WriteString(msg + "\n")
 }
 
 func (p *SystemInfoPlugin) logSuccess(key string, args ...interface{}) {
 	msg := i18n.Tr(key, args...)
-	common.LogSuccess(msg)
+	p.session.LogSuccess(msg)
 	p.output.WriteString(msg + "\n")
 }
 
 func (p *SystemInfoPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
-	common.LogSuccess(i18n.GetText("systeminfo_start"))
+	p.session = session
+	session.LogSuccess(i18n.GetText("systeminfo_start"))
 
 	p.collectBasicInfo()
 	p.collectNetworkInfo()

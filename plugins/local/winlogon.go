@@ -58,7 +58,7 @@ func (p *WinLogonPlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	}
 
 	if successCount > 0 {
-		common.LogSuccess(i18n.Tr("winlogon_success", successCount))
+		session.LogSuccess(i18n.Tr("winlogon_success", successCount))
 	}
 
 	return &plugins.Result{

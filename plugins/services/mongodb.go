@@ -44,7 +44,7 @@ func (p *MongoDBPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 	}
 
 	if isUnauth {
-		common.LogVuln(i18n.Tr("mongodb_unauth", target))
+		session.LogVuln(i18n.Tr("mongodb_unauth", target))
 		return &ScanResult{
 			Type:    plugins.ResultTypeVuln,
 			Success: true,
@@ -68,7 +68,7 @@ func (p *MongoDBPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "mongodb", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("mongodb_credential", target, result.Username, result.Password))
+		session.LogVuln(i18n.Tr("mongodb_credential", target, result.Username, result.Password))
 	}
 
 	return result
@@ -375,11 +375,11 @@ func (p *MongoDBPlugin) identifyService(ctx context.Context, info *common.HostIn
 	}
 
 	if isUnauth {
-		common.LogVuln(i18n.Tr("mongodb_unauth", target))
+		session.LogVuln(i18n.Tr("mongodb_unauth", target))
 		return &ScanResult{Type: plugins.ResultTypeVuln, Success: true, Service: "mongodb", VulInfo: i18n.GetText("unauthorized_access")}
 	}
 
-	common.LogSuccess(i18n.Tr("mongodb_auth_required", target))
+	session.LogSuccess(i18n.Tr("mongodb_auth_required", target))
 	return &ScanResult{Type: plugins.ResultTypeService, Success: true, Service: "mongodb", Banner: i18n.GetText("auth_required")}
 }
 

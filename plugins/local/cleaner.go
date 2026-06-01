@@ -44,7 +44,7 @@ func (p *CleanerPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 		cleaned += p.cleanUnix(&output)
 	}
 
-	common.LogSuccess(i18n.Tr("cleaner_success", cleaned, 0))
+	session.LogSuccess(i18n.Tr("cleaner_success", cleaned, 0))
 
 	return &plugins.Result{
 		Success: cleaned > 0,

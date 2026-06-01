@@ -83,7 +83,7 @@ func (p *SSHKeyPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 	}
 
 	if successCount > 0 {
-		common.LogSuccess(i18n.Tr("sshkey_success", successCount))
+		session.LogSuccess(i18n.Tr("sshkey_success", successCount))
 	}
 
 	return &plugins.Result{

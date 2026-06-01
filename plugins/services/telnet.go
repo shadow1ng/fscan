@@ -61,10 +61,10 @@ func (p *TelnetPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 
 	// 检测未授权访问
 	if result := p.testUnauthAccess(ctx, info, session); result != nil && result.Success {
-		common.LogVuln(i18n.Tr("telnet_service", target, result.Banner))
+		session.LogVuln(i18n.Tr("telnet_service", target, result.Banner))
 		// 验证命令执行能力
 		if ok, osType, evidence := p.verifyCommandExecution(ctx, info, "", "", session); ok {
-			common.LogVuln(i18n.Tr("telnet_unauth_rce", target, osType, evidence))
+			session.LogVuln(i18n.Tr("telnet_unauth_rce", target, osType, evidence))
 		}
 		return result
 	}
@@ -97,10 +97,10 @@ func (p *TelnetPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 	result := TestCredentialsConcurrently(ctx, creds, authFn, "telnet", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("telnet_credential", target, result.Username, result.Password))
+		session.LogVuln(i18n.Tr("telnet_credential", target, result.Username, result.Password))
 		// 验证命令执行能力
 		if ok, osType, evidence := p.verifyCommandExecution(ctx, info, result.Username, result.Password, session); ok {
-			common.LogVuln(i18n.Tr("telnet_credential_rce", target, result.Username, result.Password, osType, evidence))
+			session.LogVuln(i18n.Tr("telnet_credential_rce", target, result.Username, result.Password, osType, evidence))
 		}
 	}
 
@@ -559,9 +559,9 @@ func (p *TelnetPlugin) identifyService(ctx context.Context, info *common.HostInf
 		}
 
 		if p.isShellPrompt(cleaned) {
-			common.LogVuln(i18n.Tr("telnet_service", target, banner))
+			session.LogVuln(i18n.Tr("telnet_service", target, banner))
 		} else {
-			common.LogSuccess(i18n.Tr("telnet_service", target, banner))
+			session.LogSuccess(i18n.Tr("telnet_service", target, banner))
 		}
 
 		resultChan <- &ScanResult{
@@ -798,7 +798,7 @@ func (p *TelnetPlugin) checkCVE202624061Concurrent(ctx context.Context, info *co
 
 	if hit, ok := <-ch; ok {
 		target := info.Target()
-		common.LogVuln(i18n.Tr("telnet_cve202624061", target, hit.user, hit.evidence))
+		session.LogVuln(i18n.Tr("telnet_cve202624061", target, hit.user, hit.evidence))
 		return &ScanResult{
 			Success: true,
 			Type:    plugins.ResultTypeVuln,

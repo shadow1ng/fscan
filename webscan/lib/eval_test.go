@@ -1104,7 +1104,7 @@ func TestDoRequestBuffersUnknownLengthBody(t *testing.T) {
 	}
 	req.ContentLength = -1
 
-	if _, err := DoRequest(req, false); err != nil {
+	if _, err := DoRequest(req, false, nil); err != nil {
 		t.Fatalf("DoRequest error = %v", err)
 	}
 	if gotContentLength != "3" {
@@ -1147,7 +1147,7 @@ func TestDoRequestReplaysBodyForGMTLSFallback(t *testing.T) {
 		t.Fatalf("NewRequest error = %v", err)
 	}
 
-	if _, err := DoRequest(req, false); err != nil {
+	if _, err := DoRequest(req, false, nil); err != nil {
 		t.Fatalf("DoRequest error = %v", err)
 	}
 	if gotBody != "payload" {

@@ -64,7 +64,7 @@ func (p *WinServicePlugin) Scan(ctx context.Context, info *common.HostInfo, sess
 	}
 
 	if successCount > 0 {
-		common.LogSuccess(i18n.Tr("winservice_success", successCount))
+		session.LogSuccess(i18n.Tr("winservice_success", successCount))
 	}
 
 	return &plugins.Result{

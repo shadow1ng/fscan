@@ -27,7 +27,7 @@ func (p *MSSQLPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 	config := session.Config
 	state := session.State
 	if config.DisableBrute {
-		return p.identifyService(ctx, info, config, state)
+		return p.identifyService(ctx, info, session)
 	}
 
 	target := info.Target()
@@ -48,7 +48,7 @@ func (p *MSSQLPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "mssql", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("mssql_credential", target, result.Username, result.Password))
+		session.LogVuln(i18n.Tr("mssql_credential", target, result.Username, result.Password))
 	}
 
 	return result
@@ -124,7 +124,9 @@ func classifyMSSQLErrorType(err error) ErrorType {
 	return ClassifyError(err, mssqlAuthErrors, mssqlNetworkErrors)
 }
 
-func (p *MSSQLPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *MSSQLPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 
 	identifyCtx, cancel := context.WithTimeout(ctx, config.Timeout)
@@ -157,7 +159,7 @@ func (p *MSSQLPlugin) identifyService(ctx context.Context, info *common.HostInfo
 		}
 	}
 
-	common.LogSuccess(i18n.Tr("mssql_service", target, banner))
+	session.LogSuccess(i18n.Tr("mssql_service", target, banner))
 
 	return &ScanResult{
 		Type:    plugins.ResultTypeService,

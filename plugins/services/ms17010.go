@@ -62,9 +62,9 @@ func (p *MS17010Plugin) Scan(ctx context.Context, info *common.HostInfo, session
 		if osVersion != "" {
 			msg += fmt.Sprintf(" [%s]", osVersion)
 		}
-		common.LogVuln(msg)
+		session.LogVuln(msg)
 		if hasBackdoor {
-			common.LogVuln(fmt.Sprintf("MS17-010 %s has DOUBLEPULSAR SMB IMPLANT", target))
+			session.LogVuln(fmt.Sprintf("MS17-010 %s has DOUBLEPULSAR SMB IMPLANT", target))
 		}
 
 		return &ScanResult{
@@ -86,7 +86,7 @@ func (p *MS17010Plugin) Scan(ctx context.Context, info *common.HostInfo, session
 func (p *MS17010Plugin) Exploit(ctx context.Context, info *common.HostInfo, creds Credential, session *common.ScanSession) *ExploitResult {
 	config := session.Config
 	target := info.Target()
-	common.LogSuccess(i18n.Tr("ms17010_start", target))
+	session.LogSuccess(i18n.Tr("ms17010_start", target))
 
 	var output strings.Builder
 	output.WriteString(i18n.Tr("ms17010_exploit_header", target) + "\n")
@@ -157,7 +157,7 @@ func (p *MS17010Plugin) Exploit(ctx context.Context, info *common.HostInfo, cred
 		output.WriteString(i18n.GetText("ms17010_exploit_supported_modes") + "\n")
 	}
 
-	common.LogSuccess(i18n.Tr("ms17010_complete", target))
+	session.LogSuccess(i18n.Tr("ms17010_complete", target))
 
 	return &ExploitResult{
 		Success: true,
@@ -473,7 +473,7 @@ func (p *MS17010Plugin) executeMS17010Exploit(info *common.HostInfo, session *co
 		return fmt.Errorf("MS17-010 exp failed: %w", err)
 	}
 
-	common.LogSuccess(i18n.Tr("ms17010_shellcode_complete", info.Host, len(scBytes)))
+	session.LogSuccess(i18n.Tr("ms17010_shellcode_complete", info.Host, len(scBytes)))
 	return nil
 }
 

@@ -32,8 +32,8 @@ func (p *OraclePlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 	}
 
 	// 先测试未授权访问
-	if result := p.testUnauthorizedAccess(ctx, info, config, state); result != nil && result.Success {
-		common.LogSuccess(i18n.Tr("oracle_service", target, result.Banner))
+	if result := p.testUnauthorizedAccess(ctx, info, session); result != nil && result.Success {
+		session.LogSuccess(i18n.Tr("oracle_service", target, result.Banner))
 		return result
 	}
 
@@ -53,7 +53,7 @@ func (p *OraclePlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "oracle", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("oracle_credential", target, result.Username, result.Password))
+		session.LogVuln(i18n.Tr("oracle_credential", target, result.Username, result.Password))
 	}
 
 	return result
@@ -133,7 +133,9 @@ func classifyOracleErrorType(err error) ErrorType {
 }
 
 // testUnauthorizedAccess 测试Oracle未授权访问
-func (p *OraclePlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *OraclePlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 
 	defaultAccounts := []Credential{
@@ -148,7 +150,7 @@ func (p *OraclePlugin) testUnauthorizedAccess(ctx context.Context, info *common.
 			if result.Conn != nil {
 				_ = result.Conn.Close()
 			}
-			common.LogVuln(i18n.Tr("oracle_default_account", target, cred.Username, cred.Password))
+			session.LogVuln(i18n.Tr("oracle_default_account", target, cred.Username, cred.Password))
 			return &ScanResult{
 				Type:     plugins.ResultTypeVuln,
 				Success:  true,
@@ -177,7 +179,7 @@ func (p *OraclePlugin) identifyService(ctx context.Context, info *common.HostInf
 	_ = conn.Close()
 
 	banner := "Oracle"
-	common.LogSuccess(i18n.Tr("oracle_service", target, banner))
+	session.LogSuccess(i18n.Tr("oracle_service", target, banner))
 
 	return &ScanResult{
 		Type:    plugins.ResultTypeService,

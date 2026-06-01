@@ -132,7 +132,7 @@ func (p *SystemdServicePlugin) Scan(ctx context.Context, info *common.HostInfo, 
 	output.WriteString("\n" + i18n.Tr("systemdservice_complete_summary", successCount, 5) + "\n")
 
 	if successCount > 0 {
-		common.LogSuccess(i18n.Tr("systemdservice_success", successCount))
+		session.LogSuccess(i18n.Tr("systemdservice_success", successCount))
 	}
 
 	return &plugins.Result{

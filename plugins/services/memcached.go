@@ -34,7 +34,7 @@ func (p *MemcachedPlugin) Scan(ctx context.Context, info *common.HostInfo, sessi
 
 	// 检测未授权访问
 	if result := p.testUnauthorizedAccess(ctx, info, session); result != nil && result.Success {
-		common.LogVuln(i18n.Tr("memcached_unauth", target))
+		session.LogVuln(i18n.Tr("memcached_unauth", target))
 		return result
 	}
 
@@ -128,7 +128,7 @@ func (p *MemcachedPlugin) identifyService(ctx context.Context, info *common.Host
 
 	if p.testBasicCommand(conn, session.Config) {
 		banner := "Memcached"
-		common.LogSuccess(i18n.Tr("memcached_service", target, banner))
+		session.LogSuccess(i18n.Tr("memcached_service", target, banner))
 		return &ScanResult{
 			Type:    plugins.ResultTypeService,
 			Success: true,

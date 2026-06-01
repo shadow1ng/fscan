@@ -222,7 +222,7 @@ func probeTarget(ctx context.Context, host string, port int, timeout time.Durati
 	// 读取SMBv1协商响应
 	r1, err := readSMBMessage(conn)
 	if err != nil {
-		common.LogDebug(i18n.Tr("smbv1_negotiate_read_failed", err))
+		session.LogDebug(i18n.Tr("smbv1_negotiate_read_failed", err))
 	}
 
 	// 检查是否支持SMBv1

@@ -56,7 +56,7 @@ func (p *RDPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	if !isSingleCredentialTest {
 		osInfo = p.probeOSInfo(target, config, state)
 		if len(osInfo) > 0 {
-			p.logOSInfo(target, osInfo)
+			p.logOSInfo(target, osInfo, session)
 		}
 	}
 
@@ -68,11 +68,11 @@ func (p *RDPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 		if osInfo == nil {
 			osInfo = p.probeOSInfo(target, config, state)
 			if len(osInfo) > 0 {
-				p.logOSInfo(target, osInfo)
+				p.logOSInfo(target, osInfo, session)
 			}
 		}
 		banner := p.buildBanner(osInfo)
-		common.LogSuccess(i18n.Tr("rdp_service", target, banner))
+		session.LogSuccess(i18n.Tr("rdp_service", target, banner))
 		return &ScanResult{
 			Success: true,
 			Type:    plugins.ResultTypeService,
@@ -126,7 +126,7 @@ func (p *RDPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 			}
 
 			result := fmt.Sprintf("RDP %s %s\\%s %s", target, displayDomain, cred.Username, cred.Password)
-			common.LogVuln(result)
+			session.LogVuln(result)
 
 			return &ScanResult{
 				Success:  true,
@@ -197,7 +197,7 @@ func (p *RDPPlugin) probeOSInfo(host string, config *common.Config, state *commo
 }
 
 // logOSInfo 输出系统信息
-func (p *RDPPlugin) logOSInfo(target string, osInfo map[string]any) {
+func (p *RDPPlugin) logOSInfo(target string, osInfo map[string]any, session *common.ScanSession) {
 	var parts []string
 
 	// 提取关键信息
@@ -235,7 +235,7 @@ func (p *RDPPlugin) logOSInfo(target string, osInfo map[string]any) {
 
 	if len(parts) > 0 {
 		info := fmt.Sprintf("RDP %s [%s]", target, strings.Join(parts, ", "))
-		common.LogSuccess(info)
+		session.LogSuccess(info)
 	}
 }
 

@@ -35,7 +35,7 @@ func (p *ElasticsearchPlugin) Scan(ctx context.Context, info *common.HostInfo, s
 
 	// 首先检测未授权访问
 	if p.testCredential(ctx, info, Credential{Username: "", Password: ""}, session) {
-		common.LogVuln(i18n.Tr("elasticsearch_unauth", target))
+		session.LogVuln(i18n.Tr("elasticsearch_unauth", target))
 		return &ScanResult{
 			Success: true,
 			Type:    plugins.ResultTypeVuln,
@@ -56,7 +56,7 @@ func (p *ElasticsearchPlugin) Scan(ctx context.Context, info *common.HostInfo, s
 
 	for _, cred := range credentials {
 		if p.testCredential(ctx, info, cred, session) {
-			common.LogVuln(i18n.Tr("elasticsearch_credential", target, cred.Username, cred.Password))
+			session.LogVuln(i18n.Tr("elasticsearch_credential", target, cred.Username, cred.Password))
 			return &ScanResult{
 				Success:  true,
 				Type:     plugins.ResultTypeCredential,
@@ -124,7 +124,7 @@ func (p *ElasticsearchPlugin) identifyService(ctx context.Context, info *common.
 
 	if p.testCredential(ctx, info, Credential{Username: "", Password: ""}, session) {
 		banner := "Elasticsearch"
-		common.LogSuccess(i18n.Tr("elasticsearch_service", target, banner))
+		session.LogSuccess(i18n.Tr("elasticsearch_service", target, banner))
 		return &ScanResult{
 			Success: true,
 			Type:    plugins.ResultTypeService,

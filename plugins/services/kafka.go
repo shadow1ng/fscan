@@ -30,7 +30,7 @@ func (p *KafkaPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 	config := session.Config
 	state := session.State
 	if config.DisableBrute {
-		return p.identifyService(ctx, info, config, state)
+		return p.identifyService(ctx, info, session)
 	}
 
 	target := info.Target()
@@ -50,7 +50,7 @@ func (p *KafkaPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "kafka", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("kafka_credential", target, result.Username, result.Password))
+		session.LogVuln(i18n.Tr("kafka_credential", target, result.Username, result.Password))
 	}
 
 	return result
@@ -229,7 +229,9 @@ func classifyKafkaErrorType(err error) ErrorType {
 
 // ── 服务识别 ────────────────────────────────────────────────────
 
-func (p *KafkaPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *KafkaPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 	timeout := config.Timeout
 
@@ -255,7 +257,7 @@ func (p *KafkaPlugin) identifyService(ctx context.Context, info *common.HostInfo
 		state.IncrementTCPFailedPacketCount()
 		if p.isKafkaError(err) {
 			banner := i18n.GetText("kafka_auth_required")
-			common.LogSuccess(i18n.Tr("kafka_service", target, banner))
+			session.LogSuccess(i18n.Tr("kafka_service", target, banner))
 			return &ScanResult{Type: plugins.ResultTypeService, Success: true, Service: "kafka", Banner: banner}
 		}
 		return &ScanResult{Success: false, Service: "kafka", Error: fmt.Errorf("%s", i18n.Tr("service_not_identified", "Kafka"))}
@@ -263,7 +265,7 @@ func (p *KafkaPlugin) identifyService(ctx context.Context, info *common.HostInfo
 	state.IncrementTCPSuccessPacketCount()
 
 	banner := "Kafka"
-	common.LogSuccess(i18n.Tr("kafka_service", target, banner))
+	session.LogSuccess(i18n.Tr("kafka_service", target, banner))
 	return &ScanResult{Type: plugins.ResultTypeService, Success: true, Service: "kafka", Banner: banner}
 }
 
