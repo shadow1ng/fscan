@@ -8,6 +8,3 @@ contact_links:
   - name: 💬 讨论区 / Discussions
     url: https://github.com/shadow1ng/fscan/discussions
     about: 使用疑问、经验分享、一般性讨论请使用 Discussions
-  - name: 🔐 安全漏洞报告
-    url: https://github.com/shadow1ng/fscan/security/advisories/new
-    about: fscan 自身的安全漏洞请通过 Security Advisory 私下报告，不要公开提 Issue
