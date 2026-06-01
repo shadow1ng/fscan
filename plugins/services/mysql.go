@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -48,7 +49,7 @@ func (p *MySQLPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 		return &ScanResult{
 			Success: false,
 			Service: "mysql",
-			Error:   fmt.Errorf("没有可用的测试凭据"),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 
@@ -61,7 +62,7 @@ func (p *MySQLPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "mysql", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("mysql_credential", target, result.Username, result.Password))
+		session.LogVuln(i18n.Tr("mysql_credential", target, result.Username, result.Password))
 	}
 
 	return result
@@ -76,8 +77,8 @@ func (p *MySQLPlugin) createAuthFunc(info *common.HostInfo, config *common.Confi
 
 // doMySQLAuth 执行MySQL认证
 func (p *MySQLPlugin) doMySQLAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
-	connStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/information_schema?charset=utf8&timeout=%ds",
-		cred.Username, cred.Password, info.Host, info.Port, int64(config.Timeout.Seconds()))
+	connStr := fmt.Sprintf("%s:%s@tcp(%s)/information_schema?charset=utf8&timeout=%ds",
+		cred.Username, cred.Password, net.JoinHostPort(info.Host, strconv.Itoa(info.Port)), int64(config.Timeout.Seconds()))
 
 	db, err := sql.Open("mysql", connStr)
 	if err != nil {
@@ -153,7 +154,7 @@ func (p *MySQLPlugin) identifyService(ctx context.Context, info *common.HostInfo
 	defer func() { _ = conn.Close() }()
 
 	if banner := p.readMySQLBanner(conn, session.Config); banner != "" {
-		common.LogSuccess(i18n.Tr("mysql_service", target, banner))
+		session.LogSuccess(i18n.Tr("mysql_service", target, banner))
 		return &ScanResult{
 			Type:    plugins.ResultTypeService,
 			Success: true,
@@ -165,7 +166,7 @@ func (p *MySQLPlugin) identifyService(ctx context.Context, info *common.HostInfo
 	return &ScanResult{
 		Success: false,
 		Service: "mysql",
-		Error:   fmt.Errorf("无法识别为MySQL服务"),
+		Error:   fmt.Errorf("%s", i18n.Tr("service_not_identified", "MySQL")),
 	}
 }
 

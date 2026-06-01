@@ -1,11 +1,10 @@
 # Issue 模板配置
-# 禁止空白 issue，强制用户选择模板
 blank_issues_enabled: false
 
 contact_links:
-  - name: 📖 使用文档
+  - name: 📖 使用文档 / README
     url: https://github.com/shadow1ng/fscan/blob/main/README.md
-    about: 提交 Issue 前请先查阅文档
-  - name: 💬 讨论区
+    about: 提交 Issue 前请先查阅文档，确认不是用法问题
+  - name: 💬 讨论区 / Discussions
     url: https://github.com/shadow1ng/fscan/discussions
-    about: 一般性问题和讨论请使用 Discussions
+    about: 使用疑问、经验分享、一般性讨论请使用 Discussions

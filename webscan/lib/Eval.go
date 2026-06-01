@@ -108,7 +108,7 @@ func GetBaseProgramOptions() []cel.ProgramOption {
 func ExtendEnvWithVars(varDecls []*exprpb.Decl) (*cel.Env, error) {
 	base := GetBaseEnv()
 	if base == nil {
-		return nil, fmt.Errorf("基础CEL环境未初始化")
+		return nil, fmt.Errorf("%s", i18n.GetText("webscan_cel_env_not_initialized"))
 	}
 	if len(varDecls) == 0 {
 		return base, nil
@@ -142,19 +142,19 @@ func Evaluate(env *cel.Env, expression string, params map[string]interface{}) (r
 	// 编译表达式
 	ast, issues := env.Compile(expression)
 	if issues.Err() != nil {
-		return nil, fmt.Errorf("表达式编译错误: %w", issues.Err())
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_expression_compile_failed"), issues.Err())
 	}
 
 	// 创建程序（使用缓存的程序选项）
 	program, err := env.Program(ast, GetBaseProgramOptions()...)
 	if err != nil {
-		return nil, fmt.Errorf("程序创建错误: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_program_create_failed"), err)
 	}
 
 	// 执行评估
 	result, _, err := program.Eval(params)
 	if err != nil {
-		return nil, fmt.Errorf("表达式评估错误: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_expression_eval_failed"), err)
 	}
 
 	return result, nil
@@ -363,8 +363,11 @@ func reverseCheck(r *Reverse, timeout int64) bool {
 		ceyeAPI, sub)
 
 	// 创建并发送请求
-	req, _ := http.NewRequest("GET", apiURL, nil)
-	resp, err := DoRequest(req, false)
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return false
+	}
+	resp, err := DoRequest(req, false, nil)
 	if err != nil {
 		return false
 	}
@@ -416,11 +419,23 @@ func RandomStr(randSource *rand.Rand, letterBytes string, n int) string {
 }
 
 // DoRequest 执行 HTTP 请求
-func DoRequest(req *http.Request, redirect bool) (*Response, error) {
+// session 为 nil 时回退到全局 state（兼容 CEL runtime 等无 session 场景）
+func DoRequest(req *http.Request, redirect bool, session *common.ScanSession) (*Response, error) {
 	// 处理请求头
 	if req.Body != nil && req.Body != http.NoBody {
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_request_body_read_failed"), err)
+		}
+		_ = req.Body.Close()
+		req.Body = io.NopCloser(bytes.NewReader(body))
+		req.GetBody = func() (io.ReadCloser, error) {
+			return io.NopCloser(bytes.NewReader(body)), nil
+		}
+		req.ContentLength = int64(len(body))
+
 		// 设置 Content-Length
-		req.Header.Set("Content-Length", strconv.Itoa(int(req.ContentLength)))
+		req.Header.Set("Content-Length", strconv.FormatInt(req.ContentLength, 10))
 
 		// 如果未指定 Content-Type，设置默认值
 		if req.Header.Get("Content-Type") == "" {
@@ -430,9 +445,23 @@ func DoRequest(req *http.Request, redirect bool) (*Response, error) {
 
 	// 执行请求
 	// 检查发包限制
-	if canSend, reason := common.CanSendPacket(); !canSend {
-		common.LogError(i18n.Tr("webscan_request_restricted", req.URL.String(), reason))
-		return nil, fmt.Errorf("发包受限: %s", reason)
+	var state *common.State
+	if session != nil {
+		state = session.State
+		if canSend, err := common.CanSendPacketWith(session.Config, state); !canSend {
+			reason := ""
+			if err != nil {
+				reason = err.Error()
+			}
+			common.LogError(i18n.Tr("webscan_request_restricted", req.URL.String(), reason))
+			return nil, fmt.Errorf("%s", i18n.Tr("network_rate_limited", reason))
+		}
+	} else {
+		state = common.GetGlobalState()
+		if canSend, reason := common.CanSendPacket(); !canSend {
+			common.LogError(i18n.Tr("webscan_request_restricted", req.URL.String(), reason))
+			return nil, fmt.Errorf("%s", i18n.Tr("network_rate_limited", reason))
+		}
 	}
 
 	var (
@@ -446,14 +475,32 @@ func DoRequest(req *http.Request, redirect bool) (*Response, error) {
 		oResp, err = ClientNoRedirect.Do(req)
 	}
 
+	// 标准TLS连接失败时，尝试国密TLS客户端
+	if err != nil && req.URL.Scheme == "https" {
+		if req.GetBody != nil {
+			if body, bodyErr := req.GetBody(); bodyErr == nil {
+				req.Body = body
+			}
+		}
+		if redirect {
+			if oResp2, err2 := ClientGM.Do(req); err2 == nil {
+				oResp, err = oResp2, nil
+			}
+		} else {
+			if oResp2, err2 := ClientNoRedirectGM.Do(req); err2 == nil {
+				oResp, err = oResp2, nil
+			}
+		}
+	}
+
 	if err != nil {
 		// HTTP请求失败，计为TCP失败
-		common.GetGlobalState().IncrementTCPFailedPacketCount()
-		return nil, fmt.Errorf("请求执行失败: %w", err)
+		state.IncrementTCPFailedPacketCount()
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_request_execute_failed"), err)
 	}
 
 	// HTTP请求成功，计为TCP成功
-	common.GetGlobalState().IncrementTCPSuccessPacketCount()
+	state.IncrementTCPSuccessPacketCount()
 	defer func() { _ = oResp.Body.Close() }()
 
 	// 解析响应
@@ -496,7 +543,7 @@ func ParseRequest(oReq *http.Request) (*Request, error) {
 	if oReq.Body != nil && oReq.Body != http.NoBody {
 		data, err := io.ReadAll(oReq.Body)
 		if err != nil {
-			return nil, fmt.Errorf("读取请求体失败: %w", err)
+			return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_request_body_read_failed"), err)
 		}
 		req.Body = data
 		// 重新设置请求体，允许后续重复读取
@@ -508,9 +555,15 @@ func ParseRequest(oReq *http.Request) (*Request, error) {
 
 // ParseResponse 将标准 HTTP 响应转换为自定义响应对象
 func ParseResponse(oResp *http.Response) (*Response, error) {
+	var respURL *UrlType
+	if oResp.Request != nil {
+		respURL = ParseURL(oResp.Request.URL)
+	} else {
+		respURL = &UrlType{}
+	}
 	resp := Response{
 		Status:      int32(oResp.StatusCode),
-		URL:         ParseURL(oResp.Request.URL),
+		URL:         respURL,
 		Headers:     make(map[string]string),
 		ContentType: oResp.Header.Get("Content-Type"),
 	}
@@ -523,7 +576,7 @@ func ParseResponse(oResp *http.Response) (*Response, error) {
 	// 读取并解析响应体
 	body, err := getRespBody(oResp)
 	if err != nil {
-		return nil, fmt.Errorf("处理响应体失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_response_body_process_failed"), err)
 	}
 	resp.Body = body
 

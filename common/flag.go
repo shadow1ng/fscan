@@ -15,6 +15,9 @@ import (
 // ErrShowHelp 表示用户请求显示帮助（正常退出）
 var ErrShowHelp = errors.New("show help requested")
 
+// IsLocalMode 由 plugins 包注册，判断 -m 指定的是否全是本地插件
+var IsLocalMode func(mode string) bool
+
 // Banner 显示程序横幅信息
 func Banner() {
 	// 静默模式下完全跳过Banner显示
@@ -110,7 +113,7 @@ func Flag(Info *HostInfo) error {
 	flag.Int64Var(&fv.GlobalTimeout, "gt", 180, i18n.GetText("flag_global_timeout"))
 	flag.BoolVar(&fv.DisablePing, "np", false, i18n.GetText("flag_disable_ping"))
 	flag.BoolVar(&fv.DisableTcpProbe, "ntp", false, i18n.GetText("flag_disable_tcp_probe"))
-	flag.StringVar(&fv.LocalPlugin, "local", "", "指定本地插件名称 (如: cleaner, avdetect, keylogger 等)")
+	flag.StringVar(&fv.LocalPlugin, "local", "", i18n.GetText("flag_local_plugin"))
 	flag.BoolVar(&fv.AliveOnly, "ao", false, i18n.GetText("flag_alive_only"))
 
 	// ═════════════════════════════════════════════════
@@ -184,7 +187,7 @@ func Flag(Info *HostInfo) error {
 	flag.StringVar(&fv.LogLevel, "log", LogLevelBaseInfoSuccess, i18n.GetText("flag_log_level"))
 	flag.BoolVar(&fv.Debug, "debug", false, i18n.GetText("flag_debug"))
 	flag.BoolVar(&fv.DisableProgress, "nopg", false, i18n.GetText("flag_disable_progress"))
-	flag.BoolVar(&fv.PerfStats, "perf", false, "输出性能统计JSON")
+	flag.BoolVar(&fv.PerfStats, "perf", false, i18n.GetText("flag_perf_stats"))
 
 	// ═════════════════════════════════════════════════
 	// 其他参数
@@ -224,13 +227,72 @@ func Flag(Info *HostInfo) error {
 
 // parseCommandLineArgs 解析命令行参数
 func parseCommandLineArgs() error {
-	flag.Parse()
+	if err := flag.CommandLine.Parse(normalizeMultiValueFlagArgs(os.Args[1:], "-pwda")); err != nil {
+		return err
+	}
 
 	// 显示Banner
 	Banner()
 
 	// 检查参数冲突
 	return checkParameterConflicts()
+}
+
+func normalizeMultiValueFlagArgs(args []string, names ...string) []string {
+	multiValueFlags := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		multiValueFlags[name] = struct{}{}
+	}
+
+	normalized := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		name, value, ok := splitMultiValueFlag(arg, multiValueFlags)
+		if !ok {
+			normalized = append(normalized, arg)
+			continue
+		}
+
+		values := []string{}
+		if value != "" {
+			values = append(values, value)
+		}
+
+		j := i + 1
+		for ; j < len(args); j++ {
+			if strings.HasPrefix(args[j], "-") {
+				break
+			}
+			values = append(values, args[j])
+		}
+		i = j - 1
+
+		if strings.Contains(arg, "=") {
+			normalized = append(normalized, name+"="+strings.Join(values, ","))
+		} else {
+			normalized = append(normalized, name)
+			if len(values) > 0 {
+				normalized = append(normalized, strings.Join(values, ","))
+			}
+		}
+	}
+
+	return normalized
+}
+
+func splitMultiValueFlag(arg string, names map[string]struct{}) (string, string, bool) {
+	if _, ok := names[arg]; ok {
+		return arg, "", true
+	}
+
+	for name := range names {
+		prefix := name + "="
+		if strings.HasPrefix(arg, prefix) {
+			return name, strings.TrimPrefix(arg, prefix), true
+		}
+	}
+
+	return "", "", false
 }
 
 // preProcessLanguage 预处理语言参数，在定义flag之前设置语言
@@ -272,9 +334,14 @@ func shouldShowHelp(Info *HostInfo, fv *FlagVars) bool {
 	// 检查是否提供了扫描目标
 	hasTarget := Info.Host != "" || fv.TargetURL != "" || fv.HostsFile != "" || fv.URLsFile != ""
 
-	// 本地模式需要指定插件才算有效目标
+	// 本地模式不需要目标主机
 	if fv.LocalPlugin != "" {
-		hasTarget = true
+		return false
+	}
+
+	// -m 指定的全是本地插件时也不需要目标
+	if IsLocalMode != nil && IsLocalMode(fv.ScanMode) {
+		return false
 	}
 
 	// 如果没有提供任何扫描目标，则显示帮助
@@ -302,7 +369,7 @@ func checkParameterConflicts() error {
 		invalidChars := []string{",", ";", " ", "|", "&"}
 		for _, char := range invalidChars {
 			if strings.Contains(fv.LocalPlugin, char) {
-				return fmt.Errorf("本地插件只能指定单个插件，不支持使用 '%s' 分隔的多个插件", char)
+				return fmt.Errorf("%s", i18n.Tr("param_local_multi_plugin", char))
 			}
 		}
 	}

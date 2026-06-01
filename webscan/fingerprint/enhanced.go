@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/shadow1ng/fscan/common/i18n"
 )
 
 //go:embed web_fingerprint_v4.json
@@ -20,10 +22,10 @@ var fingerprintHubData []byte
 type EnhancedFingerprint struct {
 	ID   string `json:"id"`
 	Info struct {
-		Name     string            `json:"name"`
-		Author   string            `json:"author"`
-		Tags     string            `json:"tags"`
-		Severity string            `json:"severity"`
+		Name     string                 `json:"name"`
+		Author   string                 `json:"author"`
+		Tags     string                 `json:"tags"`
+		Severity string                 `json:"severity"`
 		Metadata map[string]interface{} `json:"metadata"`
 	} `json:"info"`
 	HTTP []struct {
@@ -58,7 +60,7 @@ var (
 func LoadEnhancedFingerprints() error {
 	var fps []*EnhancedFingerprint
 	if err := json.Unmarshal(fingerprintHubData, &fps); err != nil {
-		return fmt.Errorf("解析增强指纹库失败: %w", err)
+		return fmt.Errorf("%s: %w", i18n.GetText("fingerprint_enhanced_parse_failed"), err)
 	}
 
 	enhancedDB = &EnhancedFingerprintDB{

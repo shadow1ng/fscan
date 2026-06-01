@@ -22,32 +22,32 @@ type Result struct {
 }
 
 func main() {
-	target := flag.String("target", "", "扫描目标 (如 192.168.1.0/24)")
-	ports := flag.String("ports", "22,80,443,3389,8080", "端口列表")
-	threads := flag.String("threads", "100,200,400,600,800,1000", "线程数列表，逗号分隔")
-	repeat := flag.Int("repeat", 3, "每个线程数重复次数")
-	output := flag.String("o", "perf_results.csv", "输出CSV文件")
+	target := flag.String("target", "", "scan target, e.g. 192.168.1.0/24")
+	ports := flag.String("ports", "22,80,443,3389,8080", "port list")
+	threads := flag.String("threads", "100,200,400,600,800,1000", "comma-separated thread counts")
+	repeat := flag.Int("repeat", 3, "repeat count for each thread count")
+	output := flag.String("o", "perf_results.csv", "output CSV file")
 	flag.Parse()
 
 	if *target == "" {
-		fmt.Println("用法: perftest -target 192.168.1.0/24 [-ports 22,80,443] [-threads 100,200,400]")
+		fmt.Println("Usage: perftest -target 192.168.1.0/24 [-ports 22,80,443] [-threads 100,200,400]")
 		os.Exit(1)
 	}
 
 	threadList := parseIntList(*threads)
 	results := []Result{}
 
-	fmt.Printf("=== fscan 可扩展性测试 ===\n")
-	fmt.Printf("目标: %s\n", *target)
-	fmt.Printf("端口: %s\n", *ports)
-	fmt.Printf("线程数: %v\n", threadList)
-	fmt.Printf("重复次数: %d\n\n", *repeat)
+	fmt.Printf("=== fscan scalability test ===\n")
+	fmt.Printf("Target: %s\n", *target)
+	fmt.Printf("Ports: %s\n", *ports)
+	fmt.Printf("Threads: %v\n", threadList)
+	fmt.Printf("Repeats: %d\n\n", *repeat)
 
 	for _, t := range threadList {
 		var totalDuration float64
 		var totalRate float64
 
-		fmt.Printf("[线程=%d] ", t)
+		fmt.Printf("[threads=%d] ", t)
 		for i := 0; i < *repeat; i++ {
 			fmt.Printf(".")
 			duration, rate := runFscan(*target, *ports, t)
@@ -63,11 +63,11 @@ func main() {
 			Duration:  avgDuration,
 			PortsRate: avgRate,
 		})
-		fmt.Printf(" 平均: %.2fs, %.1f ports/sec\n", avgDuration, avgRate)
+		fmt.Printf(" average: %.2fs, %.1f ports/sec\n", avgDuration, avgRate)
 	}
 
 	writeCSV(*output, results)
-	fmt.Printf("\n结果已保存到: %s\n", *output)
+	fmt.Printf("\nResults saved to: %s\n", *output)
 	printPlotCommand(*output)
 }
 
@@ -94,8 +94,8 @@ func runFscan(target, ports string, threads int) (duration float64, rate float64
 }
 
 func extractPortCount(output, target, ports string) int {
-	// 尝试从 "扫描完成" 行提取
-	re := regexp.MustCompile(`扫描完成.*?(\d+).*?端口`)
+	// Try to parse either Chinese or English fscan completion output.
+	re := regexp.MustCompile(`(?:\x{626b}\x{63cf}\x{5b8c}\x{6210}|Scan Completed).*?(\d+).*?(?:\x{7aef}\x{53e3}|ports?)`)
 	if matches := re.FindStringSubmatch(output); len(matches) > 1 {
 		count, _ := strconv.Atoi(matches[1])
 		return count
@@ -131,7 +131,7 @@ func parseIntList(s string) []int {
 func writeCSV(filename string, results []Result) {
 	f, err := os.Create(filename)
 	if err != nil {
-		fmt.Printf("无法创建文件: %v\n", err)
+		fmt.Printf("Failed to create file: %v\n", err)
 		return
 	}
 	defer func() { _ = f.Close() }()
@@ -149,7 +149,7 @@ func writeCSV(filename string, results []Result) {
 }
 
 func printPlotCommand(csvFile string) {
-	fmt.Println("\n=== 绘图命令 ===")
+	fmt.Println("\n=== Plot commands ===")
 	fmt.Println("\n# gnuplot:")
 	fmt.Printf(`gnuplot -e "
 set terminal png size 800,600;

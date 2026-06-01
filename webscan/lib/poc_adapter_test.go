@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -381,5 +382,153 @@ unknown: format
 				}
 			}
 		})
+	}
+}
+
+// TestXrayOutputToSearch 测试 xray output 字段到 Search 的转换
+func TestXrayOutputToSearch(t *testing.T) {
+	// 多步POC: r0 提取 cookie，r1 使用 {{cookie}}
+	yamlData := `
+name: poc-yaml-test-cookie-extract
+transport: http
+rules:
+  r0:
+    request:
+      method: POST
+      path: /login
+      headers:
+        Content-Type: text/xml
+      body: userID=admin
+      follow_redirects: false
+    expression: response.status == 200
+    output:
+      search: "Set-Cookie:(?P<cookie>.*)"
+  r1:
+    request:
+      method: GET
+      path: /admin/dashboard
+      headers:
+        Cookie: "{{cookie}}"
+    expression: response.status == 200
+detail:
+  author: test
+`
+
+	adapter, err := loadXrayPoc([]byte(yamlData))
+	if err != nil {
+		t.Fatalf("loadXrayPoc() error = %v", err)
+	}
+
+	poc, err := adapter.ToFscanPoc()
+	if err != nil {
+		t.Fatalf("ToFscanPoc() error = %v", err)
+	}
+
+	if len(poc.Rules) != 2 {
+		t.Fatalf("len(Poc.Rules) = %d, want 2", len(poc.Rules))
+	}
+
+	// r0 应该有 Search 字段（从 output.search 转换）
+	if poc.Rules[0].Search == "" {
+		t.Error("Rules[0].Search should not be empty — output.search was not converted")
+	}
+	if !strings.Contains(poc.Rules[0].Search, "cookie") {
+		t.Errorf("Rules[0].Search = %q, should contain 'cookie'", poc.Rules[0].Search)
+	}
+
+	// r1 不应该有 Search（没有 output 字段）
+	if poc.Rules[1].Search != "" {
+		t.Errorf("Rules[1].Search = %q, should be empty", poc.Rules[1].Search)
+	}
+
+	// r1 的 Headers 应保留 {{cookie}} 占位符
+	if poc.Rules[1].Headers["Cookie"] != `{{cookie}}` {
+		t.Errorf("Rules[1].Headers[Cookie] = %q, want %q", poc.Rules[1].Headers["Cookie"], `{{cookie}}`)
+	}
+}
+
+// TestXrayNoOutput 测试 xray 没有 output 字段时 Search 为空（回归）
+func TestXrayNoOutput(t *testing.T) {
+	yamlData := `
+name: poc-yaml-test-simple
+transport: http
+rules:
+  r0:
+    request:
+      method: GET
+      path: /api/test
+    expression: response.status == 200
+detail:
+  author: test
+`
+
+	adapter, err := loadXrayPoc([]byte(yamlData))
+	if err != nil {
+		t.Fatalf("loadXrayPoc() error = %v", err)
+	}
+
+	poc, err := adapter.ToFscanPoc()
+	if err != nil {
+		t.Fatalf("ToFscanPoc() error = %v", err)
+	}
+
+	if len(poc.Rules) != 1 {
+		t.Fatalf("len(Poc.Rules) = %d, want 1", len(poc.Rules))
+	}
+
+	if poc.Rules[0].Search != "" {
+		t.Errorf("Rules[0].Search = %q, should be empty when no output field", poc.Rules[0].Search)
+	}
+}
+
+// TestAfrogOutputToSearch 测试 afrog output 字段到 Search 的转换
+func TestAfrogOutputToSearch(t *testing.T) {
+	yamlData := `
+id: test-afrog-cookie
+info:
+  name: 测试Cookie提取
+  author: test
+  severity: high
+rules:
+  r0:
+    request:
+      method: POST
+      path: /login
+      headers:
+        Content-Type: application/x-www-form-urlencoded
+      body: username=admin&password=123456
+    expression: response.status == 200 && response.body.bcontains(b"success")
+    output:
+      search: "Set-Cookie:(?P<sessid>.*)"
+  r1:
+    request:
+      method: GET
+      path: /panel
+      headers:
+        Cookie: "{{sessid}}"
+    expression: response.status == 200 && response.body.bcontains(b"admin")
+`
+
+	adapter, err := loadAfrogPoc([]byte(yamlData))
+	if err != nil {
+		t.Fatalf("loadAfrogPoc() error = %v", err)
+	}
+
+	poc, err := adapter.ToFscanPoc()
+	if err != nil {
+		t.Fatalf("ToFscanPoc() error = %v", err)
+	}
+
+	if len(poc.Rules) != 2 {
+		t.Fatalf("len(Poc.Rules) = %d, want 2", len(poc.Rules))
+	}
+
+	if poc.Rules[0].Search == "" {
+		t.Error("Rules[0].Search should not be empty — output.search was not converted")
+	}
+
+	// r1 的占位符应对应捕获组名 sessid
+	if poc.Rules[1].Headers["Cookie"] != `{{sessid}}` {
+		t.Errorf("Rules[1].Headers[Cookie] = %q, want %q", poc.Rules[1].Headers["Cookie"], `{{sessid}}`)
 	}
 }

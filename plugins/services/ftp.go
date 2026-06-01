@@ -28,13 +28,13 @@ func (p *FTPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	config := session.Config
 	state := session.State
 	if config.DisableBrute {
-		return p.identifyService(info, config, state)
+		return p.identifyService(info, session)
 	}
 
 	target := info.Target()
 
 	// 优先检测匿名访问
-	if result := p.testAnonymousAccess(ctx, info, config, state); result != nil && result.Success {
+	if result := p.testAnonymousAccess(ctx, info, session); result != nil && result.Success {
 		return result
 	}
 
@@ -43,7 +43,7 @@ func (p *FTPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 		return &ScanResult{
 			Success: false,
 			Service: "ftp",
-			Error:   fmt.Errorf("没有可用的测试凭据"),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 
@@ -57,13 +57,13 @@ func (p *FTPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 		// 成功后重新连接获取文件列表
 		fileList := p.getFileListAfterAuth(info, result.Username, result.Password, config, state)
 		var output strings.Builder
-		output.WriteString(fmt.Sprintf("FTP %s %s:%s", target, result.Username, result.Password))
+		fmt.Fprintf(&output, "FTP %s %s:%s", target, result.Username, result.Password)
 		if len(fileList) > 0 {
 			for _, file := range fileList {
-				output.WriteString(fmt.Sprintf("\n   [->] %s", file))
+				fmt.Fprintf(&output, "\n   [->] %s", file)
 			}
 		}
-		common.LogVuln(output.String())
+		session.LogVuln(output.String())
 	}
 
 	return result
@@ -144,7 +144,9 @@ func classifyFTPErrorType(err error) ErrorType {
 	return ClassifyError(err, ftpAuthErrors, ftpNetworkErrors)
 }
 
-func (p *FTPPlugin) identifyService(info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *FTPPlugin) identifyService(info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 
 	conn, err := ftplib.Dial(target, ftplib.DialWithTimeout(config.Timeout))
@@ -160,7 +162,7 @@ func (p *FTPPlugin) identifyService(info *common.HostInfo, config *common.Config
 	defer func() { _ = conn.Quit() }()
 
 	banner := "FTP"
-	common.LogSuccess(i18n.Tr("ftp_service", target, banner))
+	session.LogSuccess(i18n.Tr("ftp_service", target, banner))
 	return &ScanResult{
 		Type:    plugins.ResultTypeService,
 		Success: true,
@@ -170,7 +172,9 @@ func (p *FTPPlugin) identifyService(info *common.HostInfo, config *common.Config
 }
 
 // testAnonymousAccess 测试FTP匿名访问
-func (p *FTPPlugin) testAnonymousAccess(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *FTPPlugin) testAnonymousAccess(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 
 	anonymousCreds := []Credential{
@@ -198,13 +202,13 @@ func (p *FTPPlugin) testAnonymousAccess(ctx context.Context, info *common.HostIn
 			_ = result.Conn.Close()
 
 			var output strings.Builder
-			output.WriteString(fmt.Sprintf("FTP %s 匿名访问 - %s:%s", target, cred.Username, cred.Password))
+			output.WriteString(i18n.Tr("ftp_anonymous_access_detail", target, cred.Username, cred.Password))
 			if len(fileList) > 0 {
 				for _, file := range fileList {
-					output.WriteString(fmt.Sprintf("\n   [->] %s", file))
+					fmt.Fprintf(&output, "\n   [->] %s", file)
 				}
 			}
-			common.LogVuln(output.String())
+			session.LogVuln(output.String())
 
 			return &ScanResult{
 				Type:     plugins.ResultTypeCredential,
@@ -212,7 +216,7 @@ func (p *FTPPlugin) testAnonymousAccess(ctx context.Context, info *common.HostIn
 				Service:  "ftp",
 				Username: cred.Username,
 				Password: cred.Password,
-				Banner:   "FTP匿名访问",
+				Banner:   i18n.GetText("ftp_anonymous_banner"),
 			}
 		}
 	}

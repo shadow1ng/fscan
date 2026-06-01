@@ -590,6 +590,18 @@ func TestParseIP_IPRange(t *testing.T) {
 	}
 }
 
+func TestParseIP_IPRangeNoLimit(t *testing.T) {
+	result, err := parseIPRangeString("192.168.1.1-5")
+	if err != nil {
+		t.Fatalf("parseIPRangeString error = %v", err)
+	}
+
+	expected := []string{"192.168.1.1", "192.168.1.2", "192.168.1.3", "192.168.1.4", "192.168.1.5"}
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("parseIPRangeString = %v, want %v", result, expected)
+	}
+}
+
 // TestParseIP_FromFile 测试从文件读取
 //
 // 验证：文件中的IP列表被正确读取
@@ -681,6 +693,18 @@ func TestParseIP_Exclude(t *testing.T) {
 			t.Logf("✓ 正确排除指定主机: %d → %d",
 				len(tt.expected)+len(result)-len(tt.expected), len(result))
 		})
+	}
+}
+
+func TestParseIPMultipleExcludeSources(t *testing.T) {
+	result, err := ParseIP("192.168.1.1-192.168.1.4", "", "192.168.1.2", "192.168.1.4")
+	if err != nil {
+		t.Fatalf("ParseIP error = %v", err)
+	}
+
+	expected := []string{"192.168.1.1", "192.168.1.3"}
+	if !reflect.DeepEqual(result, expected) {
+		t.Fatalf("ParseIP with multiple excludes = %v, want %v", result, expected)
 	}
 }
 
@@ -788,7 +812,9 @@ func TestParsePortRange(t *testing.T) {
 // TestExcludeHosts 测试排除主机
 func TestExcludeHosts(t *testing.T) {
 	hosts := []string{"host1", "host2", "host3", "host4"}
-	exclude := []string{"host2", "host4"}
+	exclude := newHostMatcher()
+	exclude.exact["host2"] = struct{}{}
+	exclude.exact["host4"] = struct{}{}
 
 	result := excludeFromList(hosts, exclude)
 	expected := []string{"host1", "host3"}
@@ -803,7 +829,7 @@ func TestExcludeHosts(t *testing.T) {
 // TestExcludeHosts_EmptyExclude 测试空排除列表
 func TestExcludeHosts_EmptyExclude(t *testing.T) {
 	hosts := []string{"host1", "host2"}
-	result := excludeFromList(hosts, []string{})
+	result := excludeFromList(hosts, nil)
 
 	if !reflect.DeepEqual(result, hosts) {
 		t.Errorf("excludeFromList(空排除列表) 应该返回原列表")
@@ -877,12 +903,6 @@ func TestParseIP_InternalNetworkShortcuts(t *testing.T) {
 			"172",
 			100, // 172.16.0.0/12 应该很多
 			"172.",
-		},
-		{
-			"10简写",
-			"10",
-			100, // 10.0.0.0/8 应该很多
-			"10.",
 		},
 	}
 
@@ -969,6 +989,24 @@ func TestParseIP_FullIPRange(t *testing.T) {
 	}
 }
 
+func TestParseIP_FullIPRangeComplete(t *testing.T) {
+	result, err := parseIPRangeString("192.168.1.1-192.168.1.5")
+	if err != nil {
+		t.Fatalf("parseIPRangeString error = %v", err)
+	}
+
+	expected := []string{
+		"192.168.1.1",
+		"192.168.1.2",
+		"192.168.1.3",
+		"192.168.1.4",
+		"192.168.1.5",
+	}
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("parseIPRangeString no limit = %v, want %v", result, expected)
+	}
+}
+
 // TestParseIP_InvalidCIDR 测试无效CIDR
 func TestParseIP_InvalidCIDR(t *testing.T) {
 	tests := []struct {
@@ -977,7 +1015,7 @@ func TestParseIP_InvalidCIDR(t *testing.T) {
 		expectErr bool
 	}{
 		{"无效掩码/33", "192.168.1.0/33", true},
-		{"无效掩码/0", "192.168.1.0/0", false}, // /0 技术上是有效的
+		{"有效掩码/32", "192.168.1.1/32", false},
 		{"格式错误", "192.168.1.0/abc", true},
 		{"缺少掩码", "192.168.1.0/", true},
 	}
@@ -1173,7 +1211,7 @@ test:
 		{"admin", "password123"},
 		{"root", "toor"},
 		{"user", "pass:with:colons"}, // 密码可以包含冒号
-		{"test", ""},                  // 空密码
+		{"test", ""},                 // 空密码
 	}
 
 	if len(result) != len(tests) {

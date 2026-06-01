@@ -3,8 +3,10 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
+	"github.com/shadow1ng/fscan/common"
 	"github.com/shadow1ng/fscan/web/ws"
 )
 
@@ -49,5 +51,5 @@ func healthCheck(w http.ResponseWriter, r *http.Request) {
 // systemInfo 系统信息
 func systemInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"version":"2.1.1","build":"web"}`))
+	fmt.Fprintf(w, `{"version":"%s","build":"web"}`, common.GetVersion())
 }

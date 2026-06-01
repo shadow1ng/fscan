@@ -44,7 +44,7 @@ func (p *LDAPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 		return &ScanResult{
 			Success: false,
 			Service: "ldap",
-			Error:   fmt.Errorf("没有可用的测试凭据"),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 
@@ -55,7 +55,7 @@ func (p *LDAPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "ldap", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("ldap_credential", target, result.Username, result.Password))
+		session.LogVuln(i18n.Tr("ldap_credential", target, result.Username, result.Password))
 	}
 
 	return result
@@ -102,7 +102,7 @@ func (p *LDAPPlugin) doLDAPAuth(ctx context.Context, info *common.HostInfo, cred
 	return &AuthResult{
 		Success:   false,
 		ErrorType: ErrorTypeAuth,
-		Error:     fmt.Errorf("所有DN格式都失败"),
+		Error:     fmt.Errorf("%s", i18n.GetText("ldap_all_dn_failed")),
 	}
 }
 
@@ -146,7 +146,7 @@ func (p *LDAPPlugin) tryHashAuth(ctx context.Context, info *common.HostInfo, ses
 				if len(hash) > 16 {
 					displayHash = hash[:16] + "..."
 				}
-				common.LogVuln(i18n.Tr("ldap_hash_credential", target, domain, user, displayHash))
+				session.LogVuln(i18n.Tr("ldap_hash_credential", target, domain, user, displayHash))
 				return &ScanResult{
 					Type:     plugins.ResultTypeVuln,
 					Success:  true,
@@ -268,7 +268,7 @@ func (p *LDAPPlugin) identifyService(ctx context.Context, info *common.HostInfo,
 	defer func() { _ = conn.Close() }()
 
 	banner := "LDAP"
-	common.LogSuccess(i18n.Tr("ldap_service", target, banner))
+	session.LogSuccess(i18n.Tr("ldap_service", target, banner))
 
 	return &ScanResult{
 		Type:    plugins.ResultTypeService,

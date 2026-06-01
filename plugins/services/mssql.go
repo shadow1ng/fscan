@@ -4,11 +4,9 @@ package services
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 
-	_ "github.com/denisenkom/go-mssqldb" // MSSQL driver
 	"github.com/shadow1ng/fscan/common"
 	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/plugins"
@@ -29,7 +27,7 @@ func (p *MSSQLPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 	config := session.Config
 	state := session.State
 	if config.DisableBrute {
-		return p.identifyService(ctx, info, config, state)
+		return p.identifyService(ctx, info, session)
 	}
 
 	target := info.Target()
@@ -39,7 +37,7 @@ func (p *MSSQLPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 		return &ScanResult{
 			Success: false,
 			Service: "mssql",
-			Error:   fmt.Errorf("没有可用的测试凭据"),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 
@@ -50,7 +48,7 @@ func (p *MSSQLPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "mssql", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("mssql_credential", target, result.Username, result.Password))
+		session.LogVuln(i18n.Tr("mssql_credential", target, result.Username, result.Password))
 	}
 
 	return result
@@ -65,29 +63,11 @@ func (p *MSSQLPlugin) createAuthFunc(info *common.HostInfo, config *common.Confi
 
 // doMSSQLAuth 执行MSSQL认证
 func (p *MSSQLPlugin) doMSSQLAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
-	connStr := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;database=master;encrypt=disable;connection timeout=%d",
-		info.Host, cred.Username, cred.Password, info.Port, int64(config.Timeout.Seconds()))
-
-	db, err := sql.Open("mssql", connStr)
-	if err != nil {
-		state.IncrementTCPFailedPacketCount()
-		return &AuthResult{
-			Success:   false,
-			ErrorType: classifyMSSQLErrorType(err),
-			Error:     err,
-		}
-	}
-
-	db.SetConnMaxLifetime(config.Timeout)
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(0)
-
-	pingCtx, cancel := context.WithTimeout(ctx, config.Timeout)
+	authCtx, cancel := context.WithTimeout(ctx, config.Timeout)
 	defer cancel()
 
-	err = db.PingContext(pingCtx)
+	_, err := mssqlRawLogin(authCtx, info.Host, info.Port, cred.Username, cred.Password, config.Timeout)
 	if err != nil {
-		_ = db.Close()
 		state.IncrementTCPFailedPacketCount()
 		return &AuthResult{
 			Success:   false,
@@ -100,7 +80,6 @@ func (p *MSSQLPlugin) doMSSQLAuth(ctx context.Context, info *common.HostInfo, cr
 
 	return &AuthResult{
 		Success:   true,
-		Conn:      &SQLDBWrapper{db},
 		ErrorType: ErrorTypeUnknown,
 		Error:     nil,
 	}
@@ -145,26 +124,15 @@ func classifyMSSQLErrorType(err error) ErrorType {
 	return ClassifyError(err, mssqlAuthErrors, mssqlNetworkErrors)
 }
 
-func (p *MSSQLPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *MSSQLPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 
-	connStr := fmt.Sprintf("server=%s;user id=invalid;password=invalid;port=%d;database=master;encrypt=disable;connection timeout=%d",
-		info.Host, info.Port, int64(config.Timeout.Seconds()))
-
-	db, err := sql.Open("mssql", connStr)
-	if err != nil {
-		return &ScanResult{
-			Success: false,
-			Service: "mssql",
-			Error:   err,
-		}
-	}
-	defer func() { _ = db.Close() }()
-
-	pingCtx, cancel := context.WithTimeout(ctx, config.Timeout)
+	identifyCtx, cancel := context.WithTimeout(ctx, config.Timeout)
 	defer cancel()
 
-	err = db.PingContext(pingCtx)
+	result, err := mssqlRawLogin(identifyCtx, info.Host, info.Port, "invalid", "invalid", config.Timeout)
 
 	if err != nil {
 		state.IncrementTCPFailedPacketCount()
@@ -178,21 +146,20 @@ func (p *MSSQLPlugin) identifyService(ctx context.Context, info *common.HostInfo
 		errLower = strings.ToLower(err.Error())
 	}
 
-	if err != nil && (strings.Contains(errLower, "login failed") ||
-		strings.Contains(errLower, "mssql") ||
-		strings.Contains(errLower, "sql server")) {
-		banner = "MSSQL"
-	} else if err == nil {
+	if err == nil || (result != nil && result.isMSSQL()) ||
+		(strings.Contains(errLower, "login failed") ||
+			strings.Contains(errLower, "mssql") ||
+			strings.Contains(errLower, "sql server")) {
 		banner = "MSSQL"
 	} else {
 		return &ScanResult{
 			Success: false,
 			Service: "mssql",
-			Error:   fmt.Errorf("无法识别为MSSQL服务"),
+			Error:   fmt.Errorf("%s", i18n.Tr("service_not_identified", "MSSQL")),
 		}
 	}
 
-	common.LogSuccess(i18n.Tr("mssql_service", target, banner))
+	session.LogSuccess(i18n.Tr("mssql_service", target, banner))
 
 	return &ScanResult{
 		Type:    plugins.ResultTypeService,

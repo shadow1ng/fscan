@@ -48,14 +48,14 @@ func (p *ForwardShellPlugin) Scan(ctx context.Context, info *common.HostInfo, se
 		port = 4444
 	}
 
-	output.WriteString("=== 正向Shell服务器 ===\n")
-	output.WriteString(fmt.Sprintf("监听端口: %d\n", port))
-	output.WriteString(fmt.Sprintf("平台: %s\n\n", runtime.GOOS))
+	output.WriteString(i18n.GetText("forwardshell_header") + "\n")
+	output.WriteString(i18n.Tr("local_listen_port", port) + "\n")
+	output.WriteString(i18n.Tr("local_platform", runtime.GOOS) + "\n\n")
 
 	// 启动正向Shell服务器
-	err := p.startForwardShellServer(ctx, port, state)
+	err := p.startForwardShellServer(ctx, port, state, session)
 	if err != nil {
-		output.WriteString(fmt.Sprintf("正向Shell服务器错误: %v\n", err))
+		output.WriteString(i18n.Tr("forwardshell_server_error", err) + "\n")
 		return &plugins.Result{
 			Success: false,
 			Output:  output.String(),
@@ -63,8 +63,8 @@ func (p *ForwardShellPlugin) Scan(ctx context.Context, info *common.HostInfo, se
 		}
 	}
 
-	output.WriteString("✓ 正向Shell服务已完成\n")
-	common.LogSuccess(i18n.Tr("forwardshell_complete", port))
+	output.WriteString(i18n.GetText("forwardshell_done") + "\n")
+	session.LogSuccess(i18n.Tr("forwardshell_complete", port))
 
 	return &plugins.Result{
 		Success: true,
@@ -75,16 +75,16 @@ func (p *ForwardShellPlugin) Scan(ctx context.Context, info *common.HostInfo, se
 }
 
 // startForwardShellServer 启动正向Shell服务器
-func (p *ForwardShellPlugin) startForwardShellServer(ctx context.Context, port int, state *common.State) error {
+func (p *ForwardShellPlugin) startForwardShellServer(ctx context.Context, port int, state *common.State, session *common.ScanSession) error {
 	// 监听指定端口
 	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
-		return fmt.Errorf("监听端口失败: %w", err)
+		return fmt.Errorf("%s: %w", i18n.GetText("listen_port_failed"), err)
 	}
 	defer func() { _ = listener.Close() }()
 
 	p.listener = listener
-	common.LogSuccess(i18n.Tr("forwardshell_started", port))
+	session.LogSuccess(i18n.Tr("forwardshell_started", port))
 
 	// 设置正向Shell为活跃状态
 	state.SetForwardShellActive(true)
@@ -111,17 +111,17 @@ func (p *ForwardShellPlugin) startForwardShellServer(ctx context.Context, port i
 			if errors.As(err, &netErr) && netErr.Timeout() {
 				continue
 			}
-			common.LogError(i18n.Tr("forwardshell_accept_failed", err))
+			session.LogError(i18n.Tr("forwardshell_accept_failed", err))
 			continue
 		}
 
-		common.LogSuccess(i18n.Tr("forwardshell_client_connected", conn.RemoteAddr().String()))
-		go p.handleClient(ctx, conn)
+		session.LogSuccess(i18n.Tr("forwardshell_client_connected", conn.RemoteAddr().String()))
+		go p.handleClient(ctx, conn, session)
 	}
 }
 
 // handleClient 处理客户端连接
-func (p *ForwardShellPlugin) handleClient(ctx context.Context, clientConn net.Conn) {
+func (p *ForwardShellPlugin) handleClient(ctx context.Context, clientConn net.Conn, session *common.ScanSession) {
 	defer func() { _ = clientConn.Close() }()
 
 	// ctx 取消时关闭连接，解除阻塞的读操作
@@ -154,7 +154,7 @@ func (p *ForwardShellPlugin) handleClient(ctx context.Context, clientConn net.Co
 	}
 
 	if err := scanner.Err(); err != nil && ctx.Err() == nil {
-		common.LogError(i18n.Tr("forwardshell_read_failed", err))
+		session.LogError(i18n.Tr("forwardshell_read_failed", err))
 	}
 }
 
@@ -169,7 +169,7 @@ func (p *ForwardShellPlugin) executeCommand(conn net.Conn, command string) {
 	case "linux", "darwin":
 		cmd = exec.Command("/bin/sh", "-c", command)
 	default:
-		_, _ = fmt.Fprintf(conn, "不支持的平台: %s\n", runtime.GOOS)
+		_, _ = fmt.Fprintln(conn, i18n.Tr("unsupported_platform", runtime.GOOS))
 		return
 	}
 
@@ -182,18 +182,18 @@ func (p *ForwardShellPlugin) executeCommand(conn net.Conn, command string) {
 	output, err := cmd.CombinedOutput()
 
 	if ctx.Err() == context.DeadlineExceeded {
-		_, _ = conn.Write([]byte("命令执行超时\n"))
+		_, _ = conn.Write([]byte(i18n.GetText("command_timeout") + "\n"))
 		return
 	}
 
 	if err != nil {
-		_, _ = fmt.Fprintf(conn, "命令执行失败: %v\n", err)
+		_, _ = fmt.Fprintln(conn, i18n.Tr("command_exec_failed", err))
 		return
 	}
 
 	// 发送命令输出
 	if len(output) == 0 {
-		_, _ = conn.Write([]byte("(命令执行成功，无输出)\n"))
+		_, _ = conn.Write([]byte(i18n.GetText("command_success_no_output") + "\n"))
 	} else {
 		_, _ = conn.Write(output)
 		if !strings.HasSuffix(string(output), "\n") {

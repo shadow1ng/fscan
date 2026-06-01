@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/core"
 	"github.com/shadow1ng/fscan/plugins"
 	WebScan "github.com/shadow1ng/fscan/webscan"
@@ -64,9 +65,9 @@ func (p *WebTitlePlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 
 	// 有指纹用绿色，无指纹用白色
 	if len(fingerprints) > 0 {
-		common.LogSuccess(msg)
+		session.LogSuccess(msg)
 	} else {
-		common.LogInfo(msg)
+		session.LogInfo(msg)
 	}
 
 	return &WebScanResult{
@@ -82,15 +83,29 @@ func (p *WebTitlePlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 
 func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo, config *common.Config, session *common.ScanSession) (string, int, int, string, []string, string, error) {
 	// 智能协议检测
-	protocol := p.detectProtocol(info, config, session)
-	baseURL := fmt.Sprintf("%s://%s:%d", protocol, info.Host, info.Port)
+	protocol := p.detectProtocol(ctx, info, config, session)
+	isGM := false
+	urlScheme := protocol
+	if protocol == "https-gm" {
+		isGM = true
+		urlScheme = "https" // 国密连接仍使用 https URL 格式
+	}
+	baseURL := fmt.Sprintf("%s://%s:%d", urlScheme, info.Host, info.Port)
+
+	// 选择对应的 HTTP 客户端
+	clientNR, clientR := lib.ClientNoRedirect, lib.Client
+	if isGM {
+		clientNR, clientR = lib.ClientNoRedirectGM, lib.ClientGM
+	}
 
 	// 构建显示用URL（隐藏标准端口）
 	var displayURL string
-	if (protocol == "https" && info.Port == 443) || (protocol == "http" && info.Port == 80) {
+	if isGM && info.Port == 443 {
+		displayURL = fmt.Sprintf("%s://%s", protocol, info.Host)
+	} else if (protocol == "https" && info.Port == 443) || (protocol == "http" && info.Port == 80) {
 		displayURL = fmt.Sprintf("%s://%s", protocol, info.Host)
 	} else {
-		displayURL = baseURL
+		displayURL = fmt.Sprintf("%s://%s:%d", protocol, info.Host, info.Port)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL, nil)
@@ -101,7 +116,7 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 
 	// 先使用不跟随重定向的Client获取原始响应
-	resp, err := lib.ClientNoRedirect.Do(req)
+	resp, err := clientNR.Do(req)
 	if err != nil {
 		return "", 0, 0, "", nil, displayURL, err
 	}
@@ -109,7 +124,7 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 	body, err := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
 	contentLen := len(body)
-	if contentLen <= 0 && err != nil {
+	if err != nil {
 		return "", resp.StatusCode, 0, resp.Header.Get("Server"), nil, displayURL, err
 	}
 
@@ -118,7 +133,7 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 	checkDataList = append(checkDataList, WebScan.CheckDatas{
 		Body:    body,
 		Headers: p.formatHeaders(resp.Header),
-		Favicon: p.fetchFaviconHash(baseURL),
+		Favicon: p.fetchFaviconHash(ctx, baseURL),
 	})
 
 	title := p.extractTitle(string(body))
@@ -136,17 +151,16 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 				reqRedirect, err := http.NewRequestWithContext(ctx, "GET", redirectURL, nil)
 				if err == nil {
 					reqRedirect.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-					respRedirect, err := lib.Client.Do(reqRedirect)
+					respRedirect, err := clientR.Do(reqRedirect)
 					if err == nil {
-						bodyRedirect, _ := io.ReadAll(respRedirect.Body)
+						bodyRedirect, err := io.ReadAll(respRedirect.Body)
 						_ = respRedirect.Body.Close()
-
-						if len(bodyRedirect) > 0 {
+						if err == nil && len(bodyRedirect) > 0 {
 							// 添加跳转后页面的指纹数据
 							checkDataList = append(checkDataList, WebScan.CheckDatas{
 								Body:    bodyRedirect,
 								Headers: p.formatHeaders(respRedirect.Header),
-								Favicon: p.fetchFaviconHash(redirectURL),
+								Favicon: p.fetchFaviconHash(ctx, redirectURL),
 							})
 
 							// 如果原始页面没有标题，使用跳转后页面的标题
@@ -161,7 +175,7 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 	}
 
 	// 执行指纹识别（合并原始响应和跳转后响应的指纹）
-	fingerprints := p.identifyFingerprintsMulti(ctx, info, baseURL, checkDataList, config)
+	fingerprints := p.identifyFingerprintsMulti(ctx, info, baseURL, checkDataList, config, session)
 
 	return title, statusCode, contentLen, server, fingerprints, displayURL, nil
 }
@@ -190,38 +204,38 @@ func (p *WebTitlePlugin) resolveRedirectURL(baseURL, location string) string {
 }
 
 // identifyFingerprintsMulti 识别多个响应的指纹并合并
-func (p *WebTitlePlugin) identifyFingerprintsMulti(ctx context.Context, info *common.HostInfo, baseURL string, checkDataList []WebScan.CheckDatas, config *common.Config) []string {
+func (p *WebTitlePlugin) identifyFingerprintsMulti(ctx context.Context, info *common.HostInfo, baseURL string, checkDataList []WebScan.CheckDatas, config *common.Config, session *common.ScanSession) []string {
 	// 调用指纹识别
 	fingerprints := WebScan.InfoCheck(baseURL, &checkDataList)
 
 	// 非全量模式下，基于指纹触发POC扫描
 	if !config.POC.Full && !config.POC.Disabled {
-		p.triggerPocScan(ctx, info, fingerprints, config)
+		p.triggerPocScan(ctx, info, fingerprints, config, session)
 	}
 
 	return fingerprints
 }
 
 // triggerPocScan 基于指纹触发POC扫描
-func (p *WebTitlePlugin) triggerPocScan(ctx context.Context, info *common.HostInfo, fingerprints []string, config *common.Config) {
+func (p *WebTitlePlugin) triggerPocScan(ctx context.Context, info *common.HostInfo, fingerprints []string, config *common.Config, session *common.ScanSession) {
 	target := info.Target()
 
 	// 无指纹，跳过
 	if len(fingerprints) == 0 {
-		common.LogDebug(fmt.Sprintf("WebTitle %s 无匹配指纹，跳过POC扫描", target))
+		session.LogDebug(i18n.Tr("webtitle_no_fingerprint_skip_poc", target))
 		return
 	}
 
 	// 检测CDN/WAF
 	if cdnName := matchCDNorWAF(fingerprints); cdnName != "" {
-		common.LogDebug(fmt.Sprintf("WebTitle %s 检测到%s，跳过POC扫描", target, cdnName))
+		session.LogDebug(i18n.Tr("webtitle_cdn_waf_skip_poc", target, cdnName))
 		return
 	}
 
 	// 基于指纹执行POC扫描
-	common.LogDebug(fmt.Sprintf("WebTitle %s 触发指纹POC扫描: %v", target, fingerprints))
+	session.LogDebug(i18n.Tr("webtitle_trigger_fingerprint_poc", target, fingerprints))
 	info.Info = fingerprints
-	WebScan.WebScan(ctx, info, config)
+	WebScan.WebScan(ctx, info, config, session)
 }
 
 // formatHeaders 将 HTTP Header 格式化为字符串
@@ -229,14 +243,14 @@ func (p *WebTitlePlugin) formatHeaders(headers http.Header) string {
 	var builder strings.Builder
 	for name, values := range headers {
 		for _, value := range values {
-			builder.WriteString(fmt.Sprintf("%s: %s\n", name, value))
+			fmt.Fprintf(&builder, "%s: %s\n", name, value)
 		}
 	}
 	return builder.String()
 }
 
 // detectProtocol 智能检测HTTP/HTTPS协议（基于服务识别和主动探测）
-func (p *WebTitlePlugin) detectProtocol(info *common.HostInfo, config *common.Config, session *common.ScanSession) string {
+func (p *WebTitlePlugin) detectProtocol(ctx context.Context, info *common.HostInfo, config *common.Config, session *common.ScanSession) string {
 	host := info.Host
 	port := info.Port
 
@@ -251,7 +265,7 @@ func (p *WebTitlePlugin) detectProtocol(info *common.HostInfo, config *common.Co
 		// 第二优先级：基于服务名称特征判断（仅限服务识别阶段确定的https/ssl/tls）
 		// 注意：普通的"http"服务名不直接返回，因为可能是-u模式默认添加的协议
 		serviceName := strings.ToLower(serviceInfo.Name)
-		if common.ContainsAny(serviceName, "https", "ssl", "tls") {
+		if common.ContainsAny(serviceName, "https-gm", "https", "ssl", "tls") {
 			// 缓存协议信息到Extras
 			if serviceInfo.Extras == nil {
 				serviceInfo.Extras = make(map[string]string)
@@ -263,7 +277,7 @@ func (p *WebTitlePlugin) detectProtocol(info *common.HostInfo, config *common.Co
 
 	// 第三优先级：主动协议检测（TLS握手）
 	// 对于-u模式或服务名为普通"http"的情况，进行主动检测确认
-	detected := core.DetectHTTPScheme(host, port, config, session)
+	detected := core.DetectHTTPSchemeContext(ctx, host, port, config, session)
 	if detected != "" {
 		// 缓存检测结果（避免重复检测）
 		if exists {
@@ -299,7 +313,7 @@ func (p *WebTitlePlugin) extractTitle(html string) string {
 }
 
 // fetchFaviconHash 下载 favicon.ico 并计算 hash
-func (p *WebTitlePlugin) fetchFaviconHash(baseURL string) fingerprint.FaviconHashes {
+func (p *WebTitlePlugin) fetchFaviconHash(ctx context.Context, baseURL string) fingerprint.FaviconHashes {
 	// 构造 favicon URL
 	u, err := url.Parse(baseURL)
 	if err != nil {
@@ -308,7 +322,7 @@ func (p *WebTitlePlugin) fetchFaviconHash(baseURL string) fingerprint.FaviconHas
 	faviconURL := fmt.Sprintf("%s://%s/favicon.ico", u.Scheme, u.Host)
 
 	// 请求 favicon
-	req, err := http.NewRequest("GET", faviconURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", faviconURL, nil)
 	if err != nil {
 		return fingerprint.FaviconHashes{}
 	}

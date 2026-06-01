@@ -67,7 +67,7 @@ fscan -h 192.168.1.0/24 -silent | jq 'select(.type=="VULN")'
 | `-user` | 用户名 |
 | `-pwd` | 密码 |
 | `-usera` | 追加用户名 |
-| `-pwda` | 追加密码 |
+| `-pwda` | 追加密码，支持逗号或空格分隔多个值 |
 | `-userf` | 用户名字典文件 |
 | `-pwdf` | 密码字典文件 |
 | `-domain` | 域名（SMB/WMI） |

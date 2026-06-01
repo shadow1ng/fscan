@@ -4,8 +4,6 @@ before:
   hooks:
     - go mod tidy
     - go mod download
-    - chmod +x .github/scripts/build-lite.sh
-    - bash .github/scripts/build-lite.sh {{ .Version }}
 
 builds:
   # 标准版 - 全部插件（全架构）
@@ -238,8 +236,6 @@ release:
     | Solaris | x64 |
   footer: |
     **完整更新日志**: https://github.com/{{ .Env.GITHUB_OWNER }}/{{ .Env.GITHUB_REPO }}/compare/{{ .PreviousTag }}...{{ .Tag }}
-  extra_files:
-    - glob: ./dist-lite/*
 
 snapshot:
   name_template: "{{ incpatch .Version }}-dev-{{ .ShortCommit }}"

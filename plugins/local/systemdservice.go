@@ -38,28 +38,28 @@ func (p *SystemdServicePlugin) Scan(ctx context.Context, info *common.HostInfo, 
 	var output strings.Builder
 
 	if runtime.GOOS != "linux" {
-		output.WriteString("系统服务持久化只支持Linux平台\n")
+		output.WriteString(i18n.GetText("systemdservice_linux_only") + "\n")
 		return &plugins.Result{
 			Success: false,
 			Output:  output.String(),
-			Error:   fmt.Errorf("不支持的平台: %s", runtime.GOOS),
+			Error:   fmt.Errorf("%s", i18n.Tr("unsupported_platform", runtime.GOOS)),
 		}
 	}
 
 	// 从config获取配置
 	targetFile := config.PersistenceTargetFile
 	if targetFile == "" {
-		output.WriteString("必须通过 -persistence-file 参数指定目标文件路径\n")
+		output.WriteString(i18n.GetText("persistence_file_required") + "\n")
 		return &plugins.Result{
 			Success: false,
 			Output:  output.String(),
-			Error:   fmt.Errorf("未指定目标文件"),
+			Error:   fmt.Errorf("%s", i18n.GetText("target_file_not_specified")),
 		}
 	}
 
 	// 检查目标文件是否存在
 	if _, err := os.Stat(targetFile); os.IsNotExist(err) {
-		output.WriteString(fmt.Sprintf("目标文件不存在: %s\n", targetFile))
+		output.WriteString(i18n.Tr("target_file_not_exist", targetFile) + "\n")
 		return &plugins.Result{
 			Success: false,
 			Output:  output.String(),
@@ -69,7 +69,7 @@ func (p *SystemdServicePlugin) Scan(ctx context.Context, info *common.HostInfo, 
 
 	// 检查systemctl是否可用
 	if _, err := exec.LookPath("systemctl"); err != nil {
-		output.WriteString(fmt.Sprintf("systemctl命令不可用: %v\n", err))
+		output.WriteString(i18n.Tr("systemctl_unavailable", err) + "\n")
 		return &plugins.Result{
 			Success: false,
 			Output:  output.String(),
@@ -77,62 +77,62 @@ func (p *SystemdServicePlugin) Scan(ctx context.Context, info *common.HostInfo, 
 		}
 	}
 
-	output.WriteString("=== 系统服务持久化 ===\n")
-	output.WriteString(fmt.Sprintf("目标文件: %s\n", targetFile))
-	output.WriteString(fmt.Sprintf("平台: %s\n\n", runtime.GOOS))
+	output.WriteString(i18n.GetText("systemdservice_header") + "\n")
+	output.WriteString(i18n.Tr("local_target_file", targetFile) + "\n")
+	output.WriteString(i18n.Tr("local_platform", runtime.GOOS) + "\n\n")
 
 	var successCount int
 
 	// 1. 复制文件到服务目录
 	servicePath, err := p.copyToServicePath(targetFile)
 	if err != nil {
-		output.WriteString(fmt.Sprintf("✗ 复制文件失败: %v\n", err))
+		output.WriteString(i18n.Tr("copy_file_failed", err) + "\n")
 	} else {
-		output.WriteString(fmt.Sprintf("✓ 文件已复制到: %s\n", servicePath))
+		output.WriteString(i18n.Tr("file_copied_to", servicePath) + "\n")
 		successCount++
 	}
 
 	// 2. 创建systemd服务文件
 	serviceFiles, err := p.createSystemdServices(servicePath)
 	if err != nil {
-		output.WriteString(fmt.Sprintf("✗ 创建systemd服务失败: %v\n", err))
+		output.WriteString(i18n.Tr("systemdservice_create_failed", err) + "\n")
 	} else {
-		output.WriteString(fmt.Sprintf("✓ 已创建systemd服务: %s\n", strings.Join(serviceFiles, ", ")))
+		output.WriteString(i18n.Tr("systemdservice_created", strings.Join(serviceFiles, ", ")) + "\n")
 		successCount++
 	}
 
 	// 3. 启用并启动服务
 	err = p.enableAndStartServices(serviceFiles)
 	if err != nil {
-		output.WriteString(fmt.Sprintf("✗ 启动服务失败: %v\n", err))
+		output.WriteString(i18n.Tr("systemdservice_start_failed", err) + "\n")
 	} else {
-		output.WriteString("✓ 服务已启用并启动\n")
+		output.WriteString(i18n.GetText("systemdservice_started") + "\n")
 		successCount++
 	}
 
 	// 4. 创建用户级服务
 	userServiceFiles, err := p.createUserServices(servicePath)
 	if err != nil {
-		output.WriteString(fmt.Sprintf("✗ 创建用户服务失败: %v\n", err))
+		output.WriteString(i18n.Tr("systemdservice_user_create_failed", err) + "\n")
 	} else {
-		output.WriteString(fmt.Sprintf("✓ 已创建用户服务: %s\n", strings.Join(userServiceFiles, ", ")))
+		output.WriteString(i18n.Tr("systemdservice_user_created", strings.Join(userServiceFiles, ", ")) + "\n")
 		successCount++
 	}
 
 	// 5. 创建定时器服务
 	err = p.createTimerServices(servicePath)
 	if err != nil {
-		output.WriteString(fmt.Sprintf("✗ 创建定时器服务失败: %v\n", err))
+		output.WriteString(i18n.Tr("systemdservice_timer_create_failed", err) + "\n")
 	} else {
-		output.WriteString("✓ 已创建systemd定时器\n")
+		output.WriteString(i18n.GetText("systemdservice_timer_created") + "\n")
 		successCount++
 	}
 
 	// 输出统计
-	output.WriteString(fmt.Sprintf("\n系统服务持久化完成: 成功(%d) 总计(%d)\n", successCount, 5))
+	output.WriteString("\n" + i18n.Tr("systemdservice_complete_summary", successCount, 5) + "\n")
 
 	if successCount > 0 {
-		common.LogSuccess(i18n.Tr("systemdservice_success", successCount))
+		session.LogSuccess(i18n.Tr("systemdservice_success", successCount))
 	}
 
 	return &plugins.Result{
@@ -160,7 +160,7 @@ func (p *SystemdServicePlugin) copyToServicePath(targetFile string) (string, err
 	}
 
 	if targetDir == "" {
-		return "", fmt.Errorf("无法创建服务目录")
+		return "", fmt.Errorf("%s", i18n.GetText("service_dir_create_failed"))
 	}
 
 	// 生成服务可执行文件名
@@ -273,7 +273,7 @@ StandardError=null
 	}
 
 	if len(created) == 0 {
-		return nil, fmt.Errorf("无法创建任何systemd服务文件")
+		return nil, fmt.Errorf("%s", i18n.GetText("systemdservice_create_none"))
 	}
 
 	return created, nil
@@ -299,7 +299,7 @@ func (p *SystemdServicePlugin) enableAndStartServices(serviceFiles []string) err
 	}
 
 	if len(errors) > 0 {
-		return fmt.Errorf("服务操作错误: %s", strings.Join(errors, "; "))
+		return fmt.Errorf(i18n.GetText("service_operation_error")+": %s", strings.Join(errors, "; "))
 	}
 
 	return nil

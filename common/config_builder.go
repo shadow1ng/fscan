@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/shadow1ng/fscan/common/config"
+	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/common/parsers"
 )
 
@@ -28,12 +29,12 @@ func BuildConfig(fv *FlagVars, info *HostInfo) (*Config, *State, error) {
 
 	// 3. 解析凭据
 	if err := parseCredentials(fv, cfg); err != nil {
-		return nil, nil, fmt.Errorf("凭据解析失败: %w", err)
+		return nil, nil, fmt.Errorf("%s: %w", i18n.GetText("config_credentials_parse_failed"), err)
 	}
 
 	// 4. 解析目标（主机、端口、URL）
 	if err := parseTargets(fv, info, cfg, state); err != nil {
-		return nil, nil, fmt.Errorf("目标解析失败: %w", err)
+		return nil, nil, fmt.Errorf("%s: %w", i18n.GetText("config_targets_parse_failed"), err)
 	}
 
 	// 5. 应用日志级别
@@ -48,7 +49,10 @@ func BuildConfig(fv *FlagVars, info *HostInfo) (*Config, *State, error) {
 
 func parseCredentials(fv *FlagVars, cfg *Config) error {
 	// 解析用户名
-	usernames := parseUsernames(fv)
+	usernames, err := parseUsernames(fv)
+	if err != nil {
+		return err
+	}
 	if len(usernames) > 0 {
 		for serviceName := range cfg.Credentials.Userdict {
 			cfg.Credentials.Userdict[serviceName] = usernames
@@ -56,7 +60,10 @@ func parseCredentials(fv *FlagVars, cfg *Config) error {
 	}
 
 	// 解析密码
-	passwords := parsePasswords(fv)
+	passwords, err := parsePasswords(fv)
+	if err != nil {
+		return err
+	}
 	if len(passwords) > 0 {
 		cfg.Credentials.Passwords = passwords
 	}
@@ -83,7 +90,7 @@ func parseCredentials(fv *FlagVars, cfg *Config) error {
 	return nil
 }
 
-func parseUsernames(fv *FlagVars) []string {
+func parseUsernames(fv *FlagVars) ([]string, error) {
 	var usernames []string
 
 	// 命令行用户名
@@ -101,7 +108,7 @@ func parseUsernames(fv *FlagVars) []string {
 		if lines, err := parsers.ReadLinesFromFile(fv.UsersFile); err == nil {
 			usernames = append(usernames, lines...)
 		} else {
-			LogError(fmt.Sprintf("读取用户名文件 %s 失败: %v", fv.UsersFile, err))
+			return nil, fmt.Errorf("%s", i18n.Tr("config_read_users_failed", fv.UsersFile, err))
 		}
 	}
 
@@ -115,15 +122,15 @@ func parseUsernames(fv *FlagVars) []string {
 		}
 	}
 
-	return removeDuplicate(usernames)
+	return removeDuplicate(usernames), nil
 }
 
-func parsePasswords(fv *FlagVars) []string {
+func parsePasswords(fv *FlagVars) ([]string, error) {
 	var passwords []string
 
 	// 命令行密码
 	if fv.Password != "" {
-		passwords = append(passwords, strings.Split(fv.Password, ",")...)
+		passwords = append(passwords, fv.Password)
 	}
 
 	// 从文件读取
@@ -131,16 +138,31 @@ func parsePasswords(fv *FlagVars) []string {
 		if lines, err := parsers.ReadLinesFromFile(fv.PasswordsFile); err == nil {
 			passwords = append(passwords, lines...)
 		} else {
-			LogError(fmt.Sprintf("读取密码文件 %s 失败: %v", fv.PasswordsFile, err))
+			return nil, fmt.Errorf("%s", i18n.Tr("config_read_passwords_failed", fv.PasswordsFile, err))
 		}
 	}
 
 	// 额外密码
 	if fv.AddPasswords != "" {
-		passwords = append(passwords, strings.Split(fv.AddPasswords, ",")...)
+		passwords = append(passwords, splitCredentialValues(fv.AddPasswords)...)
 	}
 
-	return removeDuplicate(passwords)
+	return removeDuplicate(passwords), nil
+}
+
+func splitCredentialValues(input string) []string {
+	fields := strings.FieldsFunc(input, func(r rune) bool {
+		return r == ',' || r == ' ' || r == '\t' || r == '\n' || r == '\r'
+	})
+
+	values := make([]string, 0, len(fields))
+	for _, field := range fields {
+		field = strings.TrimSpace(field)
+		if field != "" {
+			values = append(values, field)
+		}
+	}
+	return values
 }
 
 func parseUserPassPairs(fv *FlagVars) ([]config.CredentialPair, error) {
@@ -176,12 +198,15 @@ func parseHashes(fv *FlagVars) ([]string, [][]byte, error) {
 	// 命令行哈希
 	if fv.HashValue != "" {
 		hash := strings.TrimSpace(fv.HashValue)
-		if len(hash) == 32 {
-			hashValues = append(hashValues, hash)
-			if hashByte, err := hex.DecodeString(hash); err == nil {
-				hashBytes = append(hashBytes, hashByte)
-			}
+		if len(hash) != 32 {
+			return nil, nil, fmt.Errorf("invalid hash length: %s", hash)
 		}
+		hashByte, err := hex.DecodeString(hash)
+		if err != nil {
+			return nil, nil, err
+		}
+		hashValues = append(hashValues, hash)
+		hashBytes = append(hashBytes, hashByte)
 	}
 
 	// 从文件读取
@@ -209,13 +234,17 @@ func parseTargets(fv *FlagVars, info *HostInfo, cfg *Config, state *State) error
 			if port, portErr := strconv.Atoi(portStr); portErr == nil && port >= 1 && port <= 65535 {
 				// 有效的 host:port 格式
 				state.SetHostPorts([]string{info.Host})
+				info.Host = ""
 				ports = "" // 清空端口，避免双重扫描
 			}
 		}
 	}
 
 	// 解析 URL
-	urls := parseURLs(fv)
+	urls, err := parseURLs(fv)
+	if err != nil {
+		return err
+	}
 	if len(urls) > 0 {
 		state.SetURLs(urls)
 		if info.URL == "" && len(urls) == 1 {
@@ -231,7 +260,7 @@ func parseTargets(fv *FlagVars, info *HostInfo, cfg *Config, state *State) error
 	return nil
 }
 
-func parseURLs(fv *FlagVars) []string {
+func parseURLs(fv *FlagVars) ([]string, error) {
 	var urls []string
 
 	// 命令行 URL
@@ -251,11 +280,11 @@ func parseURLs(fv *FlagVars) []string {
 				urls = append(urls, normalizeURL(line))
 			}
 		} else {
-			LogError(fmt.Sprintf("读取URL文件 %s 失败: %v", fv.URLsFile, err))
+			return nil, fmt.Errorf("%s", i18n.Tr("config_read_urls_failed", fv.URLsFile, err))
 		}
 	}
 
-	return removeDuplicate(urls)
+	return removeDuplicate(urls), nil
 }
 
 func normalizeURL(rawURL string) string {
@@ -263,7 +292,8 @@ func normalizeURL(rawURL string) string {
 	if rawURL == "" {
 		return rawURL
 	}
-	if !strings.HasPrefix(rawURL, "http://") && !strings.HasPrefix(rawURL, "https://") {
+	lowerURL := strings.ToLower(rawURL)
+	if !strings.HasPrefix(lowerURL, "http://") && !strings.HasPrefix(lowerURL, "https://") {
 		return "http://" + rawURL
 	}
 	return rawURL

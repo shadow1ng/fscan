@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/common/proxy"
 )
 
@@ -102,20 +103,20 @@ func createProxyConfig(timeout time.Duration) *proxy.ProxyConfig {
 // TCP 连接
 // =============================================================================
 
-// Deprecated: WrapperTcpWithTimeout 仅供 mylib/grdp 兼容使用，新代码请用 ScanSession.DialTCP
+// Deprecated: WrapperTcpWithTimeout 仅供 libs/grdp 兼容使用，新代码请用 ScanSession.DialTCP
 //
 //nolint:revive
 func WrapperTcpWithTimeout(network, address string, timeout time.Duration) (net.Conn, error) {
 	// 检查发包限制 - 在代理连接前进行控制
 	if canSend, reason := CanSendPacket(); !canSend {
-		LogError(fmt.Sprintf("TCP连接 %s 受限: %s", address, reason))
-		return nil, fmt.Errorf("发包受限: %s", reason)
+		LogError(i18n.Tr("tcp_connection_restricted", address, reason))
+		return nil, fmt.Errorf("%s", i18n.Tr("network_rate_limited", reason))
 	}
 
 	// 获取全局拨号器（复用，避免重复创建）
 	dialer, err := getGlobalDialer(timeout)
 	if err != nil {
-		LogError(fmt.Sprintf("获取代理拨号器失败: %v", err))
+		LogError(i18n.Tr("proxy_dialer_failed", err))
 		GetGlobalState().IncrementTCPFailedPacketCount()
 		return nil, err
 	}
@@ -126,7 +127,7 @@ func WrapperTcpWithTimeout(network, address string, timeout time.Duration) (net.
 	// 统计TCP包数量 - 无论是否使用代理都要计数
 	if err != nil {
 		GetGlobalState().IncrementTCPFailedPacketCount()
-		LogDebug(fmt.Sprintf("连接 %s 失败: %v", address, err))
+		LogDebug(i18n.Tr("connection_failed", address, err))
 		return nil, err
 	}
 
@@ -165,8 +166,8 @@ func IsSOCKS5Proxy() bool {
 func SafeHTTPDo(client *http.Client, req *http.Request) (*http.Response, error) {
 	// 检查发包限制
 	if canSend, reason := CanSendPacket(); !canSend {
-		LogError(fmt.Sprintf("HTTP请求 %s 受限: %s", req.URL.String(), reason))
-		return nil, fmt.Errorf("发包受限: %s", reason)
+		LogError(i18n.Tr("http_request_restricted", req.URL.String(), reason))
+		return nil, fmt.Errorf("%s", i18n.Tr("network_rate_limited", reason))
 	}
 
 	// 执行HTTP请求

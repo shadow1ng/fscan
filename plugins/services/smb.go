@@ -34,7 +34,7 @@ func (p *SmbPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 		return &ScanResult{
 			Success: false,
 			Service: "smb",
-			Error:   fmt.Errorf("SMB插件仅支持139和445端口"),
+			Error:   fmt.Errorf("%s", i18n.GetText("smb_port_only")),
 		}
 	}
 
@@ -44,18 +44,18 @@ func (p *SmbPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 		return &ScanResult{
 			Success: false,
 			Service: "smb",
-			Error:   fmt.Errorf("SMB协议探测失败: %w", err),
+			Error:   fmt.Errorf("%s: %w", i18n.GetText("smb_probe_failed"), err),
 		}
 	}
 
 	// 输出信息收集结果
-	p.logSMBInfo(target, smbTarget)
+	p.logSMBInfo(target, smbTarget, session)
 
 	// 2. 漏洞检测 (仅SMBv2+且端口445)
 	if smbTarget.Protocol == SMBProtocol2 && info.Port == 445 {
 		if checkSMBGhost(ctx, info.Host, config.Timeout, session) {
 			smbTarget.Vulnerable = &SMBVuln{CVE20200796: true}
-			common.LogVuln(i18n.Tr("smbghost_vuln", target))
+			session.LogVuln(i18n.Tr("smbghost_vuln", target))
 		}
 	}
 
@@ -71,11 +71,11 @@ func (p *SmbPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	if result := p.testUnauthorizedAccess(ctx, info, auth, config, state, session); result != nil && result.Success {
 		var successMsg string
 		if config.Credentials.Domain != "" {
-			successMsg = fmt.Sprintf("SMB %s 未授权访问 - %s\\%s:%s", target, config.Credentials.Domain, result.Username, result.Password)
+			successMsg = i18n.Tr("smb_unauth_domain_access", target, config.Credentials.Domain, result.Username, result.Password)
 		} else {
-			successMsg = fmt.Sprintf("SMB %s 未授权访问 - %s:%s", target, result.Username, result.Password)
+			successMsg = i18n.Tr("smb_unauth_access", target, result.Username, result.Password)
 		}
-		common.LogVuln(successMsg)
+		session.LogVuln(successMsg)
 		return result
 	}
 
@@ -102,7 +102,7 @@ func (p *SmbPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 		} else {
 			successMsg = fmt.Sprintf("SMB %s %s:%s", target, result.Username, result.Password)
 		}
-		common.LogVuln(successMsg)
+		session.LogVuln(successMsg)
 	}
 
 	return result
@@ -143,12 +143,12 @@ func (p *SmbPlugin) testUnauthorizedAccess(ctx context.Context, info *common.Hos
 			if displayUser == "" {
 				displayUser = "<empty>"
 			}
-			output.WriteString(fmt.Sprintf("SMB %s 匿名访问 - %s:%s", target, displayUser, cred.Password))
+			output.WriteString(i18n.Tr("smb_anonymous_access_detail", target, displayUser, cred.Password))
 			for _, share := range shareInfo {
-				output.WriteString(fmt.Sprintf("\n%s", share))
+				fmt.Fprintf(&output, "\n%s", share)
 			}
 
-			common.LogSuccess(output.String())
+			session.LogSuccess(output.String())
 
 			return &ScanResult{
 				Success:  true,
@@ -156,7 +156,7 @@ func (p *SmbPlugin) testUnauthorizedAccess(ctx context.Context, info *common.Hos
 				Service:  "smb",
 				Username: cred.Username,
 				Password: cred.Password,
-				Banner:   "SMB匿名访问",
+				Banner:   i18n.GetText("smb_anonymous_banner"),
 			}
 		}
 	}
@@ -165,7 +165,7 @@ func (p *SmbPlugin) testUnauthorizedAccess(ctx context.Context, info *common.Hos
 }
 
 // logSMBInfo 输出SMB信息
-func (p *SmbPlugin) logSMBInfo(target string, info *SMBTarget) {
+func (p *SmbPlugin) logSMBInfo(target string, info *SMBTarget, session *common.ScanSession) {
 	msg := fmt.Sprintf("SMBInfo %s", target)
 	if info.OSVersion != "" {
 		msg += fmt.Sprintf(" [%s]", info.OSVersion)
@@ -174,7 +174,7 @@ func (p *SmbPlugin) logSMBInfo(target string, info *SMBTarget) {
 		msg += fmt.Sprintf(" %s", info.ComputerName)
 	}
 	msg += fmt.Sprintf(" %s", info.Protocol.String())
-	common.LogSuccess(msg)
+	session.LogSuccess(msg)
 }
 
 // buildInfoResult 构建信息收集结果

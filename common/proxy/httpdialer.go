@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"sync/atomic"
 	"time"
 )
 
@@ -24,33 +23,27 @@ func (h *httpDialer) Dial(network, address string) (net.Conn, error) {
 
 func (h *httpDialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
 	start := time.Now()
-	atomic.AddInt64(&h.stats.TotalConnections, 1)
+	h.stats.addTotal(1)
 
 	// 连接到HTTP代理服务器
 	proxyConn, err := h.baseDial.DialContext(ctx, NetworkTCP, h.config.Address)
 	if err != nil {
-		atomic.AddInt64(&h.stats.FailedConnections, 1)
-		h.stats.mu.Lock()
-		h.stats.LastError = err.Error()
-		h.stats.mu.Unlock()
+		h.stats.addFailed(1)
+		h.stats.setLastError(err.Error())
 		return nil, NewProxyError(ErrTypeConnection, ErrMsgHTTPConnFailed, ErrCodeHTTPConnFailed, err)
 	}
 
 	// 发送CONNECT请求
 	if err := h.sendConnectRequest(proxyConn, address); err != nil {
 		_ = proxyConn.Close() // 错误处理路径，Close错误可忽略
-		atomic.AddInt64(&h.stats.FailedConnections, 1)
-		h.stats.mu.Lock()
-		h.stats.LastError = err.Error()
-		h.stats.mu.Unlock()
+		h.stats.addFailed(1)
+		h.stats.setLastError(err.Error())
 		return nil, err
 	}
 
 	duration := time.Since(start)
-	h.stats.mu.Lock()
-	h.stats.LastConnectTime = start
-	h.stats.mu.Unlock()
-	atomic.AddInt64(&h.stats.ActiveConnections, 1)
+	h.stats.setLastConnectTime(start)
+	h.stats.addActive(1)
 	h.updateAverageConnectTime(duration)
 
 	return &trackedConn{

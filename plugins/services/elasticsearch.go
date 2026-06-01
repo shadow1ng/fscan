@@ -27,21 +27,20 @@ func NewElasticsearchPlugin() *ElasticsearchPlugin {
 
 func (p *ElasticsearchPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
-	state := session.State
 	target := info.Target()
 
 	if config.DisableBrute {
-		return p.identifyService(ctx, info, config, state)
+		return p.identifyService(ctx, info, session)
 	}
 
 	// 首先检测未授权访问
-	if p.testCredential(ctx, info, Credential{Username: "", Password: ""}, config, state) {
-		common.LogVuln(i18n.Tr("elasticsearch_unauth", target))
+	if p.testCredential(ctx, info, Credential{Username: "", Password: ""}, session) {
+		session.LogVuln(i18n.Tr("elasticsearch_unauth", target))
 		return &ScanResult{
 			Success: true,
 			Type:    plugins.ResultTypeVuln,
 			Service: "elasticsearch",
-			VulInfo: "未授权访问",
+			VulInfo: i18n.GetText("unauthorized_access"),
 		}
 	}
 
@@ -51,13 +50,13 @@ func (p *ElasticsearchPlugin) Scan(ctx context.Context, info *common.HostInfo, s
 		return &ScanResult{
 			Success: false,
 			Service: "elasticsearch",
-			Error:   fmt.Errorf("没有可用的测试凭据"),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 
 	for _, cred := range credentials {
-		if p.testCredential(ctx, info, cred, config, state) {
-			common.LogVuln(i18n.Tr("elasticsearch_credential", target, cred.Username, cred.Password))
+		if p.testCredential(ctx, info, cred, session) {
+			session.LogVuln(i18n.Tr("elasticsearch_credential", target, cred.Username, cred.Password))
 			return &ScanResult{
 				Success:  true,
 				Type:     plugins.ResultTypeCredential,
@@ -71,11 +70,12 @@ func (p *ElasticsearchPlugin) Scan(ctx context.Context, info *common.HostInfo, s
 	return &ScanResult{
 		Success: false,
 		Service: "elasticsearch",
-		Error:   fmt.Errorf("未发现弱密码"),
+		Error:   fmt.Errorf("%s", i18n.GetText("service_no_weak_pass")),
 	}
 }
 
-func (p *ElasticsearchPlugin) testCredential(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) bool {
+func (p *ElasticsearchPlugin) testCredential(ctx context.Context, info *common.HostInfo, cred Credential, session *common.ScanSession) bool {
+	config := session.Config
 	client := &http.Client{
 		Timeout: config.Timeout,
 		Transport: &http.Transport{
@@ -88,7 +88,7 @@ func (p *ElasticsearchPlugin) testCredential(ctx context.Context, info *common.H
 	if info.Port == 9443 {
 		protocol = "https"
 	}
-	url := fmt.Sprintf("%s://%s:%d/", protocol, info.Host, info.Port)
+	url := fmt.Sprintf("%s://%s/", protocol, info.Target())
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -100,12 +100,10 @@ func (p *ElasticsearchPlugin) testCredential(ctx context.Context, info *common.H
 		req.Header.Set("Authorization", "Basic "+auth)
 	}
 
-	resp, err := client.Do(req)
+	resp, err := session.HTTPDo(client, req)
 	if err != nil {
-		state.IncrementTCPFailedPacketCount()
 		return false
 	}
-	state.IncrementTCPSuccessPacketCount()
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == 200 {
@@ -121,15 +119,15 @@ func (p *ElasticsearchPlugin) testCredential(ctx context.Context, info *common.H
 	return false
 }
 
-func (p *ElasticsearchPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *ElasticsearchPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
-	if p.testCredential(ctx, info, Credential{Username: "", Password: ""}, config, state) {
+	if p.testCredential(ctx, info, Credential{Username: "", Password: ""}, session) {
 		banner := "Elasticsearch"
-		common.LogSuccess(i18n.Tr("elasticsearch_service", target, banner))
+		session.LogSuccess(i18n.Tr("elasticsearch_service", target, banner))
 		return &ScanResult{
 			Success: true,
-				Type:     plugins.ResultTypeService,
+			Type:    plugins.ResultTypeService,
 			Service: "elasticsearch",
 			Banner:  banner,
 		}
@@ -137,7 +135,7 @@ func (p *ElasticsearchPlugin) identifyService(ctx context.Context, info *common.
 	return &ScanResult{
 		Success: false,
 		Service: "elasticsearch",
-		Error:   fmt.Errorf("无法识别为Elasticsearch服务"),
+		Error:   fmt.Errorf("%s", i18n.Tr("service_not_identified", "Elasticsearch")),
 	}
 }
 

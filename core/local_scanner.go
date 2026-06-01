@@ -17,17 +17,17 @@ type LocalScanStrategy struct {
 // NewLocalScanStrategy 创建新的本地扫描策略
 func NewLocalScanStrategy() *LocalScanStrategy {
 	return &LocalScanStrategy{
-		BaseScanStrategy: NewBaseScanStrategy("本地扫描", FilterLocal),
+		BaseScanStrategy: NewBaseScanStrategy(i18n.GetText("scan_strategy_local_name"), FilterLocal),
 	}
 }
 
 // LogPluginInfo 重写以只显示通过-local指定的插件
-func (s *LocalScanStrategy) LogPluginInfo(config *common.Config) {
+func (s *LocalScanStrategy) LogPluginInfo(config *common.Config, session *common.ScanSession) {
 	localPlugin := config.LocalPlugin
 	if localPlugin != "" {
-		common.LogInfo(i18n.Tr("local_plugin_info", localPlugin))
+		session.LogInfo(i18n.Tr("local_plugin_info", localPlugin))
 	} else {
-		common.LogError(i18n.GetText("local_plugin_not_specified"))
+		session.LogError(i18n.GetText("local_plugin_not_specified"))
 	}
 }
 
@@ -46,24 +46,24 @@ func (s *LocalScanStrategy) Execute(ctx context.Context, session *common.ScanSes
 	config := session.Config
 
 	// 输出扫描开始信息
-	s.LogScanStart()
+	s.LogScanStart(session)
 
 	// 验证插件配置
 	if err := s.ValidateConfiguration(); err != nil {
-		common.LogError(err.Error())
+		session.LogError(err.Error())
 		return
 	}
 
 	// 验证本地插件是否存在
 	if config.LocalPlugin != "" {
 		if !plugins.Exists(config.LocalPlugin) {
-			common.LogError(i18n.Tr("local_plugin_not_found", config.LocalPlugin))
+			session.LogError(i18n.Tr("local_plugin_not_found", config.LocalPlugin))
 			return
 		}
 	}
 
 	// 输出插件信息
-	s.LogPluginInfo(config)
+	s.LogPluginInfo(config, session)
 
 	// 准备目标（本地扫描通常只有一个目标，即本机）
 	targets := s.PrepareTargets(info)

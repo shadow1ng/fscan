@@ -46,9 +46,12 @@ func registerRandomImplementations() []*functions.Overload {
 				if !ok {
 					return types.ValOrErr(rhs, "unexpected type '%v' passed to randomInt", rhs.Type())
 				}
-				min, max := int(from), int(to)
-				//nolint:gosec // G404: 用于生成POC测试随机数，非加密用途
-				return types.Int(rand.Intn(max-min) + min)
+			min, max := int(from), int(to)
+			if max <= min {
+				return types.NewErr("randomInt: max(%d) must be greater than min(%d)", max, min)
+			}
+			//nolint:gosec // G404: 用于生成POC测试随机数，非加密用途
+			return types.Int(rand.Intn(max-min) + min)
 			},
 		},
 		{

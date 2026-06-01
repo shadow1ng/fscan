@@ -9,9 +9,9 @@ import (
 
 	"github.com/shadow1ng/fscan/common"
 	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/mylib/grdp/glog"
-	"github.com/shadow1ng/fscan/mylib/grdp/login"
-	"github.com/shadow1ng/fscan/mylib/grdp/protocol/x224"
+	"github.com/shadow1ng/fscan/libs/grdp/glog"
+	"github.com/shadow1ng/fscan/libs/grdp/login"
+	"github.com/shadow1ng/fscan/libs/grdp/protocol/x224"
 	"github.com/shadow1ng/fscan/plugins"
 )
 
@@ -56,7 +56,7 @@ func (p *RDPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	if !isSingleCredentialTest {
 		osInfo = p.probeOSInfo(target, config, state)
 		if len(osInfo) > 0 {
-			p.logOSInfo(target, osInfo)
+			p.logOSInfo(target, osInfo, session)
 		}
 	}
 
@@ -68,14 +68,14 @@ func (p *RDPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 		if osInfo == nil {
 			osInfo = p.probeOSInfo(target, config, state)
 			if len(osInfo) > 0 {
-				p.logOSInfo(target, osInfo)
+				p.logOSInfo(target, osInfo, session)
 			}
 		}
 		banner := p.buildBanner(osInfo)
-		common.LogSuccess(i18n.Tr("rdp_service", target, banner))
+		session.LogSuccess(i18n.Tr("rdp_service", target, banner))
 		return &ScanResult{
 			Success: true,
-				Type:     plugins.ResultTypeService,
+			Type:    plugins.ResultTypeService,
 			Service: "rdp",
 			Banner:  banner,
 		}
@@ -126,11 +126,11 @@ func (p *RDPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 			}
 
 			result := fmt.Sprintf("RDP %s %s\\%s %s", target, displayDomain, cred.Username, cred.Password)
-			common.LogVuln(result)
+			session.LogVuln(result)
 
 			return &ScanResult{
 				Success:  true,
-					Type:     plugins.ResultTypeCredential,
+				Type:     plugins.ResultTypeCredential,
 				Service:  "rdp",
 				Username: cred.Username,
 				Password: cred.Password,
@@ -144,7 +144,7 @@ func (p *RDPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 			return &ScanResult{
 				Success: false,
 				Service: "rdp",
-				Error:   fmt.Errorf("RDP端口未开放"),
+				Error:   fmt.Errorf("%s", i18n.GetText("rdp_port_closed")),
 			}
 		}
 	}
@@ -153,7 +153,7 @@ func (p *RDPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	return &ScanResult{
 		Success: false,
 		Service: "rdp",
-		Error:   fmt.Errorf("RDP认证失败"),
+		Error:   fmt.Errorf("%s", i18n.GetText("service_auth_failed")),
 	}
 }
 
@@ -197,7 +197,7 @@ func (p *RDPPlugin) probeOSInfo(host string, config *common.Config, state *commo
 }
 
 // logOSInfo 输出系统信息
-func (p *RDPPlugin) logOSInfo(target string, osInfo map[string]any) {
+func (p *RDPPlugin) logOSInfo(target string, osInfo map[string]any, session *common.ScanSession) {
 	var parts []string
 
 	// 提取关键信息
@@ -235,14 +235,14 @@ func (p *RDPPlugin) logOSInfo(target string, osInfo map[string]any) {
 
 	if len(parts) > 0 {
 		info := fmt.Sprintf("RDP %s [%s]", target, strings.Join(parts, ", "))
-		common.LogSuccess(info)
+		session.LogSuccess(info)
 	}
 }
 
 // buildBanner 构建服务识别Banner
 func (p *RDPPlugin) buildBanner(osInfo map[string]any) string {
 	if len(osInfo) == 0 {
-		return "RDP远程桌面服务"
+		return i18n.GetText("rdp_remote_desktop_service")
 	}
 
 	osVersion := p.extractStringField(osInfo, "OsVerion")
@@ -256,7 +256,7 @@ func (p *RDPPlugin) buildBanner(osInfo map[string]any) string {
 		return fmt.Sprintf("RDP (Hostname:%s)", hostname)
 	}
 
-	return "RDP远程桌面服务"
+	return i18n.GetText("rdp_remote_desktop_service")
 }
 
 // extractStringField 安全提取字符串字段

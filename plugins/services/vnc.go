@@ -30,7 +30,7 @@ func (p *VNCPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 
 	// 检查未授权访问
 	if result := p.testUnauthAccess(ctx, info, session); result != nil && result.Success {
-		common.LogVuln(i18n.Tr("vnc_unauth", target))
+		session.LogVuln(i18n.Tr("vnc_unauth", target))
 		return result
 	}
 
@@ -54,7 +54,7 @@ func (p *VNCPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "vnc", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("vnc_credential", target, result.Password))
+		session.LogVuln(i18n.Tr("vnc_credential", target, result.Password))
 	}
 
 	return result
@@ -182,7 +182,7 @@ func (p *VNCPlugin) testUnauthAccess(ctx context.Context, info *common.HostInfo,
 			Type:    plugins.ResultTypeVuln,
 			Success: true,
 			Service: "vnc",
-			Banner:  "未授权访问",
+			Banner:  i18n.GetText("service_unauthorized"),
 		}
 	}
 

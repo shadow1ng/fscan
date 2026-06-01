@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/shadow1ng/fscan/common/config"
+	"github.com/shadow1ng/fscan/common/i18n"
 )
 
 /*
@@ -37,7 +38,7 @@ func ParseIP(host string, filename string, nohosts ...string) ([]string, error) 
 	if filename != "" {
 		fileHosts, err := ReadLinesFromFile(filename)
 		if err != nil {
-			return nil, fmt.Errorf("读取主机文件失败: %w", err)
+			return nil, fmt.Errorf(i18n.GetText("parser_read_hosts_failed")+": %w", err)
 		}
 		for _, h := range fileHosts {
 			parsed, err := parseHostString(h)
@@ -52,18 +53,27 @@ func ParseIP(host string, filename string, nohosts ...string) ([]string, error) 
 	if host != "" {
 		hostList, err := parseHostString(host)
 		if err != nil {
-			return nil, fmt.Errorf("解析主机失败: %w", err)
+			return nil, fmt.Errorf(i18n.GetText("parser_parse_host_failed")+": %w", err)
 		}
 		hosts = append(hosts, hostList...)
 	}
 
 	// 处理排除主机
-	if len(nohosts) > 0 && nohosts[0] != "" {
-		excludeList, err := parseHostString(nohosts[0])
-		if err != nil {
-			return nil, fmt.Errorf("解析排除主机失败: %w", err)
+	if len(nohosts) > 0 {
+		matcher := newHostMatcher()
+		hasExclude := false
+		for _, exclude := range nohosts {
+			if strings.TrimSpace(exclude) == "" {
+				continue
+			}
+			hasExclude = true
+			if err := matcher.add(exclude); err != nil {
+				return nil, fmt.Errorf(i18n.GetText("parser_parse_exclude_failed")+": %w", err)
+			}
 		}
-		hosts = excludeFromList(hosts, excludeList)
+		if hasExclude {
+			hosts = excludeFromList(hosts, matcher)
+		}
 	}
 
 	// 去重和排序
@@ -71,7 +81,7 @@ func ParseIP(host string, filename string, nohosts ...string) ([]string, error) 
 	sort.Strings(hosts)
 
 	if len(hosts) == 0 {
-		return nil, fmt.Errorf("没有找到有效的主机")
+		return nil, fmt.Errorf("%s", i18n.GetText("parser_no_valid_hosts"))
 	}
 
 	return hosts, nil
@@ -89,33 +99,33 @@ func parseHostString(host string) ([]string, error) {
 
 		switch {
 		case h == "192":
-			cidrHosts, err := parseIPCIDR("192.168.0.0/16", SimpleMaxHosts)
+			cidrHosts, err := parseIPCIDR("192.168.0.0/16")
 			if err != nil {
 				return nil, err
 			}
 			hosts = append(hosts, cidrHosts...)
 		case h == "172":
-			cidrHosts, err := parseIPCIDR("172.16.0.0/12", SimpleMaxHosts)
+			cidrHosts, err := parseIPCIDR("172.16.0.0/12")
 			if err != nil {
 				return nil, err
 			}
 			hosts = append(hosts, cidrHosts...)
 		case h == "10":
-			cidrHosts, err := parseIPCIDR("10.0.0.0/8", SimpleMaxHosts)
+			cidrHosts, err := parseIPCIDR("10.0.0.0/8")
 			if err != nil {
 				return nil, err
 			}
 			hosts = append(hosts, cidrHosts...)
 		case strings.Contains(h, "/"):
-			cidrHosts, err := parseIPCIDR(h, SimpleMaxHosts)
+			cidrHosts, err := parseIPCIDR(h)
 			if err != nil {
-				return nil, fmt.Errorf("CIDR解析失败 %s: %w", h, err)
+				return nil, fmt.Errorf(i18n.Tr("parser_cidr_failed", h)+": %w", err)
 			}
 			hosts = append(hosts, cidrHosts...)
 		case strings.Contains(h, "-") && !strings.Contains(h, ":") && looksLikeIPRange(h):
-			rangeHosts, err := parseIPRangeString(h, SimpleMaxHosts)
+			rangeHosts, err := parseIPRangeString(h)
 			if err != nil {
-				return nil, fmt.Errorf("IP范围解析失败 %s: %w", h, err)
+				return nil, fmt.Errorf(i18n.Tr("parser_ip_range_failed", h)+": %w", err)
 			}
 			hosts = append(hosts, rangeHosts...)
 		default:
@@ -211,6 +221,7 @@ func ReadLinesFromFile(filename string) ([]string, error) {
 
 	var lines []string
 	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" && !strings.HasPrefix(line, "#") {
@@ -288,7 +299,7 @@ func ParseHashFile(filename string) ([]string, [][]byte, error) {
 // =============================================================================
 
 // parseIPCIDR 解析CIDR网段
-func parseIPCIDR(cidr string, maxTargets int) ([]string, error) {
+func parseIPCIDR(cidr string) ([]string, error) {
 	_, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {
 		return nil, err
@@ -298,17 +309,11 @@ func parseIPCIDR(cidr string, maxTargets int) ([]string, error) {
 	ip := make(net.IP, len(ipNet.IP))
 	copy(ip, ipNet.IP)
 
-	count := 0
 	for ipNet.Contains(ip) {
 		ips = append(ips, ip.String())
-		count++
-		if count >= maxTargets {
-			break
-		}
 		incrementIP(ip)
 	}
 
-	// 移除网络地址和广播地址
 	if len(ips) > 2 {
 		ips = ips[1 : len(ips)-1]
 	}
@@ -330,10 +335,10 @@ func looksLikeIPRange(s string) bool {
 }
 
 // parseIPRangeString 解析IP范围字符串
-func parseIPRangeString(rangeStr string, maxTargets int) ([]string, error) {
+func parseIPRangeString(rangeStr string) ([]string, error) {
 	parts := strings.Split(rangeStr, "-")
 	if len(parts) != 2 {
-		return nil, fmt.Errorf("无效的IP范围格式: %s", rangeStr)
+		return nil, fmt.Errorf("%s", i18n.Tr("parser_invalid_ip_range_fmt", rangeStr))
 	}
 
 	startIPStr := strings.TrimSpace(parts[0])
@@ -341,7 +346,7 @@ func parseIPRangeString(rangeStr string, maxTargets int) ([]string, error) {
 
 	startIP := net.ParseIP(startIPStr)
 	if startIP == nil {
-		return nil, fmt.Errorf("无效的起始IP地址: %s", startIPStr)
+		return nil, fmt.Errorf("%s", i18n.Tr("parser_invalid_start_ip", startIPStr))
 	}
 
 	// 处理简写格式 (如: 192.168.1.1-100)
@@ -352,28 +357,28 @@ func parseIPRangeString(rangeStr string, maxTargets int) ([]string, error) {
 	// 处理完整格式 (如: 192.168.1.1-192.168.1.100)
 	endIP := net.ParseIP(endIPStr)
 	if endIP == nil {
-		return nil, fmt.Errorf("无效的结束IP地址: %s", endIPStr)
+		return nil, fmt.Errorf("%s", i18n.Tr("parser_invalid_end_ip", endIPStr))
 	}
 
-	return parseIPFullRange(startIP, endIP, maxTargets)
+	return parseIPFullRange(startIP, endIP)
 }
 
 // parseIPShortRange 解析短格式IP范围
 func parseIPShortRange(startIPStr, endSuffix string) ([]string, error) {
 	endNum, err := strconv.Atoi(endSuffix)
 	if err != nil || endNum > 255 {
-		return nil, fmt.Errorf("无效的IP范围结束值: %s", endSuffix)
+		return nil, fmt.Errorf("%s", i18n.Tr("parser_invalid_ip_end_val", endSuffix))
 	}
 
 	ipParts := strings.Split(startIPStr, ".")
 	if len(ipParts) != 4 {
-		return nil, fmt.Errorf("无效的IP地址格式: %s", startIPStr)
+		return nil, fmt.Errorf("%s", i18n.Tr("parser_invalid_ip_fmt", startIPStr))
 	}
 
 	prefixIP := strings.Join(ipParts[0:3], ".")
 	startNum, err := strconv.Atoi(ipParts[3])
 	if err != nil || startNum > endNum {
-		return nil, fmt.Errorf("无效的IP范围: %s-%s", startIPStr, endSuffix)
+		return nil, fmt.Errorf("%s", i18n.Tr("parser_invalid_ip_range_val", startIPStr, endSuffix))
 	}
 
 	var allIP []string
@@ -385,30 +390,27 @@ func parseIPShortRange(startIPStr, endSuffix string) ([]string, error) {
 }
 
 // parseIPFullRange 解析完整格式的IP范围
-func parseIPFullRange(startIP, endIP net.IP, maxTargets int) ([]string, error) {
+func parseIPFullRange(startIP, endIP net.IP) ([]string, error) {
 	start4 := startIP.To4()
 	end4 := endIP.To4()
 	if start4 == nil || end4 == nil {
-		return nil, fmt.Errorf("仅支持IPv4地址范围")
+		return nil, fmt.Errorf("%s", i18n.GetText("parser_ipv4_only"))
 	}
 
 	startInt := (int(start4[0]) << 24) | (int(start4[1]) << 16) | (int(start4[2]) << 8) | int(start4[3])
 	endInt := (int(end4[0]) << 24) | (int(end4[1]) << 16) | (int(end4[2]) << 8) | int(end4[3])
 
 	if startInt > endInt {
-		return nil, fmt.Errorf("起始IP大于结束IP")
+		return nil, fmt.Errorf("%s", i18n.GetText("parser_start_gt_end"))
 	}
 
 	var ips []string
 	current := make(net.IP, len(start4))
 	copy(current, start4)
 
-	count := 0
 	for {
 		ips = append(ips, current.String())
-		count++
-
-		if current.Equal(end4) || count >= maxTargets {
+		if current.Equal(end4) {
 			break
 		}
 		incrementIP(current)
@@ -428,19 +430,14 @@ func incrementIP(ip net.IP) {
 }
 
 // excludeFromList 从列表中排除指定项
-func excludeFromList(hosts, excludeList []string) []string {
-	if len(excludeList) == 0 {
+func excludeFromList(hosts []string, matcher *hostMatcher) []string {
+	if matcher == nil {
 		return hosts
-	}
-
-	excludeMap := make(map[string]struct{}, len(excludeList))
-	for _, e := range excludeList {
-		excludeMap[e] = struct{}{}
 	}
 
 	result := make([]string, 0, len(hosts))
 	for _, h := range hosts {
-		if _, found := excludeMap[h]; !found {
+		if !matcher.match(h) {
 			result = append(result, h)
 		}
 	}

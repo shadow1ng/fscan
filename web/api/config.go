@@ -114,7 +114,6 @@ var plugins = []PluginInfo{
 	{Name: "poc", Type: "web", Description: "POC漏洞检测", DescEn: "POC vulnerability detection", Enabled: true},
 
 	// 本地类
-	{Name: "avdetect", Type: "local", Description: "杀软检测", DescEn: "Antivirus detection", Enabled: false},
 	{Name: "cleaner", Type: "local", Description: "痕迹清理", DescEn: "Trace cleaning", Enabled: false},
 }
 

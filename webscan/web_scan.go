@@ -5,6 +5,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -31,10 +32,10 @@ const (
 
 // 错误定义
 var (
-	ErrInvalidURL    = errors.New("无效的URL格式")
-	ErrEmptyTarget   = errors.New("目标URL为空")
-	ErrPocNotFound   = errors.New("未找到匹配的POC")
-	ErrPocLoadFailed = errors.New("POC加载失败")
+	ErrInvalidURL    = errors.New(i18n.GetText("webscan_err_invalid_url"))
+	ErrEmptyTarget   = errors.New(i18n.GetText("webscan_err_empty_target"))
+	ErrPocNotFound   = errors.New(i18n.GetText("webscan_err_poc_not_found"))
+	ErrPocLoadFailed = errors.New(i18n.GetText("webscan_err_poc_load_failed"))
 )
 
 //go:embed pocs
@@ -47,7 +48,7 @@ var (
 )
 
 // WebScan 执行Web漏洞扫描
-func WebScan(ctx context.Context, info *common.HostInfo, cfg *common.Config) {
+func WebScan(ctx context.Context, info *common.HostInfo, cfg *common.Config, session *common.ScanSession) {
 	// 初始化POC配置（用于CEL回调函数）
 	lib.InitPOCConfig(cfg.DNSLog)
 
@@ -64,19 +65,19 @@ func WebScan(ctx context.Context, info *common.HostInfo, cfg *common.Config) {
 
 	// 验证输入
 	if info == nil {
-		common.LogError(i18n.GetText("invalid_scan_target"))
+		session.LogError(i18n.GetText("invalid_scan_target"))
 		return
 	}
 
 	if len(allPocs) == 0 {
-		common.LogError(i18n.GetText("poc_load_failed"))
+		session.LogError(i18n.GetText("poc_load_failed"))
 		return
 	}
 
 	// 构建目标URL
 	target, err := buildTargetURL(info)
 	if err != nil {
-		common.LogError(i18n.Tr("webscan_target_url_failed", err))
+		session.LogError(i18n.Tr("webscan_target_url_failed", err))
 		return
 	}
 
@@ -90,13 +91,13 @@ func WebScan(ctx context.Context, info *common.HostInfo, cfg *common.Config) {
 	// 根据扫描策略执行POC
 	if cfg.POC.PocName == "" && len(info.Info) == 0 {
 		// 执行所有POC
-		executePOCs(ctx, config.PocInfo{Target: target}, cfg)
+		executePOCs(ctx, config.PocInfo{Target: target}, cfg, session)
 	} else if len(info.Info) > 0 {
 		// 基于指纹信息执行POC
-		scanByFingerprints(ctx, target, info.Info, cfg)
+		scanByFingerprints(ctx, target, info.Info, cfg, session)
 	} else if cfg.POC.PocName != "" {
 		// 基于指定POC名称执行
-		executePOCs(ctx, config.PocInfo{Target: target, PocName: cfg.POC.PocName}, cfg)
+		executePOCs(ctx, config.PocInfo{Target: target, PocName: cfg.POC.PocName}, cfg, session)
 	}
 }
 
@@ -104,7 +105,7 @@ func WebScan(ctx context.Context, info *common.HostInfo, cfg *common.Config) {
 func buildTargetURL(info *common.HostInfo) (string, error) {
 	// 自动构建URL
 	if info.URL == "" {
-		info.URL = fmt.Sprintf("%s%s:%d", protocolHTTP, info.Host, info.Port)
+		info.URL = protocolHTTP + net.JoinHostPort(info.Host, fmt.Sprint(info.Port))
 	} else if !hasProtocolPrefix(info.URL) {
 		info.URL = protocolHTTP + info.URL
 	}
@@ -120,11 +121,12 @@ func buildTargetURL(info *common.HostInfo) (string, error) {
 
 // hasProtocolPrefix 检查URL是否包含协议前缀
 func hasProtocolPrefix(urlStr string) bool {
+	urlStr = strings.ToLower(urlStr)
 	return strings.HasPrefix(urlStr, protocolHTTP) || strings.HasPrefix(urlStr, protocolHTTPS)
 }
 
 // scanByFingerprints 根据指纹执行POC
-func scanByFingerprints(ctx context.Context, target string, fingerprints []string, cfg *common.Config) {
+func scanByFingerprints(ctx context.Context, target string, fingerprints []string, cfg *common.Config, session *common.ScanSession) {
 	for _, fingerprint := range fingerprints {
 		if fingerprint == "" {
 			continue
@@ -135,15 +137,15 @@ func scanByFingerprints(ctx context.Context, target string, fingerprints []strin
 			continue
 		}
 
-		executePOCs(ctx, config.PocInfo{Target: target, PocName: pocName}, cfg)
+		executePOCs(ctx, config.PocInfo{Target: target, PocName: pocName}, cfg, session)
 	}
 }
 
 // executePOCs 执行POC检测
-func executePOCs(ctx context.Context, pocInfo config.PocInfo, cfg *common.Config) {
+func executePOCs(ctx context.Context, pocInfo config.PocInfo, cfg *common.Config, session *common.ScanSession) {
 	// 验证目标
 	if pocInfo.Target == "" {
-		common.LogError(ErrEmptyTarget.Error())
+		session.LogError(ErrEmptyTarget.Error())
 		return
 	}
 
@@ -155,21 +157,21 @@ func executePOCs(ctx context.Context, pocInfo config.PocInfo, cfg *common.Config
 	// 验证URL
 	_, err := url.Parse(pocInfo.Target)
 	if err != nil {
-		common.LogError(i18n.Tr("webscan_invalid_url", ErrInvalidURL, pocInfo.Target, err))
+		session.LogError(i18n.Tr("webscan_invalid_url", ErrInvalidURL, pocInfo.Target, err))
 		return
 	}
 
 	// 创建基础请求
 	req, err := createBaseRequest(ctx, pocInfo.Target, cfg)
 	if err != nil {
-		common.LogError(i18n.Tr("webscan_request_create_failed", err))
+		session.LogError(i18n.Tr("webscan_request_create_failed", err))
 		return
 	}
 
 	// 筛选POC
 	matchedPocs := filterPocs(pocInfo.PocName)
 	if len(matchedPocs) == 0 {
-		common.LogDebug(fmt.Sprintf("%v: %s", ErrPocNotFound, pocInfo.PocName))
+		session.LogDebug(fmt.Sprintf("%v: %s", ErrPocNotFound, pocInfo.PocName))
 		return
 	}
 
@@ -177,6 +179,7 @@ func executePOCs(ctx context.Context, pocInfo config.PocInfo, cfg *common.Config
 	pocCtx := &lib.POCContext{
 		DNSLog:  cfg.DNSLog,
 		POCFull: cfg.POC.Full,
+		Session: session,
 	}
 
 	// 执行POC检测

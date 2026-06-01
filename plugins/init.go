@@ -43,7 +43,7 @@ const (
 type Result struct {
 	Type     ResultType
 	Success  bool
-	Skipped  bool   // 扫描被跳过，不应输出结果
+	Skipped  bool // 扫描被跳过，不应输出结果
 	Service  string
 	Username string
 	Password string
@@ -84,6 +84,7 @@ type PluginInfo struct {
 	factory func() Plugin
 	ports   []int
 	types   []string // 插件类型标签
+	safe    bool     // 是否适合默认嵌入式扫描
 }
 
 // 插件类型常量
@@ -91,6 +92,7 @@ const (
 	PluginTypeWeb     = "web"     // Web类型插件
 	PluginTypeLocal   = "local"   // 本地类型插件
 	PluginTypeService = "service" // 服务类型插件
+	PluginTypeUDP     = "udp"     // UDP协议插件，跳过TCP端口扫描
 )
 
 var (
@@ -98,19 +100,58 @@ var (
 	mutex   sync.RWMutex
 )
 
+func init() {
+	common.IsLocalMode = func(mode string) bool {
+		if mode == "" || mode == "all" {
+			return false
+		}
+		for _, name := range strings.Split(mode, ",") {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			if !HasType(name, PluginTypeLocal) {
+				return false
+			}
+		}
+		return true
+	}
+}
+
 // RegisterWithPorts 注册带端口信息的插件
 func RegisterWithPorts(name string, factory func() Plugin, ports []int) {
 	RegisterWithTypes(name, factory, ports, []string{PluginTypeService})
 }
 
+// RegisterUDPWithPorts 注册UDP协议插件，跳过TCP端口扫描链路
+func RegisterUDPWithPorts(name string, factory func() Plugin, ports []int) {
+	RegisterWithTypes(name, factory, ports, []string{PluginTypeUDP})
+}
+
+// IsUDP 检查插件是否为UDP协议插件
+func IsUDP(pluginName string) bool {
+	return HasType(pluginName, PluginTypeUDP)
+}
+
 // RegisterWithTypes 注册带类型标签的插件
 func RegisterWithTypes(name string, factory func() Plugin, ports []int, types []string) {
+	RegisterWithOptions(name, factory, ports, types, !hasPluginType(types, PluginTypeLocal))
+}
+
+// RegisterUnsafeWithTypes 注册不适合默认嵌入式扫描的插件。
+func RegisterUnsafeWithTypes(name string, factory func() Plugin, ports []int, types []string) {
+	RegisterWithOptions(name, factory, ports, types, false)
+}
+
+// RegisterWithOptions 注册带完整元数据的插件。
+func RegisterWithOptions(name string, factory func() Plugin, ports []int, types []string, safe bool) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	plugins[name] = &PluginInfo{
 		factory: factory,
 		ports:   ports,
 		types:   types,
+		safe:    safe,
 	}
 }
 
@@ -125,6 +166,17 @@ func HasType(pluginName string, typeName string) bool {
 				return true
 			}
 		}
+	}
+	return false
+}
+
+// IsSafe 检查插件是否适合默认嵌入式扫描。
+func IsSafe(pluginName string) bool {
+	mutex.RLock()
+	defer mutex.RUnlock()
+
+	if info, exists := plugins[pluginName]; exists {
+		return info.safe
 	}
 	return false
 }
@@ -170,6 +222,15 @@ func GetPluginPorts(name string) []int {
 		return info.ports
 	}
 	return []int{} // 返回空列表表示适用于所有端口
+}
+
+func hasPluginType(types []string, typeName string) bool {
+	for _, t := range types {
+		if t == typeName {
+			return true
+		}
+	}
+	return false
 }
 
 // GenerateCredentials 生成测试凭据

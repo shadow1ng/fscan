@@ -14,13 +14,12 @@ on:
         description: '创建草稿发布'
         type: boolean
         default: false
-      prerelease:
-        description: '标记为预发布'
-        type: boolean
-        default: false
 
 permissions:
   contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   release:
@@ -33,10 +32,41 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: 准备 Release Notes
+        if: ${{ !inputs.snapshot }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          NOTES_FILE=".github/release-notes/${TAG}.md"
+
+          if [ -f "$NOTES_FILE" ]; then
+            echo "📝 找到版本 Release Notes: $NOTES_FILE"
+            cp "$NOTES_FILE" /tmp/release-notes.md
+          else
+            echo "⚠️ 未找到 $NOTES_FILE，使用自动生成的 changelog"
+            echo "" > /tmp/release-notes.md
+          fi
+
+          echo "RELEASE_NOTES_FILE=/tmp/release-notes.md" >> $GITHUB_ENV
+
       - name: 构建和发布
         uses: ./.github/actions/build-release
         with:
           mode: ${{ inputs.snapshot && 'snapshot' || 'release' }}
           go-version: '1.20'
           retention-days: '90'
-          release-args: ${{ inputs.draft && '--draft' || '' }} ${{ inputs.prerelease && '--prerelease' || '' }}
+          release-args: ${{ inputs.draft && '--draft' || '' }}
+
+      - name: 更新 Release Notes
+        if: ${{ !inputs.snapshot && env.RELEASE_NOTES_FILE != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          NOTES_FILE="${RELEASE_NOTES_FILE}"
+
+          if [ -s "$NOTES_FILE" ]; then
+            echo "📝 更新 Release Notes..."
+            # 用版本特定的 notes 替换 goreleaser 生成的 body
+            gh release edit "$TAG" --notes-file "$NOTES_FILE"
+            echo "✅ Release Notes 已更新"
+          fi

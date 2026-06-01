@@ -96,15 +96,61 @@ type ProxyManager interface {
 //
 //nolint:revive // 保持与现有代码的向后兼容性
 type ProxyStats struct {
-	TotalConnections   int64  `json:"total_connections"`
-	ActiveConnections  int64  `json:"active_connections"`
-	FailedConnections  int64  `json:"failed_connections"`
+	TotalConnections   int64         `json:"total_connections"`
+	ActiveConnections  int64         `json:"active_connections"`
+	FailedConnections  int64         `json:"failed_connections"`
 	mu                 sync.Mutex    `json:"-"`
 	AverageConnectTime time.Duration `json:"average_connect_time"`
 	LastConnectTime    time.Time     `json:"last_connect_time"`
 	LastError          string        `json:"last_error,omitempty"`
 	ProxyType          string        `json:"proxy_type"`
 	ProxyAddress       string        `json:"proxy_address"`
+}
+
+func (s *ProxyStats) addTotal(delta int64) {
+	s.mu.Lock()
+	s.TotalConnections += delta
+	s.mu.Unlock()
+}
+
+func (s *ProxyStats) addActive(delta int64) {
+	s.mu.Lock()
+	s.ActiveConnections += delta
+	s.mu.Unlock()
+}
+
+func (s *ProxyStats) addFailed(delta int64) {
+	s.mu.Lock()
+	s.FailedConnections += delta
+	s.mu.Unlock()
+}
+
+func (s *ProxyStats) setLastConnectTime(t time.Time) {
+	s.mu.Lock()
+	s.LastConnectTime = t
+	s.mu.Unlock()
+}
+
+func (s *ProxyStats) setLastError(err string) {
+	s.mu.Lock()
+	s.LastError = err
+	s.mu.Unlock()
+}
+
+func (s *ProxyStats) snapshot() *ProxyStats {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return &ProxyStats{
+		TotalConnections:   s.TotalConnections,
+		ActiveConnections:  s.ActiveConnections,
+		FailedConnections:  s.FailedConnections,
+		AverageConnectTime: s.AverageConnectTime,
+		LastConnectTime:    s.LastConnectTime,
+		LastError:          s.LastError,
+		ProxyType:          s.ProxyType,
+		ProxyAddress:       s.ProxyAddress,
+	}
 }
 
 // ProxyError 代理错误类型

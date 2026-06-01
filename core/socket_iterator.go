@@ -39,7 +39,7 @@ type SocketIterator struct {
 	ports   []int
 	hostIdx int
 	portIdx int
-	total   int
+	total   int64
 	mu      sync.Mutex
 }
 
@@ -51,7 +51,7 @@ func NewSocketIterator(hosts []string, ports []int, exclude map[int]struct{}) *S
 	return &SocketIterator{
 		hosts: hosts,
 		ports: sortedPorts,
-		total: len(hosts) * len(sortedPorts),
+		total: int64(len(hosts)) * int64(len(sortedPorts)),
 	}
 }
 
@@ -113,7 +113,7 @@ func (it *SocketIterator) Next() (string, int, bool) {
 }
 
 // Total 返回总任务数（用于进度条）
-func (it *SocketIterator) Total() int {
+func (it *SocketIterator) Total() int64 {
 	return it.total
 }
 

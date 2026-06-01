@@ -662,7 +662,7 @@ func TestIsResourceExhaustedError_EdgeCases(t *testing.T) {
 		{
 			name:     "大小写混合",
 			err:      fmt.Errorf("Too Many Open Files"),
-			expected: false, // 当前实现区分大小写
+			expected: true, // containsFold 不区分大小写
 		},
 		{
 			name:     "错误信息包含但不完全匹配",

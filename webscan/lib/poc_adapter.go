@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/shadow1ng/fscan/common/i18n"
 	"gopkg.in/yaml.v2"
 )
 
@@ -103,7 +104,7 @@ func LoadUniversalPoc(filename string, data []byte) (UniversalPoc, error) {
 	case FormatAfrog:
 		return loadAfrogPoc(data)
 	default:
-		return nil, fmt.Errorf("未知POC格式: %s", filename)
+		return nil, fmt.Errorf("%s: %s", i18n.GetText("webscan_unknown_poc_format"), filename)
 	}
 }
 
@@ -117,7 +118,7 @@ type FscanPocAdapter struct {
 func loadFscanPoc(data []byte) (*FscanPocAdapter, error) {
 	var poc Poc
 	if err := yaml.Unmarshal(data, &poc); err != nil {
-		return nil, fmt.Errorf("fscan格式解析失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_fscan_format_parse_failed"), err)
 	}
 	return &FscanPocAdapter{&poc}, nil
 }
@@ -174,7 +175,7 @@ type NucleiPocAdapter struct {
 func loadNucleiPoc(data []byte) (*NucleiPocAdapter, error) {
 	var poc NucleiPoc
 	if err := yaml.Unmarshal(data, &poc); err != nil {
-		return nil, fmt.Errorf("nuclei格式解析失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_nuclei_format_parse_failed"), err)
 	}
 	return &NucleiPocAdapter{&poc}, nil
 }
@@ -239,7 +240,7 @@ func (n *NucleiPocAdapter) ToFscanPoc() (*Poc, error) {
 	}
 
 	if len(poc.Rules) == 0 {
-		return nil, fmt.Errorf("nuclei模板没有有效的HTTP规则")
+		return nil, fmt.Errorf("%s", i18n.GetText("webscan_nuclei_no_http_rules"))
 	}
 
 	return poc, nil
@@ -348,7 +349,7 @@ type XrayPocAdapter struct {
 func loadXrayPoc(data []byte) (*XrayPocAdapter, error) {
 	var poc XrayPoc
 	if err := yaml.Unmarshal(data, &poc); err != nil {
-		return nil, fmt.Errorf("xray格式解析失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_xray_format_parse_failed"), err)
 	}
 	return &XrayPocAdapter{&poc}, nil
 }
@@ -399,6 +400,11 @@ func (x *XrayPocAdapter) ToFscanPoc() (*Poc, error) {
 			Expression:      rule.Expression,
 		}
 
+		// 转换 output 字段为 Search — 多步POC中从响应提取变量供后续步骤使用
+		if searchVal, ok := rule.Output["search"]; ok {
+			fscanRule.Search = fmt.Sprintf("%v", searchVal)
+		}
+
 		// 如果expression为空，默认检查200状态码
 		if fscanRule.Expression == "" {
 			fscanRule.Expression = "response.status == 200"
@@ -408,7 +414,7 @@ func (x *XrayPocAdapter) ToFscanPoc() (*Poc, error) {
 	}
 
 	if len(poc.Rules) == 0 {
-		return nil, fmt.Errorf("xray POC没有有效的规则")
+		return nil, fmt.Errorf("%s", i18n.GetText("webscan_xray_no_rules"))
 	}
 
 	return poc, nil
@@ -442,7 +448,7 @@ type AfrogPocAdapter struct {
 func loadAfrogPoc(data []byte) (*AfrogPocAdapter, error) {
 	var poc AfrogPoc
 	if err := yaml.Unmarshal(data, &poc); err != nil {
-		return nil, fmt.Errorf("afrog格式解析失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_afrog_format_parse_failed"), err)
 	}
 	return &AfrogPocAdapter{&poc}, nil
 }
@@ -500,6 +506,11 @@ func (a *AfrogPocAdapter) ToFscanPoc() (*Poc, error) {
 			Expression:      rule.Expression,
 		}
 
+		// 转换 output 字段为 Search — 多步POC中从响应提取变量供后续步骤使用
+		if searchVal, ok := rule.Output["search"]; ok {
+			fscanRule.Search = fmt.Sprintf("%v", searchVal)
+		}
+
 		// 如果expression为空，默认检查200状态码
 		if fscanRule.Expression == "" {
 			fscanRule.Expression = "response.status == 200"
@@ -509,7 +520,7 @@ func (a *AfrogPocAdapter) ToFscanPoc() (*Poc, error) {
 	}
 
 	if len(poc.Rules) == 0 {
-		return nil, fmt.Errorf("afrog POC没有有效的规则")
+		return nil, fmt.Errorf("%s", i18n.GetText("webscan_afrog_no_rules"))
 	}
 
 	return poc, nil

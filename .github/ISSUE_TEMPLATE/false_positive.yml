@@ -1,13 +1,14 @@
 name: 🎯 误报/漏报
 description: 报告扫描结果不准确的问题
-title: "[Accuracy] 服务名 - 误报/漏报描述"
+title: "[Accuracy] "
 labels: ["accuracy"]
 
 body:
   - type: markdown
     attributes:
       value: |
-        感谢您帮助提高 fscan 的准确性！误报和漏报都是需要优化的问题。
+        感谢您帮助提高 fscan 的准确性！
+        **请提供对比验证结果**（如 nmap、手动连接等），仅描述"感觉不对"的报告无法处理。
 
   - type: dropdown
     id: type
@@ -35,10 +36,19 @@ body:
       required: true
 
   - type: textarea
+    id: command
+    attributes:
+      label: 使用的命令
+      description: 执行的 fscan 命令（请脱敏真实 IP/密码）
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
     id: fscan-output
     attributes:
       label: fscan 输出结果
-      description: 粘贴相关的扫描输出（请脱敏敏感信息如真实IP、密码等）
+      description: 粘贴相关的扫描输出（请脱敏敏感信息）
       render: shell
     validations:
       required: true
@@ -46,11 +56,8 @@ body:
   - type: textarea
     id: actual
     attributes:
-      label: 实际情况
-      description: 描述目标的真实状态
-      placeholder: |
-        实际上这个端口是关闭的 / 服务版本是 xxx / 密码不是 xxx...
-        验证方式: 通过 nmap/手动连接/其他工具 确认...
+      label: 实际情况及验证方式
+      description: 描述目标的真实状态，以及你通过什么方式验证的（nmap、手动连接、其他工具等）
     validations:
       required: true
 
@@ -59,15 +66,13 @@ body:
     attributes:
       label: 目标操作系统
       options:
-        - Windows Server 2022
-        - Windows Server 2019
-        - Windows Server 2016
-        - Windows 10/11
-        - Ubuntu
+        - Windows Server
+        - Windows Desktop
+        - Ubuntu/Debian
         - CentOS/RHEL
-        - Debian
         - 其他 Linux
         - 网络设备
+        - 容器/Docker
         - 未知
     validations:
       required: true
@@ -77,20 +82,10 @@ body:
     attributes:
       label: 网络环境
       options:
-        - 直连
-        - 通过代理
+        - 直连（同网段）
+        - 跨网段/路由
+        - 通过代理 (SOCKS5/HTTP)
         - VPN
-        - 跨网段
-    validations:
-      required: true
-
-  - type: textarea
-    id: command
-    attributes:
-      label: 使用的命令
-      description: 执行的 fscan 命令
-      placeholder: "fscan -h x.x.x.x -p 1-65535 -pwdf pass.txt"
-      render: shell
     validations:
       required: true
 
@@ -99,10 +94,12 @@ body:
     attributes:
       label: fscan 版本
       options:
+        - 2.2.0-rc (dev)
+        - 2.1.3
+        - 2.1.2
         - 2.1.0
-        - 2.0.1
-        - 2.0.0
-        - 1.8.4
+        - 2.0.x
+        - 1.8.x
         - 其他/自编译
     validations:
       required: true
@@ -110,8 +107,5 @@ body:
   - type: textarea
     id: suggestion
     attributes:
-      label: 改进建议
-      description: 如果您有改进的想法，请分享
-      placeholder: |
-        建议增加 xxx 判断条件...
-        或者调整 xxx 检测逻辑...
+      label: 改进建议（可选）
+      description: 如果您有改进判断逻辑的想法

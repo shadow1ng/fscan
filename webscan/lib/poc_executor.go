@@ -6,6 +6,7 @@ import (
 	"math/rand" //nolint:gosec // G404: math/rand用于生成测试数据，非加密用途
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -19,11 +20,18 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-// API配置常量
-const (
-	ceyeAPI    = "a78a1cb49d91fe09e01876078d1868b2" // Ceye平台的API密钥
-	ceyeDomain = "7wtusr.ceye.io"                   // Ceye平台的域名
-)
+// Ceye平台凭据（通过环境变量配置，避免将密钥硬编码在源码中）
+// CEYE_API: Ceye API令牌
+// CEYE_DOMAIN: Ceye平台域名（可选，默认使用api.ceye.io）
+var ceyeAPI, ceyeDomain string
+
+func init() {
+	ceyeAPI = os.Getenv("CEYE_API")
+	ceyeDomain = os.Getenv("CEYE_DOMAIN")
+	if ceyeDomain == "" {
+		ceyeDomain = "api.ceye.io"
+	}
+}
 
 // Task 定义单个POC检测任务的结构体
 type Task struct {
@@ -44,6 +52,7 @@ type VulnResult struct {
 type POCContext struct {
 	DNSLog  bool // 是否启用DNSLog检测
 	POCFull bool // 是否完整POC扫描
+	Session *common.ScanSession
 }
 
 // CheckMultiPoc 并发执行多个POC检测
@@ -74,7 +83,7 @@ func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int, pocCtx *POCConte
 
 				// 处理执行过程中的错误
 				if err != nil {
-					common.LogError(i18n.Tr("webscan_poc_exec_error", task.Poc.Name, err))
+					pocCtx.Session.LogError(i18n.Tr("webscan_poc_exec_error", task.Poc.Name, err))
 					continue
 				}
 
@@ -109,31 +118,31 @@ func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int, pocCtx *POCConte
 						Status:  "vulnerable",
 						Details: details,
 					}
-					_ = common.SaveResult(result)
+					_ = pocCtx.Session.SaveResult(result)
 
 					// 构造控制台输出的日志信息
-					logMsg := fmt.Sprintf("目标: %s\n  漏洞类型: %s\n  漏洞名称: %s\n  详细信息:",
+					logMsg := i18n.Tr("webscan_vuln_detail_header",
 						task.Req.URL,
 						task.Poc.Name,
 						vulName)
 
 					// 添加作者信息到日志
 					if task.Poc.Detail.Author != "" {
-						logMsg += "\n\t作者:" + task.Poc.Detail.Author
+						logMsg += "\n\t" + i18n.Tr("webscan_vuln_author", task.Poc.Detail.Author)
 					}
 
 					// 添加参考链接到日志
 					if len(task.Poc.Detail.Links) != 0 {
-						logMsg += "\n\t参考链接:" + strings.Join(task.Poc.Detail.Links, "\n")
+						logMsg += "\n\t" + i18n.Tr("webscan_vuln_references", strings.Join(task.Poc.Detail.Links, "\n"))
 					}
 
 					// 添加描述信息到日志
 					if task.Poc.Detail.Description != "" {
-						logMsg += "\n\t描述:" + task.Poc.Detail.Description
+						logMsg += "\n\t" + i18n.Tr("webscan_vuln_description", task.Poc.Detail.Description)
 					}
 
 					// 输出成功日志
-					common.LogVuln(logMsg)
+					pocCtx.Session.LogVuln(logMsg)
 				}
 			}
 		}()
@@ -183,13 +192,13 @@ func executePoc(oReq *http.Request, p *Poc, pocCtx *POCContext) (bool, string, e
 	// 从基础环境扩展（复用缓存的基础环境，仅添加变量声明）
 	env, err := ExtendEnvWithVars(varDecls)
 	if err != nil {
-		return false, "", fmt.Errorf("执行环境错误 %s: %w", p.Name, err)
+		return false, "", fmt.Errorf("%s %s: %w", i18n.GetText("webscan_exec_env_error"), p.Name, err)
 	}
 
 	// 解析请求
 	req, err := ParseRequest(oReq)
 	if err != nil {
-		return false, "", fmt.Errorf("请求解析错误 %s: %w", p.Name, err)
+		return false, "", fmt.Errorf("%s %s: %w", i18n.GetText("webscan_request_parse_error"), p.Name, err)
 	}
 
 	// 初始化变量映射
@@ -208,7 +217,7 @@ func executePoc(oReq *http.Request, p *Poc, pocCtx *POCContext) (bool, string, e
 			continue
 		}
 		if _, err = evalset(env, variableMap, key, expression); err != nil {
-			common.LogError(i18n.Tr("webscan_set_exec_error", p.Name, err))
+			pocCtx.Session.LogError(i18n.Tr("webscan_set_exec_error", p.Name, err))
 		}
 	}
 
@@ -218,11 +227,11 @@ func executePoc(oReq *http.Request, p *Poc, pocCtx *POCContext) (bool, string, e
 		return success, "", err
 	}
 
-	return executeRules(oReq, p, variableMap, req, env)
+	return executeRules(oReq, p, variableMap, req, env, pocCtx.Session)
 }
 
 // executeRules 执行POC规则并返回结果
-func executeRules(oReq *http.Request, p *Poc, variableMap map[string]interface{}, req *Request, env *cel.Env) (bool, string, error) {
+func executeRules(oReq *http.Request, p *Poc, variableMap map[string]interface{}, req *Request, env *cel.Env, session *common.ScanSession) (bool, string, error) {
 	// 处理单个规则的函数
 	executeRule := func(rule Rules) (bool, error) {
 		Headers := cloneMap(rule.Headers)
@@ -260,7 +269,7 @@ func executeRules(oReq *http.Request, p *Poc, variableMap map[string]interface{}
 			strings.NewReader(rule.Body),
 		)
 		if err != nil {
-			return false, fmt.Errorf("请求创建错误: %w", err)
+			return false, fmt.Errorf("%s: %w", i18n.GetText("webscan_request_create_error"), err)
 		}
 
 		// 设置请求头
@@ -271,7 +280,7 @@ func executeRules(oReq *http.Request, p *Poc, variableMap map[string]interface{}
 		_ = Headers // 清空Headers
 
 		// 发送请求
-		resp, err := DoRequest(newRequest, rule.FollowRedirects)
+		resp, err := DoRequest(newRequest, rule.FollowRedirects, session)
 		newRequest = nil
 		if err != nil {
 			return false, err
@@ -348,8 +357,8 @@ func doSearch(re string, body string) map[string]string {
 		paramsMap := make(map[string]string)
 		for i, name := range names {
 			if i > 0 && i <= len(result) {
-				// 特殊处理Cookie头
-				if strings.HasPrefix(re, "Set-Cookie:") && strings.Contains(name, "cookie") {
+				// 特殊处理Set-Cookie头：剥离Path/Expires等属性，仅保留key=value
+				if strings.HasPrefix(re, "Set-Cookie:") {
 					paramsMap[name] = optimizeCookies(result[i])
 				} else {
 					paramsMap[name] = result[i]
@@ -366,15 +375,17 @@ func optimizeCookies(rawCookie string) string {
 	var output strings.Builder
 
 	// 解析Cookie键值对
-	pairs := strings.Split(rawCookie, "; ")
+	pairs := strings.Split(rawCookie, ";")
 	for _, pair := range pairs {
+		pair = strings.TrimSpace(pair)
 		nameVal := strings.SplitN(pair, "=", 2)
 		if len(nameVal) < 2 {
 			continue
 		}
+		name := strings.TrimSpace(nameVal[0])
 
 		// 跳过Cookie属性
-		switch strings.ToLower(nameVal[0]) {
+		switch strings.ToLower(name) {
 		case "expires", "max-age", "path", "domain",
 			"version", "comment", "secure", "samesite", "httponly":
 			continue
@@ -384,9 +395,9 @@ func optimizeCookies(rawCookie string) string {
 		if output.Len() > 0 {
 			output.WriteString("; ")
 		}
-		output.WriteString(nameVal[0])
+		output.WriteString(name)
 		output.WriteString("=")
-		output.WriteString(strings.Join(nameVal[1:], "="))
+		output.WriteString(nameVal[1])
 	}
 
 	return output.String()
@@ -437,7 +448,7 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 		// 检查是否需要进行参数Fuzz测试
 		if !isFuzz(rule, p.Sets) {
 			// 不需要Fuzz,直接发送请求
-			success, err = clustersend(oReq, variableMap, req, env, rule)
+			success, err = clustersend(oReq, variableMap, req, env, rule, pocCtx.Session)
 			if err != nil {
 				return false, err
 			}
@@ -480,7 +491,10 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 				if key == "payload" {
 					payloadExpr = expr
 				}
-				output, _ := evalset1(env, variableMap, key, expr)
+				output, err := evalset1(env, variableMap, key, expr)
+				if err != nil {
+					pocCtx.Session.LogError(i18n.Tr("webscan_set_exec_error", key, err))
+				}
 				payloads[key] = output
 			}
 
@@ -500,7 +514,7 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 			ruleHash[ruleMD5] = struct{}{}
 
 			// 发送请求并处理结果
-			success, err = clustersend(oReq, variableMap, req, env, currentRule)
+			success, err = clustersend(oReq, variableMap, req, env, currentRule, pocCtx.Session)
 			if err != nil {
 				return false, err
 			}
@@ -511,7 +525,7 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 				// 处理成功情况
 				if currentRule.Continue {
 					// 使用Continue标志时，记录但继续测试其他参数
-					recordVulnerabilityResult(targetURL, p, currentParams, false)
+					recordVulnerabilityResult(targetURL, p, currentParams, false, pocCtx.Session)
 					continue
 				}
 
@@ -519,7 +533,7 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 				strMap = append(strMap, currentParams...)
 				if ruleIndex == len(p.Rules)-1 {
 					// 最终规则成功，记录完整的结果并返回
-					recordVulnerabilityResult(targetURL, p, strMap, false)
+					recordVulnerabilityResult(targetURL, p, strMap, false, pocCtx.Session)
 					return false, nil
 				}
 				break paramLoop
@@ -604,7 +618,7 @@ func getRuleHash(rule *Rules) string {
 }
 
 // recordVulnerabilityResult 记录漏洞检测结果
-func recordVulnerabilityResult(targetURL string, pocDef *Poc, params StrMap, skipSave bool) {
+func recordVulnerabilityResult(targetURL string, pocDef *Poc, params StrMap, skipSave bool, session *common.ScanSession) {
 	// 构造详细信息
 	details := make(map[string]interface{})
 	details["vulnerability_type"] = pocDef.Name
@@ -643,19 +657,19 @@ func recordVulnerabilityResult(targetURL string, pocDef *Poc, params StrMap, ski
 			Status:  "vulnerable",
 			Details: details,
 		}
-		_ = common.SaveResult(result)
+		_ = session.SaveResult(result)
 	}
 
 	// 生成日志消息
 	var logMsg string
 	if pocDef.Name == "poc-yaml-backup-file" || pocDef.Name == "poc-yaml-sql-file" {
-		logMsg = fmt.Sprintf("检测到漏洞 %s %s", targetURL, pocDef.Name)
+		logMsg = i18n.Tr("webscan_vuln_detected", targetURL, pocDef.Name)
 	} else {
-		logMsg = fmt.Sprintf("检测到漏洞 %s %s 参数:%v", targetURL, pocDef.Name, params)
+		logMsg = i18n.Tr("webscan_vuln_detected_params", targetURL, pocDef.Name, params)
 	}
 
 	// 输出成功日志
-	common.LogVuln(logMsg)
+	session.LogVuln(logMsg)
 }
 
 // isFuzz 检查规则是否包含需要Fuzz测试的参数
@@ -725,7 +739,7 @@ func MakeData(base [][]string, nextData []string) [][]string {
 }
 
 // clustersend 执行单个规则的HTTP请求和响应检测
-func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Request, env *cel.Env, rule Rules) (bool, error) {
+func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Request, env *cel.Env, rule Rules, session *common.ScanSession) (bool, error) {
 	// 替换请求中的变量
 	for varName, varValue := range variableMap {
 		// 跳过map类型的变量
@@ -762,7 +776,7 @@ func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Re
 	reqURL := fmt.Sprintf("%s://%s%s", req.URL.Scheme, req.URL.Host, req.URL.Path)
 	newRequest, err := http.NewRequestWithContext(oReq.Context(), rule.Method, reqURL, strings.NewReader(rule.Body))
 	if err != nil {
-		return false, fmt.Errorf("HTTP请求错误: %w", err)
+		return false, fmt.Errorf("%s: %w", i18n.GetText("webscan_http_request_error"), err)
 	}
 	defer func() { newRequest = nil }()
 
@@ -773,9 +787,9 @@ func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Re
 	}
 
 	// 发送请求
-	resp, err := DoRequest(newRequest, rule.FollowRedirects)
+	resp, err := DoRequest(newRequest, rule.FollowRedirects, session)
 	if err != nil {
-		return false, fmt.Errorf("请求发送错误: %w", err)
+		return false, fmt.Errorf("%s: %w", i18n.GetText("webscan_request_send_error"), err)
 	}
 
 	// 更新响应到变量映射
@@ -888,7 +902,7 @@ func CheckInfoPoc(infostr string) string {
 func GetHeader(header map[string]string) string {
 	var builder strings.Builder
 	for name, values := range header {
-		builder.WriteString(fmt.Sprintf("%s: %s\n", name, values))
+		fmt.Fprintf(&builder, "%s: %s\n", name, values)
 	}
 	builder.WriteString("\r\n")
 	return builder.String()

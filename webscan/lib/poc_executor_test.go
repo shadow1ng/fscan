@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -96,6 +97,112 @@ func TestGetRuleHash(t *testing.T) {
 					t.Errorf("getRuleHash() 哈希相同性不符合预期\n规则1哈希: %s\n规则2哈希: %s\n期望相同: %v\n实际相同: %v",
 						hash1, hash2, tt.wantSame, areSame)
 				}
+			}
+		})
+	}
+}
+
+// TestDoSearchSetCookieOptimization 测试 Set-Cookie 提取和清理
+func TestDoSearchSetCookieOptimization(t *testing.T) {
+	responseHeaders := "HTTP/1.1 200 OK\r\n"
+	cases := []struct {
+		name          string
+		regex         string
+		body          string
+		wantContain   string // 期望结果包含的内容
+		wantNotContain string // 期望结果不包含的内容
+	}{
+		{
+			name:          "捕获组名为cookie时清理属性",
+			regex:         `Set-Cookie:(?P<cookie>.*)`,
+			body:          responseHeaders + "Set-Cookie: sessionid=abc123; Path=/; HttpOnly\r\n\r\n<html></html>",
+			wantContain:   "sessionid=abc123",
+			wantNotContain: "Path",
+		},
+		{
+			name:          "捕获组名为sessid时也清理属性",
+			regex:         `Set-Cookie:(?P<sessid>.*)`,
+			body:          responseHeaders + "Set-Cookie: JSESSIONID=xyz789; Path=/app; Secure; HttpOnly\r\n\r\n{}",
+			wantContain:   "JSESSIONID=xyz789",
+			wantNotContain: "Secure",
+		},
+		{
+			name:          "捕获组名为token时也清理属性",
+			regex:         `Set-Cookie:(?P<token>.*)`,
+			body:          responseHeaders + "Set-Cookie: csrf_token=tok123; Max-Age=3600; SameSite=Strict\r\n\r\nOK",
+			wantContain:   "csrf_token=tok123",
+			wantNotContain: "Max-Age",
+		},
+		{
+			name:          "非Set-Cookie的正则不触发清理",
+			regex:         `X-Custom:(?P<value>.*)`,
+			body:          responseHeaders + "X-Custom: some-value; extra=stuff\r\n\r\ndone",
+			wantContain:   "some-value; extra=stuff",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			result := doSearch(c.regex, c.body)
+			if result == nil {
+				t.Fatal("doSearch() returned nil")
+			}
+			for _, v := range result {
+				if c.wantContain != "" && !strings.Contains(v, c.wantContain) {
+					t.Errorf("result should contain %q, got %q", c.wantContain, v)
+				}
+				if c.wantNotContain != "" && strings.Contains(v, c.wantNotContain) {
+					t.Errorf("result should NOT contain %q, got %q", c.wantNotContain, v)
+				}
+			}
+		})
+	}
+}
+
+// TestOptimizeCookies 测试 Cookie 清理函数
+func TestOptimizeCookies(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{
+			name: "标准Set-Cookie带多个属性",
+			raw:  "sessionid=abc123; Path=/; HttpOnly; Secure",
+			want: "sessionid=abc123",
+		},
+		{
+			name: "多个cookie键值对",
+			raw:  "token=xyz; user=admin; Path=/app; Expires=Wed, 21 Oct 2025 07:28:00 GMT",
+			want: "token=xyz; user=admin",
+		},
+		{
+			name: "无属性的干净cookie",
+			raw:  "sid=simple",
+			want: "sid=simple",
+		},
+		{
+			name: "分号后无空格",
+			raw:  "token=xyz;user=admin;Path=/app;HttpOnly",
+			want: "token=xyz; user=admin",
+		},
+		{
+			name: "键名周围空格",
+			raw:  " token =xyz; user =admin; Path =/",
+			want: "token=xyz; user=admin",
+		},
+		{
+			name: "空字符串",
+			raw:  "",
+			want: "",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := optimizeCookies(c.raw)
+			if got != c.want {
+				t.Errorf("optimizeCookies(%q) = %q, want %q", c.raw, got, c.want)
 			}
 		})
 	}

@@ -4,13 +4,11 @@ package services
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/shadow1ng/fscan/common"
 	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/plugins"
-	_ "github.com/sijms/go-ora/v2"
 )
 
 // OraclePlugin Oracle扫描插件
@@ -34,8 +32,8 @@ func (p *OraclePlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 	}
 
 	// 先测试未授权访问
-	if result := p.testUnauthorizedAccess(ctx, info, config, state); result != nil && result.Success {
-		common.LogSuccess(i18n.Tr("oracle_service", target, result.Banner))
+	if result := p.testUnauthorizedAccess(ctx, info, session); result != nil && result.Success {
+		session.LogSuccess(i18n.Tr("oracle_service", target, result.Banner))
 		return result
 	}
 
@@ -44,7 +42,7 @@ func (p *OraclePlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 		return &ScanResult{
 			Success: false,
 			Service: "oracle",
-			Error:   fmt.Errorf("没有可用的测试凭据"),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 
@@ -55,7 +53,7 @@ func (p *OraclePlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "oracle", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("oracle_credential", target, result.Username, result.Password))
+		session.LogVuln(i18n.Tr("oracle_credential", target, result.Username, result.Password))
 	}
 
 	return result
@@ -74,23 +72,9 @@ func (p *OraclePlugin) doOracleAuth(ctx context.Context, info *common.HostInfo, 
 	serviceNames := []string{"ORCL", "XE", "XEPDB1", target}
 
 	for _, serviceName := range serviceNames {
-		connStr := fmt.Sprintf("oracle://%s:%s@%s/%s", cred.Username, cred.Password, target, serviceName)
-
 		connectCtx, cancel := context.WithTimeout(ctx, config.Timeout)
-
-		db, err := sql.Open("oracle", connStr)
+		err := oracleRawAuth(connectCtx, info.Host, info.Port, serviceName, cred.Username, cred.Password, config.Timeout)
 		if err != nil {
-			cancel()
-			continue
-		}
-
-		db.SetMaxOpenConns(1)
-		db.SetMaxIdleConns(0)
-		db.SetConnMaxLifetime(config.Timeout)
-
-		err = db.PingContext(connectCtx)
-		if err != nil {
-			_ = db.Close()
 			cancel()
 			errorType := classifyOracleErrorType(err)
 			if errorType == ErrorTypeAuth {
@@ -108,7 +92,6 @@ func (p *OraclePlugin) doOracleAuth(ctx context.Context, info *common.HostInfo, 
 
 		return &AuthResult{
 			Success:   true,
-			Conn:      &SQLDBWrapper{db},
 			ErrorType: ErrorTypeUnknown,
 			Error:     nil,
 		}
@@ -118,7 +101,7 @@ func (p *OraclePlugin) doOracleAuth(ctx context.Context, info *common.HostInfo, 
 	return &AuthResult{
 		Success:   false,
 		ErrorType: ErrorTypeNetwork,
-		Error:     fmt.Errorf("无法连接到Oracle数据库"),
+		Error:     fmt.Errorf("%s", i18n.GetText("oracle_connect_failed")),
 	}
 }
 
@@ -150,7 +133,9 @@ func classifyOracleErrorType(err error) ErrorType {
 }
 
 // testUnauthorizedAccess 测试Oracle未授权访问
-func (p *OraclePlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *OraclePlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 
 	defaultAccounts := []Credential{
@@ -165,14 +150,14 @@ func (p *OraclePlugin) testUnauthorizedAccess(ctx context.Context, info *common.
 			if result.Conn != nil {
 				_ = result.Conn.Close()
 			}
-			common.LogVuln(i18n.Tr("oracle_default_account", target, cred.Username, cred.Password))
+			session.LogVuln(i18n.Tr("oracle_default_account", target, cred.Username, cred.Password))
 			return &ScanResult{
 				Type:     plugins.ResultTypeVuln,
 				Success:  true,
 				Service:  "oracle",
 				Username: cred.Username,
 				Password: cred.Password,
-				Banner:   "未授权访问 - 默认账户",
+				Banner:   i18n.GetText("oracle_default_account_banner"),
 			}
 		}
 	}
@@ -194,7 +179,7 @@ func (p *OraclePlugin) identifyService(ctx context.Context, info *common.HostInf
 	_ = conn.Close()
 
 	banner := "Oracle"
-	common.LogSuccess(i18n.Tr("oracle_service", target, banner))
+	session.LogSuccess(i18n.Tr("oracle_service", target, banner))
 
 	return &ScanResult{
 		Type:    plugins.ResultTypeService,

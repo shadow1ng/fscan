@@ -2,9 +2,12 @@ package common
 
 import (
 	"errors"
-	"fmt"
+	"net"
+	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/shadow1ng/fscan/common/i18n"
 )
 
 /*
@@ -28,7 +31,7 @@ type HostInfo struct {
 
 // Target 返回 host:port 格式字符串
 func (h *HostInfo) Target() string {
-	return fmt.Sprintf("%s:%d", h.Host, h.Port)
+	return net.JoinHostPort(h.Host, strconv.Itoa(h.Port))
 }
 
 // =============================================================================
@@ -62,10 +65,12 @@ const (
 
 // 版本信息，通过 ldflags 注入
 var (
-	version = "2.1.3"
+	version = "2.2.0-rc"
 	commit  = "unknown"
 	date    = "unknown"
 )
+
+func GetVersion() string { return version }
 
 // 运行时数据已迁移到Config对象中，使用GetGlobalConfig()访问
 
@@ -92,9 +97,9 @@ type PacketLimitError struct {
 
 func (e *PacketLimitError) Error() string {
 	if e.Sentinel == ErrMaxPacketReached {
-		return fmt.Sprintf("已达到最大发包数量限制: %d", e.Limit)
+		return i18n.Tr("packet_limit_max_reached", e.Limit)
 	}
-	return fmt.Sprintf("发包速率受限: %d包/分钟", e.Limit)
+	return i18n.Tr("packet_limit_rate_limited", e.Limit)
 }
 
 func (e *PacketLimitError) Unwrap() error {

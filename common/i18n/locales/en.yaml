@@ -30,6 +30,8 @@ flag_disable_ping:
   other: "Disable ping detection"
 flag_disable_tcp_probe:
   other: "Disable TCP supplementary probe"
+flag_local_plugin:
+  other: "Specify local plugin name (e.g.: cleaner, systeminfo, keylogger)"
 flag_debug:
   other: "Enable debug mode, write logs to fscan_debug.log"
 flag_alive_only:
@@ -41,7 +43,7 @@ flag_password:
 flag_add_users:
   other: "Additional usernames"
 flag_add_passwords:
-  other: "Additional passwords"
+  other: "Additional passwords, separated by commas or spaces"
 flag_users_file:
   other: "Username dictionary file"
 flag_passwords_file:
@@ -69,7 +71,7 @@ flag_max_redirects:
 flag_http_proxy:
   other: "HTTP proxy"
 flag_socks5_proxy:
-  other: "Use SOCKS5 proxy (e.g.: 127.0.0.1:1080)"
+  other: "Use SOCKS5 proxy (e.g.: 127.0.0.1:1080 or socks5://user:pass@127.0.0.1:1080)"
 flag_iface:
   other: "Specify local interface IP address (VPN scenario, e.g.: 10.8.0.5)"
 flag_poc_path:
@@ -120,6 +122,8 @@ flag_log_level:
   other: "Log level"
 flag_disable_progress:
   other: "Disable progress bar"
+flag_perf_stats:
+  other: "Output performance stats in JSON"
 flag_shellcode:
   other: "Shellcode"
 flag_reverse_shell_target:
@@ -142,6 +146,10 @@ flag_language:
   other: "Language: zh, en"
 flag_help:
   other: "Show help information"
+flag_web_mode:
+  other: "Start Web management UI"
+flag_web_port:
+  other: "Web server port"
 # ========================= Scan Mode Messages =========================
 scan_mode_service_selected:
   other: "Service scan mode selected"
@@ -191,6 +199,12 @@ progress_scanning_description:
   other: "Scanning Progress"
 progress_scan_completed:
   other: "Scan Completed:"
+progress_waiting:
+  other: "waiting..."
+progress_done:
+  other: "Done"
+progress_duration:
+  other: "duration"
 concurrency_plugin:
   other: "Plugins"
 concurrency_local_plugin:
@@ -209,10 +223,56 @@ parse_error_empty_input:
   other: "Input parameters are empty"
 parse_error_parser_not_init:
   other: "Parser not initialized"
+parser_read_hosts_failed:
+  other: "Failed to read hosts file"
+parser_parse_host_failed:
+  other: "Failed to parse host"
+parser_parse_exclude_failed:
+  other: "Failed to parse exclude hosts"
+parser_no_valid_hosts:
+  other: "No valid hosts found"
+parser_cidr_failed:
+  other: "CIDR parse failed {{.Arg1}}"
+parser_ip_range_failed:
+  other: "IP range parse failed {{.Arg1}}"
+parser_invalid_ip_range_fmt:
+  other: "Invalid IP range format: {{.Arg1}}"
+parser_invalid_start_ip:
+  other: "Invalid start IP: {{.Arg1}}"
+parser_invalid_end_ip:
+  other: "Invalid end IP: {{.Arg1}}"
+parser_invalid_ip_end_val:
+  other: "Invalid IP range end value: {{.Arg1}}"
+parser_invalid_ip_range_val:
+  other: "Invalid IP range: {{.Arg1}}-{{.Arg2}}"
+parser_invalid_ip_fmt:
+  other: "Invalid IP address format: {{.Arg1}}"
+parser_ipv4_only:
+  other: "IPv4 addresses only"
+parser_start_gt_end:
+  other: "Start IP greater than end IP"
+network_rate_limited:
+  other: "Rate limited: {{.Arg1}}"
+tcp_connection_restricted:
+  other: "TCP connection {{.Arg1}} restricted: {{.Arg2}}"
+http_request_restricted:
+  other: "HTTP request {{.Arg1}} restricted: {{.Arg2}}"
+proxy_dialer_failed:
+  other: "Failed to get proxy dialer: {{.Arg1}}"
+connection_failed:
+  other: "Connection {{.Arg1}} failed: {{.Arg2}}"
+packet_limit_max_reached:
+  other: "Maximum packet count reached: {{.Arg1}}"
+packet_limit_rate_limited:
+  other: "Packet rate limited: {{.Arg1}} packets/minute"
 target_local_mode:
   other: "Local scan mode"
 param_conflict_ao_icmp_both:
   other: "Note: Both -ao and -m icmp specified, both enable alive detection mode"
+param_local_multi_plugin:
+  other: "Only a single local plugin can be specified, multiple plugins separated by '{{.Arg1}}' are not supported"
+param_join_and:
+  other: "{{.Arg1}} and {{.Arg2}}"
 
 # ========================= Parser Messages =========================
 parser_empty_input:
@@ -231,6 +291,20 @@ parser_hash_invalid_format:
 # ========================= Config Messages =========================
 config_web_timeout_warning:
   other: "Web timeout is larger than normal timeout, may cause unexpected behavior"
+config_build_failed:
+  other: "Configuration build failed"
+output_init_failed:
+  other: "Output initialization failed"
+config_credentials_parse_failed:
+  other: "Credential parsing failed"
+config_targets_parse_failed:
+  other: "Target parsing failed"
+config_read_users_failed:
+  other: "Failed to read username file {{.Arg1}}: {{.Arg2}}"
+config_read_passwords_failed:
+  other: "Failed to read password file {{.Arg1}}: {{.Arg2}}"
+config_read_urls_failed:
+  other: "Failed to read URL file {{.Arg1}}: {{.Arg2}}"
 
 # ========================= Plugin Scan Messages (with parameters) =========================
 scan_plugin_not_found:
@@ -347,6 +421,48 @@ port_open_http:
   other: "Port open {{.Arg1}} [http](HTTP probe)"
 port_scan_no_alive_subnet:
   other: "Subnet probe found no alive subnets, skipping port scan"
+network_rate_limited_pattern:
+  other: "Rate limited"
+port_scan_debug_start:
+  other: "[PortScan] start: {{.Arg1}} hosts, threads={{.Arg2}}"
+port_scan_debug_ports_parsed:
+  other: "[PortScan] ports parsed: {{.Arg1}} ports"
+proxy_echo_warning:
+  other: "Proxy echo-all behavior detected, port scan results may be inaccurate"
+port_scan_debug_total_tasks:
+  other: "[PortScan] total tasks: {{.Arg1}}"
+large_scan_notice:
+  other: "Large scan: {{.Arg1}} targets ({{.Arg2}} hosts x {{.Arg3}} ports)"
+large_scan_thread_adjusted:
+  other: "Adjusted thread count: {{.Arg1}} -> {{.Arg2}} (large scan optimization)"
+port_scan_progress_description:
+  other: "Port scanning ({{.Arg1}} threads)"
+port_scan_debug_progress_ready:
+  other: "[PortScan] progress bar initialized"
+port_scan_debug_pool_create:
+  other: "[PortScan] creating worker pool, size={{.Arg1}}"
+port_scan_debug_pool_created:
+  other: "[PortScan] worker pool created"
+port_scan_debug_schedule_start:
+  other: "[PortScan] starting sliding-window schedule"
+port_scan_debug_schedule_done:
+  other: "[PortScan] sliding-window schedule completed"
+proxy_verify_failed:
+  other: "Proxy verification failed {{.Arg1}}: {{.Arg2}}"
+proxy_error_response:
+  other: "Proxy returned error response {{.Arg1}}"
+proxy_probe_write_failed:
+  other: "Probe write failed {{.Arg1}}: {{.Arg2}}"
+proxy_probe_error_response:
+  other: "Proxy probe returned error {{.Arg1}}"
+proxy_connection_rejected:
+  other: "Proxy connection rejected {{.Arg1}}: {{.Arg2}}"
+proxy_no_response_closed:
+  other: "Proxy connection had no response, treating port as closed {{.Arg1}}"
+subnet_prefilter_start:
+  other: "Subnet prefilter: {{.Arg1}} /24 subnets, {{.Arg2}} hosts"
+subnet_prefilter_done:
+  other: "Subnet prefilter complete: {{.Arg1}} alive (gateway hits {{.Arg2}}), {{.Arg3}} skipped, {{.Arg4}} hosts remaining"
 
 # ========================= Local Scan Messages =========================
 local_plugin_info:
@@ -403,6 +519,28 @@ start_web_scan:
   other: "Starting web scan"
 start_scan:
   other: "Starting scan"
+plugin_list_summary:
+  other: "{{.Arg1}} ... {{.Arg2}} total"
+service_probe_empty_response:
+  other: "Response data is empty"
+service_probe_microsoft_ds:
+  other: "Special handling for microsoft-ds service"
+service_probe_identified:
+  other: "Service identified: {{.Arg1}}, Banner: {{.Arg2}}"
+service_probe_http_identified:
+  other: "Identified as HTTP service"
+service_probe_unknown:
+  other: "Unknown service"
+service_probe_soft_match:
+  other: "Soft-matched service: {{.Arg1}}"
+icmp_debug_all_responded:
+  other: "[ICMP] all responded, elapsed {{.Arg1}}"
+icmp_debug_max_wait:
+  other: "[ICMP] max wait reached {{.Arg1}}, alive {{.Arg2}}/{{.Arg3}}"
+icmp_debug_stable_done:
+  other: "[ICMP] response stable, ending early, elapsed {{.Arg1}}, alive {{.Arg2}}/{{.Arg3}}"
+adaptive_pool_resource_exhausted:
+  other: "[AdaptivePool] resource exhaustion rate {{.Arg1}}%, threads {{.Arg2}} -> {{.Arg3}}"
 
 # ========================= Service Plugin Messages =========================
 # Format: {service}_{type} - type: credential/unauth/service/vuln
@@ -526,6 +664,654 @@ ms17010_pipe_decrypt_error:
   other: "Pipe request decryption error: {{.Arg1}}"
 ms17010_pipe_decode_error:
   other: "Pipe request decoding error: {{.Arg1}}"
+ms17010_port_only:
+  other: "MS17-010 detection only supports port 445"
+ms17010_vuln_banner:
+  other: "MS17-010 vulnerability ({{.Arg1}})"
+ms17010_not_vulnerable:
+  other: "Target is not vulnerable to MS17-010"
+ms17010_exploit_header:
+  other: "=== MS17-010 exploitation result - {{.Arg1}} ==="
+ms17010_exploit_check_failed:
+  other: "[Vulnerability check failed] {{.Arg1}}"
+ms17010_exploit_not_vulnerable:
+  other: "[Vulnerability status] Target is not vulnerable to MS17-010"
+ms17010_exploit_confirmed:
+  other: "[Vulnerability confirmed] MS17-010 vulnerability exists"
+ms17010_exploit_os:
+  other: "[Operating system] {{.Arg1}}"
+ms17010_exploit_backdoor_found:
+  other: "[Backdoor check] DOUBLEPULSAR backdoor found"
+ms17010_exploit_backdoor_not_found:
+  other: "[Backdoor check] DOUBLEPULSAR backdoor not found"
+ms17010_exploit_mode:
+  other: "[Exploit mode] {{.Arg1}}"
+ms17010_exploit_start_attack:
+  other: "[Exploit status] Starting EternalBlue attack..."
+ms17010_exploit_failed:
+  other: "[Exploit result] Exploit failed: {{.Arg1}}"
+ms17010_exploit_success:
+  other: "[Exploit result] Exploit completed successfully"
+ms17010_exploit_bind_hint:
+  other: "[Connection hint] Use the following command to connect to Bind Shell:"
+ms17010_exploit_add_hint:
+  other: "[Access hint] Administrator account added. Connect with:"
+ms17010_exploit_add_credential:
+  other: "  Username: sysadmin  Password: 1qaz@WSX!@#4"
+ms17010_exploit_guest_hint:
+  other: "[Access hint] Guest account enabled. Remote connection is available"
+ms17010_exploit_detect_only:
+  other: "[Exploit mode] Detection only (shellcode not configured)"
+ms17010_exploit_shellcode_hint:
+  other: "[Hint] Use -sc to configure shellcode for exploitation"
+ms17010_exploit_supported_modes:
+  other: "  Supported modes: bind, add, guest, or custom shellcode"
+ms17010_base64_decode_failed:
+  other: "base64 decode failed"
+ms17010_aes_cipher_failed:
+  other: "Failed to create AES cipher block"
+ms17010_ciphertext_too_short:
+  other: "Ciphertext is too short"
+ms17010_invalid_padding:
+  other: "Invalid padding"
+ms17010_padding_check_failed:
+  other: "Padding validation failed"
+ms17010_connection_error:
+  other: "Connection error"
+ms17010_set_timeout_error:
+  other: "Set timeout error"
+ms17010_send_protocol_error:
+  other: "Send protocol request error"
+ms17010_smbv1_unsupported:
+  other: "Target may not support SMBv1"
+ms17010_smbv1_rejected:
+  other: "SMBv1 protocol negotiation rejected"
+ms17010_send_session_error:
+  other: "Send session request error"
+ms17010_session_failed:
+  other: "SMB session setup failed"
+ms17010_session_rejected:
+  other: "SMB session rejected"
+ms17010_send_tree_error:
+  other: "Send tree connect request error"
+ms17010_read_tree_error:
+  other: "Read tree connect response error"
+ms17010_tree_response_incomplete:
+  other: "Tree connect response incomplete"
+ms17010_send_pipe_error:
+  other: "Send pipe request error"
+ms17010_read_pipe_error:
+  other: "Read pipe response error"
+ms17010_pipe_response_incomplete:
+  other: "Pipe response incomplete"
+ms17010_bind_shellcode_decrypt_failed:
+  other: "Failed to decrypt bind shellcode"
+ms17010_add_shellcode_decrypt_failed:
+  other: "Failed to decrypt add shellcode"
+ms17010_guest_shellcode_decrypt_failed:
+  other: "Failed to decrypt guest shellcode"
+ms17010_shellcode_file_read_failed:
+  other: "Failed to read shellcode file"
+ms17010_invalid_shellcode:
+  other: "Invalid shellcode"
+ms17010_shellcode_decode_failed:
+  other: "Shellcode decode failed"
+findnet_discovery_failed:
+  other: "Network discovery failed"
+findnet_hostname:
+  other: "Hostname: {{.Arg1}}"
+findnet_ipv4_count:
+  other: "IPv4: {{.Arg1}}"
+findnet_ipv6_count:
+  other: "IPv6: {{.Arg1}}"
+findnet_complete:
+  other: "Network information collection completed"
+findnet_rpc_request1_failed:
+  other: "Failed to send RPC request 1"
+findnet_rpc_response1_failed:
+  other: "Failed to read RPC response 1"
+findnet_rpc_request2_failed:
+  other: "Failed to send RPC request 2"
+findnet_rpc_response2_failed:
+  other: "Failed to read RPC response 2"
+netbios_port_only:
+  other: "NetBIOS plugin only supports ports 137 and 139"
+netbios_info_not_found:
+  other: "No valid NetBIOS information found"
+netbios_name_connect_failed:
+  other: "Failed to connect to NetBIOS name service"
+netbios_query_send_failed:
+  other: "Failed to send NetBIOS query"
+netbios_response_read_failed:
+  other: "Failed to read NetBIOS response"
+netbios_session_connect_failed:
+  other: "Failed to connect to NetBIOS session service"
+netbios_smb_negotiate_send_failed:
+  other: "Failed to send SMB negotiate request 1"
+netbios_smb_negotiate_read_failed:
+  other: "Failed to read SMB negotiate response 1"
+netbios_smb_session_send_failed:
+  other: "Failed to send SMB Session Setup"
+netbios_smb_session_read_failed:
+  other: "Failed to read SMB Session Setup response"
+netbios_response_too_short:
+  other: "NetBIOS response data is too short"
+netbios_no_name_records:
+  other: "No NetBIOS name records"
+netbios_smb_response_too_short:
+  other: "SMB response data is too short"
+rdp_port_closed:
+  other: "RDP port is not open"
+rdp_remote_desktop_service:
+  other: "RDP remote desktop service"
+ssh_service_banner:
+  other: "SSH service: {{.Arg1}}"
+kafka_auth_required:
+  other: "Kafka (authentication required)"
+oracle_connect_failed:
+  other: "Failed to connect to Oracle database"
+oracle_default_account_banner:
+  other: "Unauthorized access - default account"
+ftp_anonymous_access_detail:
+  other: "FTP {{.Arg1}} anonymous access - {{.Arg2}}:{{.Arg3}}"
+ftp_anonymous_banner:
+  other: "FTP anonymous access"
+unauthorized_access:
+  other: "Unauthorized access"
+redis_ping_failed:
+  other: "redis PING test failed: {{.Arg1}}"
+redis_service_pong:
+  other: "Redis service (PONG response)"
+redis_service_auth_required:
+  other: "Redis service (authentication required)"
+redis_service_protocol_response:
+  other: "Redis service (protocol response)"
+redis_service_plain:
+  other: "Redis service"
+redis_key_file_read_failed:
+  other: "Failed to read key file {{.Arg1}}: {{.Arg2}}"
+redis_key_file_empty:
+  other: "Key file {{.Arg1}} is empty"
+redis_host_format_invalid:
+  other: "Invalid host address format"
+smtp_anonymous_mail_allowed:
+  other: "Unauthorized access - anonymous mail sending allowed"
+smtp_open_relay:
+  other: "Unauthorized access - open relay"
+smtp_vrfy_user_enum:
+  other: "Unauthorized access - VRFY user enumeration ({{.Arg1}})"
+smtp_expn_list_enum:
+  other: "Unauthorized access - EXPN mailing list enumeration ({{.Arg1}})"
+smtp_mail_service_info:
+  other: "SMTP mail service ({{.Arg1}})"
+smtp_mail_service:
+  other: "SMTP mail service"
+auth_required:
+  other: "Authentication required"
+empty_response_received:
+  other: "Received empty response"
+unexpected_status_code:
+  other: "Unexpected status code"
+unknown_status_code:
+  other: "Unknown error, status code"
+ldap_all_dn_failed:
+  other: "All DN formats failed"
+memcached_access_failed:
+  other: "Failed to access Memcached service"
+memcached_connect_failed:
+  other: "Failed to connect to Memcached service"
+rsync_connect_failed:
+  other: "Failed to connect to Rsync service"
+rsync_modules_failed:
+  other: "Failed to get module list"
+rsync_unauth_modules:
+  other: "Unauthorized access - available modules: {{.Arg1}}"
+rsync_service_info:
+  other: "Rsync service ({{.Arg1}})"
+rsync_file_sync_service:
+  other: "Rsync file synchronization service"
+rabbitmq_guest_default_password:
+  other: "Unauthorized access - guest default password"
+cassandra_no_auth_cluster:
+  other: "Cassandra (no authentication, cluster: {{.Arg1}})"
+cassandra_auth_required:
+  other: "Cassandra (authentication required)"
+telnet_unauth_service:
+  other: "Telnet remote terminal service (unauthorized access)"
+telnet_auth_required:
+  other: "Telnet remote terminal service (authentication required)"
+telnet_password_only:
+  other: "Telnet remote terminal service (password only)"
+telnet_custom_welcome:
+  other: "Telnet remote terminal service (custom welcome: {{.Arg1}})"
+telnet_remote_terminal_service:
+  other: "Telnet remote terminal service"
+postgresql_trust_unauth:
+  other: "Unauthorized access (trust authentication)"
+postgresql_trust_unauth_version:
+  other: "Unauthorized access (trust authentication) - {{.Arg1}}"
+activemq_stomp_send_failed:
+  other: "Failed to send STOMP request"
+activemq_stomp_read_failed:
+  other: "Failed to read STOMP response"
+activemq_stomp_empty_response:
+  other: "STOMP returned no response data"
+activemq_stomp_auth_error:
+  other: "STOMP authentication error"
+activemq_stomp_unknown_response:
+  other: "Unknown STOMP response format"
+smb_port_only:
+  other: "SMB plugin only supports ports 139 and 445"
+smb_probe_failed:
+  other: "SMB protocol probe failed"
+smb_unauth_domain_access:
+  other: "SMB {{.Arg1}} unauthorized access - {{.Arg2}}\\{{.Arg3}}:{{.Arg4}}"
+smb_unauth_access:
+  other: "SMB {{.Arg1}} unauthorized access - {{.Arg2}}:{{.Arg3}}"
+smb_anonymous_access_detail:
+  other: "SMB {{.Arg1}} anonymous access - {{.Arg2}}:{{.Arg3}}"
+smb_anonymous_banner:
+  other: "SMB anonymous access"
+smbv1_negotiate_send_failed:
+  other: "Failed to send SMBv1 negotiate packet"
+smbv1_negotiate_read_failed:
+  other: "Failed to read SMBv1 negotiate response: {{.Arg1}}"
+smbv1_session_send_failed:
+  other: "Failed to send SMBv1 Session Setup"
+smbv1_session_read_failed:
+  other: "Failed to read SMBv1 Session Setup response"
+smbv2_negotiate_send_failed:
+  other: "Failed to send SMBv2 negotiate packet"
+smbv2_negotiate_read_failed:
+  other: "Failed to read SMBv2 negotiate response"
+smbv2_session_send_failed:
+  other: "Failed to send SMBv2 Session Setup"
+smbv2_session_read_failed:
+  other: "Failed to read SMBv2 Session Setup response"
+smbv2_ntlm_send_failed:
+  other: "Failed to send SMBv2 NTLM packet"
+smbv2_ntlm_read_failed:
+  other: "Failed to read SMBv2 NTLM response"
+connection_timeout:
+  other: "Connection timed out"
+netbios_header_too_short:
+  other: "NetBIOS header too short"
+message_length_too_large:
+  other: "Message length too large"
+local_target:
+  other: "Target: {{.Arg1}}"
+local_platform:
+  other: "Platform: {{.Arg1}}"
+local_listen_port:
+  other: "Listen port: {{.Arg1}}"
+local_output_file:
+  other: "Output file: {{.Arg1}}"
+local_start_time:
+  other: "Start time: {{.Arg1}}"
+unsupported_platform:
+  other: "Unsupported platform: {{.Arg1}}"
+unsupported_os:
+  other: "Unsupported operating system: {{.Arg1}}"
+connection_failed_plain:
+  other: "Connection failed"
+listen_port_failed:
+  other: "Failed to listen on port"
+command_timeout:
+  other: "Command execution timed out"
+command_exec_failed:
+  other: "Command execution failed: {{.Arg1}}"
+command_success_no_output:
+  other: "(Command completed successfully with no output)"
+command_error_with_output:
+  other: "Error: {{.Arg1}}\n{{.Arg2}}"
+reverseshell_header:
+  other: "=== Go native reverse shell ==="
+reverseshell_error:
+  other: "Reverse shell error: {{.Arg1}}"
+reverseshell_done:
+  other: "✓ Reverse shell completed"
+forwardshell_header:
+  other: "=== Forward shell server ==="
+forwardshell_server_error:
+  other: "Forward shell server error: {{.Arg1}}"
+forwardshell_done:
+  other: "✓ Forward shell service completed"
+socks5_header:
+  other: "=== SOCKS5 proxy server ==="
+socks5_server_error:
+  other: "SOCKS5 proxy server error: {{.Arg1}}"
+socks5_done:
+  other: "✓ SOCKS5 proxy completed"
+socks5_handshake_read_failed:
+  other: "Failed to read handshake request"
+socks5_unsupported_version:
+  other: "Unsupported SOCKS version"
+socks5_handshake_write_failed:
+  other: "Failed to send handshake response"
+socks5_request_read_failed:
+  other: "Failed to read connection request"
+socks5_invalid_request:
+  other: "Invalid SOCKS5 request"
+socks5_unsupported_command:
+  other: "Unsupported command"
+ipv4_address_invalid:
+  other: "Invalid IPv4 address format"
+domain_format_invalid:
+  other: "Invalid domain format"
+domain_length_invalid:
+  other: "Invalid domain length"
+ipv6_address_invalid:
+  other: "Invalid IPv6 address format"
+socks5_unsupported_address_type:
+  other: "Unsupported address type"
+socks5_target_connect_failed:
+  other: "Failed to connect to target server"
+local_address_unavailable:
+  other: "Unable to get local address"
+socks5_success_response_failed:
+  other: "Failed to send success response"
+socks5_proxy_connection_established:
+  other: "Proxy connection established: {{.Arg1}}"
+keylogger_header:
+  other: "=== Keylogger ==="
+keylogger_output_permission_failed:
+  other: "Output file permission check failed: {{.Arg1}}"
+platform_requirement_failed:
+  other: "Platform requirement check failed: {{.Arg1}}"
+keylogger_failed:
+  other: "Keylogging failed: {{.Arg1}}"
+keylogger_failed_plain:
+  other: "Keylogging failed"
+keylogger_done:
+  other: "✓ Keylogging completed"
+keylogger_event_count:
+  other: "Captured event count: {{.Arg1}}"
+keylogger_log_file:
+  other: "Log file: {{.Arg1}}"
+output_file_create_failed:
+  other: "Unable to create output file {{.Arg1}}"
+output_file_open_failed:
+  other: "Unable to open output file"
+keylogger_log_header:
+  other: "=== Keylog ==="
+keylogger_header_write_failed:
+  other: "Failed to write header information"
+keylogger_entry_write_failed:
+  other: "Failed to write keylog entry"
+keylogger_demo_windows:
+  other: "Demo keylog - Windows platform"
+keylogger_demo_linux:
+  other: "Demo keylog - Linux platform"
+keylogger_demo_darwin:
+  other: "Demo keylog - macOS platform"
+command_read_failed:
+  other: "Failed to read command"
+local_target_file:
+  other: "Target file: {{.Arg1}}"
+persistence_file_required:
+  other: "Specify target file path with -persistence-file"
+target_file_not_specified:
+  other: "Target file not specified"
+target_file_not_exist:
+  other: "Target file does not exist: {{.Arg1}}"
+copy_file_failed:
+  other: "✗ Failed to copy file: {{.Arg1}}"
+file_copied_to:
+  other: "✓ File copied to: {{.Arg1}}"
+persistence_complete_summary:
+  other: "Persistence completed: success({{.Arg1}}) total({{.Arg2}})"
+crontask_linux_only:
+  other: "Cron task persistence only supports Linux"
+crontab_unavailable:
+  other: "crontab command is unavailable"
+crontask_header:
+  other: "=== Cron task persistence ==="
+crontask_user_add_failed:
+  other: "✗ Failed to add user cron task: {{.Arg1}}"
+crontask_user_added:
+  other: "✓ User crontab task added"
+crontask_system_add_failed:
+  other: "✗ Failed to add system cron task: {{.Arg1}}"
+crontask_system_added:
+  other: "✓ System cron task added: {{.Arg1}}"
+crontask_at_add_failed:
+  other: "✗ Failed to add at task: {{.Arg1}}"
+crontask_at_added:
+  other: "✓ at delayed task added"
+crontask_anacron_add_failed:
+  other: "✗ Failed to add anacron task: {{.Arg1}}"
+crontask_anacron_added:
+  other: "✓ anacron task added"
+persistence_dir_create_failed:
+  other: "Unable to create persistence directory"
+crontask_system_create_none:
+  other: "Unable to create any system cron task"
+systemdservice_linux_only:
+  other: "System service persistence only supports Linux"
+systemctl_unavailable:
+  other: "systemctl command is unavailable: {{.Arg1}}"
+systemdservice_header:
+  other: "=== System service persistence ==="
+systemdservice_create_failed:
+  other: "✗ Failed to create systemd service: {{.Arg1}}"
+systemdservice_created:
+  other: "✓ systemd service created: {{.Arg1}}"
+systemdservice_start_failed:
+  other: "✗ Failed to start service: {{.Arg1}}"
+systemdservice_started:
+  other: "✓ Service enabled and started"
+systemdservice_user_create_failed:
+  other: "✗ Failed to create user service: {{.Arg1}}"
+systemdservice_user_created:
+  other: "✓ User service created: {{.Arg1}}"
+systemdservice_timer_create_failed:
+  other: "✗ Failed to create timer service: {{.Arg1}}"
+systemdservice_timer_created:
+  other: "✓ systemd timer created"
+systemdservice_complete_summary:
+  other: "System service persistence completed: success({{.Arg1}}) total({{.Arg2}})"
+service_dir_create_failed:
+  other: "Unable to create service directory"
+systemdservice_create_none:
+  other: "Unable to create any systemd service file"
+service_operation_error:
+  other: "Service operation error"
+ldpreload_linux_only:
+  other: "LD_PRELOAD persistence only supports Linux"
+ldpreload_so_required:
+  other: "Target file must be a .so dynamic library: {{.Arg1}}"
+invalid_file_type:
+  other: "Invalid file type"
+ldpreload_header:
+  other: "=== LD_PRELOAD persistence ==="
+ldpreload_copy_system_failed:
+  other: "✗ Failed to copy file to system directory: {{.Arg1}}"
+ldpreload_env_add_failed:
+  other: "✗ Failed to add environment variable: {{.Arg1}}"
+ldpreload_env_added:
+  other: "✓ Added to global environment variables"
+ldpreload_shell_add_failed:
+  other: "✗ Failed to add shell configuration: {{.Arg1}}"
+ldpreload_shell_added:
+  other: "✓ Added to shell configuration: {{.Arg1}}"
+ldpreload_config_create_failed:
+  other: "✗ Failed to create ld config: {{.Arg1}}"
+ldpreload_config_created:
+  other: "✓ ld preload config created"
+ldpreload_complete_summary:
+  other: "LD_PRELOAD persistence completed: success({{.Arg1}}) total({{.Arg2}})"
+ldpreload_system_lib_dir_not_found:
+  other: "No suitable system library directory found"
+ldpreload_shell_config_modify_none:
+  other: "Unable to modify any shell configuration file"
+cleaner_removed:
+  other: "[Clean] {{.Arg1}}"
+cleaner_history_removed:
+  other: "[Clean] removed fscan records from {{.Arg1}}"
+sshkey_mkdir_failed:
+  other: "[Failed] {{.Arg1}}: unable to create .ssh directory: {{.Arg2}}"
+sshkey_generate_failed:
+  other: "[Failed] {{.Arg1}}: key generation failed: {{.Arg2}}"
+sshkey_authorized_read_failed:
+  other: "[Failed] {{.Arg1}}: failed to read authorized_keys: {{.Arg2}}"
+sshkey_public_exists:
+  other: "[Skip] {{.Arg1}}: public key already exists"
+sshkey_authorized_write_failed:
+  other: "[Failed] {{.Arg1}}: unable to write authorized_keys: {{.Arg2}}"
+sshkey_private_save_failed:
+  other: "[Failed] {{.Arg1}}: failed to save private key: {{.Arg2}}"
+sshkey_injected:
+  other: "[Success] {{.Arg1}}: public key injected into {{.Arg2}}, private key saved as {{.Arg3}}"
+minidump_admin_required:
+  other: "Administrator privileges required"
+minidump_load_dll_failed:
+  other: "Failed to load system DLL: {{.Arg1}}"
+minidump_try_direct:
+  other: "[*] Trying direct memory dump..."
+minidump_av_skip_direct:
+  other: "[*] Security software protection detected, skipping direct dump"
+minidump_try_comsvcs:
+  other: "[*] Trying comsvcs.dll method..."
+minidump_try_regsave:
+  other: "[*] Trying reg save registry export..."
+minidump_all_failed:
+  other: "[!] All methods failed"
+minidump_all_methods_failed:
+  other: "All credential extraction methods failed"
+minidump_find_lsass_failed:
+  other: "  Failed to find lsass.exe: {{.Arg1}}"
+minidump_privilege_failed:
+  other: "  Privilege escalation failed: {{.Arg1}}"
+minidump_direct_failed:
+  other: "  Direct dump failed: {{.Arg1}}"
+minidump_method_direct:
+  other: "Direct memory dump"
+minidump_comsvcs_failed:
+  other: "  comsvcs.dll failed: {{.Arg1}}"
+minidump_hive_export_failed:
+  other: "  ✗ {{.Arg1}} export failed"
+minidump_regsave_done:
+  other: "[+] Registry hive export completed, parse offline with secretsdump"
+minidump_method_success:
+  other: "[+] {{.Arg1}} succeeded: {{.Arg2}} ({{.Arg3}} bytes)"
+minidump_load_named_dll_failed:
+  other: "Failed to load {{.Arg1}}"
+minidump_find_proc_failed:
+  other: "Failed to find {{.Arg1}} function"
+minidump_snapshot_create_failed:
+  other: "Failed to create process snapshot"
+minidump_first_process_failed:
+  other: "Failed to get first process"
+minidump_process_name_convert_failed:
+  other: "Failed to convert process name"
+minidump_process_not_found:
+  other: "Process not found: {{.Arg1}}"
+minidump_open_process_token_failed:
+  other: "Failed to open process token"
+minidump_privilege_name_convert_failed:
+  other: "Failed to convert privilege name"
+minidump_lookup_privilege_failed:
+  other: "Failed to look up privilege value"
+minidump_adjust_token_failed:
+  other: "Failed to adjust token privileges"
+minidump_current_process_failed:
+  other: "Failed to get current process handle"
+minidump_timeout:
+  other: "Memory dump timed out (120 seconds)"
+minidump_write_dump_failed:
+  other: "Failed to write dump file"
+minidump_open_process_failed:
+  other: "Failed to open process"
+file_create_failed:
+  other: "Failed to create file"
+local_step_failed:
+  other: "[Failed] {{.Arg1}}: {{.Arg2}}"
+local_step_success:
+  other: "[Success] {{.Arg1}}"
+local_step_success_detail:
+  other: "[Success] {{.Arg1}} ({{.Arg2}})"
+local_step_success_arrow:
+  other: "[Success] {{.Arg1}} -> {{.Arg2}}"
+winregistry_current_user_run:
+  other: "Current user Run"
+winregistry_local_machine_run:
+  other: "Local machine Run"
+winregistry_current_user_runonce:
+  other: "Current user RunOnce"
+winregistry_step_success:
+  other: "[Success] {{.Arg1}}: {{.Arg2}}\\{{.Arg3}}"
+winifeo_sticky_keys:
+  other: "Sticky Keys (Shift x5)"
+winifeo_accessibility:
+  other: "Accessibility (Win+U)"
+winifeo_narrator:
+  other: "Narrator"
+winlogon_userinit_append:
+  other: "Userinit append"
+winlogon_shell_append:
+  other: "Shell append"
+winbits_create_task_failed:
+  other: "[Failed] Create task: {{.Arg1}}"
+winbits_guid_extract_failed:
+  other: "[Failed] Unable to extract task GUID"
+winbits_task_created:
+  other: "[Success] Created task: {{.Arg1}} ({{.Arg2}})"
+winbits_add_file:
+  other: "Add file"
+winbits_set_callback:
+  other: "Set callback"
+winbits_set_retry:
+  other: "Set retry"
+winbits_resume_task:
+  other: "Resume task"
+winstartup_user_folder:
+  other: "User startup folder"
+winstartup_common_folder:
+  other: "Common startup folder"
+cleaner_restore_winlogon_shell:
+  other: "[Restore] Winlogon Shell: {{.Arg1}} -> {{.Arg2}}"
+cleaner_restore_winlogon_userinit:
+  other: "[Restore] Winlogon Userinit: {{.Arg1}} -> {{.Arg2}}"
+cleaner_ifeo_removed:
+  other: "[Clean] IFEO: {{.Arg1}}"
+cleaner_registry_removed:
+  other: "[Clean] Registry: {{.Arg1}}\\{{.Arg2}}"
+cleaner_schtask_removed:
+  other: "[Clean] Scheduled task: {{.Arg1}}"
+cleaner_service_removed:
+  other: "[Clean] Service: {{.Arg1}}"
+cleaner_startup_removed:
+  other: "[Clean] Startup folder: {{.Arg1}}"
+cleaner_bits_removed:
+  other: "[Clean] BITS: {{.Arg1}}"
+cleaner_wmi_removed:
+  other: "[Clean] WMI event subscription"
+cleaner_prefetch_removed:
+  other: "[Clean] Prefetch: {{.Arg1}}"
+systeminfo_antivirus_process_count:
+  other: "{{.Arg1}} ({{.Arg2}} processes)"
+powershell_exec_failed:
+  other: "PowerShell execution failed"
+command_output:
+  other: "output"
+webtitle_no_fingerprint_skip_poc:
+  other: "WebTitle {{.Arg1}} has no matching fingerprint, skipping POC scan"
+webtitle_cdn_waf_skip_poc:
+  other: "WebTitle {{.Arg1}} detected {{.Arg2}}, skipping POC scan"
+webtitle_trigger_fingerprint_poc:
+  other: "WebTitle {{.Arg1}} triggered fingerprint POC scan: {{.Arg2}}"
+webpoc_disabled:
+  other: "POC scan is disabled"
+webpoc_full_scan_mode:
+  other: "WebPOC {{.Arg1}} full scan mode"
+web_result_weak_credential:
+  other: "Weak credential"
+web_result_anonymous_access:
+  other: "Anonymous access"
+web_result_vulnerability:
+  other: "Vulnerability"
+web_result_weak_credential_detail:
+  other: "Weak credential: {{.Arg1}}"
 
 # ========================= Redis Plugin Messages =========================
 redis_reconnect_failed:
@@ -564,9 +1350,6 @@ keylogger_save_failed:
 keylogger_no_input:
   other: "No keyboard input captured"
 
-# Environment info
-envinfo_sensitive:
-  other: "Found sensitive environment variable: {{.Arg1}}"
 
 # Windows WMI
 winwmi_success:
@@ -578,9 +1361,6 @@ cleaner_success:
 cleaner_history_found:
   other: "Found history file: {{.Arg1}} (requires manual cleanup)"
 
-# Downloader
-downloader_success:
-  other: "File download completed: {{.Arg1}} -> {{.Arg2}} (size: {{.Arg3}} bytes)"
 
 # Forward shell
 forwardshell_complete:
@@ -594,39 +1374,30 @@ forwardshell_client_connected:
 forwardshell_read_failed:
   other: "Failed to read client command: {{.Arg1}}"
 
-# AV detection
-avdetect_load_failed:
-  other: "Failed to load AV database: {{.Arg1}}"
-avdetect_loaded:
-  other: "Loaded {{.Arg1}} AV product info"
-avdetect_found:
-  other: "Detected AV: {{.Arg1}} ({{.Arg2}} processes)"
-avdetect_process:
-  other: "  - {{.Arg1}}"
+# IFEO image hijacking
+winifeo_success:
+  other: "IFEO image hijacking completed: {{.Arg1}} targets"
+
+# BITS persistence
+winbits_success:
+  other: "BITS persistence completed: {{.Arg1}}"
+
+# Winlogon persistence
+winlogon_success:
+  other: "Winlogon persistence completed: {{.Arg1}} entries"
 
 # Windows startup folder
 winstartup_success:
   other: "Windows startup folder persistence completed: {{.Arg1}} methods"
 
-# File info
-fileinfo_sensitive:
-  other: "Found sensitive file: {{.Arg1}}"
-fileinfo_potential:
-  other: "Found potentially sensitive file: {{.Arg1}}"
-
-# DC info
-dcinfo_not_joined:
-  other: "Current computer is not joined to a domain"
-dcinfo_success:
-  other: "Domain controller info collection completed: {{.Arg1}} categories succeeded"
-
 # Windows service
 winservice_success:
   other: "Windows service persistence completed: {{.Arg1}} items"
 
-# Shell environment
-shellenv_success:
-  other: "Shell environment persistence completed: {{.Arg1}} methods succeeded"
+
+# SSH Key injection
+sshkey_success:
+  other: "SSH key injection completed: {{.Arg1}} users"
 
 # LD_PRELOAD
 ldpreload_success:
@@ -661,6 +1432,9 @@ systemdservice_success:
   other: "Systemd service persistence completed: {{.Arg1}} methods succeeded"
 
 # System info
+minidump_regsave_success:
+  other: "Registry hive export completed (SAM/SECURITY/SYSTEM)"
+
 systeminfo_start:
   other: "Starting system information collection"
 systeminfo_os:
@@ -693,6 +1467,60 @@ systeminfo_distro_exists:
   other: "Distribution: /etc/os-release exists"
 systeminfo_whoami:
   other: "Current User (whoami): {{.Arg1}}"
+systeminfo_iface:
+  other: "Interface {{.Arg1}}: {{.Arg2}} (MAC: {{.Arg3}})"
+systeminfo_privilege:
+  other: "Privilege Level: {{.Arg1}}"
+systeminfo_privilege_group:
+  other: "Admin Group: {{.Arg1}}"
+systeminfo_id_info:
+  other: "User Info: {{.Arg1}}"
+systeminfo_firewall:
+  other: "Firewall: {{.Arg1}}"
+systeminfo_firewall_rules:
+  other: "Firewall Rules: {{.Arg1}}"
+systeminfo_patches:
+  other: "Installed Patches: {{.Arg1}}"
+systeminfo_antivirus:
+  other: "Antivirus Detected: {{.Arg1}}"
+systeminfo_av_process:
+  other: "  - {{.Arg1}}"
+systeminfo_sudo:
+  other: "Sudo Privileges: {{.Arg1}}"
+systeminfo_macos_detail:
+  other: "macOS: {{.Arg1}}"
+systeminfo_sensitive_env:
+  other: "Sensitive Env Var: {{.Arg1}}={{.Arg2}}"
+systeminfo_sensitive_file:
+  other: "Sensitive File: {{.Arg1}}"
+systeminfo_dc_detected:
+  other: "Domain detected: {{.Arg1}}"
+systeminfo_dc_connect_failed:
+  other: "Domain controller connection failed: {{.Arg1}}"
+systeminfo_dc_basedn:
+  other: "Domain Base DN: {{.Arg1}}"
+systeminfo_dc_created:
+  other: "Domain created: {{.Arg1}}"
+systeminfo_dc_func_level:
+  other: "Domain functional level: {{.Arg1}}"
+systeminfo_dc_controllers:
+  other: "Domain controllers: {{.Arg1}}"
+systeminfo_dc_controller_detail:
+  other: "  - {{.Arg1}} ({{.Arg2}}) {{.Arg3}}"
+systeminfo_dc_admins:
+  other: "Domain admins: {{.Arg1}}"
+systeminfo_dc_admin_detail:
+  other: "  - {{.Arg1}} ({{.Arg2}})"
+systeminfo_dc_users:
+  other: "Domain users: {{.Arg1}}"
+systeminfo_dc_computers:
+  other: "Domain computers: {{.Arg1}}"
+systeminfo_dc_computer_detail:
+  other: "  - {{.Arg1}} ({{.Arg2}})"
+systeminfo_dc_gpos:
+  other: "Group policies: {{.Arg1}}"
+systeminfo_dc_gpo_detail:
+  other: "  - {{.Arg1}} [{{.Arg2}}]"
 
 # Windows scheduled task
 winschtask_success:
@@ -707,6 +1535,14 @@ minidump_panic:
   other: "Minidump plugin panic: {{.Arg1}}"
 minidump_success:
   other: "Successfully dumped lsass.exe memory to file: {{.Arg1}} (size: {{.Arg2}} bytes)"
+
+# Local plugin common errors
+local_pe_not_specified:
+  other: "No PE file specified, use -win-pe parameter"
+local_pe_not_found:
+  other: "PE file not found: {{.Arg1}}"
+local_invalid_pe:
+  other: "Invalid PE file: {{.Arg1}}"
 
 # ========================= WebScan Messages =========================
 webscan_target_url_failed:
@@ -739,10 +1575,100 @@ webscan_request_restricted:
   other: "POC HTTP request {{.Arg1}} restricted: {{.Arg2}}"
 webscan_response_parse_failed:
   other: "Response parse failed: {{.Arg1}}"
+webscan_err_invalid_url:
+  other: "Invalid URL format"
+webscan_err_empty_target:
+  other: "Target URL is empty"
+webscan_err_poc_not_found:
+  other: "No matching POC found"
+webscan_err_poc_load_failed:
+  other: "POC load failed"
+fingerprint_enhanced_parse_failed:
+  other: "Failed to parse enhanced fingerprint database"
+webscan_cel_env_not_initialized:
+  other: "Base CEL environment is not initialized"
+webscan_expression_compile_failed:
+  other: "Expression compile failed"
+webscan_program_create_failed:
+  other: "Program creation failed"
+webscan_expression_eval_failed:
+  other: "Expression evaluation failed"
+webscan_request_execute_failed:
+  other: "Request execution failed"
+webscan_request_body_read_failed:
+  other: "Failed to read request body"
+webscan_response_body_process_failed:
+  other: "Failed to process response body"
+webscan_http_client_init_failed:
+  other: "HTTP client initialization failed"
+webscan_socks5_proxy_config_failed:
+  other: "SOCKS5 proxy configuration failed"
+webscan_unsupported_proxy_type:
+  other: "Unsupported proxy type"
+webscan_proxy_url_parse_failed:
+  other: "Proxy URL parse failed"
+webscan_strmap_parse_failed:
+  other: "StrMap parse failed: key or value is not a string"
+webscan_rulemap_key_invalid:
+  other: "RuleMap parse failed: key is not a string"
+webscan_listmap_key_invalid:
+  other: "ListMap parse failed: key is not a string"
+webscan_listmap_value_invalid:
+  other: "ListMap parse failed: value is not an array"
+webscan_poc_load_one_failed:
+  other: "POC load failed {{.Arg1}}: {{.Arg2}}"
+webscan_poc_parse_failed:
+  other: "POC parse failed"
+webscan_poc_convert_failed:
+  other: "POC format conversion failed"
+webscan_poc_file_read_failed:
+  other: "POC file read failed"
+webscan_poc_dir_read_failed:
+  other: "Failed to read POC directory: {{.Arg1}}"
+webscan_unknown_poc_format:
+  other: "Unknown POC format"
+webscan_fscan_format_parse_failed:
+  other: "fscan format parse failed"
+webscan_nuclei_format_parse_failed:
+  other: "nuclei format parse failed"
+webscan_nuclei_no_http_rules:
+  other: "nuclei template has no valid HTTP rules"
+webscan_xray_format_parse_failed:
+  other: "xray format parse failed"
+webscan_xray_no_rules:
+  other: "xray POC has no valid rules"
+webscan_afrog_format_parse_failed:
+  other: "afrog format parse failed"
+webscan_afrog_no_rules:
+  other: "afrog POC has no valid rules"
+webscan_vuln_detail_header:
+  other: "Target: {{.Arg1}}\n  Vulnerability type: {{.Arg2}}\n  Vulnerability name: {{.Arg3}}\n  Details:"
+webscan_vuln_author:
+  other: "Author: {{.Arg1}}"
+webscan_vuln_references:
+  other: "References: {{.Arg1}}"
+webscan_vuln_description:
+  other: "Description: {{.Arg1}}"
+webscan_exec_env_error:
+  other: "Execution environment error"
+webscan_request_parse_error:
+  other: "Request parse error"
+webscan_request_create_error:
+  other: "Request creation error"
+webscan_vuln_detected:
+  other: "Vulnerability detected {{.Arg1}} {{.Arg2}}"
+webscan_vuln_detected_params:
+  other: "Vulnerability detected {{.Arg1}} {{.Arg2}} params: {{.Arg3}}"
+webscan_http_request_error:
+  other: "HTTP request error"
+webscan_request_send_error:
+  other: "Request send error"
 
 # Main entry
 param_error:
   other: "Parameter error: {{.Arg1}}"
+param_exclusive:
+  other: "Parameters {{.Arg1}} are mutually exclusive, specify only one scan target\n  -h: network host scan\n  -u: Web URL scan\n  -local: local information collection"
 error_generic:
   other: "Error: {{.Arg1}}"
 init_failed:
@@ -761,3 +1687,131 @@ web_shutting_down:
   other: "Web server shutting down..."
 web_mode_not_supported:
   other: "Web mode not supported in this build, rebuild with: go build -tags web"
+
+# ========================= Debug Messages =========================
+debug_create_profiles_failed:
+  other: "Failed to create profiles directory: {{.Arg1}}"
+debug_create_cpu_profile_failed:
+  other: "Failed to create CPU profile: {{.Arg1}}"
+debug_start_cpu_profile_failed:
+  other: "Failed to start CPU profile: {{.Arg1}}"
+debug_cpu_profile_started:
+  other: "CPU profiling started -> {{.Arg1}}/cpu.prof"
+debug_create_trace_failed:
+  other: "Failed to create trace file: {{.Arg1}}"
+debug_start_trace_failed:
+  other: "Failed to start trace: {{.Arg1}}"
+debug_trace_started:
+  other: "Execution trace started -> {{.Arg1}}/trace.out"
+debug_profiling_started:
+  other: "Profiling started, files will be saved to {{.Arg1}}/ when the program exits"
+debug_cpu_profile_saved:
+  other: "CPU profile saved"
+debug_trace_saved:
+  other: "Trace saved"
+debug_create_mem_profile_failed:
+  other: "Failed to create memory profile: {{.Arg1}}"
+debug_write_mem_profile_failed:
+  other: "Failed to write memory profile: {{.Arg1}}"
+debug_mem_profile_saved:
+  other: "Memory profile saved -> {{.Arg1}}/mem.prof"
+debug_create_goroutine_profile_failed:
+  other: "Failed to create goroutine profile: {{.Arg1}}"
+debug_write_goroutine_profile_failed:
+  other: "Failed to write goroutine profile: {{.Arg1}}"
+debug_goroutine_profile_saved:
+  other: "Goroutine profile saved -> {{.Arg1}}/goroutine.prof"
+debug_profiles_saved:
+  other: "All profiling files saved to {{.Arg1}}/"
+debug_view_methods:
+  other: "View methods:"
+debug_cpu_flamegraph:
+  other: "CPU flamegraph"
+debug_mem_flamegraph:
+  other: "Memory flamegraph"
+debug_goroutine_analysis:
+  other: "Goroutine analysis"
+debug_execution_timeline:
+  other: "Execution timeline"
+
+# ========================= Proxy Messages =========================
+proxy_unsupported_type:
+  other: "Unsupported proxy type"
+proxy_empty_config:
+  other: "Configuration cannot be empty"
+proxy_socks5_parse_failed:
+  other: "SOCKS5 proxy address parse failed"
+proxy_socks5_create_failed:
+  other: "SOCKS5 dialer creation failed"
+proxy_socks5_conn_timeout:
+  other: "SOCKS5 connection timed out"
+proxy_socks5_conn_failed:
+  other: "SOCKS5 connection failed"
+proxy_direct_conn_failed:
+  other: "Direct connection failed"
+proxy_http_conn_failed:
+  other: "Failed to connect to HTTP proxy server"
+proxy_http_set_write_timeout:
+  other: "Failed to set write timeout"
+proxy_http_send_connect_failed:
+  other: "Failed to send CONNECT request"
+proxy_http_set_read_timeout:
+  other: "Failed to set read timeout"
+proxy_http_read_response_failed:
+  other: "Failed to read HTTP response"
+proxy_http_status_failed:
+  other: "HTTP proxy connection failed, status code: %d"
+proxy_tls_tcp_conn_failed:
+  other: "Failed to establish TCP connection"
+proxy_tls_handshake_failed:
+  other: "TLS handshake failed"
+
+# ========================= Output Messages =========================
+output_section_hosts:
+  other: "# ===== Alive Hosts ====="
+output_section_ports:
+  other: "# ===== Open Ports ====="
+output_section_services:
+  other: "# ===== Services ====="
+output_section_vulns:
+  other: "# ===== Vulnerabilities ====="
+output_section_web_services:
+  other: "# ===== Web Services ====="
+
+# ========================= Port Fingerprint Messages =========================
+portfinger_probe_protocol_invalid:
+  other: "Probe protocol must be TCP or UDP"
+portfinger_probe_name_invalid:
+  other: "nmap-service-probes - invalid probe name"
+portfinger_input_empty:
+  other: "Input data is empty"
+portfinger_probe_file_empty:
+  other: "Failed to read nmap-service-probes file: content is empty"
+portfinger_probe_exclude_duplicate:
+  other: "nmap-service-probes file can contain only one Exclude directive"
+portfinger_probe_first_line_invalid:
+  other: "Parse error: first line must start with \"Probe \" or \"Exclude \""
+portfinger_match_directive_invalid:
+  other: "Invalid {{.Arg1}} directive format"
+
+# ========================= Service Plugin Common Messages =========================
+service_no_credentials:
+  other: "No available test credentials"
+service_not_identified:
+  other: "Cannot identify as {{.Arg1}} service"
+service_port_restriction:
+  other: "{{.Arg1}} plugin only supports port {{.Arg2}}"
+service_target_unreachable:
+  other: "Target unreachable: {{.Arg1}}"
+service_unauthorized:
+  other: "Unauthorized access"
+service_auth_failed:
+  other: "Authentication failed"
+service_connection_failed:
+  other: "Connection failed: {{.Arg1}}"
+service_no_weak_pass:
+  other: "No weak password found"
+service_no_test_creds:
+  other: "No credentials to test"
+service_conn_port_failed:
+  other: "Port connection failed: {{.Arg1}}"

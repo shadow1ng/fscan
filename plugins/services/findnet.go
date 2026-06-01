@@ -15,6 +15,7 @@ import (
 	"unicode"
 
 	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/plugins"
 )
 
@@ -45,7 +46,7 @@ func (p *FindNetPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 		return &ScanResult{
 			Success: false,
 			Service: "findnet",
-			Error:   fmt.Errorf("FindNet插件仅支持RPC端口135"),
+			Error:   fmt.Errorf("%s", i18n.Tr("service_port_restriction", "FindNet", "135")),
 		}
 	}
 
@@ -54,7 +55,7 @@ func (p *FindNetPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 		return &ScanResult{
 			Success: false,
 			Service: "findnet",
-			Error:   fmt.Errorf("连接RPC端口失败: %w", err),
+			Error:   fmt.Errorf(i18n.Tr("service_conn_port_failed", "%w"), err),
 		}
 	}
 	defer func() { _ = conn.Close() }()
@@ -85,7 +86,7 @@ func (p *FindNetPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 		}
 		// 一次性输出所有行
 		if len(lines) > 0 {
-			common.LogSuccess(strings.Join(lines, "\n"))
+			session.LogSuccess(strings.Join(lines, "\n"))
 		}
 	}
 
@@ -107,26 +108,25 @@ type NetworkInfo struct {
 // Summary 返回网络信息摘要
 func (ni *NetworkInfo) Summary() string {
 	if !ni.Valid {
-		return "网络发现失败"
+		return i18n.GetText("findnet_discovery_failed")
 	}
 
 	var parts []string
 	if ni.Hostname != "" {
-		parts = append(parts, fmt.Sprintf("主机名: %s", ni.Hostname))
+		parts = append(parts, i18n.Tr("findnet_hostname", ni.Hostname))
 	}
 	if len(ni.IPv4Addrs) > 0 {
-		parts = append(parts, fmt.Sprintf("IPv4: %d个", len(ni.IPv4Addrs)))
+		parts = append(parts, i18n.Tr("findnet_ipv4_count", len(ni.IPv4Addrs)))
 	}
 	if len(ni.IPv6Addrs) > 0 {
-		parts = append(parts, fmt.Sprintf("IPv6: %d个", len(ni.IPv6Addrs)))
+		parts = append(parts, i18n.Tr("findnet_ipv6_count", len(ni.IPv6Addrs)))
 	}
 
 	if len(parts) == 0 {
-		return "网络信息收集完成"
+		return i18n.GetText("findnet_complete")
 	}
 	return strings.Join(parts, ", ")
 }
-
 
 // RPC数据包定义
 var (
@@ -139,24 +139,24 @@ var (
 func (p *FindNetPlugin) performNetworkDiscovery(conn net.Conn) (*NetworkInfo, error) {
 	// 发送第一个RPC请求
 	if _, err := conn.Write(rpcBuffer1); err != nil {
-		return nil, fmt.Errorf("发送RPC请求1失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("findnet_rpc_request1_failed"), err)
 	}
 
 	// 读取响应
 	reply := make([]byte, 4096)
 	if _, err := conn.Read(reply); err != nil {
-		return nil, fmt.Errorf("读取RPC响应1失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("findnet_rpc_response1_failed"), err)
 	}
 
 	// 发送第二个RPC请求
 	if _, err := conn.Write(rpcBuffer2); err != nil {
-		return nil, fmt.Errorf("发送RPC请求2失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("findnet_rpc_request2_failed"), err)
 	}
 
 	// 读取网络信息响应
 	n, err := conn.Read(reply)
 	if err != nil || n < 42 {
-		return nil, fmt.Errorf("读取RPC响应2失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("findnet_rpc_response2_failed"), err)
 	}
 
 	// 解析响应数据

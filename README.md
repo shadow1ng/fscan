@@ -4,7 +4,7 @@
 
 内网综合扫描工具，一键自动化漏扫。
 
-**版本**: 2.1.2
+**版本**: 2.2.0-rc
 
 ## 功能特性
 
@@ -52,6 +52,7 @@
 - **并发控制** - 端口扫描线程、服务扫描线程独立配置
 
 ### 扩展功能
+- **SDK嵌入** - `pkg/fscan`提供Go SDK，可嵌入Agent或安全平台，支持任务控制(Pause/Resume)、实时进度回调、TaskID追溯
 - **Web管理界面** - 可视化扫描任务管理(条件编译 -tags web)
 - **Lab靶场环境** - 内置Docker靶场用于测试学习
 - **插件化架构** - 服务插件/Web插件/本地插件分离，易于扩展
@@ -211,8 +212,12 @@ yay -S fscan-git
 `fscan.exe -h 192.168.x.x -m ssh -user root -pwd password`
 ![](image/3.png)
 
+`fscan.exe -h 192.168.x.x -m ssh -user root -pwda pass1 pass2 pass3` (追加多个密码)
+
 `fscan.exe -h 192.168.x.x -p80 -proxy http://127.0.0.1:8080`
 ![](image/2020-12-12-13-34-44.png)
+
+`fscan.exe -h 192.168.x.x -socks5 socks5://user:pass@127.0.0.1:1080` (SOCKS5认证代理)
 
 `fscan.exe -h 192.168.x.x -p 139 -m netbios`
 ![](image/netbios.png)
@@ -233,6 +238,11 @@ yay -S fscan-git
 - **前两周** - 新功能开发与特性更新
 - **后两周** - Bug修复与代码整合
 - **欢迎PR** - 期待您的贡献！
+
+### SDK & Agent 集成
+- 扩展SDK能力，完善端侧Agent嵌入支持
+- 断点续扫、带宽级限速、内存水位控制
+- 更多Agent场景的集成示例
 
 ### 插件生态
 - 持续扩展服务插件覆盖范围

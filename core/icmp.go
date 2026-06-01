@@ -8,6 +8,7 @@ import (
 	"net"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -55,7 +56,7 @@ func CheckLive(ctx context.Context, hostslist []string, Ping bool, session *comm
 	chanHosts := make(chan string, len(hostslist))
 
 	// 处理存活主机
-	go handleAliveHosts(chanHosts, hostslist, Ping, &aliveHosts, &aliveHostsMu, existHosts, config, &livewg)
+	go handleAliveHosts(chanHosts, hostslist, Ping, &aliveHosts, &aliveHostsMu, existHosts, config, session, &livewg)
 
 	// 根据Ping参数选择检测方式
 	if Ping {
@@ -106,7 +107,7 @@ func tcpSupplementaryProbe(ctx context.Context, allHosts []string, aliveHosts []
 	}
 
 	// 提示用户正在进行 TCP 补充探测
-	common.LogInfo(i18n.Tr("tcp_probe_low_icmp_rate", fmt.Sprintf("%.1f%%", responseRate*100), len(unrespondedHosts)))
+	session.LogInfo(i18n.Tr("tcp_probe_low_icmp_rate", fmt.Sprintf("%.1f%%", responseRate*100), len(unrespondedHosts)))
 
 	// 执行 TCP 补充探测
 	tcpAliveHosts := runTcpProbeForHosts(ctx, unrespondedHosts, session)
@@ -114,7 +115,7 @@ func tcpSupplementaryProbe(ctx context.Context, allHosts []string, aliveHosts []
 	// 合并结果
 	if len(tcpAliveHosts) > 0 {
 		aliveHosts = append(aliveHosts, tcpAliveHosts...)
-		common.LogInfo(i18n.Tr("tcp_probe_found", len(tcpAliveHosts)))
+		session.LogInfo(i18n.Tr("tcp_probe_found", len(tcpAliveHosts)))
 	}
 
 	return aliveHosts
@@ -130,7 +131,7 @@ func IsContain(items []string, item string) bool {
 	return false
 }
 
-func handleAliveHosts(chanHosts chan string, hostslist []string, isPing bool, aliveHosts *[]string, aliveHostsMu *sync.Mutex, existHosts map[string]struct{}, config *common.Config, livewg *sync.WaitGroup) {
+func handleAliveHosts(chanHosts chan string, hostslist []string, isPing bool, aliveHosts *[]string, aliveHostsMu *sync.Mutex, existHosts map[string]struct{}, config *common.Config, session *common.ScanSession, livewg *sync.WaitGroup) {
 	for ip := range chanHosts {
 		if _, ok := existHosts[ip]; !ok && IsContain(hostslist, ip) {
 			existHosts[ip] = struct{}{}
@@ -155,12 +156,9 @@ func handleAliveHosts(chanHosts chan string, hostslist []string, isPing bool, al
 					"protocol": protocol,
 				},
 			}
-			_ = common.SaveResult(result)
+			_ = session.SaveResult(result)
 
-			// 保留原有的控制台输出
-			if !config.Output.Silent {
-				common.LogInfo(i18n.Tr("host_alive", ip, protocol))
-			}
+			session.LogInfo(i18n.Tr("host_alive", ip, protocol))
 		}
 		livewg.Done()
 	}
@@ -289,13 +287,13 @@ func waitAdaptive(hostslist []string, aliveHosts *[]string, aliveHostsMu *sync.M
 
 		// 条件1：所有主机都已响应，立即结束
 		if aliveCount >= totalHosts {
-			common.LogDebug(fmt.Sprintf("[ICMP] 全部响应，耗时 %v", elapsed.Round(time.Millisecond)))
+			common.LogDebug(i18n.Tr("icmp_debug_all_responded", elapsed.Round(time.Millisecond)))
 			break
 		}
 
 		// 条件2：超过最大等待时间，兜底结束
 		if elapsed >= maxWait {
-			common.LogDebug(fmt.Sprintf("[ICMP] 达到最大等待时间 %v，存活 %d/%d", maxWait, aliveCount, totalHosts))
+			common.LogDebug(i18n.Tr("icmp_debug_max_wait", maxWait, aliveCount, totalHosts))
 			break
 		}
 
@@ -308,8 +306,7 @@ func waitAdaptive(hostslist []string, aliveHosts *[]string, aliveHostsMu *sync.M
 				lastAliveCount = aliveCount
 			} else if time.Since(lastChangeTime) >= icmpStableThreshold {
 				// 连续 500ms 没有新响应，认为响应已稳定，提前结束
-				common.LogDebug(fmt.Sprintf("[ICMP] 响应稳定，提前结束，耗时 %v，存活 %d/%d",
-					elapsed.Round(time.Millisecond), aliveCount, totalHosts))
+				common.LogDebug(i18n.Tr("icmp_debug_stable_done", elapsed.Round(time.Millisecond), aliveCount, totalHosts))
 				break
 			}
 		} else {
@@ -708,7 +705,7 @@ func tcpProbeAlive(ctx context.Context, session *common.ScanSession, host string
 	result := make(chan bool, len(tcpProbeCommonPorts))
 	for _, port := range tcpProbeCommonPorts {
 		go func(p int) {
-			addr := fmt.Sprintf("%s:%d", host, p)
+			addr := net.JoinHostPort(host, strconv.Itoa(p))
 			conn, err := session.DialTCP(ctx, "tcp", addr, tcpProbeTimeout)
 			if err == nil {
 				_ = conn.Close()
@@ -730,7 +727,6 @@ func tcpProbeAlive(ctx context.Context, session *common.ScanSession, host string
 // runTcpProbeForHosts 对指定主机列表进行 TCP 补充探测
 // 返回存活的主机列表
 func runTcpProbeForHosts(ctx context.Context, hosts []string, session *common.ScanSession) []string {
-	config := session.Config
 	if len(hosts) == 0 {
 		return nil
 	}
@@ -771,11 +767,9 @@ func runTcpProbeForHosts(ctx context.Context, hosts []string, session *common.Sc
 						"protocol": "TCP",
 					},
 				}
-				_ = common.SaveResult(result)
+				_ = session.SaveResult(result)
 
-				if !config.Output.Silent {
-					common.LogInfo(i18n.Tr("host_alive", h, "TCP"))
-				}
+				session.LogInfo(i18n.Tr("host_alive", h, "TCP"))
 			}
 		}(host)
 	}

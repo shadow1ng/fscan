@@ -57,6 +57,28 @@ func createTestResult(resultType ResultType, target, status string, details map[
 	}
 }
 
+func TestTargetWithPortIPv6(t *testing.T) {
+	tests := []struct {
+		name   string
+		target string
+		port   interface{}
+		want   string
+	}{
+		{name: "ipv4 without port", target: "192.168.1.1", port: 80, want: "192.168.1.1:80"},
+		{name: "ipv4 with port", target: "192.168.1.1:80", port: 443, want: "192.168.1.1:80"},
+		{name: "ipv6 without port", target: "2001:db8::1", port: 443, want: "[2001:db8::1]:443"},
+		{name: "ipv6 with port", target: "[2001:db8::1]:443", port: 80, want: "[2001:db8::1]:443"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := targetWithPort(tt.target, tt.port); got != tt.want {
+				t.Fatalf("targetWithPort(%q, %v) = %q, want %q", tt.target, tt.port, got, tt.want)
+			}
+		})
+	}
+}
+
 // =============================================================================
 // TXTWriter - 基础功能测试
 // =============================================================================

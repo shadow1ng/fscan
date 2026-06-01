@@ -268,6 +268,33 @@ func TestTestCredentialsConcurrently_EmptyCredentials(t *testing.T) {
 	}
 }
 
+func TestTestCredentialsConcurrently_ProxySkipsDirectPrecheck(t *testing.T) {
+	var calls atomic.Int32
+	authFn := func(ctx context.Context, cred Credential) *AuthResult {
+		calls.Add(1)
+		return &AuthResult{
+			Success: true,
+			Conn:    &mockConn{},
+		}
+	}
+
+	config := ConcurrentTestConfig{
+		Concurrency: 1,
+		MaxRetries:  1,
+		RetryDelay:  time.Millisecond,
+		TargetAddr:  "127.0.0.1:1",
+		UseProxy:    true,
+	}
+
+	result := TestCredentialsConcurrently(context.Background(), []Credential{{Username: "u", Password: "p"}}, authFn, "test", config)
+	if !result.Success {
+		t.Fatalf("proxy mode should skip direct precheck: %v", result.Error)
+	}
+	if calls.Load() == 0 {
+		t.Fatal("auth function was not called")
+	}
+}
+
 // TestTestCredentialsConcurrently_ContextCancel 测试context取消
 func TestTestCredentialsConcurrently_ContextCancel(t *testing.T) {
 	credentials := make([]Credential, 100)
@@ -451,4 +478,3 @@ func TestRetryLogic_AuthErrorNoRetry(t *testing.T) {
 
 // 确保 mockConn 实现 io.Closer 接口
 var _ io.Closer = (*mockConn)(nil)
-

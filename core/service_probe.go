@@ -3,14 +3,15 @@ package core
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/core/portfinger"
 )
 
@@ -171,7 +172,6 @@ func (s *SmartPortInfoScanner) tryInitialBanner() ([]byte, error) {
 	return response, nil
 }
 
-
 // smartProbeStrategy 智能探测策略
 // 改进版：使用 nmap-service-probes.txt 中的 ports 字段和 rarity 排序
 func (s *SmartPortInfoScanner) smartProbeStrategy() {
@@ -264,7 +264,7 @@ func (s *SmartPortInfoScanner) reconnectIfNeeded() {
 	}
 
 	// 重新建立连接
-	newConn, err := s.session.DialTCP(s.info.ctx, "tcp", fmt.Sprintf("%s:%d", s.Address, s.Port), s.Timeout)
+	newConn, err := s.session.DialTCP(s.info.ctx, "tcp", net.JoinHostPort(s.Address, strconv.Itoa(s.Port)), s.Timeout)
 	if err != nil {
 		return
 	}
@@ -392,7 +392,7 @@ func (i *Info) tryProbes(response []byte, probes []*Probe) bool {
 func (i *Info) GetInfo(response []byte, probe *Probe) {
 	// 响应数据有效性检查
 	if len(response) <= 0 {
-		common.LogDebug("响应数据为空")
+		common.LogDebug(i18n.GetText("service_probe_empty_response"))
 		return
 	}
 
@@ -460,12 +460,12 @@ func (i *Info) handleHardMatch(response []byte, match *Match) {
 
 	// 特殊处理 microsoft-ds 服务
 	if result.Service.Name == "microsoft-ds" {
-		common.LogDebug("特殊处理 microsoft-ds 服务")
+		common.LogDebug(i18n.GetText("service_probe_microsoft_ds"))
 		result.Service.Extras["hostname"] = result.Banner
 	}
 
 	i.Found = true
-	common.LogDebug(fmt.Sprintf("服务识别结果: %s, Banner: %s", result.Service.Name, result.Banner))
+	common.LogDebug(i18n.Tr("service_probe_identified", result.Service.Name, result.Banner))
 }
 
 // handleNoMatch 处理未找到匹配的情况
@@ -477,10 +477,10 @@ func (i *Info) handleNoMatch(response []byte, result *Result, softFound bool, so
 		bannerLower := strings.ToLower(result.Banner)
 		if strings.Contains(bannerLower, "http/") ||
 			strings.Contains(bannerLower, "html") {
-			common.LogDebug("识别为HTTP服务")
+			common.LogDebug(i18n.GetText("service_probe_http_identified"))
 			result.Service.Name = "http"
 		} else {
-			common.LogDebug("未知服务")
+			common.LogDebug(i18n.GetText("service_probe_unknown"))
 			result.Service.Name = "unknown"
 		}
 	} else {
@@ -488,7 +488,7 @@ func (i *Info) handleNoMatch(response []byte, result *Result, softFound bool, so
 		result.Service.Extras = extras.ToMap()
 		result.Service.Name = softMatch.Service
 		i.Found = true
-		common.LogDebug(fmt.Sprintf("软匹配服务: %s", result.Service.Name))
+		common.LogDebug(i18n.Tr("service_probe_soft_match", result.Service.Name))
 	}
 }
 
@@ -542,7 +542,7 @@ func (i *Info) Write(msg []byte) error {
 		_ = oldConn.Close()
 
 		// 尝试重新连接 - 支持SOCKS5代理
-		newConn, retryErr := i.session.DialTCP(i.ctx, "tcp", fmt.Sprintf("%s:%d", i.Address, i.Port), time.Duration(6)*time.Second)
+		newConn, retryErr := i.session.DialTCP(i.ctx, "tcp", net.JoinHostPort(i.Address, strconv.Itoa(i.Port)), time.Duration(6)*time.Second)
 		if retryErr != nil {
 			return retryErr
 		}
@@ -606,6 +606,11 @@ func readFromConn(conn net.Conn) ([]byte, error) {
 	defer readBufPool.Put(bufPtr)
 
 	var result []byte
+
+	// 预分配 4KB，消除大部分服务 Banner 场景下的 append 扩容
+	if cap(buf) > 0 {
+		result = make([]byte, 0, 4096)
+	}
 
 	for {
 		count, err := conn.Read(buf)

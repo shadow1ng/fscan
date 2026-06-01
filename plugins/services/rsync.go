@@ -40,7 +40,7 @@ func (p *RsyncPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 
 	// 检测未授权访问
 	if result := p.testUnauthorizedAccess(ctx, info, session); result != nil && result.Success {
-		common.LogSuccess(i18n.Tr("rsync_service", target, result.Banner))
+		session.LogSuccess(i18n.Tr("rsync_service", target, result.Banner))
 		findings = append(findings, result.Banner)
 	}
 
@@ -58,7 +58,7 @@ func (p *RsyncPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 		return &ScanResult{
 			Success: false,
 			Service: "rsync",
-			Error:   fmt.Errorf("没有可用的测试凭据"),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 
@@ -75,7 +75,7 @@ func (p *RsyncPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 	result := TestCredentialsConcurrently(ctx, creds, authFn, "rsync", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("rsync_credential", target, result.Username, result.Password))
+		session.LogVuln(i18n.Tr("rsync_credential", target, result.Username, result.Password))
 		return result
 	}
 
@@ -110,7 +110,7 @@ func (p *RsyncPlugin) doRsyncAuth(ctx context.Context, info *common.HostInfo, cr
 		return &AuthResult{
 			Success:   false,
 			ErrorType: ErrorTypeNetwork,
-			Error:     fmt.Errorf("无法连接到Rsync服务"),
+			Error:     fmt.Errorf("%s", i18n.GetText("rsync_connect_failed")),
 		}
 	}
 	modules := p.getModules(conn, session.Config)
@@ -120,16 +120,28 @@ func (p *RsyncPlugin) doRsyncAuth(ctx context.Context, info *common.HostInfo, cr
 		return &AuthResult{
 			Success:   false,
 			ErrorType: ErrorTypeUnknown,
-			Error:     fmt.Errorf("无法获取模块列表"),
+			Error:     fmt.Errorf("%s", i18n.GetText("rsync_modules_failed")),
 		}
 	}
 
 	// 提取第一个模块名
-	firstModuleLine := modules[0]
-	firstModule := strings.Fields(firstModuleLine)[0]
+	var firstModule string
+	for _, moduleLine := range modules {
+		if fields := strings.Fields(moduleLine); len(fields) > 0 {
+			firstModule = fields[0]
+			break
+		}
+	}
+	if firstModule == "" {
+		return &AuthResult{
+			Success:   false,
+			ErrorType: ErrorTypeUnknown,
+			Error:     fmt.Errorf("%s", i18n.GetText("rsync_modules_failed")),
+		}
+	}
 
 	// 使用 go-rsync 库进行认证测试
-	address := fmt.Sprintf("%s:%d", info.Host, info.Port)
+	address := info.Target()
 	dummyFS := &dummyStorage{}
 
 	_, err := rsync.SocketClient(
@@ -215,7 +227,7 @@ func (p *RsyncPlugin) testUnauthorizedAccess(ctx context.Context, info *common.H
 	modules := p.getModules(conn, session.Config)
 
 	if len(modules) > 0 {
-		banner := fmt.Sprintf("未授权访问 - 可用模块: %s", strings.Join(modules, ", "))
+		banner := i18n.Tr("rsync_unauth_modules", strings.Join(modules, ", "))
 		return &ScanResult{
 			Success: true,
 			Type:    plugins.ResultTypeService,
@@ -328,7 +340,7 @@ func (p *RsyncPlugin) identifyService(ctx context.Context, info *common.HostInfo
 		return &ScanResult{
 			Success: false,
 			Service: "rsync",
-			Error:   fmt.Errorf("无法连接到Rsync服务"),
+			Error:   fmt.Errorf("%s", i18n.GetText("rsync_connect_failed")),
 		}
 	}
 	defer func() { _ = conn.Close() }()
@@ -363,22 +375,22 @@ func (p *RsyncPlugin) identifyService(ctx context.Context, info *common.HostInfo
 		lines := strings.Split(responseStr, "\n")
 		for _, line := range lines {
 			if strings.HasPrefix(line, "@RSYNCD:") {
-				banner = fmt.Sprintf("Rsync服务 (%s)", strings.TrimSpace(line))
+				banner = i18n.Tr("rsync_service_info", strings.TrimSpace(line))
 				break
 			}
 		}
 		if banner == "" {
-			banner = "Rsync文件同步服务"
+			banner = i18n.GetText("rsync_file_sync_service")
 		}
 	} else {
 		return &ScanResult{
 			Success: false,
 			Service: "rsync",
-			Error:   fmt.Errorf("无法识别为Rsync服务"),
+			Error:   fmt.Errorf("%s", i18n.Tr("service_not_identified", "Rsync")),
 		}
 	}
 
-	common.LogSuccess(i18n.Tr("rsync_service", target, banner))
+	session.LogSuccess(i18n.Tr("rsync_service", target, banner))
 
 	return &ScanResult{
 		Success: true,

@@ -1,6 +1,9 @@
 package proxy
 
 import (
+	"fmt"
+	"io"
+	"net"
 	"testing"
 	"time"
 )
@@ -240,6 +243,73 @@ func TestGetDialer_HTTPS(t *testing.T) {
 	}
 
 	t.Logf("✓ GetDialer 返回HTTPS代理拨号器")
+}
+
+func TestGetDialer_SOCKS5AuthSpecialChars(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen failed: %v", err)
+	}
+	defer ln.Close()
+
+	type credential struct {
+		user string
+		pass string
+	}
+	authCh := make(chan credential, 1)
+	errCh := make(chan error, 1)
+
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			errCh <- err
+			return
+		}
+		defer conn.Close()
+
+		user, pass, err := handleTestSOCKS5Auth(conn)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		authCh <- credential{user: user, pass: pass}
+	}()
+
+	origProbed := IsProxyProbed()
+	SetProxyProbed(true)
+	defer SetProxyProbed(origProbed)
+
+	config := &ProxyConfig{
+		Type:     ProxyTypeSOCKS5,
+		Address:  ln.Addr().String(),
+		Username: "user",
+		Password: "p@ss:word#1",
+		Timeout:  time.Second,
+	}
+	manager := NewProxyManager(config)
+	dialer, err := manager.GetDialer()
+	if err != nil {
+		t.Fatalf("GetDialer failed: %v", err)
+	}
+
+	conn, err := dialer.Dial("tcp", "127.0.0.1:80")
+	if err != nil {
+		t.Fatalf("SOCKS5 dial failed: %v", err)
+	}
+	_ = conn.Close()
+
+	select {
+	case got := <-authCh:
+		if got.user != config.Username || got.pass != config.Password {
+			t.Fatalf("auth = %q/%q, want %q/%q", got.user, got.pass, config.Username, config.Password)
+		}
+	case err := <-errCh:
+		t.Fatalf("SOCKS5 test server failed: %v", err)
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for SOCKS5 auth")
+	}
+
+	t.Logf("✓ SOCKS5认证支持特殊字符密码")
 }
 
 // =============================================================================
@@ -557,5 +627,91 @@ func TestDirectDialer_LocalAddr_Loopback(t *testing.T) {
 		t.Logf("⚠ 意外连接成功（可能有服务在 65535 端口）")
 	} else {
 		t.Logf("✓ LocalAddr 绑定正常工作（连接失败是预期的）: %v", err)
+	}
+}
+
+func handleTestSOCKS5Auth(conn net.Conn) (string, string, error) {
+	header := make([]byte, 2)
+	if _, err := io.ReadFull(conn, header); err != nil {
+		return "", "", err
+	}
+	if header[0] != 0x05 {
+		return "", "", fmt.Errorf("unexpected socks version: %d", header[0])
+	}
+	methods := make([]byte, int(header[1]))
+	if _, err := io.ReadFull(conn, methods); err != nil {
+		return "", "", err
+	}
+	hasAuth := false
+	for _, method := range methods {
+		if method == 0x02 {
+			hasAuth = true
+			break
+		}
+	}
+	if !hasAuth {
+		return "", "", fmt.Errorf("client did not offer username/password auth")
+	}
+	if _, err := conn.Write([]byte{0x05, 0x02}); err != nil {
+		return "", "", err
+	}
+
+	authHeader := make([]byte, 2)
+	if _, err := io.ReadFull(conn, authHeader); err != nil {
+		return "", "", err
+	}
+	if authHeader[0] != 0x01 {
+		return "", "", fmt.Errorf("unexpected auth version: %d", authHeader[0])
+	}
+	userBytes := make([]byte, int(authHeader[1]))
+	if _, err := io.ReadFull(conn, userBytes); err != nil {
+		return "", "", err
+	}
+	passLen := make([]byte, 1)
+	if _, err := io.ReadFull(conn, passLen); err != nil {
+		return "", "", err
+	}
+	passBytes := make([]byte, int(passLen[0]))
+	if _, err := io.ReadFull(conn, passBytes); err != nil {
+		return "", "", err
+	}
+	if _, err := conn.Write([]byte{0x01, 0x00}); err != nil {
+		return "", "", err
+	}
+
+	reqHeader := make([]byte, 4)
+	if _, err := io.ReadFull(conn, reqHeader); err != nil {
+		return "", "", err
+	}
+	if reqHeader[0] != 0x05 || reqHeader[1] != 0x01 {
+		return "", "", fmt.Errorf("unexpected request header: %v", reqHeader)
+	}
+	if err := discardSOCKS5Address(conn, reqHeader[3]); err != nil {
+		return "", "", err
+	}
+	if _, err := conn.Write([]byte{0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0}); err != nil {
+		return "", "", err
+	}
+
+	return string(userBytes), string(passBytes), nil
+}
+
+func discardSOCKS5Address(conn net.Conn, atyp byte) error {
+	switch atyp {
+	case 0x01:
+		_, err := io.CopyN(io.Discard, conn, 6)
+		return err
+	case 0x03:
+		length := make([]byte, 1)
+		if _, err := io.ReadFull(conn, length); err != nil {
+			return err
+		}
+		_, err := io.CopyN(io.Discard, conn, int64(length[0])+2)
+		return err
+	case 0x04:
+		_, err := io.CopyN(io.Discard, conn, 18)
+		return err
+	default:
+		return fmt.Errorf("unsupported atyp: %d", atyp)
 	}
 }

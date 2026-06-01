@@ -6,6 +6,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
+	"strconv"
 	"strings"
 
 	_ "github.com/lib/pq" // PostgreSQL driver
@@ -31,12 +33,12 @@ func (p *PostgreSQLPlugin) Scan(ctx context.Context, info *common.HostInfo, sess
 	target := info.Target()
 
 	if config.DisableBrute {
-		return p.identifyService(ctx, info, config, state)
+		return p.identifyService(ctx, info, session)
 	}
 
 	// 先测试未授权访问
 	if result := p.testUnauthorizedAccess(ctx, info, config, state); result != nil && result.Success {
-		common.LogVuln(i18n.Tr("postgresql_vuln", target, result.VulInfo))
+		session.LogVuln(i18n.Tr("postgresql_vuln", target, result.VulInfo))
 		return result
 	}
 
@@ -45,7 +47,7 @@ func (p *PostgreSQLPlugin) Scan(ctx context.Context, info *common.HostInfo, sess
 		return &ScanResult{
 			Success: false,
 			Service: "postgresql",
-			Error:   fmt.Errorf("没有可用的测试凭据"),
+			Error:   fmt.Errorf("%s", i18n.GetText("service_no_credentials")),
 		}
 	}
 
@@ -56,7 +58,7 @@ func (p *PostgreSQLPlugin) Scan(ctx context.Context, info *common.HostInfo, sess
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "postgresql", testConfig)
 
 	if result.Success {
-		common.LogVuln(i18n.Tr("postgresql_credential", target, result.Username, result.Password))
+		session.LogVuln(i18n.Tr("postgresql_credential", target, result.Username, result.Password))
 	}
 
 	return result
@@ -71,8 +73,7 @@ func (p *PostgreSQLPlugin) createAuthFunc(info *common.HostInfo, config *common.
 
 // doPostgreSQLAuth 执行PostgreSQL认证
 func (p *PostgreSQLPlugin) doPostgreSQLAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
-	connStr := fmt.Sprintf("postgres://%s:%s@%s:%d/postgres?sslmode=disable&connect_timeout=%d",
-		cred.Username, cred.Password, info.Host, info.Port, int64(config.Timeout.Seconds()))
+	connStr := postgreSQLConnString(cred.Username, cred.Password, info, int64(config.Timeout.Seconds()))
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -148,10 +149,27 @@ func classifyPostgreSQLErrorType(err error) ErrorType {
 	return ClassifyError(err, pgAuthErrors, pgNetworkErrors)
 }
 
+func postgreSQLConnString(username, password string, info *common.HostInfo, timeoutSeconds int64) string {
+	u := &url.URL{
+		Scheme: "postgres",
+		Host:   info.Target(),
+		Path:   "postgres",
+	}
+	if password == "" {
+		u.User = url.User(username)
+	} else {
+		u.User = url.UserPassword(username, password)
+	}
+	q := u.Query()
+	q.Set("sslmode", "disable")
+	q.Set("connect_timeout", strconv.FormatInt(timeoutSeconds, 10))
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
 // testUnauthorizedAccess 测试PostgreSQL未授权访问
 func (p *PostgreSQLPlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
-	connStr := fmt.Sprintf("postgres://postgres@%s:%d/postgres?sslmode=disable&connect_timeout=%d",
-		info.Host, info.Port, int64(config.Timeout.Seconds()))
+	connStr := postgreSQLConnString("postgres", "", info, int64(config.Timeout.Seconds()))
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -184,11 +202,11 @@ func (p *PostgreSQLPlugin) testUnauthorizedAccess(ctx context.Context, info *com
 			Type:    plugins.ResultTypeVuln,
 			Success: true,
 			Service: "postgresql",
-			VulInfo: "未授权访问(trust认证)",
+			VulInfo: i18n.GetText("postgresql_trust_unauth"),
 		}
 	}
 
-	vulInfo := fmt.Sprintf("未授权访问(trust认证) - %s", version)
+	vulInfo := i18n.Tr("postgresql_trust_unauth_version", version)
 	if len(vulInfo) > 100 {
 		vulInfo = vulInfo[:100] + "..."
 	}
@@ -201,11 +219,12 @@ func (p *PostgreSQLPlugin) testUnauthorizedAccess(ctx context.Context, info *com
 	}
 }
 
-func (p *PostgreSQLPlugin) identifyService(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
+func (p *PostgreSQLPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
+	config := session.Config
+	state := session.State
 	target := info.Target()
 
-	connStr := fmt.Sprintf("postgres://invalid:invalid@%s:%d/postgres?sslmode=disable&connect_timeout=%d",
-		info.Host, info.Port, int64(config.Timeout.Seconds()))
+	connStr := postgreSQLConnString("invalid", "invalid", info, int64(config.Timeout.Seconds()))
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -243,14 +262,14 @@ func (p *PostgreSQLPlugin) identifyService(ctx context.Context, info *common.Hos
 			return &ScanResult{
 				Success: false,
 				Service: "postgresql",
-				Error:   fmt.Errorf("无法识别为PostgreSQL服务"),
+				Error:   fmt.Errorf("%s", i18n.Tr("service_not_identified", "PostgreSQL")),
 			}
 		}
 	} else {
 		banner = "PostgreSQL"
 	}
 
-	common.LogSuccess(i18n.Tr("postgresql_service", target, banner))
+	session.LogSuccess(i18n.Tr("postgresql_service", target, banner))
 
 	return &ScanResult{
 		Type:    plugins.ResultTypeService,

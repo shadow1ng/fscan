@@ -47,16 +47,16 @@ func (p *Socks5ProxyPlugin) Scan(ctx context.Context, info *common.HostInfo, ses
 		port = 1080 // 默认端口
 	}
 
-	output.WriteString("=== SOCKS5代理服务器 ===\n")
-	output.WriteString(fmt.Sprintf("监听端口: %d\n", port))
-	output.WriteString(fmt.Sprintf("平台: %s\n\n", runtime.GOOS))
+	output.WriteString(i18n.GetText("socks5_header") + "\n")
+	output.WriteString(i18n.Tr("local_listen_port", port) + "\n")
+	output.WriteString(i18n.Tr("local_platform", runtime.GOOS) + "\n\n")
 
-	common.LogInfo(i18n.Tr("socks5_starting", port))
+	session.LogInfo(i18n.Tr("socks5_starting", port))
 
 	// 启动SOCKS5代理服务器
-	err := p.startSocks5Server(ctx, port, state)
+	err := p.startSocks5Server(ctx, port, state, session)
 	if err != nil {
-		output.WriteString(fmt.Sprintf("SOCKS5代理服务器错误: %v\n", err))
+		output.WriteString(i18n.Tr("socks5_server_error", err) + "\n")
 		return &plugins.Result{
 			Success: false,
 			Output:  output.String(),
@@ -64,8 +64,8 @@ func (p *Socks5ProxyPlugin) Scan(ctx context.Context, info *common.HostInfo, ses
 		}
 	}
 
-	output.WriteString("✓ SOCKS5代理已完成\n")
-	common.LogSuccess(i18n.Tr("socks5_complete", port))
+	output.WriteString(i18n.GetText("socks5_done") + "\n")
+	session.LogSuccess(i18n.Tr("socks5_complete", port))
 
 	return &plugins.Result{
 		Success: true,
@@ -76,16 +76,16 @@ func (p *Socks5ProxyPlugin) Scan(ctx context.Context, info *common.HostInfo, ses
 }
 
 // startSocks5Server 启动SOCKS5代理服务器 - 核心实现
-func (p *Socks5ProxyPlugin) startSocks5Server(ctx context.Context, port int, state *common.State) error {
+func (p *Socks5ProxyPlugin) startSocks5Server(ctx context.Context, port int, state *common.State, session *common.ScanSession) error {
 	// 监听指定端口
-	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
-		return fmt.Errorf("监听端口失败: %w", err)
+		return fmt.Errorf("%s: %w", i18n.GetText("listen_port_failed"), err)
 	}
 	defer func() { _ = listener.Close() }()
 
 	p.listener = listener
-	common.LogSuccess(i18n.Tr("socks5_started", port))
+	session.LogSuccess(i18n.Tr("socks5_started", port))
 
 	// 设置SOCKS5代理为活跃状态，告诉主程序保持运行
 	state.SetSocks5ProxyActive(true)
@@ -98,7 +98,7 @@ func (p *Socks5ProxyPlugin) startSocks5Server(ctx context.Context, port int, sta
 	for {
 		select {
 		case <-ctx.Done():
-			common.LogInfo(i18n.GetText("socks5_cancelled"))
+			session.LogInfo(i18n.GetText("socks5_cancelled"))
 			return ctx.Err()
 		default:
 		}
@@ -115,17 +115,17 @@ func (p *Socks5ProxyPlugin) startSocks5Server(ctx context.Context, port int, sta
 			if errors.As(err, &netErr) && netErr.Timeout() {
 				continue // 超时继续循环
 			}
-			common.LogError(i18n.Tr("socks5_accept_failed", err))
+			session.LogError(i18n.Tr("socks5_accept_failed", err))
 			continue
 		}
 
 		// 并发处理客户端连接
-		go p.handleClient(ctx, conn)
+		go p.handleClient(ctx, conn, session)
 	}
 }
 
 // handleClient 处理客户端连接
-func (p *Socks5ProxyPlugin) handleClient(ctx context.Context, clientConn net.Conn) {
+func (p *Socks5ProxyPlugin) handleClient(ctx context.Context, clientConn net.Conn, session *common.ScanSession) {
 	defer func() { _ = clientConn.Close() }()
 
 	// ctx 取消时关闭连接，解除阻塞的 IO
@@ -137,22 +137,22 @@ func (p *Socks5ProxyPlugin) handleClient(ctx context.Context, clientConn net.Con
 	// SOCKS5握手阶段
 	if err := p.handleSocks5Handshake(clientConn); err != nil {
 		if ctx.Err() == nil {
-			common.LogError(i18n.Tr("socks5_handshake_failed", err))
+			session.LogError(i18n.Tr("socks5_handshake_failed", err))
 		}
 		return
 	}
 
 	// SOCKS5请求阶段
-	targetConn, _, err := p.handleSocks5Request(clientConn)
+	targetConn, _, err := p.handleSocks5Request(clientConn, session)
 	if err != nil {
 		if ctx.Err() == nil {
-			common.LogError(i18n.Tr("socks5_request_failed", err))
+			session.LogError(i18n.Tr("socks5_request_failed", err))
 		}
 		return
 	}
 	defer func() { _ = targetConn.Close() }()
 
-	common.LogSuccess(i18n.GetText("socks5_connected"))
+	session.LogSuccess(i18n.GetText("socks5_connected"))
 
 	// 双向数据转发
 	p.relayData(clientConn, targetConn)
@@ -164,34 +164,34 @@ func (p *Socks5ProxyPlugin) handleSocks5Handshake(conn net.Conn) error {
 	buffer := make([]byte, 256)
 	n, err := conn.Read(buffer)
 	if err != nil {
-		return fmt.Errorf("读取握手请求失败: %w", err)
+		return fmt.Errorf("%s: %w", i18n.GetText("socks5_handshake_read_failed"), err)
 	}
 
 	if n < 3 || buffer[0] != 0x05 { // SOCKS版本必须是5
-		return fmt.Errorf("不支持的SOCKS版本")
+		return fmt.Errorf("%s", i18n.GetText("socks5_unsupported_version"))
 	}
 
 	// 发送握手响应（无认证）
 	response := []byte{0x05, 0x00} // 版本5，无认证
 	_, err = conn.Write(response)
 	if err != nil {
-		return fmt.Errorf("发送握手响应失败: %w", err)
+		return fmt.Errorf("%s: %w", i18n.GetText("socks5_handshake_write_failed"), err)
 	}
 
 	return nil
 }
 
 // handleSocks5Request 处理SOCKS5连接请求
-func (p *Socks5ProxyPlugin) handleSocks5Request(clientConn net.Conn) (net.Conn, int, error) {
+func (p *Socks5ProxyPlugin) handleSocks5Request(clientConn net.Conn, session *common.ScanSession) (net.Conn, int, error) {
 	// 读取连接请求
 	buffer := make([]byte, 256)
 	n, err := clientConn.Read(buffer)
 	if err != nil {
-		return nil, 0, fmt.Errorf("读取连接请求失败: %w", err)
+		return nil, 0, fmt.Errorf("%s: %w", i18n.GetText("socks5_request_read_failed"), err)
 	}
 
 	if n < 7 || buffer[0] != 0x05 {
-		return nil, 0, fmt.Errorf("无效的SOCKS5请求")
+		return nil, 0, fmt.Errorf("%s", i18n.GetText("socks5_invalid_request"))
 	}
 
 	cmd := buffer[1]
@@ -199,7 +199,7 @@ func (p *Socks5ProxyPlugin) handleSocks5Request(clientConn net.Conn) (net.Conn, 
 		// 发送不支持的命令响应
 		response := []byte{0x05, 0x07, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 		_, _ = clientConn.Write(response)
-		return nil, 0, fmt.Errorf("不支持的命令: %d", cmd)
+		return nil, 0, fmt.Errorf(i18n.GetText("socks5_unsupported_command")+": %d", cmd)
 	}
 
 	// 解析目标地址
@@ -210,23 +210,23 @@ func (p *Socks5ProxyPlugin) handleSocks5Request(clientConn net.Conn) (net.Conn, 
 	switch addrType {
 	case 0x01: // IPv4
 		if n < 10 {
-			return nil, 0, fmt.Errorf("IPv4地址格式错误")
+			return nil, 0, fmt.Errorf("%s", i18n.GetText("ipv4_address_invalid"))
 		}
 		targetHost = fmt.Sprintf("%d.%d.%d.%d", buffer[4], buffer[5], buffer[6], buffer[7])
 		targetPort = int(buffer[8])<<8 + int(buffer[9])
 	case 0x03: // 域名
 		if n < 5 {
-			return nil, 0, fmt.Errorf("域名格式错误")
+			return nil, 0, fmt.Errorf("%s", i18n.GetText("domain_format_invalid"))
 		}
 		domainLen := int(buffer[4])
 		if n < 5+domainLen+2 {
-			return nil, 0, fmt.Errorf("域名长度错误")
+			return nil, 0, fmt.Errorf("%s", i18n.GetText("domain_length_invalid"))
 		}
 		targetHost = string(buffer[5 : 5+domainLen])
 		targetPort = int(buffer[5+domainLen])<<8 + int(buffer[5+domainLen+1])
 	case 0x04: // IPv6
 		if n < 22 {
-			return nil, 0, fmt.Errorf("IPv6地址格式错误")
+			return nil, 0, fmt.Errorf("%s", i18n.GetText("ipv6_address_invalid"))
 		}
 		// IPv6地址解析（简化实现）
 		targetHost = net.IP(buffer[4:20]).String()
@@ -235,7 +235,7 @@ func (p *Socks5ProxyPlugin) handleSocks5Request(clientConn net.Conn) (net.Conn, 
 		// 发送不支持的地址类型响应
 		response := []byte{0x05, 0x08, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 		_, _ = clientConn.Write(response)
-		return nil, 0, fmt.Errorf("不支持的地址类型: %d", addrType)
+		return nil, 0, fmt.Errorf(i18n.GetText("socks5_unsupported_address_type")+": %d", addrType)
 	}
 
 	// 连接目标服务器
@@ -245,13 +245,13 @@ func (p *Socks5ProxyPlugin) handleSocks5Request(clientConn net.Conn) (net.Conn, 
 		// 发送连接失败响应
 		response := []byte{0x05, 0x05, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 		_, _ = clientConn.Write(response)
-		return nil, 0, fmt.Errorf("连接目标服务器失败: %w", err)
+		return nil, 0, fmt.Errorf("%s: %w", i18n.GetText("socks5_target_connect_failed"), err)
 	}
 
 	// 获取本地监听端口（从targetConn获取）
 	localAddr, ok := targetConn.LocalAddr().(*net.TCPAddr)
 	if !ok {
-		return nil, 0, fmt.Errorf("无法获取本地地址")
+		return nil, 0, fmt.Errorf("%s", i18n.GetText("local_address_unavailable"))
 	}
 	localPort := localAddr.Port
 
@@ -269,10 +269,10 @@ func (p *Socks5ProxyPlugin) handleSocks5Request(clientConn net.Conn) (net.Conn, 
 	_, err = clientConn.Write(response)
 	if err != nil {
 		_ = targetConn.Close()
-		return nil, 0, fmt.Errorf("发送成功响应失败: %w", err)
+		return nil, 0, fmt.Errorf("%s: %w", i18n.GetText("socks5_success_response_failed"), err)
 	}
 
-	common.LogDebug(fmt.Sprintf("建立代理连接: %s", targetAddr))
+	session.LogDebug(i18n.Tr("socks5_proxy_connection_established", targetAddr))
 	return targetConn, localPort, nil
 }
 

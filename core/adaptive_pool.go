@@ -8,6 +8,7 @@ import (
 
 	"github.com/panjf2000/ants/v2"
 	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/common/i18n"
 )
 
 // AdaptivePool 自适应线程池
@@ -23,7 +24,7 @@ type AdaptivePool struct {
 
 	// 监控参数
 	checkInterval      time.Duration
-	lastCheck          time.Time
+	lastCheckNano      atomic.Int64 // UnixNano
 	lastExhaustedCount int64
 	lastPacketCount    int64
 
@@ -67,20 +68,22 @@ func (ap *AdaptivePool) Invoke(task interface{}) error {
 }
 
 // maybeAdjust 检查并可能调整线程池大小
+// 使用原子 CAS 进行时间检查，99%+ 的调用零锁开销
 func (ap *AdaptivePool) maybeAdjust() {
-	now := time.Now()
-
-	ap.mu.Lock()
-	if now.Sub(ap.lastCheck) < ap.checkInterval {
-		ap.mu.Unlock()
+	lastCheck := ap.lastCheckNano.Load()
+	now := time.Now().UnixNano()
+	if now-lastCheck < int64(ap.checkInterval) {
 		return
 	}
-	ap.lastCheck = now
+	if !ap.lastCheckNano.CompareAndSwap(lastCheck, now) {
+		return // 其他 goroutine 已在检查
+	}
 
 	// 获取当前计数
 	currentExhausted := ap.state.GetResourceExhaustedCount()
 	currentPackets := ap.state.GetPacketCount()
 
+	ap.mu.Lock()
 	// 计算增量（本周期内的耗尽率）
 	deltaExhausted := currentExhausted - ap.lastExhaustedCount
 	deltaPackets := currentPackets - ap.lastPacketCount
@@ -104,7 +107,7 @@ func (ap *AdaptivePool) maybeAdjust() {
 			newSize = ap.minSize
 		}
 		ap.tune(newSize)
-		common.LogInfo(fmt.Sprintf("[AdaptivePool] 资源耗尽率 %.1f%%, 线程数 %d -> %d", rate*100, currentSize, newSize))
+		common.LogInfo(i18n.Tr("adaptive_pool_resource_exhausted", fmt.Sprintf("%.1f", rate*100), currentSize, newSize))
 	} else if rate < ap.recoveryThreshold && currentSize < ap.maxSize {
 		// 恢复：增加 10% 线程（保守恢复）
 		newSize := int(float64(currentSize) * 1.1)

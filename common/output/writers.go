@@ -5,10 +5,13 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/shadow1ng/fscan/common/i18n"
 )
 
 // escapeControlChars 转义控制字符
@@ -33,6 +36,20 @@ func escapeControlChars(s string) string {
 		}
 	}
 	return b.String()
+}
+
+func targetWithPort(target string, port interface{}) string {
+	if port == nil {
+		return target
+	}
+	if _, _, err := net.SplitHostPort(target); err == nil {
+		return target
+	}
+	portText := fmt.Sprint(port)
+	if strings.Count(target, ":") == 1 {
+		return target
+	}
+	return net.JoinHostPort(target, portText)
 }
 
 // =============================================================================
@@ -112,13 +129,13 @@ func (w *TXTWriter) Write(result *ScanResult) error {
 func (w *TXTWriter) getSeparator(newType ResultType) string {
 	switch newType {
 	case TypeHost:
-		return "# ===== 存活主机 ====="
+		return i18n.GetText("output_section_hosts")
 	case TypePort:
-		return "# ===== 开放端口 ====="
+		return i18n.GetText("output_section_ports")
 	case TypeService:
-		return "# ===== 服务信息 ====="
+		return i18n.GetText("output_section_services")
 	case TypeVuln:
-		return "# ===== 漏洞信息 ====="
+		return i18n.GetText("output_section_vulns")
 	default:
 		return "# ===================="
 	}
@@ -132,7 +149,7 @@ func (w *TXTWriter) formatLine(result *ScanResult) string {
 	case TypePort:
 		port := w.getDetail(result, "port")
 		if port != nil {
-			return fmt.Sprintf("%s:%v", result.Target, port)
+			return targetWithPort(result.Target, port)
 		}
 		return result.Target
 	case TypeService:
@@ -165,12 +182,7 @@ func (w *TXTWriter) formatServiceLine(result *ScanResult) string {
 	}
 
 	// 非Web服务：ip:port service banner
-	target := result.Target
-	if !strings.Contains(target, ":") {
-		if port := w.getDetail(result, "port"); port != nil {
-			target = fmt.Sprintf("%s:%v", target, port)
-		}
-	}
+	target := targetWithPort(result.Target, w.getDetail(result, "port"))
 
 	var parts []string
 	parts = append(parts, target)
@@ -189,12 +201,7 @@ func (w *TXTWriter) formatServiceLine(result *ScanResult) string {
 
 // formatWebServiceLine 格式化Web服务结果
 func (w *TXTWriter) formatWebServiceLine(result *ScanResult) string {
-	target := result.Target
-	if !strings.Contains(target, ":") {
-		if port := w.getDetail(result, "port"); port != nil {
-			target = fmt.Sprintf("%s:%v", target, port)
-		}
-	}
+	target := targetWithPort(result.Target, w.getDetail(result, "port"))
 
 	url := fmt.Sprintf("%s://%s", w.webProtocol(result, target), target)
 	title := w.getDetailStr(result, "title")
@@ -362,12 +369,7 @@ func (w *TXTWriter) writeWebServices() {
 			continue
 		}
 
-		target := result.Target
-		if !strings.Contains(target, ":") {
-			if port := w.getDetail(result, "port"); port != nil {
-				target = fmt.Sprintf("%s:%v", target, port)
-			}
-		}
+		target := targetWithPort(result.Target, w.getDetail(result, "port"))
 
 		urls = append(urls, fmt.Sprintf("%s://%s", w.webProtocol(result, target), target))
 	}
@@ -376,7 +378,7 @@ func (w *TXTWriter) writeWebServices() {
 		return
 	}
 
-	_, _ = w.bufWriter.WriteString("# ===== Web服务 =====\n")
+	_, _ = w.bufWriter.WriteString(i18n.GetText("output_section_web_services") + "\n")
 	for _, url := range urls {
 		_, _ = w.bufWriter.WriteString(url + "\n")
 	}
@@ -743,10 +745,8 @@ func (w *CSVWriter) formatServiceRecord(result *ScanResult) []string {
 		}
 	}
 	target := result.Target
-	if !strings.Contains(target, ":") {
-		if p, ok := result.Details["port"]; ok {
-			target = fmt.Sprintf("%s:%v", target, p)
-		}
+	if result.Details != nil {
+		target = targetWithPort(target, result.Details["port"])
 	}
 	return []string{target, service, version, title, status, server, fingerprints, banner}
 }
