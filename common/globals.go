@@ -70,6 +70,8 @@ var (
 	date    = "unknown"
 )
 
+func GetVersion() string { return version }
+
 // 运行时数据已迁移到Config对象中，使用GetGlobalConfig()访问
 
 // Shell状态已迁移到State对象中，使用GetGlobalState()访问
