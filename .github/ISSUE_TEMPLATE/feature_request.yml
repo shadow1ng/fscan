@@ -1,13 +1,14 @@
 name: ✨ 功能请求
 description: 提议新功能或改进现有功能
-title: "[Feature] 一句话描述功能"
+title: "[Feature] "
 labels: ["enhancement"]
 
 body:
   - type: markdown
     attributes:
       value: |
-        感谢您的功能建议！请详细描述您的需求，这将帮助我们评估和实现。
+        感谢您的功能建议！请描述清楚使用场景和期望行为。
+        纯 "+1" 类请求请用 Reaction 表达，不要开新 Issue。
 
   - type: dropdown
     id: category
@@ -19,6 +20,7 @@ body:
         - 用户体验 (UX/CLI)
         - 输出格式 (Output Format)
         - 配置选项 (Configuration)
+        - 嵌入式 SDK (Embedded SDK)
         - 集成/API (Integration/API)
         - 其他 (Other)
     validations:
@@ -28,10 +30,7 @@ body:
     id: problem
     attributes:
       label: 解决什么问题？
-      description: 描述您遇到的痛点或使用场景
-      placeholder: |
-        在进行 xxx 操作时，我希望能够...
-        目前的问题是...
+      description: 描述您的实际使用场景和痛点
     validations:
       required: true
 
@@ -39,20 +38,15 @@ body:
     id: solution
     attributes:
       label: 期望的解决方案
-      description: 描述您希望的功能或行为
-      placeholder: |
-        希望能够通过 -xxx 参数来...
-        或者增加一个新的模块来...
+      description: 描述您希望的功能行为，最好包含预期的命令行用法示例
     validations:
       required: true
 
   - type: textarea
     id: alternatives
     attributes:
-      label: 替代方案
-      description: 您考虑过的其他解决方案或变通方法
-      placeholder: |
-        目前我通过 xxx 方式来解决，但是...
+      label: 替代方案（可选）
+      description: 您目前的变通方法，或考虑过的其他方案
 
   - type: dropdown
     id: priority
@@ -60,7 +54,7 @@ body:
       label: 优先级建议
       description: 您认为这个功能的重要程度
       options:
-        - 高 - 核心功能缺失
+        - 高 - 核心场景缺失，严重影响使用
         - 中 - 明显改善体验
         - 低 - 锦上添花
     validations:

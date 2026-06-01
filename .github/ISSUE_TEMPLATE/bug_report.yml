@@ -1,6 +1,6 @@
 name: 🐛 Bug 报告
 description: 报告扫描异常、崩溃或错误行为
-title: "[Bug] 简要描述问题"
+title: "[Bug] "
 labels: ["bug"]
 
 body:
@@ -8,6 +8,7 @@ body:
     attributes:
       value: |
         感谢您提交 Bug 报告！请尽可能详细地填写以下信息，这将帮助我们更快定位和修复问题。
+        **请勿直接提交未修改的模板**，未填写有效信息的 Issue 会被直接关闭。
 
   - type: dropdown
     id: module
@@ -21,8 +22,10 @@ body:
         - 弱口令爆破 (Brute Force)
         - POC/漏洞扫描 (POC Scan)
         - Web指纹识别 (Web Fingerprint)
+        - 代理功能 (Proxy)
         - 输出/日志 (Output/Logging)
         - 命令行参数 (CLI Arguments)
+        - 嵌入式 SDK (Embedded SDK)
         - 其他 (Other)
     validations:
       required: true
@@ -32,7 +35,7 @@ body:
     attributes:
       label: 严重程度
       options:
-        - 崩溃/无法使用 (Crash)
+        - 崩溃/Panic (Crash)
         - 功能异常 (Malfunction)
         - 结果不准确 (Inaccurate)
         - 性能问题 (Performance)
@@ -44,10 +47,7 @@ body:
     id: description
     attributes:
       label: 问题描述
-      description: 清晰描述遇到的问题
-      placeholder: |
-        发生了什么？
-        预期的行为是什么？
+      description: 清晰描述遇到的问题，包括预期行为和实际行为
     validations:
       required: true
 
@@ -55,10 +55,7 @@ body:
     id: reproduce
     attributes:
       label: 复现步骤
-      description: 提供可以复现问题的命令或步骤
-      placeholder: |
-        1. 执行命令: fscan -h xxx -p xxx
-        2. 观察到...
+      description: 提供可以复现问题的完整命令（请脱敏 IP/密码）
       render: shell
     validations:
       required: true
@@ -75,10 +72,12 @@ body:
     attributes:
       label: fscan 版本
       options:
+        - 2.2.0-rc (dev)
+        - 2.1.3
+        - 2.1.2
         - 2.1.0
-        - 2.0.1
-        - 2.0.0
-        - 1.8.4
+        - 2.0.x
+        - 1.8.x
         - 其他/自编译
     validations:
       required: true
@@ -92,14 +91,13 @@ body:
         - Windows 10
         - Windows Server 2022
         - Windows Server 2019
+        - Ubuntu 24.04
         - Ubuntu 22.04
-        - Ubuntu 20.04
-        - CentOS 7
-        - CentOS 8/Stream
+        - CentOS 7/8/Stream
         - Debian 11/12
         - Kali Linux
+        - macOS 15 (Sequoia)
         - macOS 14 (Sonoma)
-        - macOS 13 (Ventura)
         - 其他 Linux
         - 其他
     validations:
@@ -114,6 +112,7 @@ body:
         - arm64 (aarch64)
         - 386 (x86)
         - arm
+        - mips/mipsle
     validations:
       required: true
 
@@ -121,4 +120,4 @@ body:
     id: additional
     attributes:
       label: 补充信息
-      description: 其他可能有助于排查问题的信息（如自编译请注明 Go 版本）
+      description: 其他有助于排查的信息（网络环境、是否使用代理、自编译请注明 Go 版本等）

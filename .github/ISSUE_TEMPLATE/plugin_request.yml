@@ -1,6 +1,6 @@
 name: 🔌 新插件/协议支持
 description: 请求支持新的服务、协议或漏洞检测
-title: "[Plugin] 协议/服务名称"
+title: "[Plugin] "
 labels: ["plugin", "enhancement"]
 
 body:
@@ -8,6 +8,7 @@ body:
     attributes:
       value: |
         感谢您的插件请求！fscan 持续扩展对各种服务和协议的支持。
+        提交前请先确认该服务尚未被支持（查看 README 的支持列表）。
 
   - type: dropdown
     id: type
@@ -25,7 +26,7 @@ body:
     id: service
     attributes:
       label: 服务/协议名称
-      placeholder: "如: Kafka, ClickHouse, etcd, Consul"
+      description: 例如 ClickHouse、etcd、Consul、Zookeeper
     validations:
       required: true
 
@@ -33,49 +34,31 @@ body:
     id: port
     attributes:
       label: 默认端口
-      placeholder: "如: 9092, 8123, 2379"
+      description: 例如 9000、2379、8500
 
   - type: textarea
     id: description
     attributes:
-      label: 服务描述
-      description: 简要介绍这个服务/协议
-      placeholder: |
-        这是一个用于 xxx 的服务...
-        在内网环境中常见于...
+      label: 服务描述与检测思路
+      description: 简要介绍服务用途、在内网中的常见程度，以及如何识别（Banner 特征、认证方式等）
     validations:
       required: true
 
   - type: textarea
-    id: detection
-    attributes:
-      label: 识别方法
-      description: 如何识别/检测这个服务（如有了解）
-      placeholder: |
-        Banner 特征: xxx
-        默认响应: xxx
-        认证方式: xxx
-
-  - type: textarea
     id: reference
     attributes:
-      label: 参考资料
-      description: 相关文档、其他工具实现、漏洞详情等
-      placeholder: |
-        - 官方文档: https://...
-        - 其他工具实现: https://...
-        - CVE编号: CVE-xxxx-xxxx
+      label: 参考资料（可选）
+      description: 官方文档链接、协议规范、其他工具实现、CVE 编号等
 
   - type: dropdown
     id: prevalence
     attributes:
-      label: 使用普遍程度
-      description: 这个服务在目标环境中的常见程度
+      label: 内网常见程度
       options:
-        - 非常常见 (企业环境标配)
-        - 较为常见 (经常遇到)
+        - 非常常见（企业环境标配）
+        - 较为常见（经常遇到）
         - 偶尔遇到
-        - 较少见但重要
+        - 较少见但高价值
     validations:
       required: true
 
