@@ -30,11 +30,6 @@ runs:
         go-version: ${{ inputs.go-version }}
         cache: true
 
-    - name: 安装 C 编译工具
-      shell: bash
-      run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y gcc make mingw-w64 gcc-multilib g++-multilib
 
     - name: 下载依赖
       shell: bash
@@ -66,9 +61,7 @@ runs:
       if: always()
       with:
         name: build-${{ inputs.mode }}-${{ github.run_id }}
-        path: |
-          dist/
-          dist-lite/
+        path: dist/
         retention-days: ${{ inputs.retention-days }}
 
     - name: 生成报告
@@ -87,18 +80,9 @@ runs:
 
         ## 构建产物
 
-        ### fscan (Go 版本)
         $(if [ -d "dist" ]; then
           echo "- 文件数: $(find dist -type f 2>/dev/null | wc -l)"
           echo "- 大小: $(du -sh dist 2>/dev/null | cut -f1)"
-        else
-          echo "- 无产物"
-        fi)
-
-        ### fscan-lite (C 版本)
-        $(if [ -d "dist-lite" ]; then
-          echo "- 文件数: $(find dist-lite -type f 2>/dev/null | wc -l)"
-          echo "- 大小: $(du -sh dist-lite 2>/dev/null | cut -f1)"
         else
           echo "- 无产物"
         fi)
