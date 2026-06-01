@@ -125,7 +125,7 @@ jobs:
       - name: 运行测试
         run: |
           # 排除第三方grdp库测试（存在环境依赖问题）
-          PKGS=$(go list ./... | grep -v '/mylib/grdp/')
+          PKGS=$(go list ./... | grep -v '/libs/grdp/')
           go test -vet=off -race -coverprofile=coverage.out -covermode=atomic $PKGS
 
       - name: 上传覆盖率
