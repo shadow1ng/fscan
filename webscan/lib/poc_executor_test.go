@@ -1,8 +1,15 @@
 package lib
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/common/output"
 )
 
 // =============================================================================
@@ -102,42 +109,103 @@ func TestGetRuleHash(t *testing.T) {
 	}
 }
 
+func TestCheckMultiPocSavesSimpleRulesPoc(t *testing.T) {
+	paths := make(chan string, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case paths <- r.URL.Path:
+		default:
+		}
+		_, _ = w.Write([]byte("kei-poc-hit"))
+	}))
+	defer server.Close()
+
+	cfg := common.NewConfig()
+	cfg.Output.Silent = true
+	cfg.Network.WebTimeout = 5 * time.Second
+	cfg.Network.MaxRedirects = 3
+	cfg.POC.Num = 1
+	if err := Inithttp(cfg); err != nil {
+		t.Fatalf("Inithttp: %v", err)
+	}
+
+	var results []*output.ScanResult
+	session := common.NewScanSession(cfg, common.NewState(), &common.FlagVars{})
+	session.ResultSink = func(result *output.ScanResult) error {
+		results = append(results, result)
+		return nil
+	}
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL, nil)
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
+
+	poc := &Poc{
+		Name: "poc-yaml-kei-repro",
+		Rules: []Rules{{
+			Method:     http.MethodGet,
+			Path:       "/kei-poc",
+			Expression: `response.status == 200 && response.body.bcontains(b"kei-poc-hit")`,
+		}},
+	}
+	CheckMultiPoc(req, []*Poc{poc}, 1, &POCContext{Session: session})
+
+	select {
+	case got := <-paths:
+		if got != "/kei-poc" {
+			t.Fatalf("request path = %q, want /kei-poc", got)
+		}
+	default:
+		t.Fatal("POC request was not sent")
+	}
+	if len(results) != 1 {
+		t.Fatalf("saved results = %d, want 1", len(results))
+	}
+	if results[0].Type != output.TypeVuln || results[0].Target != server.URL {
+		t.Fatalf("saved result = %#v", results[0])
+	}
+	if got := results[0].Details["vulnerability_name"]; got != "poc-yaml-kei-repro" {
+		t.Fatalf("vulnerability_name = %v, want poc-yaml-kei-repro", got)
+	}
+}
+
 // TestDoSearchSetCookieOptimization 测试 Set-Cookie 提取和清理
 func TestDoSearchSetCookieOptimization(t *testing.T) {
 	responseHeaders := "HTTP/1.1 200 OK\r\n"
 	cases := []struct {
-		name          string
-		regex         string
-		body          string
-		wantContain   string // 期望结果包含的内容
+		name           string
+		regex          string
+		body           string
+		wantContain    string // 期望结果包含的内容
 		wantNotContain string // 期望结果不包含的内容
 	}{
 		{
-			name:          "捕获组名为cookie时清理属性",
-			regex:         `Set-Cookie:(?P<cookie>.*)`,
-			body:          responseHeaders + "Set-Cookie: sessionid=abc123; Path=/; HttpOnly\r\n\r\n<html></html>",
-			wantContain:   "sessionid=abc123",
+			name:           "捕获组名为cookie时清理属性",
+			regex:          `Set-Cookie:(?P<cookie>.*)`,
+			body:           responseHeaders + "Set-Cookie: sessionid=abc123; Path=/; HttpOnly\r\n\r\n<html></html>",
+			wantContain:    "sessionid=abc123",
 			wantNotContain: "Path",
 		},
 		{
-			name:          "捕获组名为sessid时也清理属性",
-			regex:         `Set-Cookie:(?P<sessid>.*)`,
-			body:          responseHeaders + "Set-Cookie: JSESSIONID=xyz789; Path=/app; Secure; HttpOnly\r\n\r\n{}",
-			wantContain:   "JSESSIONID=xyz789",
+			name:           "捕获组名为sessid时也清理属性",
+			regex:          `Set-Cookie:(?P<sessid>.*)`,
+			body:           responseHeaders + "Set-Cookie: JSESSIONID=xyz789; Path=/app; Secure; HttpOnly\r\n\r\n{}",
+			wantContain:    "JSESSIONID=xyz789",
 			wantNotContain: "Secure",
 		},
 		{
-			name:          "捕获组名为token时也清理属性",
-			regex:         `Set-Cookie:(?P<token>.*)`,
-			body:          responseHeaders + "Set-Cookie: csrf_token=tok123; Max-Age=3600; SameSite=Strict\r\n\r\nOK",
-			wantContain:   "csrf_token=tok123",
+			name:           "捕获组名为token时也清理属性",
+			regex:          `Set-Cookie:(?P<token>.*)`,
+			body:           responseHeaders + "Set-Cookie: csrf_token=tok123; Max-Age=3600; SameSite=Strict\r\n\r\nOK",
+			wantContain:    "csrf_token=tok123",
 			wantNotContain: "Max-Age",
 		},
 		{
-			name:          "非Set-Cookie的正则不触发清理",
-			regex:         `X-Custom:(?P<value>.*)`,
-			body:          responseHeaders + "X-Custom: some-value; extra=stuff\r\n\r\ndone",
-			wantContain:   "some-value; extra=stuff",
+			name:        "非Set-Cookie的正则不触发清理",
+			regex:       `X-Custom:(?P<value>.*)`,
+			body:        responseHeaders + "X-Custom: some-value; extra=stuff\r\n\r\ndone",
+			wantContain: "some-value; extra=stuff",
 		},
 	}
 

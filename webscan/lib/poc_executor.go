@@ -326,7 +326,10 @@ func executeRules(oReq *http.Request, p *Poc, variableMap map[string]interface{}
 	success := false
 	if len(p.Rules) > 0 {
 		success = executeRuleSet(p.Rules)
-		return success, "", nil
+		if success {
+			return true, p.Name, nil
+		}
+		return false, "", nil
 	}
 	for _, item := range p.Groups {
 		name, rules := item.Key, item.Value

@@ -261,6 +261,17 @@ func slicesEqual(a, b []string) bool {
 	return true
 }
 
+func TestOrderWebPlugins(t *testing.T) {
+	plugins := []string{"ssh", "webpoc", "redis", "webtitle", "mysql"}
+
+	orderWebPlugins(plugins)
+
+	expected := []string{"webtitle", "ssh", "redis", "mysql", "webpoc"}
+	if !slicesEqual(plugins, expected) {
+		t.Fatalf("orderWebPlugins = %#v, want %#v", plugins, expected)
+	}
+}
+
 // TestNewBaseScanStrategy 测试构造函数
 func TestNewBaseScanStrategy(t *testing.T) {
 	tests := []struct {
