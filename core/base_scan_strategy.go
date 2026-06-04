@@ -140,6 +140,9 @@ func (b *BaseScanStrategy) isPluginApplicableToPortWithHost(pluginName string, t
 }
 
 func (b *BaseScanStrategy) isPluginApplicableToPort(pluginName string, targetPort int) bool {
+	if b.isWebPlugin(pluginName) {
+		return true
+	}
 	return b.isPluginApplicableToPortWithHost(pluginName, "", targetPort)
 }
 
@@ -253,30 +256,30 @@ func (b *BaseScanStrategy) getPluginsByFilterType() []string {
 				filteredPlugins = append(filteredPlugins, pluginName)
 			}
 		}
-		// 确保 webtitle 在 webpoc 之前执行，避免指纹识别竞态
-		sort.Slice(filteredPlugins, func(i, j int) bool {
-			// webtitle 必须在 webpoc 之前
-			if filteredPlugins[i] == "webtitle" {
-				return true
-			}
-			if filteredPlugins[j] == "webtitle" {
-				return false
-			}
-			if filteredPlugins[i] == "webpoc" {
-				return false
-			}
-			if filteredPlugins[j] == "webpoc" {
-				return true
-			}
-			// 其他插件保持字母顺序
-			return filteredPlugins[i] < filteredPlugins[j]
-		})
 	default:
 		// 无过滤器：返回所有插件
 		filteredPlugins = allPlugins
 	}
 
+	orderWebPlugins(filteredPlugins)
 	return filteredPlugins
+}
+
+func orderWebPlugins(pluginNames []string) {
+	sort.SliceStable(pluginNames, func(i, j int) bool {
+		return webPluginOrder(pluginNames[i]) < webPluginOrder(pluginNames[j])
+	})
+}
+
+func webPluginOrder(pluginName string) int {
+	switch pluginName {
+	case "webtitle":
+		return 0
+	case "webpoc":
+		return 2
+	default:
+		return 1
+	}
 }
 
 // parsePluginList 解析插件列表字符串

@@ -516,7 +516,6 @@ func scanSinglePort(ctx context.Context, host string, port int, addr string, ada
 
 	// 步骤2：记录开放端口
 	count.Add(1)
-	collector.Add(addr)
 	saveOpenPort(session, host, port)
 
 	// 步骤3：服务识别（Scanner负责关闭连接，包括探测中可能创建的新连接）
@@ -535,6 +534,7 @@ func scanSinglePort(ctx context.Context, host string, port int, addr string, ada
 
 	// 步骤4：处理结果
 	processServiceResult(ctx, host, port, addr, serviceInfo, config, session)
+	collector.Add(addr)
 }
 
 // handleConnectionFailure 处理连接失败
