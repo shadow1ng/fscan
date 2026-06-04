@@ -420,10 +420,14 @@ func matchFold(a, b string) bool {
 }
 
 // buildServiceLogMessage 构建服务识别的日志信息
-// 格式: addr service [Product:xxx ||Version:xxx] Banner:(xxx)
+// 格式: addr-or-url service [Product:xxx ||Version:xxx] Banner:(xxx)
 func buildServiceLogMessage(addr string, serviceInfo *ServiceInfo, isWeb bool) string {
 	var msg strings.Builder
-	fmt.Fprintf(&msg, "%-21s", addr)
+	displayTarget := addr
+	if isWeb {
+		displayTarget = buildWebServiceURL(addr, serviceInfo)
+	}
+	fmt.Fprintf(&msg, "%-30s", displayTarget)
 
 	if serviceInfo.Name != "unknown" {
 		fmt.Fprintf(&msg, " %-8s", serviceInfo.Name)
@@ -451,6 +455,30 @@ func buildServiceLogMessage(addr string, serviceInfo *ServiceInfo, isWeb bool) s
 	}
 
 	return msg.String()
+}
+
+func buildWebServiceURL(addr string, serviceInfo *ServiceInfo) string {
+	protocol := "http"
+	serviceName := ""
+	if serviceInfo != nil {
+		serviceName = strings.ToLower(serviceInfo.Name)
+	}
+
+	if strings.Contains(serviceName, "https") || strings.Contains(serviceName, "ssl") || strings.Contains(serviceName, "tls") {
+		protocol = "https"
+	}
+
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return fmt.Sprintf("%s://%s", protocol, addr)
+	}
+	if protocol == "http" && port == "80" {
+		return fmt.Sprintf("http://%s", host)
+	}
+	if protocol == "https" && port == "443" {
+		return fmt.Sprintf("https://%s", host)
+	}
+	return fmt.Sprintf("%s://%s", protocol, net.JoinHostPort(host, port))
 }
 
 // scanSinglePort 扫描单个端口并进行服务识别（重构后的简洁版本）

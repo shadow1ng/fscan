@@ -478,7 +478,31 @@ func TestBuildServiceLogMessage(t *testing.T) {
 				Extras:  map[string]string{},
 			},
 			isWeb:       true,
-			wantContain: []string{"192.168.1.1:80", "http", "1.1"},
+			wantContain: []string{"http://192.168.1.1", "http", "1.1"},
+		},
+		{
+			name: "非标准端口HTTP服务显示URL",
+			addr: "192.168.1.1:8080",
+			serviceInfo: &ServiceInfo{
+				Name:    "http",
+				Version: "1.1",
+				Banner:  "",
+				Extras:  map[string]string{},
+			},
+			isWeb:       true,
+			wantContain: []string{"http://192.168.1.1:8080", "http", "1.1"},
+		},
+		{
+			name: "HTTPS服务显示HTTPS URL",
+			addr: "192.168.1.1:443",
+			serviceInfo: &ServiceInfo{
+				Name:    "https",
+				Version: "1.1",
+				Banner:  "",
+				Extras:  map[string]string{},
+			},
+			isWeb:       true,
+			wantContain: []string{"https://192.168.1.1", "https", "1.1"},
 		},
 		{
 			name: "带Banner的SSH服务",
