@@ -122,10 +122,28 @@ func (p *SSHPlugin) doSSHAuth(ctx context.Context, info *common.HostInfo, cred C
 		}
 	}
 
+	// 监听 context 取消，强制关闭底层连接以中断 SSH 握手和 readLoop
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = conn.Close()
+		case <-done:
+		}
+	}()
+
 	// 在TCP连接上创建SSH客户端
 	sshConn, chans, reqs, err := ssh.NewClientConn(conn, target, sshConfig)
 	if err != nil {
 		_ = conn.Close()
+		if ctx.Err() != nil {
+			return &AuthResult{
+				Success:   false,
+				ErrorType: ErrorTypeNetwork,
+				Error:     ctx.Err(),
+			}
+		}
 		return &AuthResult{
 			Success:   false,
 			ErrorType: classifySSHErrorType(err),
