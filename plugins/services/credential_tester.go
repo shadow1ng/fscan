@@ -79,18 +79,12 @@ func TestSingleCredential(ctx context.Context, cred Credential, authFn AuthFunc)
 	case result := <-resultChan:
 		return result
 	case <-ctx.Done():
-		// context 被取消，但 authFn goroutine 可能还阻塞在第三方库 IO 上
-		// 限时等待：超过 5 秒直接放弃，避免 goroutine 无限泄漏
+		// context 被取消，等待 authFn goroutine 返回并清理连接
+		// 各插件的 authFn 应在 context 取消时关闭底层连接使 goroutine 快速退出
 		go func() {
-			timer := time.NewTimer(5 * time.Second)
-			defer timer.Stop()
-			select {
-			case result := <-resultChan:
-				if result != nil && result.Conn != nil {
-					_ = result.Conn.Close()
-				}
-			case <-timer.C:
-				// 第三方库不响应取消，放弃等待
+			result := <-resultChan
+			if result != nil && result.Conn != nil {
+				_ = result.Conn.Close()
 			}
 		}()
 		return &AuthResult{
