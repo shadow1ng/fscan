@@ -3,15 +3,19 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/shadow1ng/fscan/common/i18n"
+	_ "modernc.org/sqlite"
 )
 
 // ResultItem 扫描结果项
@@ -24,26 +28,66 @@ type ResultItem struct {
 	Details interface{} `json:"details,omitempty"`
 }
 
-// ResultStore 结果存储
+// ResultStore SQLite 结果存储
 type ResultStore struct {
-	mu      sync.RWMutex
-	items   []ResultItem
-	counter int64
-	stats   ScanStats
-	// 去重
-	seen map[string]bool
-	// service 类型按 target 索引，用于更新
-	serviceIndex map[string]int
+	mu sync.RWMutex
+	db *sql.DB
 }
 
 // 全局结果存储
-var globalResultStore = &ResultStore{
-	items:        make([]ResultItem, 0),
-	seen:         make(map[string]bool),
-	serviceIndex: make(map[string]int),
+var globalResultStore *ResultStore
+
+func init() {
+	store, err := NewResultStore()
+	if err != nil {
+		panic(fmt.Sprintf("failed to init result store: %v", err))
+	}
+	globalResultStore = store
 }
 
-// Add 添加结果，返回格式化后的结果项（去重，重复则返回nil）
+// dbPath 返回数据库文件路径
+func dbPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = "."
+	}
+	dir := filepath.Join(home, ".fscan")
+	_ = os.MkdirAll(dir, 0755)
+	return filepath.Join(dir, "results.db")
+}
+
+// NewResultStore 创建 SQLite 存储
+func NewResultStore() (*ResultStore, error) {
+	db, err := sql.Open("sqlite", dbPath())
+	if err != nil {
+		return nil, err
+	}
+
+	// WAL 模式，提升并发读写
+	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		db.Close()
+		return nil, err
+	}
+
+	if _, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS results (
+			id      INTEGER PRIMARY KEY AUTOINCREMENT,
+			time    TEXT    NOT NULL,
+			type    TEXT    NOT NULL,
+			target  TEXT    NOT NULL,
+			status  TEXT    NOT NULL DEFAULT '',
+			details TEXT    NOT NULL DEFAULT '{}',
+			UNIQUE(type, target, status)
+		)
+	`); err != nil {
+		db.Close()
+		return nil, err
+	}
+
+	return &ResultStore{db: db}, nil
+}
+
+// Add 添加结果（去重，重复返回 nil）
 func (s *ResultStore) Add(result interface{}) *ResultItem {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -53,10 +97,10 @@ func (s *ResultStore) Add(result interface{}) *ResultItem {
 		Details: result,
 	}
 
-	// 根据结果类型分类
+	// 解析结果字段
 	if m, ok := result.(map[string]interface{}); ok {
 		if t, ok := m["type"].(string); ok {
-			item.Type = strings.ToLower(t) // 统一转小写
+			item.Type = strings.ToLower(t)
 		}
 		if target, ok := m["target"].(string); ok {
 			item.Target = target
@@ -64,64 +108,58 @@ func (s *ResultStore) Add(result interface{}) *ResultItem {
 		if status, ok := m["status"].(string); ok {
 			item.Status = status
 		}
-		// 从details提取更多信息
 		if details, ok := m["details"].(map[string]interface{}); ok {
 			item.Details = details
-			// 组合 target:port
 			if port, ok := details["port"]; ok {
 				if item.Target != "" && !strings.Contains(item.Target, ":") {
 					item.Target = fmt.Sprintf("%s:%v", item.Target, port)
 				}
 			}
-			// 构建更有意义的status
 			item.Status = buildStatusFromDetails(item.Type, item.Status, details)
 		}
 	}
 
-	// 生成去重键
-	key := fmt.Sprintf("%s|%s|%s", item.Type, item.Target, item.Status)
-	if s.seen[key] {
-		return nil // 完全重复，不添加
-	}
+	detailsJSON, _ := json.Marshal(item.Details)
 
-	// service/port 类型特殊处理：同一 target 只保留最详细的
+	// service/port 类型：同一 target 只保留最详细的
 	if item.Type == "service" || item.Type == "port" {
-		indexKey := item.Type + "|" + item.Target
-		if idx, exists := s.serviceIndex[indexKey]; exists {
-			oldStatus := s.items[idx].Status
-			// 如果旧的是基础状态，新的更详细，则更新
-			if (oldStatus == "identified" || oldStatus == "open" || oldStatus == "") &&
+		var existID int64
+		var existStatus string
+		err := s.db.QueryRow(
+			"SELECT id, status FROM results WHERE type = ? AND target = ? LIMIT 1",
+			item.Type, item.Target,
+		).Scan(&existID, &existStatus)
+
+		if err == nil {
+			// 已有记录，判断是否需要更新
+			if (existStatus == "identified" || existStatus == "open" || existStatus == "") &&
 				item.Status != "identified" && item.Status != "open" && item.Status != "" {
-				s.items[idx].Status = item.Status
-				s.items[idx].Details = item.Details
-				s.items[idx].Time = item.Time
-				s.seen[key] = true
-				return &s.items[idx]
+				s.db.Exec(
+					"UPDATE results SET status = ?, details = ?, time = ? WHERE id = ?",
+					item.Status, string(detailsJSON), item.Time.Format(time.RFC3339), existID,
+				)
+				item.ID = existID
+				return &item
 			}
-			// 否则跳过（保留已有信息）
 			return nil
 		}
-		// 新记录，记录索引
-		s.serviceIndex[indexKey] = len(s.items)
 	}
 
-	s.seen[key] = true
-
-	// 统计
-	switch item.Type {
-	case "host":
-		s.stats.HostsScanned++
-	case "port":
-		s.stats.PortsScanned++
-	case "service":
-		s.stats.ServicesFound++
-	case "vuln":
-		s.stats.VulnsFound++
+	// 插入（UNIQUE 约束自动去重）
+	res, err := s.db.Exec(
+		"INSERT OR IGNORE INTO results (time, type, target, status, details) VALUES (?, ?, ?, ?, ?)",
+		item.Time.Format(time.RFC3339), item.Type, item.Target, item.Status, string(detailsJSON),
+	)
+	if err != nil {
+		return nil
 	}
 
-	s.counter++
-	item.ID = s.counter
-	s.items = append(s.items, item)
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return nil // 重复
+	}
+
+	item.ID, _ = res.LastInsertId()
 	return &item
 }
 
@@ -129,25 +167,71 @@ func (s *ResultStore) Add(result interface{}) *ResultItem {
 func (s *ResultStore) List() []ResultItem {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return append([]ResultItem{}, s.items...)
+
+	rows, err := s.db.Query("SELECT id, time, type, target, status, details FROM results ORDER BY id")
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	return scanRows(rows)
 }
 
 // Stats 获取统计信息
 func (s *ResultStore) Stats() ScanStats {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.stats
+
+	var stats ScanStats
+	rows, err := s.db.Query("SELECT type, COUNT(*) FROM results GROUP BY type")
+	if err != nil {
+		return stats
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var t string
+		var count int
+		if rows.Scan(&t, &count) == nil {
+			switch t {
+			case "host":
+				stats.HostsScanned = count
+			case "port":
+				stats.PortsScanned = count
+			case "service":
+				stats.ServicesFound = count
+			case "vuln":
+				stats.VulnsFound = count
+			}
+		}
+	}
+	return stats
 }
 
 // Clear 清空结果
 func (s *ResultStore) Clear() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.items = make([]ResultItem, 0)
-	s.counter = 0
-	s.stats = ScanStats{}
-	s.seen = make(map[string]bool)
-	s.serviceIndex = make(map[string]int)
+	s.db.Exec("DELETE FROM results")
+}
+
+// scanRows 解析查询结果
+func scanRows(rows *sql.Rows) []ResultItem {
+	var items []ResultItem
+	for rows.Next() {
+		var item ResultItem
+		var timeStr, detailsStr string
+		if err := rows.Scan(&item.ID, &timeStr, &item.Type, &item.Target, &item.Status, &detailsStr); err != nil {
+			continue
+		}
+		item.Time, _ = time.Parse(time.RFC3339, timeStr)
+		var details interface{}
+		if json.Unmarshal([]byte(detailsStr), &details) == nil {
+			item.Details = details
+		}
+		items = append(items, item)
+	}
+	return items
 }
 
 // ResultHandler 结果处理器
@@ -169,7 +253,6 @@ func (h *ResultHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 支持类型过滤
 	typeFilter := r.URL.Query().Get("type")
 	items := h.store.List()
 
@@ -190,7 +273,7 @@ func (h *ResultHandler) List(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ExportOutput 导出输出结构（与CLI格式一致）
+// ExportOutput 导出输出结构
 type ExportOutput struct {
 	ScanTime time.Time     `json:"scan_time"`
 	Summary  ExportSummary `json:"summary"`
@@ -208,7 +291,7 @@ type ExportSummary struct {
 	TotalVulns    int `json:"total_vulns"`
 }
 
-// Export 导出结果（与CLI格式一致）
+// Export 导出结果
 func (h *ResultHandler) Export(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -222,7 +305,6 @@ func (h *ResultHandler) Export(w http.ResponseWriter, r *http.Request) {
 
 	items := h.store.List()
 
-	// 按类型分类
 	var hosts, ports, services, vulns []ResultItem
 	for _, item := range items {
 		switch item.Type {
@@ -262,7 +344,6 @@ func (h *ResultHandler) Export(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Disposition", "attachment; filename=fscan_results.csv")
 		writer := csv.NewWriter(w)
 
-		// Hosts section
 		if len(hosts) > 0 {
 			writer.Write([]string{"# Hosts"})
 			writer.Write([]string{"Target"})
@@ -272,7 +353,6 @@ func (h *ResultHandler) Export(w http.ResponseWriter, r *http.Request) {
 			writer.Write([]string{})
 		}
 
-		// Ports section
 		if len(ports) > 0 {
 			writer.Write([]string{"# Ports"})
 			writer.Write([]string{"Target", "Port", "Status"})
@@ -284,7 +364,6 @@ func (h *ResultHandler) Export(w http.ResponseWriter, r *http.Request) {
 			writer.Write([]string{})
 		}
 
-		// Services section
 		if len(services) > 0 {
 			writer.Write([]string{"# Services"})
 			writer.Write([]string{"Target", "Service", "Version", "Banner"})
@@ -295,7 +374,6 @@ func (h *ResultHandler) Export(w http.ResponseWriter, r *http.Request) {
 			writer.Write([]string{})
 		}
 
-		// Vulns section
 		if len(vulns) > 0 {
 			writer.Write([]string{"# Vulns"})
 			writer.Write([]string{"Target", "Type", "Details"})
@@ -394,19 +472,15 @@ func buildStatusFromDetails(resultType, originalStatus string, details map[strin
 		return "open"
 
 	case "service":
-		// 服务名
 		if name, ok := details["name"].(string); ok && name != "" {
 			parts = append(parts, name)
 		}
-		// 版本
 		if version, ok := details["version"].(string); ok && version != "" {
 			parts = append(parts, version)
 		}
-		// 产品
 		if product, ok := details["product"].(string); ok && product != "" {
 			parts = append(parts, product)
 		}
-		// 系统
 		if os, ok := details["os"].(string); ok && os != "" {
 			parts = append(parts, os)
 		}
@@ -415,7 +489,6 @@ func buildStatusFromDetails(resultType, originalStatus string, details map[strin
 		}
 
 	case "vuln":
-		// 统一漏洞显示格式
 		return normalizeVulnStatus(originalStatus, details)
 
 	case "host":
@@ -427,7 +500,6 @@ func buildStatusFromDetails(resultType, originalStatus string, details map[strin
 
 // normalizeVulnStatus 统一漏洞状态显示
 func normalizeVulnStatus(status string, details map[string]interface{}) string {
-	// 英文转中文映射
 	vulnTranslations := map[string]string{
 		"weak_credential": i18n.GetText("web_result_weak_credential"),
 		"unauthorized":    i18n.GetText("unauthorized_access"),
@@ -436,21 +508,17 @@ func normalizeVulnStatus(status string, details map[string]interface{}) string {
 		"CVE":             i18n.GetText("web_result_vulnerability"),
 	}
 
-	// 处理 "weak_credential: user:pass" 格式
 	if strings.HasPrefix(status, "weak_credential:") {
 		cred := strings.TrimPrefix(status, "weak_credential:")
 		cred = strings.TrimSpace(cred)
 		return i18n.Tr("web_result_weak_credential_detail", cred)
 	}
 
-	// 处理其他已知格式
 	for eng, chn := range vulnTranslations {
 		if strings.Contains(strings.ToLower(status), strings.ToLower(eng)) {
-			// 如果已经是中文格式，直接返回
 			if strings.Contains(status, chn) {
 				return status
 			}
-			// 替换英文部分
 			return strings.Replace(status, eng, chn, 1)
 		}
 	}

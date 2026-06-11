@@ -64,7 +64,7 @@ build-web: build-ui
 	@echo "$(BLUE)构建Web版本...$(NC)"
 	$(GO) build -tags web -ldflags="-s -w" -trimpath -o $(BINARY_NAME)-web .
 	@echo "$(GREEN)✓ 构建完成: $(BINARY_NAME)-web$(NC)"
-	@echo "$(BLUE)提示: 运行 ./$(BINARY_NAME)-web -web 启动Web界面$(NC)"
+	@echo "$(BLUE)提示: 运行 ./$(BINARY_NAME)-web 启动Web界面（默认端口 10240）$(NC)"
 
 ## build-ui: 构建前端（需要Node.js和npm）
 build-ui:

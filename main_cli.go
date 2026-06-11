@@ -1,3 +1,5 @@
+//go:build !web
+
 package main
 
 import (
@@ -10,7 +12,6 @@ import (
 	"github.com/shadow1ng/fscan/common/debug"
 	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/core"
-	"github.com/shadow1ng/fscan/web"
 
 	// 导入统一插件系统
 	_ "github.com/shadow1ng/fscan/plugins/local"
@@ -31,15 +32,6 @@ func main() {
 		}
 		common.LogError(i18n.Tr("param_error", err))
 		os.Exit(1)
-	}
-
-	// Web模式：启动Web服务器
-	if common.WebMode {
-		if err := web.StartServer(common.WebPort); err != nil {
-			common.LogError(err.Error())
-			os.Exit(1)
-		}
-		return
 	}
 
 	// 检查参数互斥性

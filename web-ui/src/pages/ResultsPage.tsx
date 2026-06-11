@@ -53,14 +53,14 @@ export function ResultsPage() {
   const fetchResults = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getResults(filter === 'all' ? undefined : filter);
+      const data = await getResults();
       setResults(data.items);
     } catch (err) {
       console.error('Failed to fetch results:', err);
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, []);
 
   useEffect(() => {
     fetchResults();
