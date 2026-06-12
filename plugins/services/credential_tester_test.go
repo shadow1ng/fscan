@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"runtime"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -398,6 +399,40 @@ func TestTestSingleCredential_ContextCancel(t *testing.T) {
 	// 连接应该被清理协程关闭
 	if !conn.closed.Load() {
 		t.Error("连接应该被清理协程关闭")
+	}
+}
+
+func TestTestSingleCredential_ContextCancelCleanupIsBounded(t *testing.T) {
+	oldWait := authCleanupWait
+	authCleanupWait = 20 * time.Millisecond
+	defer func() { authCleanupWait = oldWait }()
+
+	authStarted := make(chan struct{})
+	releaseAuth := make(chan struct{})
+	authFn := func(ctx context.Context, cred Credential) *AuthResult {
+		close(authStarted)
+		<-releaseAuth
+		return nil
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-authStarted
+		cancel()
+	}()
+
+	before := runtime.NumGoroutine()
+	result := TestSingleCredential(ctx, Credential{Username: "admin", Password: "admin"}, authFn)
+	if result.Success {
+		t.Error("context取消后不应该返回成功")
+	}
+
+	time.Sleep(100 * time.Millisecond)
+	after := runtime.NumGoroutine()
+	close(releaseAuth)
+
+	if after > before+1 {
+		t.Fatalf("清理 goroutine 疑似泄漏: before=%d after=%d", before, after)
 	}
 }
 

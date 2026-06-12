@@ -214,11 +214,11 @@ func TestTuneConfig_SlowLossy(t *testing.T) {
 
 func TestTuneConfig_ExplicitOverride(t *testing.T) {
 	config := makeDefaultConfig()
-	config.Timeout = 5 * time.Second       // 用户设了 -time 5
-	config.ModuleThreadNum = 50            // 用户设了 -mt 50
-	config.MaxRetries = 1                  // 用户设了 -retry 1
-	config.Network.ICMPRate = 0.8          // 用户设了 -icmp-rate 0.8
-	config.POC.Num = 100                   // 用户设了 -num 100
+	config.Timeout = 5 * time.Second // 用户设了 -time 5
+	config.ModuleThreadNum = 50      // 用户设了 -mt 50
+	config.MaxRetries = 1            // 用户设了 -retry 1
+	config.Network.ICMPRate = 0.8    // 用户设了 -icmp-rate 0.8
+	config.POC.Num = 100             // 用户设了 -num 100
 	session := makeTestSession(config)
 
 	ep := &EnvironmentProfile{
@@ -249,6 +249,45 @@ func TestTuneConfig_ExplicitOverride(t *testing.T) {
 	}
 	if config.POC.Num != 100 {
 		t.Errorf("用户 PocNum 被覆盖: %d", config.POC.Num)
+	}
+}
+
+func TestTuneConfig_ExplicitDefaultValues(t *testing.T) {
+	config := makeDefaultConfig()
+	config.TimeoutExplicit = true
+	config.ModuleThreadNumExplicit = true
+	config.MaxRetriesExplicit = true
+	config.Network.ICMPRateExplicit = true
+	config.POC.NumExplicit = true
+	session := makeTestSession(config)
+
+	ep := &EnvironmentProfile{
+		Net: NetworkProfile{
+			Env:       EnvLAN,
+			RTTMedian: 1 * time.Millisecond,
+			RTTStddev: 500 * time.Microsecond,
+			LossRate:  0.0,
+			Samples:   30,
+		},
+		System: SystemProfile{FDLimit: 65536, NumCPU: 8},
+	}
+
+	ep.TuneConfig(config, session)
+
+	if config.Timeout != 3*time.Second {
+		t.Errorf("显式默认 Timeout 被覆盖: %v", config.Timeout)
+	}
+	if config.ModuleThreadNum != 20 {
+		t.Errorf("显式默认 ModuleThreadNum 被覆盖: %d", config.ModuleThreadNum)
+	}
+	if config.MaxRetries != 3 {
+		t.Errorf("显式默认 MaxRetries 被覆盖: %d", config.MaxRetries)
+	}
+	if config.Network.ICMPRate != 0.1 {
+		t.Errorf("显式默认 ICMPRate 被覆盖: %.2f", config.Network.ICMPRate)
+	}
+	if config.POC.Num != 20 {
+		t.Errorf("显式默认 PocNum 被覆盖: %d", config.POC.Num)
 	}
 }
 

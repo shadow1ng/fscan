@@ -61,6 +61,8 @@ type AuthFunc func(ctx context.Context, cred Credential) *AuthResult
 // ErrorClassifier 错误分类函数
 type ErrorClassifier func(err error) ErrorType
 
+var authCleanupWait = 2 * time.Second
+
 // =============================================================================
 // 单凭据测试（解决 goroutine 泄漏）
 // =============================================================================
@@ -79,12 +81,17 @@ func TestSingleCredential(ctx context.Context, cred Credential, authFn AuthFunc)
 	case result := <-resultChan:
 		return result
 	case <-ctx.Done():
-		// context 被取消，等待 authFn goroutine 返回并清理连接
-		// 各插件的 authFn 应在 context 取消时关闭底层连接使 goroutine 快速退出
+		// context 被取消后只做有界等待，避免 authFn 卡死时清理 goroutine 也永久泄漏。
 		go func() {
-			result := <-resultChan
-			if result != nil && result.Conn != nil {
-				_ = result.Conn.Close()
+			timer := time.NewTimer(authCleanupWait)
+			defer timer.Stop()
+
+			select {
+			case result := <-resultChan:
+				if result != nil && result.Conn != nil {
+					_ = result.Conn.Close()
+				}
+			case <-timer.C:
 			}
 		}()
 		return &AuthResult{
