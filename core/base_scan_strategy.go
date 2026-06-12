@@ -115,6 +115,7 @@ func (b *BaseScanStrategy) isLocalPluginExplicitlySpecified(pluginName string, c
 }
 
 // isPluginApplicableToPortWithHost 检查插件是否适用于指定端口
+// 匹配策略：端口匹配 → 服务名称匹配（解决非标准端口问题）
 func (b *BaseScanStrategy) isPluginApplicableToPortWithHost(pluginName string, targetHost string, targetPort int) bool {
 	if b.isWebPlugin(pluginName) {
 		return IsMarkedWebService(targetHost, targetPort)
@@ -131,6 +132,16 @@ func (b *BaseScanStrategy) isPluginApplicableToPortWithHost(pluginName string, t
 	if targetPort > 0 {
 		for _, port := range pluginPorts {
 			if port == targetPort {
+				return true
+			}
+		}
+	}
+
+	// 端口不匹配时，按服务识别结果匹配
+	// 例：8881 端口上识别到 ssh 服务 → ssh 插件应该执行
+	if targetHost != "" && targetPort > 0 {
+		if svcName, ok := GetServiceName(targetHost, targetPort); ok {
+			if strings.EqualFold(svcName, pluginName) {
 				return true
 			}
 		}
