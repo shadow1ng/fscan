@@ -192,9 +192,9 @@ func TestGenerateCredentials_PlaceholderReplacement(t *testing.T) {
 
 	// 验证：{user} 被正确替换
 	expectedCombos := map[string]string{
-		"root:root":     "root",   // {user} → root
-		"root:root123":  "root",   // {user}123 → root123
-		"mysql:mysql":   "mysql",  // {user} → mysql
+		"root:root":      "root",  // {user} → root
+		"root:root123":   "root",  // {user}123 → root123
+		"mysql:mysql":    "mysql", // {user} → mysql
 		"mysql:mysql123": "mysql", // {user}123 → mysql123
 	}
 
@@ -244,7 +244,7 @@ func TestGenerateCredentials_DefaultValues(t *testing.T) {
 
 	cfg.Credentials.UserPassPairs = []config.CredentialPair{}
 	cfg.Credentials.Userdict = map[string][]string{} // 空字典
-	cfg.Credentials.Passwords = []string{}          // 空密码列表
+	cfg.Credentials.Passwords = []string{}           // 空密码列表
 
 	result := GenerateCredentials("unknown_service", cfg)
 
@@ -326,4 +326,28 @@ func TestGenerateCredentials_EmptyUserPassPairs(t *testing.T) {
 	}
 
 	t.Logf("✓ 空 UserPassPairs 正确回退到笛卡尔积")
+}
+
+func TestBuildConfigAdditionalPasswordsAreNotShadowedByExactPair(t *testing.T) {
+	cfg, _, err := common.BuildConfig(&common.FlagVars{
+		Username:     "root",
+		Password:     "primary",
+		AddPasswords: "extra",
+	}, &common.HostInfo{})
+	if err != nil {
+		t.Fatalf("BuildConfig error = %v", err)
+	}
+
+	result := GenerateCredentials("ssh", cfg)
+	found := map[string]bool{}
+	for _, cred := range result {
+		found[cred.Username+":"+cred.Password] = true
+	}
+
+	if !found["root:primary"] {
+		t.Fatal("missing primary password credential")
+	}
+	if !found["root:extra"] {
+		t.Fatal("additional password was shadowed by exact user/password pair")
+	}
 }

@@ -52,16 +52,31 @@ func getGlobalDialer(timeout time.Duration) (proxy.Dialer, error) {
 
 // parseProxyURL 解析代理URL，提取地址和认证信息
 func parseProxyURL(proxyURL, fallback string) (host, username, password string) {
+	if !strings.Contains(proxyURL, "://") {
+		if host, username, password, ok := parseProxyURLCandidate("http://" + proxyURL); ok {
+			return host, username, password
+		}
+	}
+	if host, username, password, ok := parseProxyURLCandidate(proxyURL); ok {
+		return host, username, password
+	}
+	return fallback, "", ""
+}
+
+func parseProxyURLCandidate(proxyURL string) (host, username, password string, ok bool) {
 	parsedURL, err := url.Parse(proxyURL)
 	if err != nil {
-		return fallback, "", ""
+		return "", "", "", false
 	}
 	host = parsedURL.Host
+	if host == "" {
+		return "", "", "", false
+	}
 	if parsedURL.User != nil {
 		username = parsedURL.User.Username()
 		password, _ = parsedURL.User.Password()
 	}
-	return
+	return host, username, password, true
 }
 
 // createProxyConfig 根据全局设置创建代理配置

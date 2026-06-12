@@ -176,8 +176,7 @@ func (g *Client) ProbeOSInfo(host, domain, user, pwd string, timeout int64, rdpP
 	exitFlag := make(chan bool, 1)
 	info = make(map[string]any)
 
-	targetSlice := strings.Split(g.Host, ":")
-	ip := targetSlice[0]
+	ip := rdpTargetHost(g.Host)
 	conn, err := WrapperTcpWithTimeout("tcp", g.Host, time.Duration(timeout)*time.Second)
 	if err != nil {
 		return
@@ -272,4 +271,15 @@ loop:
 	}
 	glog.Debug("loop ended, elapsed time: ", time.Since(start))
 	return info
+}
+
+func rdpTargetHost(target string) string {
+	host, _, err := net.SplitHostPort(target)
+	if err == nil {
+		return host
+	}
+	if strings.Count(target, ":") == 1 {
+		return strings.SplitN(target, ":", 2)[0]
+	}
+	return target
 }

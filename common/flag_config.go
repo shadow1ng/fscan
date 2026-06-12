@@ -164,8 +164,8 @@ func BuildConfigFromFlags(fv *FlagVars) *Config {
 		DNSLog:                fv.DNSLog,
 		PersistenceTargetFile: fv.PersistenceTargetFile,
 		WinPEFile:             fv.WinPEFile,
-		PortMap:               config.DefaultPortMap,
-		DefaultMap:            config.DefaultProbeMap,
+		PortMap:               clonePortMap(config.DefaultPortMap),
+		DefaultMap:            cloneStringSlice(config.DefaultProbeMap),
 
 		// SOCKS5代理端口
 		Socks5ProxyPort: fv.Socks5ProxyPort,
@@ -175,8 +175,8 @@ func BuildConfigFromFlags(fv *FlagVars) *Config {
 			Username:      fv.Username,
 			Password:      fv.Password,
 			Domain:        fv.Domain,
-			Userdict:      config.DefaultUserDict,
-			Passwords:     config.DefaultPasswords,
+			Userdict:      cloneStringSliceMap(config.DefaultUserDict),
+			Passwords:     cloneStringSlice(config.DefaultPasswords),
 			UserPassPairs: nil, // 后续解析
 			SSHKeyPath:    fv.SSHKeyPath,
 		},

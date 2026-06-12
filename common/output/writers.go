@@ -46,6 +46,12 @@ func targetWithPort(target string, port interface{}) string {
 		return target
 	}
 	portText := fmt.Sprint(port)
+	if strings.TrimSpace(portText) == "" {
+		return target
+	}
+	if strings.HasPrefix(target, "[") && strings.HasSuffix(target, "]") {
+		target = strings.TrimPrefix(strings.TrimSuffix(target, "]"), "[")
+	}
 	if strings.Count(target, ":") == 1 {
 		return target
 	}

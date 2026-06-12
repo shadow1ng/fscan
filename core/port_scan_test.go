@@ -212,6 +212,48 @@ func TestFormatAddress(t *testing.T) {
 	}
 }
 
+func TestBuildWebServiceURLIPv6(t *testing.T) {
+	tests := []struct {
+		name        string
+		addr        string
+		serviceInfo *ServiceInfo
+		want        string
+	}{
+		{
+			name: "http default port",
+			addr: "[2001:db8::1]:80",
+			serviceInfo: &ServiceInfo{
+				Name: "http",
+			},
+			want: "http://[2001:db8::1]",
+		},
+		{
+			name: "https default port",
+			addr: "[2001:db8::1]:443",
+			serviceInfo: &ServiceInfo{
+				Name: "https",
+			},
+			want: "https://[2001:db8::1]",
+		},
+		{
+			name: "http non-default port",
+			addr: "[2001:db8::1]:8080",
+			serviceInfo: &ServiceInfo{
+				Name: "http",
+			},
+			want: "http://[2001:db8::1]:8080",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := buildWebServiceURL(tt.addr, tt.serviceInfo); got != tt.want {
+				t.Fatalf("buildWebServiceURL(%q) = %q, want %q", tt.addr, got, tt.want)
+			}
+		})
+	}
+}
+
 // =============================================================================
 // 排除端口逻辑测试（从EnhancedPortScan:28-32行提取）
 // =============================================================================

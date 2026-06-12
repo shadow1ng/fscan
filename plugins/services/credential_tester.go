@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/shadow1ng/fscan/common"
@@ -61,7 +62,11 @@ type AuthFunc func(ctx context.Context, cred Credential) *AuthResult
 // ErrorClassifier 错误分类函数
 type ErrorClassifier func(err error) ErrorType
 
-var authCleanupWait = 2 * time.Second
+var authCleanupWaitNanos int64 = int64(2 * time.Second)
+
+func authCleanupWait() time.Duration {
+	return time.Duration(atomic.LoadInt64(&authCleanupWaitNanos))
+}
 
 // =============================================================================
 // 单凭据测试（解决 goroutine 泄漏）
@@ -70,9 +75,36 @@ var authCleanupWait = 2 * time.Second
 // TestSingleCredential 安全地测试单个凭据
 // 正确处理 context 取消时的资源清理
 func TestSingleCredential(ctx context.Context, cred Credential, authFn AuthFunc) *AuthResult {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if authFn == nil {
+		return &AuthResult{
+			Success:   false,
+			ErrorType: ErrorTypeUnknown,
+			Error:     fmt.Errorf("auth function is nil"),
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return &AuthResult{
+			Success:   false,
+			ErrorType: ErrorTypeNetwork,
+			Error:     err,
+		}
+	}
+
 	resultChan := make(chan *AuthResult, 1)
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				resultChan <- &AuthResult{
+					Success:   false,
+					ErrorType: ErrorTypeUnknown,
+					Error:     fmt.Errorf("auth function panic: %v", r),
+				}
+			}
+		}()
 		result := authFn(ctx, cred)
 		resultChan <- result
 	}()
@@ -83,7 +115,7 @@ func TestSingleCredential(ctx context.Context, cred Credential, authFn AuthFunc)
 	case <-ctx.Done():
 		// context 被取消后只做有界等待，避免 authFn 卡死时清理 goroutine 也永久泄漏。
 		go func() {
-			timer := time.NewTimer(authCleanupWait)
+			timer := time.NewTimer(authCleanupWait())
 			defer timer.Stop()
 
 			select {
@@ -116,15 +148,35 @@ type ConcurrentTestConfig struct {
 	UseProxy                bool          // 代理模式下跳过直连 TCP 预检
 }
 
+func normalizeConcurrentTestConfig(testConfig ConcurrentTestConfig) ConcurrentTestConfig {
+	if testConfig.Concurrency <= 0 {
+		testConfig.Concurrency = 10
+	}
+	if testConfig.MaxRetries <= 0 {
+		testConfig.MaxRetries = 3
+	}
+	if testConfig.RetryDelay <= 0 {
+		testConfig.RetryDelay = time.Second
+	}
+	if testConfig.MaxConsecutiveNetErrors <= 0 {
+		testConfig.MaxConsecutiveNetErrors = 5
+	}
+	return testConfig
+}
+
 // DefaultConcurrentTestConfig 默认配置
 func DefaultConcurrentTestConfig(config *common.Config) ConcurrentTestConfig {
 	concurrency := config.ModuleThreadNum
 	if concurrency <= 0 {
 		concurrency = 10
 	}
+	maxRetries := config.MaxRetries
+	if maxRetries <= 0 {
+		maxRetries = 3
+	}
 	return ConcurrentTestConfig{
 		Concurrency:             concurrency,
-		MaxRetries:              3,
+		MaxRetries:              maxRetries,
 		RetryDelay:              time.Second,
 		MaxConsecutiveNetErrors: 5,
 		UseProxy:                config.Network.Socks5Proxy != "" || config.Network.HTTPProxy != "",
@@ -147,6 +199,9 @@ func TestCredentialsConcurrently(
 	serviceName string,
 	testConfig ConcurrentTestConfig,
 ) *ScanResult {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if len(credentials) == 0 {
 		return &ScanResult{
 			Success: false,
@@ -154,11 +209,16 @@ func TestCredentialsConcurrently(
 			Error:   fmt.Errorf("%s", i18n.GetText("service_no_test_creds")),
 		}
 	}
+	testConfig = normalizeConcurrentTestConfig(testConfig)
 
 	// TCP 预检：快速验证目标可达，避免对不可达目标浪费全部凭据尝试
 	// 代理模式下跳过：net.DialTimeout 直连无法到达代理后的内网目标
 	if testConfig.TargetAddr != "" && !testConfig.UseProxy {
-		preConn, err := net.DialTimeout("tcp", testConfig.TargetAddr, 3*time.Second)
+		dialCtx, dialCancel := context.WithTimeout(ctx, 3*time.Second)
+		defer dialCancel()
+
+		var dialer net.Dialer
+		preConn, err := dialer.DialContext(dialCtx, "tcp", testConfig.TargetAddr)
 		if err != nil {
 			return &ScanResult{
 				Success: false,
@@ -240,10 +300,6 @@ func workerTestCredentials(
 	testConfig ConcurrentTestConfig,
 ) {
 	consecutiveNetErrors := 0
-	maxNetErrors := testConfig.MaxConsecutiveNetErrors
-	if maxNetErrors <= 0 {
-		maxNetErrors = 5
-	}
 
 	for cred := range credChan {
 		// 检查是否应该停止
@@ -254,7 +310,7 @@ func workerTestCredentials(
 		}
 
 		// 连续网络错误达到阈值，目标可能不可达，提前退出
-		if consecutiveNetErrors >= maxNetErrors {
+		if consecutiveNetErrors >= testConfig.MaxConsecutiveNetErrors {
 			return
 		}
 
@@ -292,10 +348,18 @@ func testCredentialWithRetry(
 
 		// 测试凭据
 		result := TestSingleCredential(ctx, cred, authFn)
+		if result == nil {
+			result = &AuthResult{
+				Success:   false,
+				ErrorType: ErrorTypeUnknown,
+				Error:     fmt.Errorf("auth function returned nil result"),
+			}
+		}
 
-		if result.Success && result.Conn != nil {
-			// 成功，关闭连接并返回
-			_ = result.Conn.Close()
+		if result.Success {
+			if result.Conn != nil {
+				_ = result.Conn.Close()
+			}
 			return &ScanResult{
 				Type:     plugins.ResultTypeCredential,
 				Success:  true,

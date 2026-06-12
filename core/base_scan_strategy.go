@@ -137,11 +137,11 @@ func (b *BaseScanStrategy) isPluginApplicableToPortWithHost(pluginName string, t
 		}
 	}
 
-	// 端口不匹配时，按服务识别结果匹配
+	// 端口不匹配时，按指纹识别结果匹配
 	// 例：8881 端口上识别到 ssh 服务 → ssh 插件应该执行
 	if targetHost != "" && targetPort > 0 {
-		if svcName, ok := GetServiceName(targetHost, targetPort); ok {
-			if strings.EqualFold(svcName, pluginName) {
+		if info, ok := GetCachedServiceInfo(targetHost, targetPort); ok && info != nil {
+			if strings.EqualFold(info.Name, pluginName) {
 				return true
 			}
 		}

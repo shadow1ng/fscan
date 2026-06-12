@@ -66,6 +66,16 @@ func TestParsePortList_BasicParsing(t *testing.T) {
 			expected: []int{22, 80, 443, 3306},
 		},
 		{
+			name:     "端口范围",
+			input:    "80-82",
+			expected: []int{80, 81, 82},
+		},
+		{
+			name:     "端口和范围混合",
+			input:    "22,80-81",
+			expected: []int{22, 80, 81},
+		},
+		{
 			name:     "空字符串",
 			input:    "",
 			expected: []int{},
@@ -281,7 +291,7 @@ func TestParsePortList_ProductionScenarios(t *testing.T) {
 
 	t.Run("数据库端口", func(t *testing.T) {
 		input := "3306,5432,1433,27017"
-		expected := []int{3306, 5432, 1433, 27017}
+		expected := []int{1433, 3306, 5432, 27017}
 		result := s.parsePortList(input)
 		if !intSlicesEqual(result, expected) {
 			t.Errorf("应该正确解析常见数据库端口")
@@ -317,6 +327,13 @@ func TestParsePortList_ProductionScenarios(t *testing.T) {
 			t.Errorf("应该正确解析高端口号")
 		}
 	})
+
+	t.Run("端口组", func(t *testing.T) {
+		result := s.parsePortList("web")
+		if !sliceContains(result, 80) || !sliceContains(result, 443) {
+			t.Errorf("web端口组应该包含80和443, 实际 %v", result)
+		}
+	})
 }
 
 // TestParsePortList_ReturnValue 测试返回值特性
@@ -330,14 +347,11 @@ func TestParsePortList_ReturnValue(t *testing.T) {
 		}
 	})
 
-	t.Run("端口不重复-但不保证去重", func(t *testing.T) {
-		// 注意：当前实现不去重，如果用户输入 "22,22"，会返回 [22, 22]
-		// 这是可以接受的，因为上层逻辑会处理重复
+	t.Run("重复端口会去重", func(t *testing.T) {
 		input := "22,22"
 		result := s.parsePortList(input)
-		// 这里我们只测试解析是否正确，不测试去重
-		if len(result) != 2 || result[0] != 22 || result[1] != 22 {
-			t.Errorf("当前实现不去重，应该返回两个22")
+		if len(result) != 1 || result[0] != 22 {
+			t.Errorf("重复端口应该去重, 实际 %v", result)
 		}
 	})
 }
@@ -353,6 +367,15 @@ func intSlicesEqual(a, b []int) bool {
 		}
 	}
 	return true
+}
+
+func sliceContains(values []int, target int) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 // =============================================================================

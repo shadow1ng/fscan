@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand" //nolint:gosec // G404: math/rand用于生成测试数据，非加密用途
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -176,7 +177,7 @@ func URLTypeToString(u *UrlType) string {
 			builder.WriteString("//")
 		}
 		if host := u.Host; host != "" {
-			builder.WriteString(host)
+			builder.WriteString(urlTypeHost(host))
 		}
 	}
 
@@ -523,6 +524,16 @@ func ParseURL(u *url.URL) *UrlType {
 		Query:    u.RawQuery,
 		Fragment: u.Fragment,
 	}
+}
+
+func urlTypeHost(host string) string {
+	if strings.HasPrefix(host, "[") {
+		return host
+	}
+	if ip := net.ParseIP(host); ip != nil && strings.Contains(host, ":") {
+		return "[" + host + "]"
+	}
+	return host
 }
 
 // ParseRequest 将标准 HTTP 请求转换为自定义请求对象

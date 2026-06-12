@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync/atomic"
 	"time"
 
 	"github.com/shadow1ng/fscan/common"
@@ -154,9 +155,12 @@ func (p *KafkaPlugin) doKafkaAuth(ctx context.Context, info *common.HostInfo, cr
 
 var kafkaCorrelationID int32
 
+func nextKafkaCorrelationID() int32 {
+	return atomic.AddInt32(&kafkaCorrelationID, 1) - 1
+}
+
 func kafkaSend(conn net.Conn, apiKey, apiVersion int16, body []byte) error {
-	corrID := kafkaCorrelationID
-	kafkaCorrelationID++
+	corrID := nextKafkaCorrelationID()
 
 	// 请求格式: [4B len] [2B api_key] [2B api_version] [4B corr_id] [2B client_id_len] [client_id] [body]
 	clientID := "fscan"

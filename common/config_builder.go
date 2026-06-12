@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -171,6 +172,7 @@ func parseUserPassPairs(fv *FlagVars) ([]config.CredentialPair, error) {
 	// 如果命令行同时指定了单个用户名和单个密码（不是逗号分隔的多个）
 	if fv.Username != "" && fv.Password != "" &&
 		!strings.Contains(fv.Username, ",") && !strings.Contains(fv.Password, ",") &&
+		fv.AddUsers == "" && fv.AddPasswords == "" &&
 		fv.UsersFile == "" && fv.PasswordsFile == "" && fv.UserPassFile == "" {
 		pairs = append(pairs, config.CredentialPair{
 			Username: strings.TrimSpace(fv.Username),
@@ -294,9 +296,42 @@ func normalizeURL(rawURL string) string {
 	}
 	lowerURL := strings.ToLower(rawURL)
 	if !strings.HasPrefix(lowerURL, "http://") && !strings.HasPrefix(lowerURL, "https://") {
-		return "http://" + rawURL
+		return "http://" + normalizeSchemelessURLTarget(rawURL)
 	}
-	return rawURL
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.Host == "" {
+		return rawURL
+	}
+	normalizedHost := normalizeURLHost(parsed.Host)
+	if normalizedHost == parsed.Host {
+		return rawURL
+	}
+	parsed.Host = normalizedHost
+	normalized := parsed.String()
+	if schemeEnd := strings.Index(rawURL, "://"); schemeEnd >= 0 {
+		return rawURL[:schemeEnd] + normalized[len(parsed.Scheme):]
+	}
+	return normalized
+}
+
+func normalizeSchemelessURLTarget(rawURL string) string {
+	authority := rawURL
+	suffix := ""
+	if idx := strings.IndexAny(rawURL, "/?#"); idx >= 0 {
+		authority = rawURL[:idx]
+		suffix = rawURL[idx:]
+	}
+	return normalizeURLHost(authority) + suffix
+}
+
+func normalizeURLHost(host string) string {
+	if strings.HasPrefix(host, "[") {
+		return host
+	}
+	if ip := net.ParseIP(host); ip != nil && strings.Contains(host, ":") {
+		return "[" + host + "]"
+	}
+	return host
 }
 
 // =============================================================================

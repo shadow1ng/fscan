@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/shadow1ng/fscan/common"
@@ -156,8 +157,7 @@ const (
 var mongoRequestID uint32
 
 func nextRequestID() uint32 {
-	mongoRequestID++
-	return mongoRequestID
+	return atomic.AddUint32(&mongoRequestID, 1)
 }
 
 // buildMongoCommand 构建 MongoDB 命令的 OP_MSG body (最小 BSON 实现)

@@ -134,6 +134,26 @@ func TestBuildTargetURL(t *testing.T) {
 			expected:    "http://[2001:db8::1]:443",
 			expectError: false,
 		},
+		{
+			name: "bare ipv6 url without protocol gets brackets",
+			hostInfo: &common.HostInfo{
+				Host: "2001:db8::1",
+				Port: 80,
+				URL:  "2001:db8::1/admin",
+			},
+			expected:    "http://[2001:db8::1]",
+			expectError: false,
+		},
+		{
+			name: "bare ipv6 url with protocol gets brackets",
+			hostInfo: &common.HostInfo{
+				Host: "2001:db8::1",
+				Port: 80,
+				URL:  "http://2001:db8::1/admin",
+			},
+			expected:    "http://[2001:db8::1]",
+			expectError: false,
+		},
 	}
 
 	for _, tt := range tests {

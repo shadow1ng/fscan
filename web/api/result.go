@@ -7,9 +7,11 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -393,18 +395,39 @@ func (h *ResultHandler) Export(w http.ResponseWriter, r *http.Request) {
 
 // extractPort 从 "ip:port" 中提取端口
 func extractPort(target string) string {
-	if idx := strings.LastIndex(target, ":"); idx != -1 {
-		return target[idx+1:]
+	_, port, ok := splitTargetHostPort(target)
+	if !ok {
+		return ""
 	}
-	return ""
+	return port
 }
 
 // extractHost 从 "ip:port" 中提取主机
 func extractHost(target string) string {
-	if idx := strings.LastIndex(target, ":"); idx != -1 {
-		return target[:idx]
+	host, _, ok := splitTargetHostPort(target)
+	if !ok {
+		return target
 	}
-	return target
+	return host
+}
+
+func splitTargetHostPort(target string) (string, string, bool) {
+	host, port, err := net.SplitHostPort(target)
+	if err != nil {
+		if strings.Count(target, ":") != 1 {
+			return "", "", false
+		}
+		parts := strings.SplitN(target, ":", 2)
+		host, port = parts[0], parts[1]
+	}
+	if host == "" || port == "" {
+		return "", "", false
+	}
+	portNum, err := strconv.Atoi(port)
+	if err != nil || portNum < 1 || portNum > 65535 {
+		return "", "", false
+	}
+	return host, port, true
 }
 
 // extractServiceInfo 从 details 中提取服务信息

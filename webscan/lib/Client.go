@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -106,7 +107,7 @@ func configureHTTPProxy(tr *http.Transport, legacyProxy string, networkConfig *c
 		} else if httpProxyURL == ProxyShortcutSocks5 {
 			httpProxyURL = ProxySocks5URL
 		} else if !strings.Contains(httpProxyURL, "://") {
-			httpProxyURL = "http://127.0.0.1:" + httpProxyURL
+			httpProxyURL = normalizeHTTPProxyURL(httpProxyURL)
 		}
 
 		// 验证代理类型
@@ -125,6 +126,13 @@ func configureHTTPProxy(tr *http.Transport, legacyProxy string, networkConfig *c
 
 	// 无代理配置
 	return nil
+}
+
+func normalizeHTTPProxyURL(proxyURL string) string {
+	if _, err := strconv.Atoi(proxyURL); err == nil {
+		return "http://127.0.0.1:" + proxyURL
+	}
+	return "http://" + proxyURL
 }
 
 // InitHTTPClient 创建HTTP客户端

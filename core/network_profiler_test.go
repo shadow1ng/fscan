@@ -60,7 +60,7 @@ func TestClassifyNetwork(t *testing.T) {
 
 	t.Run("公网 RTT 分布（低丢包）", func(t *testing.T) {
 		rtts := makeDurations([]int{60, 70, 80, 90, 100, 110, 120, 150, 200, 300}) // ms
-		p := classifyNetwork(rtts, 0, 10) // 无丢包
+		p := classifyNetwork(rtts, 0, 10)                                          // 无丢包
 
 		if p.Env != EnvInternet {
 			t.Errorf("env = %v, want Internet", p.Env)
@@ -72,7 +72,7 @@ func TestClassifyNetwork(t *testing.T) {
 
 	t.Run("高丢包归类为慢速", func(t *testing.T) {
 		rtts := makeDurations([]int{60, 70, 80, 90, 100}) // ms, 5 responded
-		p := classifyNetwork(rtts, 5, 10)                  // 50% loss
+		p := classifyNetwork(rtts, 5, 10)                 // 50% loss
 
 		if p.Env != EnvSlow {
 			t.Errorf("env = %v, want Slow (高丢包)", p.Env)
@@ -96,14 +96,14 @@ func TestClassifyNetwork(t *testing.T) {
 
 func TestRecommendConcurrency(t *testing.T) {
 	tests := []struct {
-		env       NetworkEnv
-		lossRate  float64
-		userT     int
-		explicit  bool
-		wantTMin  int
-		wantTMax  int
-		wantCeil  int
-		desc      string
+		env      NetworkEnv
+		lossRate float64
+		userT    int
+		explicit bool
+		wantTMin int
+		wantTMax int
+		wantCeil int
+		desc     string
 	}{
 		{EnvLAN, 0.0, 600, false, 800, 1000, -1, "内网自动: ×1.5"},
 		{EnvWAN, 0.0, 600, false, 550, 650, -1, "局域网自动: ×1.0"},
@@ -153,6 +153,24 @@ func TestPickSamples(t *testing.T) {
 	s = pickSamples(nil, 10)
 	if len(s) != 0 {
 		t.Errorf("pickSamples(nil, 10) = %d items, want 0", len(s))
+	}
+}
+
+func TestNetworkProbeAddressUsesJoinHostPort(t *testing.T) {
+	tests := []struct {
+		host string
+		port int
+		want string
+	}{
+		{"127.0.0.1", 80, "127.0.0.1:80"},
+		{"::1", 443, "[::1]:443"},
+		{"2001:db8::1", 22, "[2001:db8::1]:22"},
+	}
+
+	for _, tt := range tests {
+		if got := networkProbeAddress(tt.host, tt.port); got != tt.want {
+			t.Fatalf("networkProbeAddress(%q, %d) = %q, want %q", tt.host, tt.port, got, tt.want)
+		}
 	}
 }
 
