@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/shadow1ng/fscan/common"
@@ -42,7 +43,47 @@ func NewWebTitlePlugin() *WebTitlePlugin {
 // Scan 执行WebTitle扫描
 func (p *WebTitlePlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *WebScanResult {
 	config := session.Config
-	title, status, length, server, fingerprints, url, err := p.getWebTitle(ctx, info, config, session)
+
+	// 带重试的 HTTP 请求：批量扫描时并发压力可能导致瞬时失败
+	maxRetries := config.MaxRetries
+	if maxRetries <= 0 {
+		maxRetries = 1
+	}
+	if maxRetries > 3 {
+		maxRetries = 3
+	}
+
+	var title string
+	var status, length int
+	var server string
+	var fingerprints []string
+	var url string
+	var err error
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		select {
+		case <-ctx.Done():
+			return &WebScanResult{Success: false, Error: ctx.Err()}
+		default:
+		}
+
+		title, status, length, server, fingerprints, url, err = p.getWebTitle(ctx, info, config, session)
+		if err == nil {
+			break
+		}
+
+		if attempt < maxRetries-1 {
+			wait := time.Duration(200*(1<<uint(attempt))) * time.Millisecond
+			timer := time.NewTimer(wait)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return &WebScanResult{Success: false, Error: ctx.Err()}
+			case <-timer.C:
+			}
+		}
+	}
+
 	if err != nil {
 		return &WebScanResult{
 			Success: false,
