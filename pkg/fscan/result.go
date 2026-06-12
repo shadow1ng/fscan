@@ -135,19 +135,23 @@ func (r Result) DetailBool(key string) (bool, bool) {
 // Port returns the result port from details, or from a target in host:port form.
 func (r Result) Port() (int, bool) {
 	if port, ok := r.DetailInt("port"); ok {
-		return port, true
+		return port, validPort(port)
 	}
 	if _, portText, err := net.SplitHostPort(r.Target); err == nil {
 		port, err := strconv.Atoi(portText)
-		return port, err == nil
+		return port, err == nil && validPort(port)
 	}
 	if strings.Count(r.Target, ":") == 1 {
 		if idx := strings.LastIndex(r.Target, ":"); idx >= 0 && idx+1 < len(r.Target) {
 			port, err := strconv.Atoi(r.Target[idx+1:])
-			return port, err == nil
+			return port, err == nil && validPort(port)
 		}
 	}
 	return 0, false
+}
+
+func validPort(port int) bool {
+	return port >= 1 && port <= 65535
 }
 
 // Service returns the detected service name when present.

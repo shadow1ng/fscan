@@ -5,6 +5,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"time"
 
 	ldaplib "github.com/go-ldap/ldap/v3"
 	"github.com/shadow1ng/fscan/common"
@@ -78,12 +79,17 @@ func (p *LDAPPlugin) doLDAPAuth(ctx context.Context, info *common.HostInfo, cred
 			Error:     err,
 		}
 	}
+	stopCancelClose := context.AfterFunc(ctx, func() {
+		_ = conn.Close()
+	})
+	defer stopCancelClose()
 
 	// 尝试多种DN格式进行绑定测试
+	escapedUser := ldaplib.EscapeDN(cred.Username)
 	dnFormats := []string{
-		fmt.Sprintf("cn=%s,dc=example,dc=com", cred.Username),
-		fmt.Sprintf("uid=%s,dc=example,dc=com", cred.Username),
-		fmt.Sprintf("cn=%s,ou=users,dc=example,dc=com", cred.Username),
+		fmt.Sprintf("cn=%s,dc=example,dc=com", escapedUser),
+		fmt.Sprintf("uid=%s,dc=example,dc=com", escapedUser),
+		fmt.Sprintf("cn=%s,ou=users,dc=example,dc=com", escapedUser),
 		cred.Username,
 	}
 
@@ -171,6 +177,10 @@ func (p *LDAPPlugin) doNTLMHashAuth(ctx context.Context, info *common.HostInfo, 
 			Error:     err,
 		}
 	}
+	stopCancelClose := context.AfterFunc(ctx, func() {
+		_ = conn.Close()
+	})
+	defer stopCancelClose()
 
 	if err := conn.NTLMBindWithHash(domain, username, hash); err == nil {
 		return &AuthResult{
@@ -212,6 +222,7 @@ func (p *LDAPPlugin) connectLDAP(ctx context.Context, info *common.HostInfo, ses
 		} else {
 			conn = ldaplib.NewConn(tcpConn, false)
 		}
+		conn.SetTimeout(session.Config.Timeout)
 		conn.Start()
 
 		resultChan <- result{conn, nil}
@@ -222,9 +233,15 @@ func (p *LDAPPlugin) connectLDAP(ctx context.Context, info *common.HostInfo, ses
 		return res.conn, res.err
 	case <-ctx.Done():
 		go func() {
-			res := <-resultChan
-			if res.conn != nil {
-				_ = res.conn.Close()
+			timer := time.NewTimer(authCleanupWait())
+			defer timer.Stop()
+
+			select {
+			case res := <-resultChan:
+				if res.conn != nil {
+					_ = res.conn.Close()
+				}
+			case <-timer.C:
 			}
 		}()
 		return nil, ctx.Err()

@@ -109,12 +109,12 @@ func registerStringImplementations() []*functions.Overload {
 						return types.NewErr("invalid length to 'substr'")
 					}
 					runes := []rune(str)
-					if start < 0 || length < 0 || int(start+length) > len(runes) {
+					if start < 0 || length < 0 || start > types.Int(len(runes)) || length > types.Int(len(runes))-start {
 						return types.NewErr("invalid start or length to 'substr'")
 					}
-					return types.String(runes[start : start+length])
+					return types.String(runes[int(start):int(start+length)])
 				}
-				return types.NewErr("too many arguments to 'substr'")
+				return types.NewErr("invalid argument count to 'substr'")
 			},
 		},
 		{

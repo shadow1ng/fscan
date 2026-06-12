@@ -33,6 +33,8 @@ var (
 	baseProgramOpt []cel.ProgramOption
 )
 
+const maxPOCResponseBodyBytes = 8 << 20
+
 // 包级POC配置（atomic 保证并发安全）
 var pocDNSLog atomic.Bool
 
@@ -386,6 +388,9 @@ func reverseCheck(r *Reverse, timeout int64) bool {
 
 // RandomStr 生成指定长度的随机字符串
 func RandomStr(randSource *rand.Rand, letterBytes string, n int) string {
+	if n <= 0 || letterBytes == "" {
+		return ""
+	}
 	const (
 		// 用 6 位比特表示一个字母索引
 		letterIdxBits = 6
@@ -471,9 +476,9 @@ func DoRequest(req *http.Request, redirect bool, session *common.ScanSession) (*
 	)
 
 	if redirect {
-		oResp, err = Client.Do(req)
+		oResp, err = requestClient(true).Do(req)
 	} else {
-		oResp, err = ClientNoRedirect.Do(req)
+		oResp, err = requestClient(false).Do(req)
 	}
 
 	// 标准TLS连接失败时，尝试国密TLS客户端
@@ -484,12 +489,16 @@ func DoRequest(req *http.Request, redirect bool, session *common.ScanSession) (*
 			}
 		}
 		if redirect {
-			if oResp2, err2 := ClientGM.Do(req); err2 == nil {
-				oResp, err = oResp2, nil
+			if clientGM := gmRequestClient(true); clientGM != nil {
+				if oResp2, err2 := clientGM.Do(req); err2 == nil {
+					oResp, err = oResp2, nil
+				}
 			}
 		} else {
-			if oResp2, err2 := ClientNoRedirectGM.Do(req); err2 == nil {
-				oResp, err = oResp2, nil
+			if clientGM := gmRequestClient(false); clientGM != nil {
+				if oResp2, err2 := clientGM.Do(req); err2 == nil {
+					oResp, err = oResp2, nil
+				}
 			}
 		}
 	}
@@ -511,6 +520,30 @@ func DoRequest(req *http.Request, redirect bool, session *common.ScanSession) (*
 	}
 
 	return resp, err
+}
+
+func requestClient(redirect bool) *http.Client {
+	if redirect {
+		if Client != nil {
+			return Client
+		}
+		return http.DefaultClient
+	}
+	if ClientNoRedirect != nil {
+		return ClientNoRedirect
+	}
+	return &http.Client{
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+}
+
+func gmRequestClient(redirect bool) *http.Client {
+	if redirect {
+		return ClientGM
+	}
+	return ClientNoRedirectGM
 }
 
 // ParseURL 解析 TargetURL 并转换为自定义 TargetURL 类型
@@ -597,7 +630,7 @@ func ParseResponse(oResp *http.Response) (*Response, error) {
 // getRespBody 读取 HTTP 响应体并处理可能的 gzip 压缩
 func getRespBody(oResp *http.Response) ([]byte, error) {
 	// 读取原始响应体
-	body, err := io.ReadAll(oResp.Body)
+	body, err := io.ReadAll(io.LimitReader(oResp.Body, maxPOCResponseBodyBytes))
 	if err != nil && !errors.Is(err, io.EOF) && len(body) == 0 {
 		return nil, err
 	}
@@ -610,7 +643,7 @@ func getRespBody(oResp *http.Response) ([]byte, error) {
 		}
 		defer func() { _ = reader.Close() }()
 
-		decompressed, err := io.ReadAll(reader)
+		decompressed, err := io.ReadAll(io.LimitReader(reader, maxPOCResponseBodyBytes))
 		if err != nil && !errors.Is(err, io.EOF) && len(decompressed) == 0 {
 			return nil, err
 		}

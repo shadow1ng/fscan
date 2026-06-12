@@ -244,10 +244,7 @@ func parseSNMPResponse(data []byte) string {
 
 	if value.Tag == asn1.TagOctetString || value.Tag == asn1.TagUTF8String {
 		s := strings.TrimSpace(string(value.Bytes))
-		if len(s) > 200 {
-			s = s[:200]
-		}
-		return s
+		return truncateRunes(s, 200)
 	}
 	return fmt.Sprintf("(type=%d, len=%d)", value.Tag, len(value.Bytes))
 }

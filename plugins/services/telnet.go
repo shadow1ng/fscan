@@ -550,9 +550,7 @@ func (p *TelnetPlugin) identifyService(ctx context.Context, info *common.HostInf
 			banner = i18n.GetText("telnet_password_only")
 		} else if cleaned != "" {
 			displayCleaned := cleaned
-			if len(displayCleaned) > 50 {
-				displayCleaned = displayCleaned[:50] + "..."
-			}
+			displayCleaned = truncateRunes(displayCleaned, 50)
 			banner = i18n.Tr("telnet_custom_welcome", displayCleaned)
 		} else {
 			banner = i18n.GetText("telnet_remote_terminal_service")
@@ -735,10 +733,7 @@ func (p *TelnetPlugin) extractEvidence(output string) string {
 		if strings.HasPrefix(line, "echo ") || strings.HasPrefix(line, "id") || strings.HasPrefix(line, "show ") {
 			continue
 		}
-		if len(line) > 100 {
-			return line[:100] + "..."
-		}
-		return line
+		return truncateRunes(line, 100)
 	}
 	return ""
 }

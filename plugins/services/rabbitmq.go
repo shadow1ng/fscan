@@ -228,24 +228,39 @@ func (p *RabbitMQPlugin) testAMQPProtocol(ctx context.Context, info *common.Host
 		return nil
 	}
 
-	buffer := make([]byte, 32)
-	n, err := conn.Read(buffer)
-	if err != nil || n < 4 {
+	ok, err := readRabbitMQAMQPResponse(conn)
+	if err != nil || !ok {
 		return nil
 	}
 
-	if string(buffer[:4]) == "AMQP" || (n >= 8 && buffer[0] == 0x01) {
-		banner := "RabbitMQ AMQP"
-		session.LogSuccess(i18n.Tr("rabbitmq_service", target, banner))
-		return &ScanResult{
-			Type:    plugins.ResultTypeService,
-			Success: true,
-			Service: "rabbitmq",
-			Banner:  banner,
-		}
+	banner := "RabbitMQ AMQP"
+	session.LogSuccess(i18n.Tr("rabbitmq_service", target, banner))
+	return &ScanResult{
+		Type:    plugins.ResultTypeService,
+		Success: true,
+		Service: "rabbitmq",
+		Banner:  banner,
 	}
+}
 
-	return nil
+func readRabbitMQAMQPResponse(conn interface {
+	Read([]byte) (int, error)
+}) (bool, error) {
+	header := make([]byte, 4)
+	if _, err := io.ReadFull(conn, header); err != nil {
+		return false, err
+	}
+	if string(header) == "AMQP" {
+		return true, nil
+	}
+	if header[0] != 0x01 {
+		return false, nil
+	}
+	rest := make([]byte, 4)
+	if _, err := io.ReadFull(conn, rest); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (p *RabbitMQPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
@@ -287,7 +302,7 @@ func (p *RabbitMQPlugin) testManagementInterface(ctx context.Context, info *comm
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == 200 || resp.StatusCode == 401 {
-		body, err := io.ReadAll(resp.Body)
+		body, err := readServiceHTTPBody(resp.Body)
 		if err != nil {
 			return &ScanResult{
 				Success: false,

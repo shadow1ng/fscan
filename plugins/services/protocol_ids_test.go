@@ -1,3 +1,5 @@
+//go:build !plugin_selective || (plugin_mongodb && plugin_kafka && plugin_cassandra)
+
 package services
 
 import (

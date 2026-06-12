@@ -76,9 +76,7 @@ func parseTFTPResponse(data []byte) (string, bool) {
 		return "TFTP DATA response", true
 	case 0x05:
 		msg := strings.TrimRight(string(data[4:]), "\x00")
-		if len(msg) > 160 {
-			msg = msg[:160]
-		}
+		msg = truncateRunes(msg, 160)
 		if msg == "" {
 			msg = "error response"
 		}

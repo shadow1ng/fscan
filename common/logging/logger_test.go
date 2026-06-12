@@ -2,6 +2,8 @@ package logging
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -159,6 +161,13 @@ func TestLogger_AllLevels(t *testing.T) {
 			message: "success message",
 			wantMsg: "success message",
 			wantPfx: PrefixSuccess,
+		},
+		{
+			name:    "Vuln级别",
+			logFunc: logger.Vuln,
+			message: "vuln message",
+			wantMsg: "vuln message",
+			wantPfx: PrefixVuln,
 		},
 		{
 			name:    "Error级别",
@@ -649,4 +658,35 @@ func TestLogger_Initialize(t *testing.T) {
 	}
 
 	t.Logf("✓ Initialize测试通过")
+}
+
+func TestLogger_CloseClosesDebugFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "debug.log")
+	logger := NewLogger(&LoggerConfig{
+		Level:        LevelAll,
+		EnableColor:  false,
+		ShowProgress: false,
+		StartTime:    time.Now(),
+		LevelColors:  GetDefaultLevelColors(),
+		DebugLogFile: path,
+	})
+	if logger.debugFile == nil {
+		t.Fatal("debug file should be opened")
+	}
+
+	logger.Info("debug file line")
+	logger.Close()
+	if logger.debugFile != nil {
+		t.Fatal("debug file should be nil after Close")
+	}
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read debug file: %v", err)
+	}
+	if !strings.Contains(string(content), "debug file line") {
+		t.Fatalf("debug file content = %q", string(content))
+	}
+
+	logger.Close()
 }

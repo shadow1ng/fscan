@@ -38,6 +38,19 @@ func escapeControlChars(s string) string {
 	return b.String()
 }
 
+func truncateString(s string, maxRunes int) string {
+	if maxRunes < 0 {
+		return s
+	}
+	for i := range s {
+		if maxRunes == 0 {
+			return s[:i] + "..."
+		}
+		maxRunes--
+	}
+	return s
+}
+
 func targetWithPort(target string, port interface{}) string {
 	if port == nil {
 		return target
@@ -196,10 +209,8 @@ func (w *TXTWriter) formatServiceLine(result *ScanResult) string {
 		parts = append(parts, service)
 	}
 	if banner != "" {
-		if len(banner) > 100 {
-			banner = banner[:100] + "..."
-		}
 		banner = escapeControlChars(banner)
+		banner = truncateString(banner, 100)
 		parts = append(parts, banner)
 	}
 	return strings.Join(parts, " ")
@@ -745,9 +756,7 @@ func (w *CSVWriter) formatServiceRecord(result *ScanResult) []string {
 		fingerprints = formatFingerprints(result.Details["fingerprints"])
 		if b, ok := result.Details["banner"].(string); ok {
 			banner = escapeControlChars(b)
-			if len(banner) > 100 {
-				banner = banner[:100] + "..."
-			}
+			banner = truncateString(banner, 100)
 		}
 	}
 	target := result.Target

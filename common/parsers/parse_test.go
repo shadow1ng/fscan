@@ -386,6 +386,15 @@ func TestParsePort_PortGroups(t *testing.T) {
 	}
 }
 
+func TestParsePortGroupsRequireWholeToken(t *testing.T) {
+	if got := ParsePort("web8080"); len(got) != 0 {
+		t.Fatalf("ParsePort(web8080) = %v, want empty invalid token", got)
+	}
+	if got := ParsePort("web,8080"); len(got) == 0 || got[len(got)-1] != 28018 {
+		t.Fatalf("ParsePort(web,8080) = %v, want expanded web group", got)
+	}
+}
+
 // TestParsePort_WhitespaceHandling 测试空格处理
 func TestParsePort_WhitespaceHandling(t *testing.T) {
 	tests := []struct {

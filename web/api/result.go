@@ -113,8 +113,8 @@ func (s *ResultStore) Add(result interface{}) *ResultItem {
 		if details, ok := m["details"].(map[string]interface{}); ok {
 			item.Details = details
 			if port, ok := details["port"]; ok {
-				if item.Target != "" && !strings.Contains(item.Target, ":") {
-					item.Target = fmt.Sprintf("%s:%v", item.Target, port)
+				if target := targetWithDetailsPort(item.Target, port); target != "" {
+					item.Target = target
 				}
 			}
 			item.Status = buildStatusFromDetails(item.Type, item.Status, details)
@@ -163,6 +163,37 @@ func (s *ResultStore) Add(result interface{}) *ResultItem {
 
 	item.ID, _ = res.LastInsertId()
 	return &item
+}
+
+func targetWithDetailsPort(target string, port interface{}) string {
+	if target == "" {
+		return ""
+	}
+	if strings.Contains(target, "://") || strings.ContainsAny(target, "/?#") {
+		return ""
+	}
+	if _, _, ok := splitTargetHostPort(target); ok {
+		return ""
+	}
+	if strings.Contains(target, ":") {
+		hostForIP := target
+		if strings.HasPrefix(hostForIP, "[") && strings.HasSuffix(hostForIP, "]") {
+			hostForIP = strings.TrimPrefix(strings.TrimSuffix(hostForIP, "]"), "[")
+		}
+		if net.ParseIP(hostForIP) == nil {
+			return ""
+		}
+	}
+	portText := strings.TrimSpace(fmt.Sprint(port))
+	portNum, err := strconv.Atoi(portText)
+	if err != nil || portNum < 1 || portNum > 65535 {
+		return ""
+	}
+	host := target
+	if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+		host = strings.TrimPrefix(strings.TrimSuffix(host, "]"), "[")
+	}
+	return net.JoinHostPort(host, portText)
 }
 
 // List 获取所有结果
@@ -444,12 +475,23 @@ func extractServiceInfo(details interface{}) (service, version, banner string) {
 		}
 		if b, ok := m["banner"].(string); ok {
 			banner = escapeControlChars(b)
-			if len(banner) > 100 {
-				banner = banner[:100] + "..."
-			}
+			banner = truncateString(banner, 100)
 		}
 	}
 	return
+}
+
+func truncateString(s string, maxRunes int) string {
+	if maxRunes < 0 {
+		return s
+	}
+	for i := range s {
+		if maxRunes == 0 {
+			return s[:i] + "..."
+		}
+		maxRunes--
+	}
+	return s
 }
 
 // extractVulnType 从 details 中提取漏洞类型

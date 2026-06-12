@@ -37,3 +37,27 @@ func TestMSSQLLogin7DoesNotExposeClientIdentity(t *testing.T) {
 		}
 	}
 }
+
+func TestMSSQLReadMessageRejectsOversizedMultipartMessage(t *testing.T) {
+	var packet bytes.Buffer
+	remaining := maxTDSMessageSize + 1
+	for remaining > 0 {
+		chunkLen := remaining
+		if chunkLen > 65527 {
+			chunkLen = 65527
+		}
+		remaining -= chunkLen
+		status := byte(0)
+		if remaining == 0 {
+			status = tdsStatusEOM
+		}
+		header := []byte{tdsPacketReply, status, 0, 0, 0, 0, 1, 0}
+		binary.BigEndian.PutUint16(header[2:4], uint16(chunkLen+8))
+		packet.Write(header)
+		packet.Write(bytes.Repeat([]byte{0x41}, chunkLen))
+	}
+
+	if _, _, err := mssqlReadMessage(&packet); err == nil {
+		t.Fatal("mssqlReadMessage() error = nil, want oversized message error")
+	}
+}

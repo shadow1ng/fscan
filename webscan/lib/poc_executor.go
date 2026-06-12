@@ -359,7 +359,7 @@ func doSearch(re string, body string) map[string]string {
 	if len(result) > 1 && len(names) > 1 {
 		paramsMap := make(map[string]string)
 		for i, name := range names {
-			if i > 0 && i <= len(result) {
+			if i > 0 && i < len(result) && name != "" {
 				// 特殊处理Set-Cookie头：剥离Path/Expires等属性，仅保留key=value
 				if strings.HasPrefix(re, "Set-Cookie:") {
 					paramsMap[name] = optimizeCookies(result[i])
@@ -470,7 +470,7 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 		for comboIndex, paramCombo := range setsMap {
 			// Shiro Key测试特殊处理:默认只测试10个key
 			if p.Name == "poc-yaml-shiro-key" && !pocCtx.POCFull && comboIndex >= 10 {
-				if paramCombo[1] == "cbc" {
+				if shiroKeyMode(paramCombo) == "cbc" {
 					continue
 				}
 				if shiroKeyCount == 0 {
@@ -552,6 +552,13 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 	}
 
 	return success, nil
+}
+
+func shiroKeyMode(paramCombo []string) string {
+	if len(paramCombo) < 2 {
+		return ""
+	}
+	return paramCombo[1]
 }
 
 // applyParametersToRule 将参数应用到规则中，返回是否有替换发生和替换的参数列表

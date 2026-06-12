@@ -447,13 +447,24 @@ func buildServiceLogMessage(addr string, serviceInfo *ServiceInfo, isWeb bool) s
 	// Banner 信息
 	if len(serviceInfo.Banner) > 0 {
 		banner := strings.TrimSpace(serviceInfo.Banner)
-		if len(banner) > 80 {
-			banner = banner[:80] + "..."
-		}
+		banner = truncateString(banner, 80)
 		fmt.Fprintf(&msg, " Banner:(%s)", banner)
 	}
 
 	return msg.String()
+}
+
+func truncateString(s string, maxRunes int) string {
+	if maxRunes < 0 {
+		return s
+	}
+	for i := range s {
+		if maxRunes == 0 {
+			return s[:i] + "..."
+		}
+		maxRunes--
+	}
+	return s
 }
 
 func buildWebServiceURL(addr string, serviceInfo *ServiceInfo) string {

@@ -1,3 +1,5 @@
+//go:build plugin_postgresql || !plugin_selective
+
 package services
 
 import (
@@ -19,5 +21,12 @@ func TestPostgreSQLConnStringEscapesIPv6AndCredentials(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Fatalf("postgreSQLConnString() = %q, missing %q", got, want)
 		}
+	}
+}
+
+func TestPostgreSQLVulnInfoTruncatesByRune(t *testing.T) {
+	got := truncateRunes(strings.Repeat("界", 105), 100)
+	if len([]rune(got)) != 103 || !strings.HasSuffix(got, "...") {
+		t.Fatalf("postgresql truncation helper = %q", got)
 	}
 }

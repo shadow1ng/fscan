@@ -51,13 +51,7 @@ func (p *RMIPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 		return &ScanResult{Success: false, Service: "rmi"}
 	}
 
-	buf := make([]byte, 255)
-	n, err := conn.Read(buf)
-	if err != nil && n == 0 {
-		return &ScanResult{Success: false, Service: "rmi"}
-	}
-
-	endpoint := parseRMIEndpoint(buf[:n])
+	endpoint := readRMIEndpoint(conn)
 
 	return &ScanResult{
 		Success: true,
@@ -84,6 +78,25 @@ func parseRMIEndpoint(data []byte) string {
 	}
 	port := int(data[offset])<<24 | int(data[offset+1])<<16 | int(data[offset+2])<<8 | int(data[offset+3])
 	return fmt.Sprintf("Java RMI endpoint=%s:%d", host, port)
+}
+
+func readRMIEndpoint(conn interface {
+	Read([]byte) (int, error)
+}) string {
+	header := make([]byte, 2)
+	if _, err := io.ReadFull(conn, header); err != nil {
+		return "Java RMI"
+	}
+	hostLen := int(header[0])<<8 | int(header[1])
+	if hostLen <= 0 || hostLen > 249 {
+		return "Java RMI"
+	}
+	payload := make([]byte, hostLen+4)
+	if _, err := io.ReadFull(conn, payload); err != nil {
+		return "Java RMI"
+	}
+	data := append(header, payload...)
+	return parseRMIEndpoint(data)
 }
 
 func init() {

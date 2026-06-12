@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/shadow1ng/fscan/common"
@@ -88,13 +89,11 @@ func (p *NFSPlugin) rpcNullCall(conn interface {
 		return err
 	}
 
-	buf := make([]byte, 512)
-	n, err := conn.Read(buf)
-	if err != nil || n < 28 {
+	reply, err := readRPCFragment(conn, 512)
+	if err != nil || len(reply) < 24 {
 		return fmt.Errorf("short response")
 	}
 
-	reply := buf[4:n]
 	replyXID := binary.BigEndian.Uint32(reply[0:4])
 	if replyXID != xid {
 		return fmt.Errorf("xid mismatch")
@@ -119,15 +118,10 @@ func (p *NFSPlugin) getExports(conn interface {
 		return nil, err
 	}
 
-	// Read fragment header (4 bytes) + response
-	buf := make([]byte, 4096)
-	n, err := conn.Read(buf)
-	if err != nil || n < 28 {
-		return nil, fmt.Errorf("short response: %d bytes", n)
+	reply, err := readRPCFragment(conn, 4096)
+	if err != nil {
+		return nil, err
 	}
-
-	// Skip fragment header (4 bytes), parse RPC reply
-	reply := buf[4:n]
 	if len(reply) < 24 {
 		return nil, fmt.Errorf("invalid reply")
 	}
@@ -152,7 +146,16 @@ func (p *NFSPlugin) getExports(conn interface {
 	}
 	// verifier flavor + length
 	verifierLen := binary.BigEndian.Uint32(reply[offset+4 : offset+8])
+	if verifierLen > uint32(len(reply)-offset-8) {
+		return nil, fmt.Errorf("truncated verifier")
+	}
 	offset += 8 + int(verifierLen)
+	if pad := (4 - verifierLen%4) % 4; pad > 0 {
+		if int(pad) > len(reply)-offset {
+			return nil, fmt.Errorf("truncated verifier padding")
+		}
+		offset += int(pad)
+	}
 
 	// Accept status
 	if offset+4 > len(reply) {
@@ -201,13 +204,38 @@ func (p *NFSPlugin) parseExportList(data []byte) []string {
 				break
 			}
 			groupLen := binary.BigEndian.Uint32(data[offset : offset+4])
-			offset += 4 + int(groupLen)
+			offset += 4
+			if groupLen > uint32(len(data)-offset) {
+				break
+			}
+			offset += int(groupLen)
 			if pad := (4 - groupLen%4) % 4; pad > 0 {
+				if int(pad) > len(data)-offset {
+					break
+				}
 				offset += int(pad)
 			}
 		}
 	}
 	return exports
+}
+
+func readRPCFragment(conn interface {
+	Read([]byte) (int, error)
+}, maxPayload int) ([]byte, error) {
+	var header [4]byte
+	if _, err := io.ReadFull(conn, header[:]); err != nil {
+		return nil, fmt.Errorf("short fragment header: %w", err)
+	}
+	size := int(binary.BigEndian.Uint32(header[:]) & 0x7fffffff)
+	if size <= 0 || size > maxPayload {
+		return nil, fmt.Errorf("invalid fragment size: %d", size)
+	}
+	payload := make([]byte, size)
+	if _, err := io.ReadFull(conn, payload); err != nil {
+		return nil, fmt.Errorf("short fragment payload: %w", err)
+	}
+	return payload, nil
 }
 
 func (p *NFSPlugin) buildRPCCall(xid, program, version, procedure uint32, data []byte) []byte {

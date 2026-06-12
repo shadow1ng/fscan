@@ -696,12 +696,8 @@ func classifySMBError(err error) ErrorType {
 // readSMBMessage 从连接读取NetBIOS消息
 func readSMBMessage(conn net.Conn) ([]byte, error) {
 	headerBuf := make([]byte, 4)
-	n, err := conn.Read(headerBuf)
-	if err != nil {
+	if _, err := io.ReadFull(conn, headerBuf); err != nil {
 		return nil, err
-	}
-	if n != 4 {
-		return nil, fmt.Errorf(i18n.GetText("netbios_header_too_short")+": %d", n)
 	}
 
 	messageLength := int(headerBuf[0])<<24 | int(headerBuf[1])<<16 | int(headerBuf[2])<<8 | int(headerBuf[3])
@@ -715,13 +711,8 @@ func readSMBMessage(conn net.Conn) ([]byte, error) {
 	}
 
 	messageBuf := make([]byte, messageLength)
-	totalRead := 0
-	for totalRead < messageLength {
-		n, err := conn.Read(messageBuf[totalRead:])
-		if err != nil {
-			return nil, err
-		}
-		totalRead += n
+	if _, err := io.ReadFull(conn, messageBuf); err != nil {
+		return nil, err
 	}
 
 	result := make([]byte, 0, 4+messageLength)

@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"context"
 	"testing"
 
 	"github.com/shadow1ng/fscan/common"
@@ -22,6 +23,122 @@ init_test.go - 插件系统核心逻辑测试
 // =============================================================================
 // GenerateCredentials - 核心凭据生成逻辑
 // =============================================================================
+
+func preservePluginRegistry(t *testing.T) {
+	t.Helper()
+
+	mutex.RLock()
+	snapshot := make(map[string]*PluginInfo, len(plugins))
+	for name, info := range plugins {
+		copied := *info
+		copied.ports = append([]int(nil), info.ports...)
+		copied.types = append([]string(nil), info.types...)
+		snapshot[name] = &copied
+	}
+	mutex.RUnlock()
+
+	t.Cleanup(func() {
+		mutex.Lock()
+		plugins = snapshot
+		mutex.Unlock()
+	})
+}
+
+type testPlugin struct {
+	BasePlugin
+}
+
+func (p testPlugin) Scan(context.Context, *common.HostInfo, *common.ScanSession) *Result {
+	return &Result{Type: ResultTypeService, Success: true}
+}
+
+func TestPluginRegistryMetadata(t *testing.T) {
+	preservePluginRegistry(t)
+
+	RegisterWithPorts("unit_tcp", func() Plugin {
+		return testPlugin{BasePlugin: NewBasePlugin("unit_tcp")}
+	}, []int{1234, 5678})
+	RegisterUDPWithPorts("unit_udp", func() Plugin {
+		return testPlugin{BasePlugin: NewBasePlugin("unit_udp")}
+	}, []int{161})
+	RegisterWithTypes("unit_local", func() Plugin {
+		return testPlugin{BasePlugin: NewBasePlugin("unit_local")}
+	}, nil, []string{PluginTypeLocal})
+	RegisterUnsafeWithTypes("unit_unsafe_web", func() Plugin {
+		return testPlugin{BasePlugin: NewBasePlugin("unit_unsafe_web")}
+	}, nil, []string{PluginTypeWeb})
+
+	if !Exists("unit_tcp") || Exists("missing_plugin") {
+		t.Fatal("Exists returned wrong result")
+	}
+	if got := Get("unit_tcp"); got == nil || got.Name() != "unit_tcp" {
+		t.Fatalf("Get(unit_tcp) = %#v", got)
+	}
+	if got := Get("missing_plugin"); got != nil {
+		t.Fatalf("Get(missing_plugin) = %#v, want nil", got)
+	}
+	if !HasType("unit_tcp", PluginTypeService) || !HasType("unit_local", PluginTypeLocal) {
+		t.Fatal("registered plugin types were not recorded")
+	}
+	if !IsUDP("unit_udp") || IsUDP("unit_tcp") {
+		t.Fatal("UDP metadata is wrong")
+	}
+	if !IsSafe("unit_tcp") || IsSafe("unit_local") || IsSafe("unit_unsafe_web") || IsSafe("missing_plugin") {
+		t.Fatal("safe metadata is wrong")
+	}
+
+	ports := GetPluginPorts("unit_tcp")
+	if len(ports) != 2 || ports[0] != 1234 || ports[1] != 5678 {
+		t.Fatalf("ports = %#v", ports)
+	}
+	if got := GetPluginPorts("missing_plugin"); len(got) != 0 {
+		t.Fatalf("missing plugin ports = %#v, want empty", got)
+	}
+	if !hasPluginType([]string{PluginTypeWeb, PluginTypeLocal}, PluginTypeLocal) ||
+		hasPluginType([]string{PluginTypeWeb}, PluginTypeUDP) {
+		t.Fatal("hasPluginType returned wrong result")
+	}
+
+	names := All()
+	for _, want := range []string{"unit_tcp", "unit_udp", "unit_local", "unit_unsafe_web"} {
+		if !containsPluginName(names, want) {
+			t.Fatalf("All() missing %q in %#v", want, names)
+		}
+	}
+}
+
+func TestPluginLocalModeHook(t *testing.T) {
+	preservePluginRegistry(t)
+
+	RegisterWithTypes("unit_local_mode", func() Plugin {
+		return testPlugin{BasePlugin: NewBasePlugin("unit_local_mode")}
+	}, nil, []string{PluginTypeLocal})
+	RegisterWithPorts("unit_service_mode", func() Plugin {
+		return testPlugin{BasePlugin: NewBasePlugin("unit_service_mode")}
+	}, []int{22})
+
+	if common.IsLocalMode == nil {
+		t.Fatal("IsLocalMode hook should be installed")
+	}
+	if !common.IsLocalMode("unit_local_mode") {
+		t.Fatal("single local plugin should be local mode")
+	}
+	if !common.IsLocalMode("unit_local_mode, unit_local_mode") {
+		t.Fatal("local plugin list should be local mode")
+	}
+	if common.IsLocalMode("") || common.IsLocalMode("all") || common.IsLocalMode("unit_local_mode,unit_service_mode") {
+		t.Fatal("non-local modes should not be local mode")
+	}
+}
+
+func containsPluginName(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
 
 func TestGenerateCredentials_UserPassPairs_Priority(t *testing.T) {
 	/*

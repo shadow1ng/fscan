@@ -64,10 +64,7 @@ func parseZooKeeperResponse(data []byte) (string, bool) {
 	lower := strings.ToLower(resp)
 	if strings.Contains(lower, "zookeeper") || strings.Contains(lower, "zk_version") ||
 		strings.Contains(lower, "mode:") || strings.Contains(lower, "not in the whitelist") {
-		if len(resp) > 200 {
-			resp = resp[:200]
-		}
-		return resp, true
+		return truncateRunes(resp, 200), true
 	}
 	return "", false
 }

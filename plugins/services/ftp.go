@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	ftplib "github.com/jlaffaye/ftp"
 	"github.com/shadow1ng/fscan/common"
@@ -80,7 +81,7 @@ func (p *FTPPlugin) createAuthFunc(info *common.HostInfo, config *common.Config,
 func (p *FTPPlugin) doFTPAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
 	target := info.Target()
 
-	conn, err := ftplib.Dial(target, ftplib.DialWithTimeout(config.Timeout))
+	conn, err := ftplib.Dial(target, ftpDialOptions(ctx, config.Timeout)...)
 	if err != nil {
 		state.IncrementTCPFailedPacketCount()
 		return &AuthResult{
@@ -90,6 +91,11 @@ func (p *FTPPlugin) doFTPAuth(ctx context.Context, info *common.HostInfo, cred C
 		}
 	}
 	state.IncrementTCPSuccessPacketCount()
+
+	stopCancelClose := context.AfterFunc(ctx, func() {
+		_ = conn.Quit()
+	})
+	defer stopCancelClose()
 
 	err = conn.Login(cred.Username, cred.Password)
 	if err != nil {
@@ -116,6 +122,13 @@ type ftpConnWrapper struct {
 
 func (w *ftpConnWrapper) Close() error {
 	return w.Quit()
+}
+
+func ftpDialOptions(ctx context.Context, timeout time.Duration) []ftplib.DialOption {
+	return []ftplib.DialOption{
+		ftplib.DialWithTimeout(timeout),
+		ftplib.DialWithContext(ctx),
+	}
 }
 
 // classifyFTPErrorType FTP错误分类
@@ -260,10 +273,7 @@ func (p *FTPPlugin) listFTPFiles(conn *ftplib.ServerConn) []string {
 		}
 
 		fileName := entry.Name
-		if len(fileName) > 50 {
-			fileName = fileName[:50] + "..."
-		}
-		files = append(files, fileName)
+		files = append(files, truncateRunes(fileName, 50))
 	}
 
 	return files

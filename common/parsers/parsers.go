@@ -200,11 +200,14 @@ func parsePortRange(rangeStr string) []int {
 // expandPortGroups 展开端口组
 func expandPortGroups(ports string) string {
 	portGroups := config.GetPortGroups()
-	result := ports
-	for group, portList := range portGroups {
-		result = strings.ReplaceAll(result, group, portList)
+	parts := strings.Split(ports, ",")
+	for i, part := range parts {
+		token := strings.TrimSpace(part)
+		if portList, ok := portGroups[token]; ok {
+			parts[i] = portList
+		}
 	}
-	return result
+	return strings.Join(parts, ",")
 }
 
 // =============================================================================

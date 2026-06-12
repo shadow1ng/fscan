@@ -13,7 +13,7 @@ func (p *Probe) getDirectiveSyntax(data string) (directive Directive) {
 	directive = Directive{}
 	// 查找第一个空格的位置
 	blankIndex := strings.Index(data, " ")
-	if blankIndex == -1 {
+	if blankIndex == -1 || blankIndex+3 > len(data) {
 		return directive
 	}
 
@@ -33,6 +33,10 @@ func (p *Probe) getDirectiveSyntax(data string) (directive Directive) {
 
 // parseProbeInfo 解析探测器信息，返回错误替代 panic
 func (p *Probe) parseProbeInfo(probeStr string) error {
+	if len(probeStr) < 5 {
+		return fmt.Errorf("%s", i18n.GetText("portfinger_probe_protocol_invalid"))
+	}
+
 	// 提取协议和其他信息
 	proto := probeStr[:4]
 	other := probeStr[4:]
@@ -49,6 +53,9 @@ func (p *Probe) parseProbeInfo(probeStr string) error {
 
 	// 解析指令
 	directive := p.getDirectiveSyntax(other)
+	if directive.DirectiveName == "" || directive.Delimiter == "" {
+		return fmt.Errorf("%s", i18n.GetText("portfinger_probe_name_invalid"))
+	}
 
 	// 设置探测器属性
 	p.Name = directive.DirectiveName

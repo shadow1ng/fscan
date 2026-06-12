@@ -76,6 +76,21 @@ func TestResultPortNoPort(t *testing.T) {
 	}
 }
 
+func TestResultPortRejectsOutOfRangePorts(t *testing.T) {
+	tests := []Result{
+		{Target: "10.0.0.1:70000"},
+		{Target: "[::1]:0"},
+		{Details: map[string]interface{}{"port": 70000}},
+		{Details: map[string]interface{}{"port": 0}},
+	}
+
+	for _, result := range tests {
+		if port, ok := result.Port(); ok {
+			t.Fatalf("Port(%#v) = %d/true, want false", result, port)
+		}
+	}
+}
+
 func TestResultCredentialHelpers(t *testing.T) {
 	result := Result{
 		Type:   ResultTypeVuln,
@@ -715,4 +730,3 @@ func TestResultSummaryJSON(t *testing.T) {
 		t.Fatalf("round-trip failed: %#v", decoded)
 	}
 }
-
