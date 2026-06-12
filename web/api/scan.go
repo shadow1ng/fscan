@@ -210,6 +210,11 @@ func (h *ScanHandler) runScan(req ScanRequest) {
 	fv.DisableSave = true // Web模式不保存到文件
 	fv.Silent = true      // 静默模式
 
+	// 用户指定了线程数则标记为显式
+	if req.ThreadNum > 0 {
+		fv.ThreadNumExplicit = true
+	}
+
 	// 构建Config和Session
 	config := common.BuildConfigFromFlags(fv)
 	state := common.NewState()

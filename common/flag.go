@@ -213,6 +213,13 @@ func Flag(Info *HostInfo) error {
 		return err
 	}
 
+	// 检测用户是否显式指定了 -t
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "t" {
+			fv.ThreadNumExplicit = true
+		}
+	})
+
 	// 设置语言
 	i18n.SetLanguage(fv.Language)
 

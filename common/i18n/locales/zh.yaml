@@ -541,6 +541,26 @@ icmp_debug_stable_done:
   other: "[ICMP] 响应稳定，提前结束，耗时 {{.Arg1}}，存活 {{.Arg2}}/{{.Arg3}}"
 adaptive_pool_resource_exhausted:
   other: "[AdaptivePool] 资源耗尽率 {{.Arg1}}%, 线程数 {{.Arg2}} -> {{.Arg3}}"
+adaptive_pool_decrease:
+  other: "并发调整: {{.Arg1}} -> {{.Arg2}} (检测到压力)"
+adaptive_pool_increase:
+  other: "并发调整: {{.Arg1}} -> {{.Arg2}} (网络健康)"
+adaptive_pool_slowstart_exit:
+  other: "慢启动退出: 当前 {{.Arg1}} (检测到拥塞)"
+net_probe_result:
+  other: "网络探测: {{.Arg1}}, RTT {{.Arg2}}ms, 丢包 {{.Arg3}}%, 并发 {{.Arg4}}/{{.Arg5}}"
+net_env_lan:
+  other: "内网"
+net_env_wan:
+  other: "局域网"
+net_env_internet:
+  other: "公网"
+net_env_slow:
+  other: "慢速网络"
+env_tune_summary:
+  other: "参数自适应: Timeout={{.Arg1}}ms, ModuleThread={{.Arg2}}, Retry={{.Arg3}}, ICMPRate={{.Arg4}}, PocNum={{.Arg5}}"
+env_fd_limit:
+  other: "fd limit 约束: 线程数 {{.Arg1}} -> {{.Arg2}} (ulimit={{.Arg3}})"
 
 # ========================= 服务插件通用消息 =========================
 # 格式: {service}_{type} - type: credential/unauth/service/vuln
