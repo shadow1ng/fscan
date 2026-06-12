@@ -187,13 +187,12 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 	totalTasks := iter.Total()
 	session.LogDebug(i18n.Tr("port_scan_debug_total_tasks", totalTasks))
 
-	// 使用传入的配置
+	// 并发参数（已由 EnvironmentProfile.TuneConfig 调整过）
 	threadNum := config.ThreadNum
 
-	// 大规模扫描警告和线程数自动调整
+	// 大规模扫描额外约束
 	if totalTasks > 100000 {
 		session.LogInfo(i18n.Tr("large_scan_notice", totalTasks, len(hosts), len(portList)))
-		// 如果任务数超过100万且线程数大于300，自动降低线程数
 		if totalTasks > 1000000 && threadNum > 300 {
 			oldThreadNum := threadNum
 			threadNum = 300
@@ -211,14 +210,14 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 	// 初始化并发控制
 	to := time.Duration(timeout) * time.Second
 	adaptiveTO := NewAdaptiveTimeout(to)
+	metrics := &ScanMetrics{}
 	var count atomic.Int64
 	collector := newResultCollector(stream)
 	failedCollector := &failedPortCollector{}
 	var wg sync.WaitGroup
 
 	session.LogDebug(i18n.Tr("port_scan_debug_pool_create", threadNum))
-	// 创建自适应线程池（支持动态调整）
-	pool, err := NewAdaptivePool(threadNum, func(task interface{}) {
+	pool, err := NewAdaptivePool(threadNum, threadNum, func(task interface{}) {
 		taskInfo, ok := task.(portScanTask)
 		if !ok {
 			return
@@ -228,9 +227,9 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 			wg.Done()
 		}()
 
-		scanSinglePort(ctx, taskInfo.host, taskInfo.port, taskInfo.addr, adaptiveTO, &count, collector, failedCollector, session)
+		scanSinglePort(ctx, taskInfo.host, taskInfo.port, taskInfo.addr, adaptiveTO, metrics, &count, collector, failedCollector, session)
 		common.UpdateProgressBar(1)
-	}, state)
+	}, metrics)
 	if err != nil {
 		session.LogError(i18n.Tr("thread_pool_create_failed", err))
 		if stream != nil {
@@ -242,7 +241,7 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 	defer pool.Release()
 
 	session.LogDebug(i18n.GetText("port_scan_debug_schedule_start"))
-	// 滑动窗口调度：维护固定数量的"飞行中"任务
+	// 滑动窗口调度
 	slidingWindowSchedule(iter, pool, &wg, threadNum)
 	session.LogDebug(i18n.GetText("port_scan_debug_schedule_done"))
 
@@ -482,17 +481,28 @@ func buildWebServiceURL(addr string, serviceInfo *ServiceInfo) string {
 }
 
 // scanSinglePort 扫描单个端口并进行服务识别（重构后的简洁版本）
-func scanSinglePort(ctx context.Context, host string, port int, addr string, adaptiveTO *AdaptiveTimeout, count *atomic.Int64, collector *resultCollector, failedCollector *failedPortCollector, session *common.ScanSession) {
+func scanSinglePort(ctx context.Context, host string, port int, addr string, adaptiveTO *AdaptiveTimeout, metrics *ScanMetrics, count *atomic.Int64, collector *resultCollector, failedCollector *failedPortCollector, session *common.ScanSession) {
 	config := session.Config
 	timeout := adaptiveTO.Timeout()
 	// 步骤1：建立连接
 	start := time.Now()
 	conn, err := connectWithRetry(ctx, session, addr, timeout, 2)
 	if err != nil {
+		rtt := time.Since(start)
+		switch {
+		case isResourceExhaustedError(err):
+			metrics.RecordExhausted()
+		case isTimeoutError(err):
+			metrics.RecordTimeout()
+		default:
+			metrics.RecordRefused(rtt)
+		}
 		handleConnectionFailure(err, host, port, addr, failedCollector)
 		return
 	}
-	adaptiveTO.Record(time.Since(start))
+	rtt := time.Since(start)
+	metrics.RecordConnect(rtt)
+	adaptiveTO.Record(rtt)
 
 	// 步骤1.5：代理连接深度验证（防止透明代理/全回显代理的假连接问题）
 	valid, verifyMethod := verifyProxyConnectionDeep(conn, addr, session)

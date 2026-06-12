@@ -164,6 +164,10 @@ func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *comm
 	totalAlive := 0
 	sawHosts := false
 	performedLiveness := false
+	envProfiled := false
+
+	// 系统能力探测（不需要网络目标）
+	sysProfile := ProbeSystem()
 
 	for {
 		hosts, err := iter.NextBatch(ctx, targetHostBatchSize(config))
@@ -183,6 +187,14 @@ func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *comm
 		totalAlive += len(hosts)
 		if len(hosts) == 0 {
 			continue
+		}
+
+		// 首批 alive hosts 出来后做网络探测，调整后续所有参数
+		if !envProfiled {
+			envProfiled = true
+			netProfile := ProbeNetwork(ctx, hosts, session)
+			ep := &EnvironmentProfile{Net: *netProfile, System: sysProfile}
+			ep.TuneConfig(config, session)
 		}
 
 		s.dispatchUDPPlugins(ctx, session, hosts, info, config, ch, wg)

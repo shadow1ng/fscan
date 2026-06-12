@@ -22,12 +22,13 @@ config_struct.go - 配置结构体定义
 // Config 扫描器完整配置 - 初始化后只读，可安全共享
 type Config struct {
 	// 高频访问字段 - 平铺到顶层
-	Timeout         time.Duration // 通用超时
-	ThreadNum       int           // 主线程数
-	ModuleThreadNum int           // 模块线程数
-	DisableBrute    bool          // 禁用暴力破解
-	DisablePing     bool          // 禁用Ping检测
-	DisableTcpProbe bool          // 禁用TCP补充探测
+	Timeout           time.Duration // 通用超时
+	ThreadNum         int           // 主线程数
+	ThreadNumExplicit bool          // 用户显式指定了 -t
+	ModuleThreadNum   int           // 模块线程数
+	DisableBrute      bool          // 禁用暴力破解
+	DisablePing       bool          // 禁用Ping检测
+	DisableTcpProbe   bool          // 禁用TCP补充探测
 
 	// 扫描模式
 	Mode        string // 扫描模式

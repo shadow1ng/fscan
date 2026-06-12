@@ -30,9 +30,10 @@ type FlagVars struct {
 	PortsFile        string
 
 	// 扫描控制
-	ScanMode        string
-	ThreadNum       int
-	ModuleThreadNum int
+	ScanMode          string
+	ThreadNum         int
+	ThreadNumExplicit bool // 用户显式指定了 -t
+	ModuleThreadNum   int
 	TimeoutSec      int64 // 秒，需转换为 time.Duration
 	GlobalTimeout   int64
 	DisablePing     bool
@@ -134,9 +135,10 @@ func GetFlagVars() *FlagVars {
 func BuildConfigFromFlags(fv *FlagVars) *Config {
 	return &Config{
 		// 高频字段
-		Timeout:         time.Duration(fv.TimeoutSec) * time.Second,
-		ThreadNum:       fv.ThreadNum,
-		ModuleThreadNum: fv.ModuleThreadNum,
+		Timeout:           time.Duration(fv.TimeoutSec) * time.Second,
+		ThreadNum:         fv.ThreadNum,
+		ThreadNumExplicit: fv.ThreadNumExplicit,
+		ModuleThreadNum:   fv.ModuleThreadNum,
 		DisableBrute:    fv.DisableBrute,
 		DisablePing:     fv.DisablePing,
 		DisableTcpProbe: fv.DisableTcpProbe,
