@@ -69,7 +69,7 @@ func (s *ServiceScanStrategy) showPluginsForSpecifiedPorts(config *common.Config
 		applicablePlugins = append(applicablePlugins, pluginName)
 	}
 
-	// 输出结果
+	// 输出结果（仅在有匹配插件时显示，避免因预检端口不完整而输出误导性的"无可用插件"）
 	if len(applicablePlugins) > 0 {
 		pluginStr := formatPluginList(applicablePlugins)
 		if isCustomMode {
@@ -77,8 +77,6 @@ func (s *ServiceScanStrategy) showPluginsForSpecifiedPorts(config *common.Config
 		} else {
 			session.LogInfo(i18n.Tr("service_plugin_info", pluginStr))
 		}
-	} else {
-		session.LogInfo(i18n.GetText("service_plugin_none"))
 	}
 }
 
@@ -88,18 +86,9 @@ func (s *ServiceScanStrategy) parsePortList(portStr string) []int {
 		return []int{}
 	}
 
-	ports := []int{} // 初始化为空切片而非nil
-	parts := strings.Split(portStr, ",")
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if port, err := strconv.Atoi(part); err == nil {
-			// 验证端口范围 1-65535（与 scanner.go 的 parsePort 保持一致）
-			if port >= 1 && port <= 65535 {
-				ports = append(ports, port)
-			} else {
-				common.LogError(i18n.Tr("port_out_of_range", port))
-			}
-		}
+	ports := parsers.ParsePort(portStr)
+	if ports == nil {
+		return []int{}
 	}
 	return ports
 }
@@ -340,11 +329,8 @@ func (s *ServiceScanStrategy) LogVulnerabilityPluginInfo(targets []common.HostIn
 		servicePlugins = append(servicePlugins, pluginName)
 	}
 
-	// 输出插件信息
 	if len(servicePlugins) > 0 {
 		common.LogInfo(i18n.Tr("service_plugin_info", strings.Join(servicePlugins, ", ")))
-	} else {
-		common.LogInfo(i18n.GetText("scan_no_service_plugins"))
 	}
 }
 
