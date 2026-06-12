@@ -472,12 +472,19 @@ func buildWebServiceURL(addr string, serviceInfo *ServiceInfo) string {
 		return fmt.Sprintf("%s://%s", protocol, addr)
 	}
 	if protocol == "http" && port == "80" {
-		return fmt.Sprintf("http://%s", host)
+		return fmt.Sprintf("http://%s", urlHost(host))
 	}
 	if protocol == "https" && port == "443" {
-		return fmt.Sprintf("https://%s", host)
+		return fmt.Sprintf("https://%s", urlHost(host))
 	}
 	return fmt.Sprintf("%s://%s", protocol, net.JoinHostPort(host, port))
+}
+
+func urlHost(host string) string {
+	if strings.Contains(host, ":") && !strings.HasPrefix(host, "[") {
+		return "[" + host + "]"
+	}
+	return host
 }
 
 // scanSinglePort 扫描单个端口并进行服务识别（重构后的简洁版本）
@@ -699,6 +706,9 @@ func processServiceResult(ctx context.Context, host string, port int, addr strin
 		}
 		return
 	}
+
+	// 缓存服务名称，供插件按服务类型匹配（解决非标准端口问题）
+	MarkServiceName(host, port, serviceInfo.Name)
 
 	// 保存并输出服务信息
 	details := buildServiceDetails(port, serviceInfo)
