@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -132,13 +134,19 @@ func toInt(v interface{}) (int, bool) {
 }
 
 func splitHostPort(target string) (string, int, bool) {
-	idx := strings.LastIndex(target, ":")
-	if idx < 0 {
+	host, portText, err := net.SplitHostPort(target)
+	if err != nil {
+		if strings.Count(target, ":") != 1 {
+			return "", 0, false
+		}
+		parts := strings.SplitN(target, ":", 2)
+		host, portText = parts[0], parts[1]
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil {
 		return "", 0, false
 	}
-	host := target[:idx]
-	var port int
-	if _, err := fmt.Sscanf(target[idx+1:], "%d", &port); err != nil {
+	if host == "" || port < 1 || port > 65535 {
 		return "", 0, false
 	}
 	return host, port, true
