@@ -575,9 +575,9 @@ func TestClampInt(t *testing.T) {
 		{0, 1, 10, 1},
 		{15, 1, 10, 10},
 		{-5, -10, -1, -5},
-		{5, 5, 5, 5},     // min == max == v
-		{3, 5, 5, 5},     // v < min == max
-		{10, 5, 5, 5},    // v > min == max
+		{5, 5, 5, 5},  // min == max == v
+		{3, 5, 5, 5},  // v < min == max
+		{10, 5, 5, 5}, // v > min == max
 	}
 
 	for _, tt := range tests {
@@ -635,5 +635,17 @@ func TestIsExplicit(t *testing.T) {
 	config.ThreadNumExplicit = true
 	if !isExplicit(config, "t") {
 		t.Error("ThreadNumExplicit=true 应视为显式")
+	}
+
+	config = makeDefaultConfig()
+	config.TimeoutExplicit = true
+	config.ModuleThreadNumExplicit = true
+	config.MaxRetriesExplicit = true
+	config.Network.ICMPRateExplicit = true
+	config.POC.NumExplicit = true
+	if !isExplicit(config, "time") || !isExplicit(config, "mt") ||
+		!isExplicit(config, "retry") || !isExplicit(config, "icmp-rate") ||
+		!isExplicit(config, "num") {
+		t.Error("显式标记为 true 时默认值也应视为显式")
 	}
 }

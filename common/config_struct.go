@@ -22,20 +22,23 @@ config_struct.go - 配置结构体定义
 // Config 扫描器完整配置 - 初始化后只读，可安全共享
 type Config struct {
 	// 高频访问字段 - 平铺到顶层
-	Timeout           time.Duration // 通用超时
-	ThreadNum         int           // 主线程数
-	ThreadNumExplicit bool          // 用户显式指定了 -t
-	ModuleThreadNum   int           // 模块线程数
-	DisableBrute      bool          // 禁用暴力破解
-	DisablePing       bool          // 禁用Ping检测
-	DisableTcpProbe   bool          // 禁用TCP补充探测
+	Timeout                 time.Duration // 通用超时
+	TimeoutExplicit         bool          // 用户显式指定了 -time
+	ThreadNum               int           // 主线程数
+	ThreadNumExplicit       bool          // 用户显式指定了 -t
+	ModuleThreadNum         int           // 模块线程数
+	ModuleThreadNumExplicit bool          // 用户显式指定了 -mt
+	DisableBrute            bool          // 禁用暴力破解
+	DisablePing             bool          // 禁用Ping检测
+	DisableTcpProbe         bool          // 禁用TCP补充探测
 
 	// 扫描模式
-	Mode        string // 扫描模式
-	LocalMode   bool   // 本地模式
-	LocalPlugin string // 本地插件名
-	AliveOnly   bool   // 仅存活检测
-	MaxRetries  int    // 最大重试次数
+	Mode               string // 扫描模式
+	LocalMode          bool   // 本地模式
+	LocalPlugin        string // 本地插件名
+	AliveOnly          bool   // 仅存活检测
+	MaxRetries         int    // 最大重试次数
+	MaxRetriesExplicit bool   // 用户显式指定了 -retry
 
 	// 高级功能（从AdvancedConfig合并）
 	Shellcode             string           // Shellcode
@@ -81,14 +84,15 @@ type CredentialConfig struct {
 
 // NetworkConfig 网络相关配置
 type NetworkConfig struct {
-	HTTPProxy       string
-	Socks5Proxy     string
-	Iface           string
-	WebTimeout      time.Duration
-	MaxRedirects    int
-	PacketRateLimit int64
-	MaxPacketCount  int64
-	ICMPRate        float64
+	HTTPProxy        string
+	Socks5Proxy      string
+	Iface            string
+	WebTimeout       time.Duration
+	MaxRedirects     int
+	PacketRateLimit  int64
+	MaxPacketCount   int64
+	ICMPRate         float64
+	ICMPRateExplicit bool
 }
 
 // OutputConfig 输出相关配置
@@ -107,11 +111,12 @@ type OutputConfig struct {
 
 // POCConfig POC扫描相关配置
 type POCConfig struct {
-	PocPath  string // POC路径
-	PocName  string // 指定POC名称
-	Full     bool   // 完整POC扫描
-	Num      int    // POC并发数
-	Disabled bool   // 禁用POC扫描
+	PocPath     string // POC路径
+	PocName     string // 指定POC名称
+	Full        bool   // 完整POC扫描
+	Num         int    // POC并发数
+	NumExplicit bool   // 用户显式指定了 -num
+	Disabled    bool   // 禁用POC扫描
 }
 
 // RedisConfig Redis利用相关配置

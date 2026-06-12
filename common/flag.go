@@ -215,8 +215,19 @@ func Flag(Info *HostInfo) error {
 
 	// 检测用户是否显式指定了 -t
 	flag.Visit(func(f *flag.Flag) {
-		if f.Name == "t" {
+		switch f.Name {
+		case "t":
 			fv.ThreadNumExplicit = true
+		case "time":
+			fv.TimeoutExplicit = true
+		case "mt":
+			fv.ModuleThreadNumExplicit = true
+		case "retry":
+			fv.MaxRetriesExplicit = true
+		case "icmp-rate":
+			fv.ICMPRateExplicit = true
+		case "num":
+			fv.PocNumExplicit = true
 		}
 	})
 

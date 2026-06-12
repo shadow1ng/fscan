@@ -30,18 +30,21 @@ type FlagVars struct {
 	PortsFile        string
 
 	// 扫描控制
-	ScanMode          string
-	ThreadNum         int
-	ThreadNumExplicit bool // 用户显式指定了 -t
-	ModuleThreadNum   int
-	TimeoutSec      int64 // 秒，需转换为 time.Duration
-	GlobalTimeout   int64
-	DisablePing     bool
-	DisableTcpProbe bool
-	LocalPlugin     string
-	AliveOnly       bool
-	DisableBrute    bool
-	MaxRetries      int
+	ScanMode                string
+	ThreadNum               int
+	ThreadNumExplicit       bool // 用户显式指定了 -t
+	ModuleThreadNum         int
+	ModuleThreadNumExplicit bool
+	TimeoutSec              int64 // 秒，需转换为 time.Duration
+	TimeoutExplicit         bool
+	GlobalTimeout           int64
+	DisablePing             bool
+	DisableTcpProbe         bool
+	LocalPlugin             string
+	AliveOnly               bool
+	DisableBrute            bool
+	MaxRetries              int
+	MaxRetriesExplicit      bool
 
 	// 认证凭据
 	Username      string
@@ -74,6 +77,7 @@ type FlagVars struct {
 	PocFull        bool
 	DNSLog         bool
 	PocNum         int
+	PocNumExplicit bool
 	DisablePocScan bool
 
 	// Redis利用
@@ -85,9 +89,10 @@ type FlagVars struct {
 	DisableRedis      bool
 
 	// 发包频率
-	PacketRateLimit int64
-	MaxPacketCount  int64
-	ICMPRate        float64
+	PacketRateLimit  int64
+	MaxPacketCount   int64
+	ICMPRate         float64
+	ICMPRateExplicit bool
 
 	// 输出控制
 	Outputfile      string
@@ -135,20 +140,23 @@ func GetFlagVars() *FlagVars {
 func BuildConfigFromFlags(fv *FlagVars) *Config {
 	return &Config{
 		// 高频字段
-		Timeout:           time.Duration(fv.TimeoutSec) * time.Second,
-		ThreadNum:         fv.ThreadNum,
-		ThreadNumExplicit: fv.ThreadNumExplicit,
-		ModuleThreadNum:   fv.ModuleThreadNum,
-		DisableBrute:    fv.DisableBrute,
-		DisablePing:     fv.DisablePing,
-		DisableTcpProbe: fv.DisableTcpProbe,
+		Timeout:                 time.Duration(fv.TimeoutSec) * time.Second,
+		TimeoutExplicit:         fv.TimeoutExplicit,
+		ThreadNum:               fv.ThreadNum,
+		ThreadNumExplicit:       fv.ThreadNumExplicit,
+		ModuleThreadNum:         fv.ModuleThreadNum,
+		ModuleThreadNumExplicit: fv.ModuleThreadNumExplicit,
+		DisableBrute:            fv.DisableBrute,
+		DisablePing:             fv.DisablePing,
+		DisableTcpProbe:         fv.DisableTcpProbe,
 
 		// 扫描模式
-		Mode:        fv.ScanMode,
-		LocalMode:   fv.LocalPlugin != "",
-		LocalPlugin: fv.LocalPlugin,
-		AliveOnly:   fv.AliveOnly,
-		MaxRetries:  fv.MaxRetries,
+		Mode:               fv.ScanMode,
+		LocalMode:          fv.LocalPlugin != "",
+		LocalPlugin:        fv.LocalPlugin,
+		AliveOnly:          fv.AliveOnly,
+		MaxRetries:         fv.MaxRetries,
+		MaxRetriesExplicit: fv.MaxRetriesExplicit,
 
 		// 高级功能
 		Shellcode:             fv.Shellcode,
@@ -173,14 +181,15 @@ func BuildConfigFromFlags(fv *FlagVars) *Config {
 			SSHKeyPath:    fv.SSHKeyPath,
 		},
 		Network: NetworkConfig{
-			HTTPProxy:       fv.HTTPProxy,
-			Socks5Proxy:     fv.Socks5Proxy,
-			Iface:           fv.Iface,
-			WebTimeout:      time.Duration(fv.WebTimeout) * time.Second,
-			MaxRedirects:    fv.MaxRedirects,
-			PacketRateLimit: fv.PacketRateLimit,
-			MaxPacketCount:  fv.MaxPacketCount,
-			ICMPRate:        fv.ICMPRate,
+			HTTPProxy:        fv.HTTPProxy,
+			Socks5Proxy:      fv.Socks5Proxy,
+			Iface:            fv.Iface,
+			WebTimeout:       time.Duration(fv.WebTimeout) * time.Second,
+			MaxRedirects:     fv.MaxRedirects,
+			PacketRateLimit:  fv.PacketRateLimit,
+			MaxPacketCount:   fv.MaxPacketCount,
+			ICMPRate:         fv.ICMPRate,
+			ICMPRateExplicit: fv.ICMPRateExplicit,
 		},
 		Output: OutputConfig{
 			File:            fv.Outputfile,
@@ -195,11 +204,12 @@ func BuildConfigFromFlags(fv *FlagVars) *Config {
 			PerfStats:       fv.PerfStats,
 		},
 		POC: POCConfig{
-			PocPath:  fv.PocPath,
-			PocName:  fv.PocName,
-			Full:     fv.PocFull,
-			Num:      fv.PocNum,
-			Disabled: fv.DisablePocScan,
+			PocPath:     fv.PocPath,
+			PocName:     fv.PocName,
+			Full:        fv.PocFull,
+			Num:         fv.PocNum,
+			NumExplicit: fv.PocNumExplicit,
+			Disabled:    fv.DisablePocScan,
 		},
 		Redis: RedisConfig{
 			Disabled:     fv.DisableRedis,

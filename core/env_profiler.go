@@ -180,22 +180,22 @@ func computeICMPRate(net *NetworkProfile, sys *SystemProfile) float64 {
 	return base
 }
 
-// isExplicit 检查参数是否被用户显式指定
-// 目前只有 ThreadNum 有 explicit 标记，其他参数通过检查是否为默认值来判断
+// isExplicit 检查参数是否被用户显式指定。
+// 显式标记来自 CLI flag.Visit；值比较保留 SDK/测试里直接构造 Config 的旧行为。
 func isExplicit(config *common.Config, flagName string) bool {
 	switch flagName {
 	case "t":
 		return config.ThreadNumExplicit
 	case "time":
-		return config.Timeout != 3*time.Second // 默认值
+		return config.TimeoutExplicit || config.Timeout != 3*time.Second
 	case "mt":
-		return config.ModuleThreadNum != 20 // 默认值
+		return config.ModuleThreadNumExplicit || config.ModuleThreadNum != 20
 	case "retry":
-		return config.MaxRetries != 3 // 默认值
+		return config.MaxRetriesExplicit || config.MaxRetries != 3
 	case "icmp-rate":
-		return config.Network.ICMPRate != 0.1 // 默认值
+		return config.Network.ICMPRateExplicit || config.Network.ICMPRate != 0.1
 	case "num":
-		return config.POC.Num != 20 // 默认值
+		return config.POC.NumExplicit || config.POC.Num != 20
 	}
 	return false
 }
