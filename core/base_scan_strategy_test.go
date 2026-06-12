@@ -2,6 +2,9 @@ package core
 
 import (
 	"testing"
+
+	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/plugins"
 )
 
 // =============================================================================
@@ -270,6 +273,102 @@ func TestOrderWebPlugins(t *testing.T) {
 	if !slicesEqual(plugins, expected) {
 		t.Fatalf("orderWebPlugins = %#v, want %#v", plugins, expected)
 	}
+}
+
+func TestBaseScanStrategyPluginSelectionAndApplicability(t *testing.T) {
+	registerTestPlugins(t)
+	plugins.RegisterWithOptions("core_test_local", func() plugins.Plugin { return nil }, nil, []string{plugins.PluginTypeLocal}, false)
+	plugins.RegisterWithOptions("core_test_udp", func() plugins.Plugin { return nil }, []int{161}, []string{plugins.PluginTypeUDP}, true)
+	clearServiceCache()
+
+	cfg := common.NewConfig()
+	cfg.Mode = "ssh, missing_plugin, webtitle"
+	strategy := NewBaseScanStrategy("service", FilterService)
+	got, custom := strategy.GetPlugins(cfg)
+	if !custom {
+		t.Fatal("explicit mode should be marked as custom")
+	}
+	if !slicesEqual(got, []string{"ssh", "webtitle"}) {
+		t.Fatalf("custom plugins = %#v, want ssh/webtitle", got)
+	}
+
+	cfg.Mode = "all"
+	servicePlugins, custom := strategy.GetPlugins(cfg)
+	if custom {
+		t.Fatal("all mode should not be custom")
+	}
+	if !containsString(servicePlugins, "ssh") || containsString(servicePlugins, "core_test_local") || containsString(servicePlugins, "core_test_udp") {
+		t.Fatalf("service filtered plugins = %#v", servicePlugins)
+	}
+
+	if !strategy.pluginExists("ssh") || strategy.pluginExists("missing_plugin") {
+		t.Fatal("pluginExists returned wrong result")
+	}
+	if !strategy.isPluginApplicableToPort("ssh", 22) || strategy.isPluginApplicableToPort("ssh", 23) {
+		t.Fatal("port applicability for ssh is wrong")
+	}
+	CacheServiceInfo("10.0.0.9", 22222, &ServiceInfo{Name: "ssh"})
+	if !strategy.isPluginApplicableToPortWithHost("ssh", "10.0.0.9", 22222) {
+		t.Fatal("service cache should allow ssh on a non-standard port")
+	}
+	if !strategy.IsPluginApplicableByName("ssh", "10.0.0.9", 1, true, cfg) {
+		t.Fatal("custom mode should respect explicitly selected plugin")
+	}
+	if strategy.IsPluginApplicableByName("missing_plugin", "10.0.0.9", 22, true, cfg) {
+		t.Fatal("missing plugin should never be applicable")
+	}
+}
+
+func TestBaseScanStrategyFilterTypes(t *testing.T) {
+	plugins.RegisterWithOptions("core_test_local_filter", func() plugins.Plugin { return nil }, nil, []string{plugins.PluginTypeLocal}, false)
+	plugins.RegisterWithOptions("core_test_web_filter", func() plugins.Plugin { return nil }, nil, []string{plugins.PluginTypeWeb}, true)
+	plugins.RegisterWithOptions("core_test_udp_filter", func() plugins.Plugin { return nil }, []int{53}, []string{plugins.PluginTypeUDP}, true)
+
+	cfg := common.NewConfig()
+	localStrategy := NewBaseScanStrategy("local", FilterLocal)
+	if localStrategy.isPluginPassesFilterType("core_test_local_filter", false, cfg) {
+		t.Fatal("local plugin should require explicit -local selection")
+	}
+	cfg.LocalPlugin = "core_test_local_filter"
+	if !localStrategy.isPluginPassesFilterType("core_test_local_filter", false, cfg) {
+		t.Fatal("explicit local plugin should pass local filter")
+	}
+
+	serviceStrategy := NewBaseScanStrategy("service", FilterService)
+	if !serviceStrategy.isPluginPassesFilterType("ssh", false, cfg) {
+		t.Fatal("service plugin should pass service filter")
+	}
+	if serviceStrategy.isPluginPassesFilterType("core_test_local_filter", false, cfg) ||
+		serviceStrategy.isPluginPassesFilterType("core_test_udp_filter", false, cfg) {
+		t.Fatal("service filter should reject local and UDP plugins")
+	}
+
+	webStrategy := NewBaseScanStrategy("web", FilterWeb)
+	if !webStrategy.isPluginPassesFilterType("core_test_web_filter", false, cfg) ||
+		webStrategy.isPluginPassesFilterType("ssh", false, cfg) {
+		t.Fatal("web filter should only allow web plugins")
+	}
+	if webPluginOrder("webtitle") != 0 || webPluginOrder("webpoc") != 2 || webPluginOrder("other") != 1 {
+		t.Fatal("web plugin order changed")
+	}
+}
+
+func TestFormatPluginList(t *testing.T) {
+	if got := formatPluginList([]string{"a", "b", "c"}); got != "a, b, c" {
+		t.Fatalf("short plugin list = %q", got)
+	}
+	if got := formatPluginList([]string{"a", "b", "c", "d", "e", "f"}); got == "" || got == "a, b, c, d, e, f" {
+		t.Fatalf("long plugin list should be summarized, got %q", got)
+	}
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 // TestNewBaseScanStrategy 测试构造函数

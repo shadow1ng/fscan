@@ -607,17 +607,43 @@ func TestCreateTargetFromURL_EdgeCases(t *testing.T) {
 
 	t.Run("空URL", func(t *testing.T) {
 		result := strategy.createTargetFromURL(common.HostInfo{}, "")
-		// url.Parse("")会成功，但Hostname()返回空
-		if result == nil {
-			t.Skip("空URL解析行为依赖于url.Parse实现")
+		if result != nil {
+			t.Fatalf("空URL应被拒绝，实际 %#v", result)
 		}
 	})
 
 	t.Run("只有协议", func(t *testing.T) {
 		result := strategy.createTargetFromURL(common.HostInfo{}, "http://")
-		// url.Parse("http://")会成功，但Host为空
-		if result != nil && result.Host == "" {
-			t.Log("Empty host check passed as expected")
+		if result != nil {
+			t.Fatalf("空Host URL应被拒绝，实际 %#v", result)
+		}
+	})
+
+	t.Run("非法URL不会因nil session panic", func(t *testing.T) {
+		result := strategy.createTargetFromURL(common.HostInfo{}, "http://[::1")
+		if result != nil {
+			t.Fatalf("非法URL应被拒绝，实际 %#v", result)
+		}
+	})
+
+	t.Run("越界端口", func(t *testing.T) {
+		result := strategy.createTargetFromURL(common.HostInfo{}, "http://example.com:70000")
+		if result != nil {
+			t.Fatalf("越界端口应被拒绝，实际 %#v", result)
+		}
+	})
+
+	t.Run("非数字端口", func(t *testing.T) {
+		result := strategy.createTargetFromURL(common.HostInfo{}, "http://example.com:bad")
+		if result != nil {
+			t.Fatalf("非数字端口应被拒绝，实际 %#v", result)
+		}
+	})
+
+	t.Run("空端口", func(t *testing.T) {
+		result := strategy.createTargetFromURL(common.HostInfo{}, "http://example.com:")
+		if result != nil {
+			t.Fatalf("空端口应被拒绝，实际 %#v", result)
 		}
 	})
 
@@ -640,6 +666,16 @@ func TestCreateTargetFromURL_EdgeCases(t *testing.T) {
 			if result.Port != 8080 {
 				t.Errorf("IPv6 Ports = %q, 期望 '8080'", result.Port)
 			}
+		}
+	})
+
+	t.Run("IPv6无端口使用默认端口", func(t *testing.T) {
+		result := strategy.createTargetFromURL(common.HostInfo{}, "https://[::1]/")
+		if result == nil {
+			t.Fatal("IPv6无端口URL应能正确解析")
+		}
+		if result.Host != "::1" || result.Port != 443 {
+			t.Fatalf("IPv6默认端口解析错误: %#v", result)
 		}
 	})
 }
@@ -813,6 +849,19 @@ func TestCreateHTTPClientUsesPerSessionProxy(t *testing.T) {
 	}
 	if proxyB != "http://127.0.0.1:28080" {
 		t.Fatalf("proxyB = %q, want http://127.0.0.1:28080", proxyB)
+	}
+}
+
+func TestCreateHTTPClientNormalizesHTTPProxyWithoutScheme(t *testing.T) {
+	cfg := common.NewConfig()
+	cfg.Network.WebTimeout = time.Second
+	cfg.Network.HTTPProxy = "127.0.0.1:18080"
+	session := common.NewScanSession(cfg, common.NewState(), &common.FlagVars{})
+
+	client := createHTTPClient(cfg, session)
+	proxy := proxyForTest(t, client)
+	if proxy != "http://127.0.0.1:18080" {
+		t.Fatalf("proxy = %q, want http://127.0.0.1:18080", proxy)
 	}
 }
 

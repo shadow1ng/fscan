@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 /*
@@ -79,6 +80,94 @@ func TestTargetWithPortIPv6(t *testing.T) {
 				t.Fatalf("targetWithPort(%q, %v) = %q, want %q", tt.target, tt.port, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestScanResultFormatDetailsAndDefaultManagerConfig(t *testing.T) {
+	result := &ScanResult{
+		Details: map[string]interface{}{
+			"service": "ssh",
+			"port":    22,
+			"banner":  "OpenSSH",
+		},
+	}
+	got := result.FormatDetails(";", "%s=%v")
+	want := "banner=OpenSSH;port=22;service=ssh"
+	if got != want {
+		t.Fatalf("FormatDetails = %q, want %q", got, want)
+	}
+
+	empty := (&ScanResult{}).FormatDetails(";", "%s=%v")
+	if empty != "" {
+		t.Fatalf("empty FormatDetails = %q, want empty", empty)
+	}
+
+	cfg := DefaultManagerConfig("out.json", FormatJSON)
+	if cfg.OutputPath != "out.json" || cfg.Format != FormatJSON {
+		t.Fatalf("DefaultManagerConfig = %#v", cfg)
+	}
+}
+
+func TestCSVWriterFormatRecords(t *testing.T) {
+	writer := &CSVWriter{}
+
+	host := writer.formatHostRecord(&ScanResult{Target: "192.168.1.1"})
+	if len(host) != 1 || host[0] != "192.168.1.1" {
+		t.Fatalf("host record = %#v", host)
+	}
+
+	port := writer.formatPortRecord(&ScanResult{
+		Target:  "192.168.1.1",
+		Details: map[string]interface{}{"port": 22},
+	})
+	if got, want := strings.Join(port, "|"), "192.168.1.1|22|open"; got != want {
+		t.Fatalf("port record = %q, want %q", got, want)
+	}
+
+	longBanner := strings.Repeat("界", 105)
+	service := writer.formatServiceRecord(&ScanResult{
+		Target: "2001:db8::1",
+		Details: map[string]interface{}{
+			"port":         443,
+			"name":         "https",
+			"version":      "1.2.3",
+			"title":        "hello\nworld",
+			"status":       200,
+			"server":       "nginx\r\nunit",
+			"fingerprints": []interface{}{"fp1", "", "fp2", 3},
+			"banner":       longBanner,
+		},
+	})
+	if service[0] != "[2001:db8::1]:443" || service[1] != "https" || service[2] != "1.2.3" {
+		t.Fatalf("service identity fields = %#v", service)
+	}
+	if service[3] != "hello\\nworld" || service[4] != "200" || service[5] != "nginx\\r\\nunit" {
+		t.Fatalf("service text fields = %#v", service)
+	}
+	if service[6] != "fp1,fp2" {
+		t.Fatalf("fingerprints = %q, want fp1,fp2", service[6])
+	}
+	if !utf8.ValidString(service[7]) || len([]rune(service[7])) != 103 || !strings.HasSuffix(service[7], "...") {
+		t.Fatalf("truncated banner = len %d value %q", len(service[7]), service[7])
+	}
+
+	vuln := writer.formatVulnRecord(&ScanResult{
+		Target:  "http://example.com",
+		Status:  "vulnerable",
+		Details: map[string]interface{}{"type": "poc"},
+	})
+	if got, want := strings.Join(vuln, "|"), "http://example.com|poc|vulnerable"; got != want {
+		t.Fatalf("vuln record = %q, want %q", got, want)
+	}
+
+	if got := formatFingerprints([]string{"a", "b"}); got != "a,b" {
+		t.Fatalf("string fingerprints = %q", got)
+	}
+	if got := formatFingerprints(123); got != "" {
+		t.Fatalf("unsupported fingerprints = %q, want empty", got)
+	}
+	if writer.GetFormat() != FormatCSV {
+		t.Fatalf("csv GetFormat = %q", writer.GetFormat())
 	}
 }
 

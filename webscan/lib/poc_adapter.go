@@ -24,6 +24,33 @@ const (
 	FormatUnknown PocFormat = "unknown"
 )
 
+type yamlStringList []string
+
+func (l *yamlStringList) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var single string
+	if err := unmarshal(&single); err == nil {
+		if single != "" {
+			*l = []string{single}
+		}
+		return nil
+	}
+
+	var list []interface{}
+	if err := unmarshal(&list); err != nil {
+		return err
+	}
+	values := make([]string, 0, len(list))
+	for _, item := range list {
+		values = append(values, fmt.Sprintf("%v", item))
+	}
+	*l = values
+	return nil
+}
+
+func (l yamlStringList) String() string {
+	return strings.Join(l, ", ")
+}
+
 // UniversalPoc 通用POC接口 - 所有格式都要实现这个接口
 type UniversalPoc interface {
 	GetName() string           // 获取POC名称
@@ -144,27 +171,30 @@ func (f *FscanPocAdapter) ToFscanPoc() (*Poc, error) {
 type NucleiPoc struct {
 	ID   string `yaml:"id"`
 	Info struct {
-		Name        string   `yaml:"name"`
-		Author      string   `yaml:"author"`
-		Severity    string   `yaml:"severity"`
-		Description string   `yaml:"description"`
-		Reference   []string `yaml:"reference"`
+		Name        string         `yaml:"name"`
+		Author      yamlStringList `yaml:"author"`
+		Severity    string         `yaml:"severity"`
+		Description string         `yaml:"description"`
+		Reference   yamlStringList `yaml:"reference"`
 	} `yaml:"info"`
 	HTTP []struct {
-		Method   string            `yaml:"method"`
-		Path     []string          `yaml:"path"`
-		Headers  map[string]string `yaml:"headers"`
-		Body     string            `yaml:"body"`
-		Matchers []struct {
-			Type      string   `yaml:"type"`
-			Words     []string `yaml:"words"`
-			Status    []int    `yaml:"status"`
-			Regex     []string `yaml:"regex"`
-			Condition string   `yaml:"condition"`
-			Part      string   `yaml:"part"`
-		} `yaml:"matchers"`
-		MatchersCondition string `yaml:"matchers-condition"`
+		Method            string            `yaml:"method"`
+		Path              []string          `yaml:"path"`
+		Headers           map[string]string `yaml:"headers"`
+		Body              string            `yaml:"body"`
+		Matchers          []NucleiMatcher   `yaml:"matchers"`
+		MatchersCondition string            `yaml:"matchers-condition"`
 	} `yaml:"http"`
+}
+
+type NucleiMatcher struct {
+	Type      string   `yaml:"type"`
+	Words     []string `yaml:"words"`
+	Status    []int    `yaml:"status"`
+	Regex     []string `yaml:"regex"`
+	Condition string   `yaml:"condition"`
+	Part      string   `yaml:"part"`
+	Negative  bool     `yaml:"negative"`
 }
 
 // NucleiPocAdapter Nuclei格式适配器
@@ -198,9 +228,9 @@ func (n *NucleiPocAdapter) ToFscanPoc() (*Poc, error) {
 	poc := &Poc{
 		Name: n.GetName(),
 		Detail: Detail{
-			Author:      n.Info.Author,
+			Author:      n.Info.Author.String(),
 			Description: n.Info.Description,
-			Links:       n.Info.Reference,
+			Links:       []string(n.Info.Reference),
 		},
 	}
 
@@ -221,7 +251,7 @@ func (n *NucleiPocAdapter) ToFscanPoc() (*Poc, error) {
 		for _, path := range paths {
 			rule := Rules{
 				Method:  method,
-				Path:    path,
+				Path:    normalizeNucleiPath(path),
 				Headers: httpReq.Headers,
 				Body:    httpReq.Body,
 			}
@@ -246,26 +276,27 @@ func (n *NucleiPocAdapter) ToFscanPoc() (*Poc, error) {
 	return poc, nil
 }
 
+func normalizeNucleiPath(path string) string {
+	path = strings.TrimSpace(path)
+	path = strings.TrimPrefix(path, "{{BaseURL}}")
+	path = strings.TrimPrefix(path, "{{RootURL}}")
+	if path == "" {
+		return "/"
+	}
+	return path
+}
+
 // convertNucleiMatchers 转换Nuclei matchers为fscan expression
-func convertNucleiMatchers(matchers []struct {
-	Type      string   `yaml:"type"`
-	Words     []string `yaml:"words"`
-	Status    []int    `yaml:"status"`
-	Regex     []string `yaml:"regex"`
-	Condition string   `yaml:"condition"`
-	Part      string   `yaml:"part"`
-}, matchersCondition string) string {
+func convertNucleiMatchers(matchers []NucleiMatcher, matchersCondition string) string {
 	var conditions []string
 
 	for _, m := range matchers {
 		var matcherConds []string
 
-		switch m.Type {
+		switch strings.ToLower(m.Type) {
 		case "word":
 			for _, word := range m.Words {
-				// 转义双引号
-				escapedWord := strings.ReplaceAll(word, `"`, `\"`)
-				matcherConds = append(matcherConds, fmt.Sprintf(`response.body.bcontains(b"%s")`, escapedWord))
+				matcherConds = append(matcherConds, nucleiWordCondition(m.Part, word))
 			}
 		case "status":
 			for _, status := range m.Status {
@@ -273,9 +304,7 @@ func convertNucleiMatchers(matchers []struct {
 			}
 		case "regex":
 			for _, pattern := range m.Regex {
-				// 简化处理：直接用bmatches
-				escapedPattern := strings.ReplaceAll(pattern, `"`, `\"`)
-				matcherConds = append(matcherConds, fmt.Sprintf(`response.body.bmatches(b"%s")`, escapedPattern))
+				matcherConds = append(matcherConds, nucleiRegexCondition(m.Part, pattern))
 			}
 		case "dsl":
 			// DSL类型暂不支持，使用默认匹配
@@ -285,16 +314,20 @@ func convertNucleiMatchers(matchers []struct {
 		// 单个matcher内的条件组合
 		if len(matcherConds) > 0 {
 			connector := " && "
-			if m.Condition == "or" {
+			if strings.EqualFold(m.Condition, "or") {
 				connector = " || "
 			}
 
+			var combined string
 			if len(matcherConds) == 1 {
-				conditions = append(conditions, matcherConds[0])
+				combined = matcherConds[0]
 			} else {
-				combined := "(" + strings.Join(matcherConds, connector) + ")"
-				conditions = append(conditions, combined)
+				combined = "(" + strings.Join(matcherConds, connector) + ")"
 			}
+			if m.Negative {
+				combined = "!(" + combined + ")"
+			}
+			conditions = append(conditions, combined)
 		}
 	}
 
@@ -308,11 +341,55 @@ func convertNucleiMatchers(matchers []struct {
 
 	// 多个matcher之间的条件组合
 	connector := " && "
-	if matchersCondition == "or" {
+	if strings.EqualFold(matchersCondition, "or") {
 		connector = " || "
 	}
 
 	return strings.Join(conditions, connector)
+}
+
+func nucleiWordCondition(part, word string) string {
+	word = escapeCELBytesLiteral(word)
+	switch normalizeMatcherPart(part) {
+	case "header":
+		return fmt.Sprintf(`response.headers.exists(k, bytes(k + ": " + response.headers[k]).bcontains(b"%s"))`, word)
+	case "all":
+		return fmt.Sprintf(`(response.body.bcontains(b"%s") || response.headers.exists(k, bytes(k + ": " + response.headers[k]).bcontains(b"%s")))`, word, word)
+	default:
+		return fmt.Sprintf(`response.body.bcontains(b"%s")`, word)
+	}
+}
+
+func nucleiRegexCondition(part, pattern string) string {
+	pattern = escapeCELStringLiteral(pattern)
+	switch normalizeMatcherPart(part) {
+	case "header":
+		return fmt.Sprintf(`response.headers.exists(k, "%s".bmatches(bytes(k + ": " + response.headers[k])))`, pattern)
+	case "all":
+		return fmt.Sprintf(`("%s".bmatches(response.body) || response.headers.exists(k, "%s".bmatches(bytes(k + ": " + response.headers[k]))))`, pattern, pattern)
+	default:
+		return fmt.Sprintf(`"%s".bmatches(response.body)`, pattern)
+	}
+}
+
+func normalizeMatcherPart(part string) string {
+	switch strings.ToLower(strings.TrimSpace(part)) {
+	case "header", "headers", "all_headers":
+		return "header"
+	case "all":
+		return "all"
+	default:
+		return "body"
+	}
+}
+
+func escapeCELBytesLiteral(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	return strings.ReplaceAll(s, `"`, `\"`)
+}
+
+func escapeCELStringLiteral(s string) string {
+	return escapeCELBytesLiteral(s)
 }
 
 // ============= xray格式适配器 =============
@@ -393,7 +470,7 @@ func (x *XrayPocAdapter) ToFscanPoc() (*Poc, error) {
 		// 展开 request 对象为 fscan Rule
 		fscanRule := Rules{
 			Method:          rule.Request.Method,
-			Path:            rule.Request.Path,
+			Path:            normalizeNucleiPath(rule.Request.Path),
 			Headers:         rule.Request.Headers,
 			Body:            rule.Request.Body,
 			FollowRedirects: rule.Request.FollowRedirects,
@@ -426,14 +503,14 @@ func (x *XrayPocAdapter) ToFscanPoc() (*Poc, error) {
 type AfrogPoc struct {
 	ID   string `yaml:"id"`
 	Info struct {
-		Name        string   `yaml:"name"`
-		Author      string   `yaml:"author"`
-		Severity    string   `yaml:"severity"`
-		Verified    bool     `yaml:"verified"`
-		Description string   `yaml:"description"`
-		Reference   []string `yaml:"reference"`
-		Tags        string   `yaml:"tags"`
-		Created     string   `yaml:"created"`
+		Name        string         `yaml:"name"`
+		Author      yamlStringList `yaml:"author"`
+		Severity    string         `yaml:"severity"`
+		Verified    bool           `yaml:"verified"`
+		Description string         `yaml:"description"`
+		Reference   yamlStringList `yaml:"reference"`
+		Tags        string         `yaml:"tags"`
+		Created     string         `yaml:"created"`
 	} `yaml:"info"`
 	Set        map[string]interface{} `yaml:"set"`
 	Rules      map[string]XrayRule    `yaml:"rules"` // 复用 xray 的 rule 结构
@@ -472,9 +549,9 @@ func (a *AfrogPocAdapter) ToFscanPoc() (*Poc, error) {
 	poc := &Poc{
 		Name: a.GetName(),
 		Detail: Detail{
-			Author:      a.Info.Author,
+			Author:      a.Info.Author.String(),
 			Description: a.Info.Description,
-			Links:       a.Info.Reference,
+			Links:       []string(a.Info.Reference),
 		},
 	}
 
@@ -499,7 +576,7 @@ func (a *AfrogPocAdapter) ToFscanPoc() (*Poc, error) {
 
 		fscanRule := Rules{
 			Method:          rule.Request.Method,
-			Path:            rule.Request.Path,
+			Path:            normalizeNucleiPath(rule.Request.Path),
 			Headers:         rule.Request.Headers,
 			Body:            rule.Request.Body,
 			FollowRedirects: rule.Request.FollowRedirects,

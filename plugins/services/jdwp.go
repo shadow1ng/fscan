@@ -76,7 +76,7 @@ func (p *JDWPPlugin) getVersion(conn interface {
 	}
 
 	header := make([]byte, 11)
-	if _, err := conn.Read(header); err != nil {
+	if _, err := io.ReadFull(conn, header); err != nil {
 		return ""
 	}
 	replyLen := int(header[0])<<24 | int(header[1])<<16 | int(header[2])<<8 | int(header[3])
@@ -85,7 +85,7 @@ func (p *JDWPPlugin) getVersion(conn interface {
 	}
 
 	body := make([]byte, replyLen-11)
-	if _, err := conn.Read(body); err != nil {
+	if _, err := io.ReadFull(conn, body); err != nil {
 		return ""
 	}
 
@@ -101,10 +101,7 @@ func parseJDWPVersionString(data []byte) string {
 		return ""
 	}
 	s := string(data[4 : 4+strLen])
-	if len(s) > 200 {
-		s = s[:200]
-	}
-	return s
+	return truncateRunes(s, 200)
 }
 
 func init() {

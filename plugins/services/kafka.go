@@ -155,6 +155,8 @@ func (p *KafkaPlugin) doKafkaAuth(ctx context.Context, info *common.HostInfo, cr
 
 var kafkaCorrelationID int32
 
+const maxKafkaResponseSize = 1024 * 1024
+
 func nextKafkaCorrelationID() int32 {
 	return atomic.AddInt32(&kafkaCorrelationID, 1) - 1
 }
@@ -178,23 +180,26 @@ func kafkaSend(conn net.Conn, apiKey, apiVersion int16, body []byte) error {
 	return err
 }
 
-func kafkaRecv(conn net.Conn) ([]byte, error) {
+func kafkaRecv(conn io.Reader) ([]byte, error) {
 	// 读取 4 字节长度
 	lenBuf := make([]byte, 4)
 	if _, err := io.ReadFull(conn, lenBuf); err != nil {
 		return nil, err
 	}
 	msgLen := int(binary.BigEndian.Uint32(lenBuf))
+	if msgLen < 4 {
+		return nil, fmt.Errorf("invalid kafka response length: %d", msgLen)
+	}
+	if msgLen > maxKafkaResponseSize {
+		return nil, fmt.Errorf("kafka response too large: %d", msgLen)
+	}
 	// 读取消息体
 	msg := make([]byte, msgLen)
 	if _, err := io.ReadFull(conn, msg); err != nil {
 		return nil, err
 	}
 	// 跳过 correlation_id (4B)，返回 body
-	if len(msg) >= 4 {
-		return msg[4:], nil
-	}
-	return msg, nil
+	return msg[4:], nil
 }
 
 func kafkaString(s string) []byte {

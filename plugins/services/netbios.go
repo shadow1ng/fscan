@@ -5,6 +5,7 @@ package services
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"net"
 	"strings"
@@ -360,13 +361,13 @@ func (p *NetBIOSPlugin) parseNetBIOSSession(data []byte) (*NetBIOSInfo, error) {
 
 // parseNTLMInfo 解析NTLM信息
 func (p *NetBIOSPlugin) parseNTLMInfo(data []byte, info *NetBIOSInfo) {
-	if len(data) < 45 {
+	if len(data) < 48 {
 		return
 	}
 
 	// 获取Target Info偏移和长度
 	targetInfoLength := int(data[40]) + int(data[41])*256
-	targetInfoOffset := int(data[44])
+	targetInfoOffset := int(binary.LittleEndian.Uint32(data[44:48]))
 
 	if targetInfoOffset+targetInfoLength > len(data) {
 		return

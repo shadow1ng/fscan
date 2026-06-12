@@ -158,6 +158,9 @@ func classifyActiveMQErrorType(err error) ErrorType {
 // authenticateSTOMP 使用STOMP协议认证ActiveMQ
 func (p *ActiveMQPlugin) authenticateSTOMP(conn net.Conn, username, password string, config *common.Config) (bool, error) {
 	timeout := config.Timeout
+	if err := rejectLineBreaks(username, password); err != nil {
+		return false, err
+	}
 
 	stompConnect := fmt.Sprintf("CONNECT\naccept-version:1.0,1.1,1.2\nhost:/\nlogin:%s\npasscode:%s\n\n\x00",
 		username, password)

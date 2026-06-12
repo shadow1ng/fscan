@@ -5,7 +5,6 @@ package services
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -88,7 +87,10 @@ func (p *IMAPPlugin) tryLogin(ctx context.Context, info *common.HostInfo, cred p
 		return nil
 	}
 
-	loginCmd := fmt.Sprintf("a001 LOGIN %s %s\r\n", cred.Username, cred.Password)
+	loginCmd, err := buildIMAPLoginCommand("a001", cred.Username, cred.Password)
+	if err != nil {
+		return nil
+	}
 	if _, err := conn.Write([]byte(loginCmd)); err != nil {
 		return nil
 	}

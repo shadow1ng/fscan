@@ -276,12 +276,9 @@ func (p *RsyncPlugin) getModules(conn net.Conn, config *common.Config) []string 
 
 	// 读取服务器版本
 	_ = conn.SetReadDeadline(time.Now().Add(timeout))
-	versionBuf := make([]byte, 256)
-	n, err := conn.Read(versionBuf)
-	if err != nil {
+	if _, err := readRsyncLine(conn, 256); err != nil {
 		return nil
 	}
-	_ = string(versionBuf[:n])
 
 	// 回复客户端版本
 	_ = conn.SetWriteDeadline(time.Now().Add(timeout))
@@ -357,8 +354,7 @@ func (p *RsyncPlugin) identifyService(ctx context.Context, info *common.HostInfo
 	}
 
 	_ = conn.SetReadDeadline(time.Now().Add(timeout))
-	response := make([]byte, 1024)
-	n, err := conn.Read(response)
+	responseStr, err := readRsyncLine(conn, 1024)
 	if err != nil {
 		return &ScanResult{
 			Success: false,
@@ -366,8 +362,6 @@ func (p *RsyncPlugin) identifyService(ctx context.Context, info *common.HostInfo
 			Error:   err,
 		}
 	}
-
-	responseStr := string(response[:n])
 
 	var banner string
 
@@ -398,6 +392,26 @@ func (p *RsyncPlugin) identifyService(ctx context.Context, info *common.HostInfo
 		Service: "rsync",
 		Banner:  banner,
 	}
+}
+
+func readRsyncLine(conn interface {
+	Read([]byte) (int, error)
+}, max int) (string, error) {
+	var line strings.Builder
+	var b [1]byte
+	for line.Len() < max {
+		if _, err := io.ReadFull(conn, b[:]); err != nil {
+			if err == io.EOF && line.Len() > 0 {
+				return line.String(), nil
+			}
+			return "", err
+		}
+		line.WriteByte(b[0])
+		if b[0] == '\n' {
+			return line.String(), nil
+		}
+	}
+	return line.String(), nil
 }
 
 func init() {

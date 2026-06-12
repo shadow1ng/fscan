@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -115,6 +116,20 @@ func buildTargetURL(info *common.HostInfo) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrInvalidURL, err)
 	}
+	if parsedURL.Hostname() == "" {
+		return "", fmt.Errorf("%w: empty host", ErrInvalidURL)
+	}
+	portStr := parsedURL.Port()
+	if portStr == "" {
+		if hasMalformedWebURLPort(parsedURL.Host) {
+			return "", fmt.Errorf("%w: invalid port", ErrInvalidURL)
+		}
+	} else {
+		port, err := strconv.Atoi(portStr)
+		if err != nil || port < 1 || port > 65535 {
+			return "", fmt.Errorf("%w: invalid port %q", ErrInvalidURL, portStr)
+		}
+	}
 	parsedURL.Host = normalizeWebURLHost(parsedURL.Host)
 
 	return fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host), nil
@@ -150,6 +165,14 @@ func normalizeWebURLHost(host string) string {
 		return "[" + host + "]"
 	}
 	return host
+}
+
+func hasMalformedWebURLPort(host string) bool {
+	if strings.HasPrefix(host, "[") {
+		end := strings.LastIndexByte(host, ']')
+		return end >= 0 && len(host) > end+1 && host[end+1] == ':'
+	}
+	return strings.Contains(host, ":")
 }
 
 // scanByFingerprints 根据指纹执行POC

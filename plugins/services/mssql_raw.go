@@ -23,6 +23,7 @@ const (
 
 	tdsVersion74        = 0x74000004
 	tdsDefaultPacketLen = 4096
+	maxTDSMessageSize   = 1024 * 1024
 
 	tdsPreloginVersion    = 0
 	tdsPreloginEncryption = 1
@@ -438,6 +439,9 @@ func mssqlReadMessage(r io.Reader) (byte, []byte, error) {
 		chunk := make([]byte, size-8)
 		if _, err := io.ReadFull(r, chunk); err != nil {
 			return 0, nil, err
+		}
+		if len(payload)+len(chunk) > maxTDSMessageSize {
+			return 0, nil, fmt.Errorf("mssql: message too large")
 		}
 		payload = append(payload, chunk...)
 		if header[1]&tdsStatusEOM != 0 {

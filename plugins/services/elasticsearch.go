@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/shadow1ng/fscan/common"
@@ -107,7 +106,7 @@ func (p *ElasticsearchPlugin) testCredential(ctx context.Context, info *common.H
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == 200 {
-		body, err := io.ReadAll(resp.Body)
+		body, err := readServiceHTTPBody(resp.Body)
 		if err != nil {
 			return false
 		}

@@ -24,6 +24,8 @@ import (
 	"github.com/shadow1ng/fscan/webscan/lib"
 )
 
+const maxWebTitleBodyBytes = 2 << 20
+
 // 预编译正则表达式
 var (
 	titleRegex      = regexp.MustCompile(`(?i)<title[^>]*>([^<]+)</title>`)
@@ -136,10 +138,7 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 	baseURL := webTitleURL(urlScheme, info.Host, info.Port)
 
 	// 选择对应的 HTTP 客户端
-	clientNR, clientR := lib.ClientNoRedirect, lib.Client
-	if isGM {
-		clientNR, clientR = lib.ClientNoRedirectGM, lib.ClientGM
-	}
+	clientNR, clientR := webTitleHTTPClients(isGM)
 
 	// 构建显示用URL（隐藏标准端口）
 	var displayURL string
@@ -164,7 +163,7 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 		return "", 0, 0, "", nil, displayURL, err
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := readWebTitleBody(resp.Body)
 	_ = resp.Body.Close()
 	contentLen := len(body)
 	if err != nil {
@@ -196,7 +195,7 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 					reqRedirect.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 					respRedirect, err := clientR.Do(reqRedirect)
 					if err == nil {
-						bodyRedirect, err := io.ReadAll(respRedirect.Body)
+						bodyRedirect, err := readWebTitleBody(respRedirect.Body)
 						_ = respRedirect.Body.Close()
 						if err == nil && len(bodyRedirect) > 0 {
 							// 添加跳转后页面的指纹数据
@@ -299,6 +298,34 @@ func (p *WebTitlePlugin) triggerPocScan(ctx context.Context, info *common.HostIn
 	WebScan.WebScan(ctx, info, config, session)
 }
 
+func webTitleHTTPClients(isGM bool) (*http.Client, *http.Client) {
+	if isGM {
+		return firstHTTPClient(lib.ClientNoRedirectGM, defaultNoRedirectClient()), firstHTTPClient(lib.ClientGM, http.DefaultClient)
+	}
+	return firstHTTPClient(lib.ClientNoRedirect, defaultNoRedirectClient()), firstHTTPClient(lib.Client, http.DefaultClient)
+}
+
+func firstHTTPClient(clients ...*http.Client) *http.Client {
+	for _, client := range clients {
+		if client != nil {
+			return client
+		}
+	}
+	return http.DefaultClient
+}
+
+func defaultNoRedirectClient() *http.Client {
+	return &http.Client{
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+}
+
+func readWebTitleBody(r io.Reader) ([]byte, error) {
+	return io.ReadAll(io.LimitReader(r, maxWebTitleBodyBytes))
+}
+
 // formatHeaders 将 HTTP Header 格式化为字符串
 func (p *WebTitlePlugin) formatHeaders(headers http.Header) string {
 	var builder strings.Builder
@@ -361,9 +388,7 @@ func (p *WebTitlePlugin) extractTitle(html string) string {
 		title := strings.TrimSpace(matches[1])
 		title = whitespaceRegex.ReplaceAllString(title, " ")
 
-		if len(title) > 100 {
-			title = title[:100] + "..."
-		}
+		title = truncateRunes(title, 100)
 
 		if utf8.ValidString(title) {
 			return title
@@ -371,6 +396,19 @@ func (p *WebTitlePlugin) extractTitle(html string) string {
 	}
 
 	return ""
+}
+
+func truncateRunes(s string, maxRunes int) string {
+	if maxRunes < 0 {
+		return s
+	}
+	for i := range s {
+		if maxRunes == 0 {
+			return s[:i] + "..."
+		}
+		maxRunes--
+	}
+	return s
 }
 
 // fetchFaviconHash 下载 favicon.ico 并计算 hash

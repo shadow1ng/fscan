@@ -1,10 +1,12 @@
 package lib
 
 import (
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -258,6 +260,21 @@ func TestRandomInt(t *testing.T) {
 	}
 }
 
+func TestRandomIntRejectsOverflowingRange(t *testing.T) {
+	customLib := NewEnvOption()
+	env, err := NewEnv(&customLib)
+	if err != nil {
+		t.Fatalf("创建 CEL 环境失败: %v", err)
+	}
+
+	if _, err := Evaluate(env, "randomInt(-9223372036854775808, 9223372036854775807)", map[string]interface{}{}); err == nil {
+		t.Fatal("Evaluate() error = nil, want randomInt range error")
+	}
+	if _, err := randomIntSpan(-9223372036854775807-1, 9223372036854775807); err == nil {
+		t.Fatal("randomIntSpan() error = nil, want range too large")
+	}
+}
+
 func TestRandomLowercase(t *testing.T) {
 	customLib := NewEnvOption()
 	env, err := NewEnv(&customLib)
@@ -388,6 +405,26 @@ func TestRandomString(t *testing.T) {
 	}
 }
 
+func TestRandomStringLengthValidation(t *testing.T) {
+	customLib := NewEnvOption()
+	env, err := NewEnv(&customLib)
+	if err != nil {
+		t.Fatalf("创建 CEL 环境失败: %v", err)
+	}
+
+	for _, expr := range []string{
+		"randomLowercase(-1)",
+		fmt.Sprintf("randomUppercase(%d)", maxRandomStringLength+1),
+		fmt.Sprintf("randomString(%d)", maxRandomStringLength+1),
+	} {
+		t.Run(expr, func(t *testing.T) {
+			if _, err := Evaluate(env, expr, map[string]interface{}{}); err == nil {
+				t.Fatal("Evaluate() error = nil, want invalid random string length")
+			}
+		})
+	}
+}
+
 // =============================================================================
 // eval_string.go 测试 - 字符串函数
 // =============================================================================
@@ -469,6 +506,12 @@ func TestSubstr(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("长度溢出不panic", func(t *testing.T) {
+		if _, err := Evaluate(env, `substr("hello", 1, 9223372036854775807)`, map[string]interface{}{}); err == nil {
+			t.Fatal("Evaluate() error = nil, want invalid substr bounds")
+		}
+	})
 }
 
 func TestIStartsWith(t *testing.T) {
@@ -1086,6 +1129,45 @@ func TestGetRespBody(t *testing.T) {
 	}
 }
 
+func TestGetRespBodyLimitsPlainBody(t *testing.T) {
+	resp := &http.Response{
+		Header: make(http.Header),
+		Body:   io.NopCloser(strings.NewReader(strings.Repeat("a", maxPOCResponseBodyBytes+1024))),
+	}
+
+	body, err := getRespBody(resp)
+	if err != nil {
+		t.Fatalf("getRespBody error = %v", err)
+	}
+	if len(body) != maxPOCResponseBodyBytes {
+		t.Fatalf("body len = %d, want %d", len(body), maxPOCResponseBodyBytes)
+	}
+}
+
+func TestGetRespBodyLimitsGzipBody(t *testing.T) {
+	var compressed strings.Builder
+	gzipWriter := gzip.NewWriter(&compressed)
+	if _, err := gzipWriter.Write([]byte(strings.Repeat("a", maxPOCResponseBodyBytes+1024))); err != nil {
+		t.Fatalf("gzip write error = %v", err)
+	}
+	if err := gzipWriter.Close(); err != nil {
+		t.Fatalf("gzip close error = %v", err)
+	}
+
+	resp := &http.Response{
+		Header: http.Header{"Content-Encoding": []string{"gzip"}},
+		Body:   io.NopCloser(strings.NewReader(compressed.String())),
+	}
+
+	body, err := getRespBody(resp)
+	if err != nil {
+		t.Fatalf("getRespBody error = %v", err)
+	}
+	if len(body) != maxPOCResponseBodyBytes {
+		t.Fatalf("body len = %d, want %d", len(body), maxPOCResponseBodyBytes)
+	}
+}
+
 func TestDoRequestBuffersUnknownLengthBody(t *testing.T) {
 	previous := ClientNoRedirect
 	defer func() { ClientNoRedirect = previous }()
@@ -1121,6 +1203,52 @@ func TestDoRequestBuffersUnknownLengthBody(t *testing.T) {
 	}
 	if gotBody != "abc" {
 		t.Fatalf("body = %q, want abc", gotBody)
+	}
+}
+
+func TestDoRequestUsesFallbackClientWhenGlobalClientNil(t *testing.T) {
+	previous := ClientNoRedirect
+	ClientNoRedirect = nil
+	defer func() { ClientNoRedirect = previous }()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer server.Close()
+
+	req, err := http.NewRequest(http.MethodGet, server.URL, nil)
+	if err != nil {
+		t.Fatalf("NewRequest error = %v", err)
+	}
+
+	resp, err := DoRequest(req, false, nil)
+	if err != nil {
+		t.Fatalf("DoRequest error = %v", err)
+	}
+	if string(resp.Body) != "ok" {
+		t.Fatalf("body = %q, want ok", resp.Body)
+	}
+}
+
+func TestDoRequestSkipsNilGMTLSFallback(t *testing.T) {
+	previousNR, previousGM := ClientNoRedirect, ClientNoRedirectGM
+	defer func() {
+		ClientNoRedirect = previousNR
+		ClientNoRedirectGM = previousGM
+	}()
+
+	ClientNoRedirect = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("standard tls failed")
+	})}
+	ClientNoRedirectGM = nil
+
+	req, err := http.NewRequest(http.MethodGet, "https://example.com", nil)
+	if err != nil {
+		t.Fatalf("NewRequest error = %v", err)
+	}
+
+	if _, err := DoRequest(req, false, nil); err == nil {
+		t.Fatal("DoRequest expected standard TLS error")
 	}
 }
 
@@ -1206,5 +1334,11 @@ func TestRandomStr(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRandomStrRejectsNegativeLength(t *testing.T) {
+	if got := RandomStr(randSource, "abc", -1); got != "" {
+		t.Fatalf("RandomStr negative length = %q, want empty", got)
 	}
 }

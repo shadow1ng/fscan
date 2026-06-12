@@ -2,6 +2,8 @@ package core
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 	"testing"
 )
 
@@ -252,6 +254,110 @@ func TestBuildWebServiceURLIPv6(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPortScanCollectorsAndHelpers(t *testing.T) {
+	t.Run("result collector deduplicates and streams", func(t *testing.T) {
+		stream := make(chan string, 2)
+		collector := newResultCollector(stream)
+		collector.Add("127.0.0.1:80")
+		collector.Add("127.0.0.1:80")
+		collector.Add("127.0.0.1:443")
+
+		got := collector.GetAll()
+		sort.Strings(got)
+		expected := []string{"127.0.0.1:443", "127.0.0.1:80"}
+		if !stringSlicesEqual(got, expected) {
+			t.Fatalf("collector results = %v, want %v", got, expected)
+		}
+
+		close(stream)
+		var streamed []string
+		for addr := range stream {
+			streamed = append(streamed, addr)
+		}
+		sort.Strings(streamed)
+		if !stringSlicesEqual(streamed, expected) {
+			t.Fatalf("streamed results = %v, want %v", streamed, expected)
+		}
+	})
+
+	t.Run("failed collector counts", func(t *testing.T) {
+		var collector failedPortCollector
+		collector.Add("127.0.0.1", 80, "127.0.0.1:80")
+		collector.Add("127.0.0.1", 443, "127.0.0.1:443")
+		if got := collector.Count(); got != 2 {
+			t.Fatalf("failed count = %d, want 2", got)
+		}
+	})
+
+	t.Run("proxy and closed error helpers", func(t *testing.T) {
+		if !isProxyErrorResponse([]byte{0x05, 0x01, 0x00, 0x01}) {
+			t.Fatal("SOCKS5 failure reply should be proxy error")
+		}
+		if !isProxyErrorResponse([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n")) {
+			t.Fatal("HTTP proxy error text should be detected")
+		}
+		if isProxyErrorResponse(nil) || isProxyErrorResponse([]byte{0x05, 0x00}) {
+			t.Fatal("empty or success response should not be proxy error")
+		}
+		if !isConnectionClosed(fmt.Errorf("use of closed network connection")) {
+			t.Fatal("closed connection error should be detected")
+		}
+		if isConnectionClosed(nil) || isConnectionClosed(fmt.Errorf("temporary timeout")) {
+			t.Fatal("non-closed error should not be detected")
+		}
+	})
+
+	t.Run("service details and subnet prefix", func(t *testing.T) {
+		details := buildServiceDetails(8443, &ServiceInfo{
+			Name:    "https",
+			Version: "1.2.3",
+			Banner:  " hello \r\n",
+			Extras: map[string]string{
+				"vendor_product": "nginx",
+				"os":             "linux",
+				"info":           "tls",
+				"empty":          "",
+				"ignored":        "value",
+			},
+		})
+		expected := map[string]interface{}{
+			"port":    8443,
+			"service": "https",
+			"version": "1.2.3",
+			"banner":  "hello",
+			"product": "nginx",
+			"os":      "linux",
+			"info":    "tls",
+		}
+		for key, want := range expected {
+			if got := details[key]; got != want {
+				t.Fatalf("details[%s] = %#v, want %#v (all=%#v)", key, got, want, details)
+			}
+		}
+		if _, ok := details["ignored"]; ok {
+			t.Fatalf("unexpected ignored extra in details: %#v", details)
+		}
+		if got := subnetPrefix("192.168.1.25"); got != "192.168.1" {
+			t.Fatalf("subnetPrefix IPv4 = %q", got)
+		}
+		if got := subnetPrefix("localhost"); got != "" {
+			t.Fatalf("subnetPrefix hostname = %q, want empty", got)
+		}
+	})
+}
+
+func stringSlicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // =============================================================================
@@ -611,6 +717,17 @@ func TestBuildServiceLogMessage(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestBuildServiceLogMessageTruncatesBannerByRune(t *testing.T) {
+	result := buildServiceLogMessage("10.0.0.1:22", &ServiceInfo{
+		Name:   "ssh",
+		Banner: strings.Repeat("界", 85),
+		Extras: map[string]string{},
+	}, false)
+	if !strings.Contains(result, strings.Repeat("界", 80)+"...") {
+		t.Fatalf("truncated banner is not rune-safe: %q", result)
 	}
 }
 

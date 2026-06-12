@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"fmt"
 	"math/rand" //nolint:gosec // G404: math/rand用于生成POC测试数据，非加密用途
 
 	"github.com/google/cel-go/checker/decls"
@@ -9,6 +10,8 @@ import (
 	"github.com/google/cel-go/interpreter/functions"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
+
+const maxRandomStringLength = 4096
 
 // registerRandomDeclarations 注册随机函数的CEL声明
 func registerRandomDeclarations() []*exprpb.Decl {
@@ -46,12 +49,13 @@ func registerRandomImplementations() []*functions.Overload {
 				if !ok {
 					return types.ValOrErr(rhs, "unexpected type '%v' passed to randomInt", rhs.Type())
 				}
-			min, max := int(from), int(to)
-			if max <= min {
-				return types.NewErr("randomInt: max(%d) must be greater than min(%d)", max, min)
-			}
-			//nolint:gosec // G404: 用于生成POC测试随机数，非加密用途
-			return types.Int(rand.Intn(max-min) + min)
+				min, max := int64(from), int64(to)
+				span, err := randomIntSpan(min, max)
+				if err != nil {
+					return types.NewErr("%v", err)
+				}
+				//nolint:gosec // G404: 用于生成POC测试随机数，非加密用途
+				return types.Int(rand.Int63n(span) + min)
 			},
 		},
 		{
@@ -61,7 +65,11 @@ func registerRandomImplementations() []*functions.Overload {
 				if !ok {
 					return types.ValOrErr(value, "unexpected type '%v' passed to randomLowercase", value.Type())
 				}
-				return types.String(randomLowercase(int(n)))
+				length, err := validateRandomStringLength(n)
+				if err != nil {
+					return types.NewErr("%v", err)
+				}
+				return types.String(randomLowercase(length))
 			},
 		},
 		{
@@ -71,7 +79,11 @@ func registerRandomImplementations() []*functions.Overload {
 				if !ok {
 					return types.ValOrErr(value, "unexpected type '%v' passed to randomUppercase", value.Type())
 				}
-				return types.String(randomUppercase(int(n)))
+				length, err := validateRandomStringLength(n)
+				if err != nil {
+					return types.NewErr("%v", err)
+				}
+				return types.String(randomUppercase(length))
 			},
 		},
 		{
@@ -81,8 +93,30 @@ func registerRandomImplementations() []*functions.Overload {
 				if !ok {
 					return types.ValOrErr(value, "unexpected type '%v' passed to randomString", value.Type())
 				}
-				return types.String(randomString(int(n)))
+				length, err := validateRandomStringLength(n)
+				if err != nil {
+					return types.NewErr("%v", err)
+				}
+				return types.String(randomString(length))
 			},
 		},
 	}
+}
+
+func randomIntSpan(min, max int64) (int64, error) {
+	if max <= min {
+		return 0, fmt.Errorf("randomInt: max(%d) must be greater than min(%d)", max, min)
+	}
+	const maxInt64 = int64(^uint64(0) >> 1)
+	if min < 0 && max > maxInt64+min {
+		return 0, fmt.Errorf("randomInt: range too large")
+	}
+	return max - min, nil
+}
+
+func validateRandomStringLength(n types.Int) (int, error) {
+	if n < 0 || n > maxRandomStringLength {
+		return 0, fmt.Errorf("random string length must be between 0 and %d", maxRandomStringLength)
+	}
+	return int(n), nil
 }

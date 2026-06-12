@@ -74,14 +74,16 @@ func (p *CassandraPlugin) createAuthFunc(info *common.HostInfo, config *common.C
 //
 //	[1B version|flags] [2B stream] [1B opcode] [4B length] [body]
 const (
-	cqlVersion   = 0x84 // version=4, direction=request
-	cqlOpStartup = 0x01
-	cqlOpAuthRsp = 0x0f
-	cqlOpQuery   = 0x07
-	cqlOpReady   = 0x02
-	cqlOpAuthOk  = 0x10
-	cqlOpAuthChl = 0x0e
-	cqlOpError   = 0x00
+	cqlVersion      = 0x84 // version=4, direction=request
+	cqlOpStartup    = 0x01
+	cqlOpAuthRsp    = 0x0f
+	cqlOpQuery      = 0x07
+	cqlOpResult     = 0x08
+	cqlOpReady      = 0x02
+	cqlOpAuthOk     = 0x10
+	cqlOpAuthChl    = 0x0e
+	cqlOpError      = 0x00
+	maxCQLFrameBody = 1024 * 1024
 )
 
 func (p *CassandraPlugin) doCassandraAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
@@ -157,8 +159,9 @@ func (p *CassandraPlugin) doCassandraAuth(ctx context.Context, info *common.Host
 		state.IncrementTCPFailedPacketCount()
 		return &AuthResult{Success: false, ErrorType: ErrorTypeNetwork, Error: err}
 	}
-	_ = body
-	_ = opcode
+	if err := validateCQLQueryResponse(opcode, body); err != nil {
+		return &AuthResult{Success: false, ErrorType: ErrorTypeAuth, Error: err}
+	}
 
 	state.IncrementTCPSuccessPacketCount()
 	return &AuthResult{Success: true, ErrorType: ErrorTypeUnknown, Error: nil}
@@ -187,7 +190,7 @@ func cqlSend(conn net.Conn, opcode byte, body []byte) error {
 	return err
 }
 
-func cqlRecv(conn net.Conn) (byte, []byte, error) {
+func cqlRecv(conn io.Reader) (byte, []byte, error) {
 	// 读取 9 字节头部（响应也有额外标志字节）
 	header := make([]byte, 9)
 	if _, err := io.ReadFull(conn, header); err != nil {
@@ -195,14 +198,27 @@ func cqlRecv(conn net.Conn) (byte, []byte, error) {
 	}
 	opcode := header[4]
 	bodyLen := int(binary.BigEndian.Uint32(header[5:9]))
-	if bodyLen <= 0 || bodyLen > 1024*1024 {
-		return opcode, nil, nil
+	if bodyLen == 0 {
+		return opcode, []byte{}, nil
+	}
+	if bodyLen > maxCQLFrameBody {
+		return opcode, nil, fmt.Errorf("cassandra frame too large: %d", bodyLen)
 	}
 	body := make([]byte, bodyLen)
 	if _, err := io.ReadFull(conn, body); err != nil {
 		return opcode, nil, err
 	}
 	return opcode, body, nil
+}
+
+func validateCQLQueryResponse(opcode byte, body []byte) error {
+	if opcode == cqlOpError {
+		return fmt.Errorf("cassandra query failed: %s", string(body))
+	}
+	if opcode != cqlOpResult {
+		return fmt.Errorf("unexpected query opcode: %d", opcode)
+	}
+	return nil
 }
 
 // cqlStringMap CQL string map 编码: [2B count] [pairs: [2B len] [str]]
@@ -270,7 +286,7 @@ func (p *CassandraPlugin) tryNoAuthConnection(ctx context.Context, info *common.
 		state.IncrementTCPFailedPacketCount()
 		return nil
 	}
-	opcode, _, err := cqlRecv(conn)
+	opcode, body, err := cqlRecv(conn)
 	if err != nil || opcode != cqlOpReady {
 		return nil
 	}
@@ -280,8 +296,11 @@ func (p *CassandraPlugin) tryNoAuthConnection(ctx context.Context, info *common.
 	if err := cqlSend(conn, cqlOpQuery, queryBody); err != nil {
 		return nil
 	}
-	_, body, err := cqlRecv(conn)
+	opcode, body, err = cqlRecv(conn)
 	if err != nil {
+		return nil
+	}
+	if err := validateCQLQueryResponse(opcode, body); err != nil {
 		return nil
 	}
 

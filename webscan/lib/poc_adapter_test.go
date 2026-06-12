@@ -3,6 +3,8 @@ package lib
 import (
 	"strings"
 	"testing"
+
+	"github.com/google/cel-go/common/types"
 )
 
 // TestDetectPocFormat 测试POC格式检测
@@ -168,6 +170,9 @@ http:
 	if len(poc.Rules) != 2 {
 		t.Errorf("len(Poc.Rules) = %v, want %v", len(poc.Rules), 2)
 	}
+	if poc.Rules[0].Path != "/admin" || poc.Rules[1].Path != "/api" {
+		t.Fatalf("Nuclei paths = %q, %q; want /admin, /api", poc.Rules[0].Path, poc.Rules[1].Path)
+	}
 
 	if poc.Detail.Author != "pdteam" {
 		t.Errorf("Poc.Detail.Author = %v, want %v", poc.Detail.Author, "pdteam")
@@ -179,31 +184,101 @@ http:
 	}
 }
 
+func TestNormalizeNucleiPath(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"{{BaseURL}}", "/"},
+		{"{{BaseURL}}/admin", "/admin"},
+		{"{{RootURL}}/login", "/login"},
+		{" {{BaseURL}}/api?q=1 ", "/api?q=1"},
+		{"/plain", "/plain"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			if got := normalizeNucleiPath(tt.in); got != tt.want {
+				t.Fatalf("normalizeNucleiPath(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNucleiInfoAcceptsScalarAndListMetadata(t *testing.T) {
+	yaml := `
+id: metadata-flex
+info:
+  name: Metadata Flex
+  author:
+    - alice
+    - bob
+  reference: https://example.com/ref
+http:
+  - path:
+      - "{{BaseURL}}"
+`
+
+	adapter, err := loadNucleiPoc([]byte(yaml))
+	if err != nil {
+		t.Fatalf("loadNucleiPoc() error = %v", err)
+	}
+	poc, err := adapter.ToFscanPoc()
+	if err != nil {
+		t.Fatalf("ToFscanPoc() error = %v", err)
+	}
+	if poc.Detail.Author != "alice, bob" {
+		t.Fatalf("Author = %q, want alice, bob", poc.Detail.Author)
+	}
+	if len(poc.Detail.Links) != 1 || poc.Detail.Links[0] != "https://example.com/ref" {
+		t.Fatalf("Links = %#v, want scalar reference converted to slice", poc.Detail.Links)
+	}
+}
+
+func TestAfrogInfoAcceptsScalarAndListMetadata(t *testing.T) {
+	yaml := `
+id: afrog-metadata-flex
+info:
+  name: Afrog Metadata Flex
+  author: carol
+  reference:
+    - https://example.com/a
+    - https://example.com/b
+rules:
+  r0:
+    request:
+      method: GET
+      path: "{{BaseURL}}/panel"
+    expression: response.status == 200
+`
+
+	adapter, err := loadAfrogPoc([]byte(yaml))
+	if err != nil {
+		t.Fatalf("loadAfrogPoc() error = %v", err)
+	}
+	poc, err := adapter.ToFscanPoc()
+	if err != nil {
+		t.Fatalf("ToFscanPoc() error = %v", err)
+	}
+	if poc.Detail.Author != "carol" {
+		t.Fatalf("Author = %q, want carol", poc.Detail.Author)
+	}
+	if len(poc.Detail.Links) != 2 {
+		t.Fatalf("Links = %#v, want two references", poc.Detail.Links)
+	}
+}
+
 // TestConvertNucleiMatchers 测试Nuclei matcher转换
 func TestConvertNucleiMatchers(t *testing.T) {
 	tests := []struct {
 		name              string
-		matchers          []struct {
-			Type      string   `yaml:"type"`
-			Words     []string `yaml:"words"`
-			Status    []int    `yaml:"status"`
-			Regex     []string `yaml:"regex"`
-			Condition string   `yaml:"condition"`
-			Part      string   `yaml:"part"`
-		}
+		matchers          []NucleiMatcher
 		matchersCondition string
 		wantContains      string
 	}{
 		{
 			name: "单个word matcher",
-			matchers: []struct {
-				Type      string   `yaml:"type"`
-				Words     []string `yaml:"words"`
-				Status    []int    `yaml:"status"`
-				Regex     []string `yaml:"regex"`
-				Condition string   `yaml:"condition"`
-				Part      string   `yaml:"part"`
-			}{
+			matchers: []NucleiMatcher{
 				{
 					Type:  "word",
 					Words: []string{"admin"},
@@ -214,14 +289,7 @@ func TestConvertNucleiMatchers(t *testing.T) {
 		},
 		{
 			name: "单个status matcher",
-			matchers: []struct {
-				Type      string   `yaml:"type"`
-				Words     []string `yaml:"words"`
-				Status    []int    `yaml:"status"`
-				Regex     []string `yaml:"regex"`
-				Condition string   `yaml:"condition"`
-				Part      string   `yaml:"part"`
-			}{
+			matchers: []NucleiMatcher{
 				{
 					Type:   "status",
 					Status: []int{200},
@@ -232,14 +300,7 @@ func TestConvertNucleiMatchers(t *testing.T) {
 		},
 		{
 			name: "多个matcher - AND条件",
-			matchers: []struct {
-				Type      string   `yaml:"type"`
-				Words     []string `yaml:"words"`
-				Status    []int    `yaml:"status"`
-				Regex     []string `yaml:"regex"`
-				Condition string   `yaml:"condition"`
-				Part      string   `yaml:"part"`
-			}{
+			matchers: []NucleiMatcher{
 				{
 					Type:  "word",
 					Words: []string{"admin"},
@@ -254,14 +315,7 @@ func TestConvertNucleiMatchers(t *testing.T) {
 		},
 		{
 			name: "多个matcher - OR条件",
-			matchers: []struct {
-				Type      string   `yaml:"type"`
-				Words     []string `yaml:"words"`
-				Status    []int    `yaml:"status"`
-				Regex     []string `yaml:"regex"`
-				Condition string   `yaml:"condition"`
-				Part      string   `yaml:"part"`
-			}{
+			matchers: []NucleiMatcher{
 				{
 					Type:  "word",
 					Words: []string{"admin"},
@@ -296,6 +350,129 @@ func TestConvertNucleiMatchers(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestConvertNucleiMatchersEscapesCELByteLiterals(t *testing.T) {
+	matchers := []NucleiMatcher{
+		{
+			Type:  "word",
+			Words: []string{`C:\Windows "System32"`},
+		},
+		{
+			Type:  "regex",
+			Regex: []string{`admin\\d+"`},
+		},
+	}
+
+	expr := convertNucleiMatchers(matchers, "and")
+	if !strings.Contains(expr, `C:\\Windows \"System32\"`) {
+		t.Fatalf("word matcher was not escaped correctly: %s", expr)
+	}
+	if !strings.Contains(expr, `admin\\\\d+\"`) {
+		t.Fatalf("regex matcher was not escaped correctly: %s", expr)
+	}
+	if !strings.Contains(expr, `.bmatches(response.body)`) {
+		t.Fatalf("regex matcher should use pattern receiver and response body argument: %s", expr)
+	}
+}
+
+func TestConvertNucleiMatchersRespectsHeaderPart(t *testing.T) {
+	expr := convertNucleiMatchers([]NucleiMatcher{
+		{
+			Type:  "word",
+			Words: []string{"nginx"},
+			Part:  "header",
+		},
+	}, "")
+
+	result, err := Evaluate(GetBaseEnv(), expr, map[string]interface{}{
+		"response": &Response{
+			Headers: map[string]string{"Server": "nginx"},
+			Body:    []byte("no match in body"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Evaluate(%q) error = %v", expr, err)
+	}
+	if result != types.True {
+		t.Fatalf("header matcher result = %v, want true; expr = %s", result, expr)
+	}
+}
+
+func TestConvertNucleiMatchersRespectsAllPart(t *testing.T) {
+	expr := convertNucleiMatchers([]NucleiMatcher{
+		{
+			Type:  "regex",
+			Regex: []string{`JSESSIONID=\w+`},
+			Part:  "all",
+		},
+	}, "")
+
+	result, err := Evaluate(GetBaseEnv(), expr, map[string]interface{}{
+		"response": &Response{
+			Headers: map[string]string{"Set-Cookie": "JSESSIONID=abc123"},
+			Body:    []byte("no match in body"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Evaluate(%q) error = %v", expr, err)
+	}
+	if result != types.True {
+		t.Fatalf("all matcher result = %v, want true; expr = %s", result, expr)
+	}
+}
+
+func TestConvertNucleiMatchersRespectsNegative(t *testing.T) {
+	expr := convertNucleiMatchers([]NucleiMatcher{
+		{
+			Type:     "word",
+			Words:    []string{"error"},
+			Negative: true,
+		},
+	}, "")
+
+	result, err := Evaluate(GetBaseEnv(), expr, map[string]interface{}{
+		"response": &Response{Body: []byte("fatal error")},
+	})
+	if err != nil {
+		t.Fatalf("Evaluate(%q) error = %v", expr, err)
+	}
+	if result != types.False {
+		t.Fatalf("negative matcher result = %v, want false; expr = %s", result, expr)
+	}
+}
+
+func TestConvertNucleiMatchersConditionIsCaseInsensitive(t *testing.T) {
+	expr := convertNucleiMatchers([]NucleiMatcher{
+		{
+			Type:      "word",
+			Words:     []string{"alpha", "beta"},
+			Condition: "OR",
+		},
+	}, "AND")
+	if !strings.Contains(expr, " || ") {
+		t.Fatalf("matcher condition should be case-insensitive OR: %s", expr)
+	}
+
+	expr = convertNucleiMatchers([]NucleiMatcher{
+		{Type: "word", Words: []string{"alpha"}},
+		{Type: "word", Words: []string{"beta"}},
+	}, "OR")
+	if !strings.Contains(expr, " || ") {
+		t.Fatalf("matchers-condition should be case-insensitive OR: %s", expr)
+	}
+}
+
+func TestConvertNucleiMatchersTypeIsCaseInsensitive(t *testing.T) {
+	expr := convertNucleiMatchers([]NucleiMatcher{
+		{
+			Type:  "WORD",
+			Words: []string{"admin"},
+		},
+	}, "")
+	if !strings.Contains(expr, `response.body.bcontains(b"admin")`) {
+		t.Fatalf("matcher type should be case-insensitive: %s", expr)
 	}
 }
 
@@ -406,7 +583,7 @@ rules:
   r1:
     request:
       method: GET
-      path: /admin/dashboard
+      path: "{{BaseURL}}/admin/dashboard"
       headers:
         Cookie: "{{cookie}}"
     expression: response.status == 200
@@ -444,6 +621,9 @@ detail:
 	// r1 的 Headers 应保留 {{cookie}} 占位符
 	if poc.Rules[1].Headers["Cookie"] != `{{cookie}}` {
 		t.Errorf("Rules[1].Headers[Cookie] = %q, want %q", poc.Rules[1].Headers["Cookie"], `{{cookie}}`)
+	}
+	if poc.Rules[1].Path != "/admin/dashboard" {
+		t.Errorf("Rules[1].Path = %q, want /admin/dashboard", poc.Rules[1].Path)
 	}
 }
 
@@ -503,7 +683,7 @@ rules:
   r1:
     request:
       method: GET
-      path: /panel
+      path: "{{BaseURL}}/panel"
       headers:
         Cookie: "{{sessid}}"
     expression: response.status == 200 && response.body.bcontains(b"admin")
@@ -530,5 +710,8 @@ rules:
 	// r1 的占位符应对应捕获组名 sessid
 	if poc.Rules[1].Headers["Cookie"] != `{{sessid}}` {
 		t.Errorf("Rules[1].Headers[Cookie] = %q, want %q", poc.Rules[1].Headers["Cookie"], `{{sessid}}`)
+	}
+	if poc.Rules[1].Path != "/panel" {
+		t.Errorf("Rules[1].Path = %q, want /panel", poc.Rules[1].Path)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -54,6 +55,9 @@ func (h *httpDialer) DialContext(ctx context.Context, network, address string) (
 
 // sendConnectRequest 发送HTTP CONNECT请求
 func (h *httpDialer) sendConnectRequest(conn net.Conn, address string) error {
+	if strings.ContainsAny(address, "\r\n") {
+		return NewProxyError(ErrTypeProtocol, "invalid CONNECT target", ErrCodeHTTPReadRespFailed, nil)
+	}
 	// 构建CONNECT请求
 	req := fmt.Sprintf(HTTPConnectRequestFormat, address, address)
 

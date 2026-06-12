@@ -6,9 +6,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -77,8 +79,14 @@ func (p *MySQLPlugin) createAuthFunc(info *common.HostInfo, config *common.Confi
 
 // doMySQLAuth 执行MySQL认证
 func (p *MySQLPlugin) doMySQLAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
-	connStr := fmt.Sprintf("%s:%s@tcp(%s)/information_schema?charset=utf8&timeout=%ds",
-		cred.Username, cred.Password, net.JoinHostPort(info.Host, strconv.Itoa(info.Port)), int64(config.Timeout.Seconds()))
+	connStr, err := mySQLConnString(cred.Username, cred.Password, info, config.Timeout)
+	if err != nil {
+		return &AuthResult{
+			Success:   false,
+			ErrorType: ErrorTypeAuth,
+			Error:     err,
+		}
+	}
 
 	db, err := sql.Open("mysql", connStr)
 	if err != nil {
@@ -113,6 +121,21 @@ func (p *MySQLPlugin) doMySQLAuth(ctx context.Context, info *common.HostInfo, cr
 		ErrorType: ErrorTypeUnknown,
 		Error:     nil,
 	}
+}
+
+func mySQLConnString(username, password string, info *common.HostInfo, timeout time.Duration) (string, error) {
+	if strings.ContainsAny(username, ":@/") {
+		return "", fmt.Errorf("mysql username contains unsupported DSN delimiter")
+	}
+	cfg := mysql.NewConfig()
+	cfg.User = username
+	cfg.Passwd = password
+	cfg.Net = "tcp"
+	cfg.Addr = net.JoinHostPort(info.Host, strconv.Itoa(info.Port))
+	cfg.DBName = "information_schema"
+	cfg.Params = map[string]string{"charset": "utf8"}
+	cfg.Timeout = timeout
+	return cfg.FormatDSN(), nil
 }
 
 // classifyMySQLErrorType MySQL错误分类
@@ -173,28 +196,32 @@ func (p *MySQLPlugin) identifyService(ctx context.Context, info *common.HostInfo
 func (p *MySQLPlugin) readMySQLBanner(conn net.Conn, config *common.Config) string {
 	_ = conn.SetReadDeadline(time.Now().Add(config.Timeout))
 
-	handshake := make([]byte, 256)
-	n, err := conn.Read(handshake)
-	if err != nil || n < 10 {
+	header := make([]byte, 5)
+	if _, err := io.ReadFull(conn, header); err != nil {
 		return ""
 	}
 
-	if handshake[4] != 10 {
+	if header[4] != 10 {
 		return ""
 	}
 
-	versionStart := 5
-	versionEnd := versionStart
-	for versionEnd < n && handshake[versionEnd] != 0 {
-		versionEnd++
+	version := make([]byte, 0, 64)
+	var b [1]byte
+	for len(version) < 250 {
+		if _, err := io.ReadFull(conn, b[:]); err != nil {
+			return ""
+		}
+		if b[0] == 0 {
+			break
+		}
+		version = append(version, b[0])
 	}
 
-	if versionEnd <= versionStart {
+	if len(version) == 0 {
 		return ""
 	}
 
-	versionStr := string(handshake[versionStart:versionEnd])
-	return fmt.Sprintf("MySQL %s", versionStr)
+	return fmt.Sprintf("MySQL %s", string(version))
 }
 
 func init() {

@@ -87,6 +87,9 @@ func (p *POP3Plugin) tryLogin(ctx context.Context, info *common.HostInfo, cred p
 	if _, err := reader.ReadString('\n'); err != nil {
 		return nil
 	}
+	if err := rejectLineBreaks(cred.Username, cred.Password); err != nil {
+		return nil
+	}
 
 	if _, err := fmt.Fprintf(conn, "USER %s\r\n", cred.Username); err != nil {
 		return nil

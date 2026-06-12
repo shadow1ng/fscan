@@ -207,9 +207,7 @@ func (p *PostgreSQLPlugin) testUnauthorizedAccess(ctx context.Context, info *com
 	}
 
 	vulInfo := i18n.Tr("postgresql_trust_unauth_version", version)
-	if len(vulInfo) > 100 {
-		vulInfo = vulInfo[:100] + "..."
-	}
+	vulInfo = truncateRunes(vulInfo, 100)
 
 	return &ScanResult{
 		Type:    plugins.ResultTypeVuln,

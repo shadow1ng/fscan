@@ -112,7 +112,11 @@ func createHTTPClient(config *common.Config, session *common.ScanSession) *http.
 	networkConfig := config.Network
 	if networkConfig.HTTPProxy != "" {
 		// 使用HTTP代理
-		if proxyURL, err := url.Parse(networkConfig.HTTPProxy); err == nil {
+		httpProxy := networkConfig.HTTPProxy
+		if !strings.Contains(httpProxy, "://") {
+			httpProxy = "http://" + httpProxy
+		}
+		if proxyURL, err := url.Parse(httpProxy); err == nil && proxyURL.Host != "" {
 			transport.Proxy = http.ProxyURL(proxyURL)
 		} else {
 			session.LogError(i18n.Tr("http_proxy_config_error", err))
@@ -393,17 +397,31 @@ func (s *WebScanStrategy) createTargetFromURLWithSession(baseInfo common.HostInf
 	// 解析URL获取Host和Port信息
 	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
-		session.LogError(i18n.Tr("url_parse_failed", urlStr, err))
+		if session != nil {
+			session.LogError(i18n.Tr("url_parse_failed", urlStr, err))
+		}
 		return nil
 	}
 
 	urlInfo := baseInfo
 	urlInfo.URL = urlStr
 	urlInfo.Host = parsedURL.Hostname()
+	if urlInfo.Host == "" {
+		if session != nil {
+			session.LogError(i18n.Tr("url_parse_failed", urlStr, "empty host"))
+		}
+		return nil
+	}
 
 	// 设置端口
 	portStr := parsedURL.Port()
 	if portStr == "" {
+		if hasMalformedURLPort(parsedURL.Host) {
+			if session != nil {
+				session.LogError(i18n.Tr("host_port_invalid", urlInfo.Host, ""))
+			}
+			return nil
+		}
 		// 根据协议设置默认端口
 		if parsedURL.Scheme == "https" {
 			urlInfo.Port = 443
@@ -411,22 +429,26 @@ func (s *WebScanStrategy) createTargetFromURLWithSession(baseInfo common.HostInf
 			urlInfo.Port = 80
 		}
 	} else {
-		// 解析端口字符串为整数
-		var port int
-		if _, err := fmt.Sscanf(portStr, "%d", &port); err == nil {
-			urlInfo.Port = port
-		} else {
-			// 解析失败时使用默认端口
-			if parsedURL.Scheme == "https" {
-				urlInfo.Port = 443
-			} else {
-				urlInfo.Port = 80
+		port, err := strconv.Atoi(portStr)
+		if err != nil || port < 1 || port > 65535 {
+			if session != nil {
+				session.LogError(i18n.Tr("host_port_invalid", urlInfo.Host, portStr))
 			}
+			return nil
 		}
+		urlInfo.Port = port
 	}
 
 	// 标记为Web服务，确保Web插件能识别此目标
 	MarkAsWebService(urlInfo.Host, urlInfo.Port, &ServiceInfo{Name: "http"})
 
 	return &urlInfo
+}
+
+func hasMalformedURLPort(host string) bool {
+	if strings.HasPrefix(host, "[") {
+		end := strings.LastIndexByte(host, ']')
+		return end >= 0 && len(host) > end+1 && host[end+1] == ':'
+	}
+	return strings.Contains(host, ":")
 }

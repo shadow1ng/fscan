@@ -425,3 +425,111 @@ func TestApplyParametersToRule(t *testing.T) {
 		})
 	}
 }
+
+func TestPocExecutorPureHelpers(t *testing.T) {
+	t.Run("isFuzz detects placeholders", func(t *testing.T) {
+		sets := ListMap{{Key: "token", Value: []string{"a", "b"}}}
+		if !isFuzz(Rules{Headers: map[string]string{"X-Token": "{{token}}"}}, sets) {
+			t.Fatal("header placeholder should require fuzzing")
+		}
+		if !isFuzz(Rules{Path: "/api/{{token}}"}, sets) {
+			t.Fatal("path placeholder should require fuzzing")
+		}
+		if !isFuzz(Rules{Body: "token={{token}}"}, sets) {
+			t.Fatal("body placeholder should require fuzzing")
+		}
+		if isFuzz(Rules{Path: "/api/static"}, sets) {
+			t.Fatal("static rule should not require fuzzing")
+		}
+	})
+
+	t.Run("Combo and MakeData", func(t *testing.T) {
+		if got := Combo(nil); got != nil {
+			t.Fatalf("Combo(nil) = %#v, want nil", got)
+		}
+		one := Combo(ListMap{{Key: "user", Value: []string{"admin", "root"}}})
+		if len(one) != 2 || one[0][0] != "admin" || one[1][0] != "root" {
+			t.Fatalf("single Combo = %#v", one)
+		}
+		combos := Combo(ListMap{
+			{Key: "user", Value: []string{"admin", "root"}},
+			{Key: "pass", Value: []string{"123", "456"}},
+		})
+		want := [][]string{{"admin", "123"}, {"root", "123"}, {"admin", "456"}, {"root", "456"}}
+		if !stringMatrixEqual(combos, want) {
+			t.Fatalf("Combo = %#v, want %#v", combos, want)
+		}
+		made := MakeData([][]string{{"b"}, {"c"}}, []string{"a"})
+		if !stringMatrixEqual(made, [][]string{{"a", "b"}, {"a", "c"}}) {
+			t.Fatalf("MakeData = %#v", made)
+		}
+		if got := shiroKeyMode([]string{"only-key"}); got != "" {
+			t.Fatalf("shiroKeyMode(short combo) = %q, want empty", got)
+		}
+		if got := shiroKeyMode([]string{"key", "cbc"}); got != "cbc" {
+			t.Fatalf("shiroKeyMode() = %q, want cbc", got)
+		}
+	})
+
+	t.Run("cloneRules deep-copies headers", func(t *testing.T) {
+		original := Rules{
+			Method:          "POST",
+			Path:            "/login",
+			Body:            "a=b",
+			Search:          "token",
+			FollowRedirects: true,
+			Expression:      "true",
+			Headers:         map[string]string{"X-Test": "one"},
+			Continue:        true,
+		}
+		cloned := cloneRules(original)
+		cloned.Headers["X-Test"] = "two"
+		if original.Headers["X-Test"] != "one" {
+			t.Fatalf("cloneRules should deep copy headers, original = %#v", original.Headers)
+		}
+		if cloned.Method != original.Method || cloned.Path != original.Path || !cloned.FollowRedirects || !cloned.Continue {
+			t.Fatalf("cloneRules lost fields: %#v", cloned)
+		}
+		if cloneMap(nil) != nil {
+			t.Fatal("cloneMap(nil) should return nil")
+		}
+	})
+
+	t.Run("doSearch and GetHeader", func(t *testing.T) {
+		header := GetHeader(map[string]string{"Set-Cookie": "sid=abc; Path=/; HttpOnly", "Server": "nginx"})
+		if !strings.Contains(header, "Set-Cookie: sid=abc; Path=/; HttpOnly") || !strings.HasSuffix(header, "\r\n") {
+			t.Fatalf("GetHeader output = %q", header)
+		}
+		result := doSearch(`Set-Cookie:\s*(?P<cookie>[^\n]+)`, header)
+		if result["cookie"] != "sid=abc" {
+			t.Fatalf("cookie search = %#v", result)
+		}
+		result = doSearch(`token=(\w+)&id=(?P<id>\d+)`, "token=abc&id=42")
+		if result[""] != "" || result["id"] != "42" || len(result) != 1 {
+			t.Fatalf("unnamed groups should be skipped, got %#v", result)
+		}
+		if got := doSearch(`(?P<bad>`, "body"); got != nil {
+			t.Fatalf("invalid regex result = %#v, want nil", got)
+		}
+		if got := doSearch(`nomatch(?P<value>\d+)`, "body"); got != nil {
+			t.Fatalf("no match result = %#v, want nil", got)
+		}
+	})
+}
+
+func stringMatrixEqual(a, b [][]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if len(a[i]) != len(b[i]) {
+			return false
+		}
+		for j := range a[i] {
+			if a[i][j] != b[i][j] {
+				return false
+			}
+		}
+	}
+	return true
+}

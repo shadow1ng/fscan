@@ -1,9 +1,11 @@
 package WebScan
 
 import (
+	"context"
 	"testing"
 
 	"github.com/shadow1ng/fscan/common"
+	"github.com/shadow1ng/fscan/common/config"
 	"github.com/shadow1ng/fscan/webscan/lib"
 )
 
@@ -153,6 +155,41 @@ func TestBuildTargetURL(t *testing.T) {
 			},
 			expected:    "http://[2001:db8::1]",
 			expectError: false,
+		},
+		{
+			name: "empty host is rejected",
+			hostInfo: &common.HostInfo{
+				Port: 80,
+				URL:  "http://",
+			},
+			expectError: true,
+		},
+		{
+			name: "invalid port is rejected",
+			hostInfo: &common.HostInfo{
+				Host: "example.com",
+				Port: 80,
+				URL:  "http://example.com:bad",
+			},
+			expectError: true,
+		},
+		{
+			name: "empty explicit port is rejected",
+			hostInfo: &common.HostInfo{
+				Host: "example.com",
+				Port: 80,
+				URL:  "http://example.com:",
+			},
+			expectError: true,
+		},
+		{
+			name: "out of range port is rejected",
+			hostInfo: &common.HostInfo{
+				Host: "example.com",
+				Port: 80,
+				URL:  "http://example.com:70000",
+			},
+			expectError: true,
 		},
 	}
 
@@ -428,6 +465,44 @@ func TestFilterPocsNilSafety(t *testing.T) {
 	if len(result) != 3 {
 		t.Errorf("filterPocs with empty name should return all pocs (including nil), got %d items, want 3", len(result))
 	}
+}
+
+func TestCreateBaseRequestHeaders(t *testing.T) {
+	cfg := common.NewConfig()
+	cfg.HTTP.UserAgent = "fscan-test-agent"
+	cfg.HTTP.Accept = "application/json"
+	cfg.HTTP.Cookie = "sid=abc"
+
+	req, err := createBaseRequest(context.Background(), "http://example.com/path", cfg)
+	if err != nil {
+		t.Fatalf("createBaseRequest error = %v", err)
+	}
+	if req.Method != "GET" {
+		t.Fatalf("method = %q, want GET", req.Method)
+	}
+	if got := req.Header.Get("User-agent"); got != "fscan-test-agent" {
+		t.Fatalf("User-agent = %q", got)
+	}
+	if got := req.Header.Get("Accept"); got != "application/json" {
+		t.Fatalf("Accept = %q", got)
+	}
+	if got := req.Header.Get("Cookie"); got != "sid=abc" {
+		t.Fatalf("Cookie = %q", got)
+	}
+	if got := req.Header.Get("Accept-Language"); got == "" {
+		t.Fatal("Accept-Language should be set")
+	}
+}
+
+func TestExecutePOCsEarlyReturns(t *testing.T) {
+	cfg := common.NewConfig()
+	session := common.NewScanSession(cfg, common.NewState(), &common.FlagVars{})
+	previous := allPocs
+	allPocs = nil
+	t.Cleanup(func() { allPocs = previous })
+
+	executePOCs(context.Background(), config.PocInfo{}, cfg, session)
+	executePOCs(context.Background(), config.PocInfo{Target: "http://example.com", PocName: "missing"}, cfg, session)
 }
 
 func TestDirectoryExists(t *testing.T) {
