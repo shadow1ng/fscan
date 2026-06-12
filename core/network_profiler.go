@@ -2,10 +2,10 @@ package core
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"net"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -97,6 +97,10 @@ func (p *NetworkProfile) RecommendConcurrency(userThreadNum int, explicit bool) 
 // probePorts 探测用的端口列表（高响应率的常见端口）
 var probePorts = []int{80, 443, 22}
 
+func networkProbeAddress(host string, port int) string {
+	return net.JoinHostPort(host, strconv.Itoa(port))
+}
+
 // ProbeNetwork 探测目标网络环境
 // 从 hosts 中抽样，用低并发 TCP 连接测量 RTT 和丢包率
 // 整个过程控制在数秒内完成
@@ -140,7 +144,7 @@ func ProbeNetwork(ctx context.Context, hosts []string, session *common.ScanSessi
 			go func(h string, p int) {
 				defer func() { <-sem; wg.Done() }()
 
-				addr := fmt.Sprintf("%s:%d", h, p)
+				addr := networkProbeAddress(h, p)
 				start := time.Now()
 				conn, err := session.DialTCP(ctx, "tcp", addr, probeTimeout)
 				rtt := time.Since(start)

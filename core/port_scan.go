@@ -707,8 +707,8 @@ func processServiceResult(ctx context.Context, host string, port int, addr strin
 		return
 	}
 
-	// 缓存服务名称，供插件按服务类型匹配（解决非标准端口问题）
-	MarkServiceName(host, port, serviceInfo.Name)
+	// 缓存指纹识别结果，供插件按服务类型匹配（解决非标准端口问题）
+	CacheServiceInfo(host, port, serviceInfo)
 
 	// 保存并输出服务信息
 	details := buildServiceDetails(port, serviceInfo)
@@ -716,7 +716,6 @@ func processServiceResult(ctx context.Context, host string, port int, addr strin
 
 	if isWeb {
 		details["is_web"] = true
-		MarkAsWebService(host, port, serviceInfo)
 	}
 
 	_ = session.SaveResult(&output.ScanResult{

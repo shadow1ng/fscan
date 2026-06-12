@@ -31,7 +31,11 @@ type HostInfo struct {
 
 // Target 返回 host:port 格式字符串
 func (h *HostInfo) Target() string {
-	return net.JoinHostPort(h.Host, strconv.Itoa(h.Port))
+	host := h.Host
+	if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+		host = strings.TrimPrefix(strings.TrimSuffix(host, "]"), "[")
+	}
+	return net.JoinHostPort(host, strconv.Itoa(h.Port))
 }
 
 // =============================================================================

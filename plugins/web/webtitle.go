@@ -6,9 +6,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -131,7 +133,7 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 		isGM = true
 		urlScheme = "https" // 国密连接仍使用 https URL 格式
 	}
-	baseURL := fmt.Sprintf("%s://%s:%d", urlScheme, info.Host, info.Port)
+	baseURL := webTitleURL(urlScheme, info.Host, info.Port)
 
 	// 选择对应的 HTTP 客户端
 	clientNR, clientR := lib.ClientNoRedirect, lib.Client
@@ -142,11 +144,11 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 	// 构建显示用URL（隐藏标准端口）
 	var displayURL string
 	if isGM && info.Port == 443 {
-		displayURL = fmt.Sprintf("%s://%s", protocol, info.Host)
+		displayURL = webTitleDisplayURL(protocol, info.Host, info.Port, true)
 	} else if (protocol == "https" && info.Port == 443) || (protocol == "http" && info.Port == 80) {
-		displayURL = fmt.Sprintf("%s://%s", protocol, info.Host)
+		displayURL = webTitleDisplayURL(protocol, info.Host, info.Port, true)
 	} else {
-		displayURL = fmt.Sprintf("%s://%s:%d", protocol, info.Host, info.Port)
+		displayURL = webTitleDisplayURL(protocol, info.Host, info.Port, false)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL, nil)
@@ -219,6 +221,24 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 	fingerprints := p.identifyFingerprintsMulti(ctx, info, baseURL, checkDataList, config, session)
 
 	return title, statusCode, contentLen, server, fingerprints, displayURL, nil
+}
+
+func webTitleURL(scheme, host string, port int) string {
+	return (&url.URL{Scheme: scheme, Host: net.JoinHostPort(host, strconv.Itoa(port))}).String()
+}
+
+func webTitleDisplayURL(scheme, host string, port int, omitPort bool) string {
+	if omitPort {
+		return (&url.URL{Scheme: scheme, Host: urlHost(host)}).String()
+	}
+	return webTitleURL(scheme, host, port)
+}
+
+func urlHost(host string) string {
+	if strings.Contains(host, ":") && !strings.HasPrefix(host, "[") {
+		return "[" + host + "]"
+	}
+	return host
 }
 
 // resolveRedirectURL 解析重定向URL，处理相对路径

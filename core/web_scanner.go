@@ -204,10 +204,11 @@ func (w *WebPortDetector) tryHTTP(ctx context.Context, client *http.Client, sess
 // 基于服务指纹的Web服务识别
 // ===============================
 
-// Web服务缓存 - 简化的全局缓存
+// 服务识别缓存 - 存储所有识别到的服务（不仅限于 Web）
+// 端口扫描阶段写入，插件匹配阶段读取
 var (
-	webServiceCache = make(map[string]*ServiceInfo)
-	webCacheMutex   sync.RWMutex
+	serviceCache      = make(map[string]*ServiceInfo)
+	serviceCacheMutex sync.RWMutex
 )
 
 // IsWebServiceByFingerprint 基于服务指纹判断Web服务 - 保持API兼容
@@ -259,28 +260,45 @@ func IsWebServiceByFingerprint(serviceInfo *ServiceInfo) bool {
 	return false
 }
 
-// MarkAsWebService 标记Web服务 - 保持API兼容
-func MarkAsWebService(host string, port int, serviceInfo *ServiceInfo) {
+// CacheServiceInfo 缓存识别到的服务信息
+func CacheServiceInfo(host string, port int, serviceInfo *ServiceInfo) {
 	cacheKey := net.JoinHostPort(host, strconv.Itoa(port))
 
-	webCacheMutex.Lock()
-	defer webCacheMutex.Unlock()
+	serviceCacheMutex.Lock()
+	defer serviceCacheMutex.Unlock()
 
-	webServiceCache[cacheKey] = serviceInfo
+	serviceCache[cacheKey] = serviceInfo
 }
 
-// GetWebServiceInfo 获取Web服务信息
-func GetWebServiceInfo(host string, port int) (*ServiceInfo, bool) {
+// MarkAsWebService 标记 Web 服务（兼容旧调用）
+func MarkAsWebService(host string, port int, serviceInfo *ServiceInfo) {
+	CacheServiceInfo(host, port, serviceInfo)
+}
+
+// GetCachedServiceInfo 获取缓存的服务信息
+func GetCachedServiceInfo(host string, port int) (*ServiceInfo, bool) {
 	cacheKey := net.JoinHostPort(host, strconv.Itoa(port))
 
-	webCacheMutex.RLock()
-	defer webCacheMutex.RUnlock()
+	serviceCacheMutex.RLock()
+	defer serviceCacheMutex.RUnlock()
 
-	serviceInfo, exists := webServiceCache[cacheKey]
+	serviceInfo, exists := serviceCache[cacheKey]
 	return serviceInfo, exists
 }
 
-// IsMarkedWebService 检查是否已标记为Web服务
+// GetWebServiceInfo 获取 Web 服务信息（兼容旧调用）
+func GetWebServiceInfo(host string, port int) (*ServiceInfo, bool) {
+	info, exists := GetCachedServiceInfo(host, port)
+	if !exists {
+		return nil, false
+	}
+	if !IsWebServiceByFingerprint(info) {
+		return nil, false
+	}
+	return info, true
+}
+
+// IsMarkedWebService 检查是否为 Web 服务
 func IsMarkedWebService(host string, port int) bool {
 	_, exists := GetWebServiceInfo(host, port)
 	return exists

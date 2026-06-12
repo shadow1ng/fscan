@@ -141,6 +141,26 @@ func TestScanSessionProxyStateComesFromConfig(t *testing.T) {
 	}
 }
 
+func TestParseProxyURLFallsBackWhenHostIsEmpty(t *testing.T) {
+	host, username, password := parseProxyURL("127.0.0.1:8080", "127.0.0.1:8080")
+	if host != "127.0.0.1:8080" {
+		t.Fatalf("host = %q, want fallback address", host)
+	}
+	if username != "" || password != "" {
+		t.Fatalf("unexpected credentials: %q/%q", username, password)
+	}
+}
+
+func TestParseProxyURLExtractsAuthWithoutScheme(t *testing.T) {
+	host, username, password := parseProxyURL("user:pass@127.0.0.1:8080", "user:pass@127.0.0.1:8080")
+	if host != "127.0.0.1:8080" {
+		t.Fatalf("host = %q, want proxy address", host)
+	}
+	if username != "user" || password != "pass" {
+		t.Fatalf("credentials = %q/%q, want user/pass", username, password)
+	}
+}
+
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {

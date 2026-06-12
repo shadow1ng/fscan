@@ -107,7 +107,7 @@ func buildTargetURL(info *common.HostInfo) (string, error) {
 	if info.URL == "" {
 		info.URL = protocolHTTP + net.JoinHostPort(info.Host, fmt.Sprint(info.Port))
 	} else if !hasProtocolPrefix(info.URL) {
-		info.URL = protocolHTTP + info.URL
+		info.URL = protocolHTTP + normalizeSchemelessWebTarget(info.URL)
 	}
 
 	// 解析URL以提取基础部分
@@ -115,6 +115,7 @@ func buildTargetURL(info *common.HostInfo) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrInvalidURL, err)
 	}
+	parsedURL.Host = normalizeWebURLHost(parsedURL.Host)
 
 	return fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host), nil
 }
@@ -123,6 +124,32 @@ func buildTargetURL(info *common.HostInfo) (string, error) {
 func hasProtocolPrefix(urlStr string) bool {
 	urlStr = strings.ToLower(urlStr)
 	return strings.HasPrefix(urlStr, protocolHTTP) || strings.HasPrefix(urlStr, protocolHTTPS)
+}
+
+func normalizeSchemelessWebTarget(rawURL string) string {
+	authority := rawURL
+	suffix := ""
+	if idx := strings.IndexAny(rawURL, "/?#"); idx >= 0 {
+		authority = rawURL[:idx]
+		suffix = rawURL[idx:]
+	}
+	if strings.HasPrefix(authority, "[") {
+		return authority + suffix
+	}
+	if ip := net.ParseIP(authority); ip != nil && strings.Contains(authority, ":") {
+		return "[" + authority + "]" + suffix
+	}
+	return rawURL
+}
+
+func normalizeWebURLHost(host string) string {
+	if strings.HasPrefix(host, "[") {
+		return host
+	}
+	if ip := net.ParseIP(host); ip != nil && strings.Contains(host, ":") {
+		return "[" + host + "]"
+	}
+	return host
 }
 
 // scanByFingerprints 根据指纹执行POC

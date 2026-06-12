@@ -82,10 +82,10 @@ func (p *SystemInfoPlugin) connectToDomain(domain string) (*domainInfo, error) {
 	}
 	defer func() { _ = client.Close() }()
 
-	conn, err := ldap.DialURL(fmt.Sprintf("ldap://%s:389", dcHost))
+	conn, err := ldap.DialURL(ldapURL(dcHost, 389))
 	if err != nil {
 		if ipv4, resolveErr := resolveIPv4(dcHost); resolveErr == nil {
-			conn, err = ldap.DialURL(fmt.Sprintf("ldap://%s:389", ipv4))
+			conn, err = ldap.DialURL(ldapURL(ipv4, 389))
 		}
 		if err != nil {
 			return nil, fmt.Errorf("LDAP dial: %w", err)

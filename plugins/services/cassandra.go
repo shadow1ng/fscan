@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync/atomic"
 	"time"
 
 	"github.com/shadow1ng/fscan/common"
@@ -165,20 +166,19 @@ func (p *CassandraPlugin) doCassandraAuth(ctx context.Context, info *common.Host
 
 // ── CQL wire protocol 工具 ──────────────────────────────────────
 
-var cqlStreamID int16
+var cqlStreamID uint32
+
+func nextCQLStreamID() uint16 {
+	return uint16((atomic.AddUint32(&cqlStreamID, 1) - 1) & 0x7fff)
+}
 
 func cqlSend(conn net.Conn, opcode byte, body []byte) error {
-	id := cqlStreamID
-	if cqlStreamID == 32767 {
-		cqlStreamID = 0
-	} else {
-		cqlStreamID++
-	}
+	id := nextCQLStreamID()
 
 	// frame: [1B version|flags] [2B stream] [1B opcode] [4B length] [body]
 	header := make([]byte, 8)
 	header[0] = cqlVersion
-	binary.BigEndian.PutUint16(header[1:3], uint16(id))
+	binary.BigEndian.PutUint16(header[1:3], id)
 	header[3] = opcode
 	binary.BigEndian.PutUint32(header[4:8], uint32(len(body)))
 

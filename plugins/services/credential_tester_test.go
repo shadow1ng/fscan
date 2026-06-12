@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/shadow1ng/fscan/common"
 )
 
 /*
@@ -187,6 +189,84 @@ func TestMatchIgnoreCase(t *testing.T) {
 // 并发测试
 // =============================================================================
 
+func setAuthCleanupWaitForTest(wait time.Duration) func() {
+	oldWait := atomic.LoadInt64(&authCleanupWaitNanos)
+	atomic.StoreInt64(&authCleanupWaitNanos, int64(wait))
+	return func() { atomic.StoreInt64(&authCleanupWaitNanos, oldWait) }
+}
+
+func TestDefaultConcurrentTestConfigUsesConfigRetries(t *testing.T) {
+	cfg := DefaultConcurrentTestConfig(&common.Config{
+		ModuleThreadNum: 7,
+		MaxRetries:      5,
+	})
+
+	if cfg.Concurrency != 7 {
+		t.Fatalf("Concurrency = %d, want 7", cfg.Concurrency)
+	}
+	if cfg.MaxRetries != 5 {
+		t.Fatalf("MaxRetries = %d, want config MaxRetries 5", cfg.MaxRetries)
+	}
+}
+
+func TestDefaultConcurrentTestConfigRetriesFallback(t *testing.T) {
+	cfg := DefaultConcurrentTestConfig(&common.Config{
+		ModuleThreadNum: 0,
+		MaxRetries:      0,
+	})
+
+	if cfg.Concurrency != 10 {
+		t.Fatalf("Concurrency = %d, want fallback 10", cfg.Concurrency)
+	}
+	if cfg.MaxRetries != 3 {
+		t.Fatalf("MaxRetries = %d, want fallback 3", cfg.MaxRetries)
+	}
+}
+
+func TestTestCredentialsConcurrently_ZeroValueConfigStillRuns(t *testing.T) {
+	var calls atomic.Int32
+	authFn := func(ctx context.Context, cred Credential) *AuthResult {
+		calls.Add(1)
+		return &AuthResult{Success: true}
+	}
+
+	result := TestCredentialsConcurrently(context.Background(), []Credential{{Username: "u", Password: "p"}}, authFn, "test", ConcurrentTestConfig{})
+	if !result.Success {
+		t.Fatalf("zero-value config should still test credentials: %v", result.Error)
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("authFn calls = %d, want 1", calls.Load())
+	}
+}
+
+func TestTestCredentialsConcurrently_PrecheckHonorsCanceledContext(t *testing.T) {
+	var calls atomic.Int32
+	authFn := func(ctx context.Context, cred Credential) *AuthResult {
+		calls.Add(1)
+		return &AuthResult{Success: false}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	start := time.Now()
+	result := TestCredentialsConcurrently(ctx, []Credential{{Username: "u", Password: "p"}}, authFn, "test", ConcurrentTestConfig{
+		Concurrency: 1,
+		MaxRetries:  1,
+		TargetAddr:  "203.0.113.1:65000",
+	})
+
+	if result.Success {
+		t.Fatal("canceled context should not return success")
+	}
+	if calls.Load() != 0 {
+		t.Fatalf("authFn calls = %d, want 0 when precheck context is canceled", calls.Load())
+	}
+	if elapsed := time.Since(start); elapsed > 200*time.Millisecond {
+		t.Fatalf("precheck ignored canceled context, elapsed=%v", elapsed)
+	}
+}
+
 // mockConn 模拟连接
 type mockConn struct {
 	closed atomic.Bool
@@ -336,6 +416,60 @@ func TestTestCredentialsConcurrently_ContextCancel(t *testing.T) {
 	}
 }
 
+func TestTestCredentialsConcurrently_CancelWithStuckAuthReturnsPromptly(t *testing.T) {
+	defer setAuthCleanupWaitForTest(20 * time.Millisecond)()
+
+	credentials := make([]Credential, 10)
+	for i := range credentials {
+		credentials[i] = Credential{Username: "user", Password: "pass"}
+	}
+
+	authStarted := make(chan struct{}, len(credentials))
+	releaseAuth := make(chan struct{})
+	authFn := func(ctx context.Context, cred Credential) *AuthResult {
+		authStarted <- struct{}{}
+		<-releaseAuth
+		return &AuthResult{Success: false, ErrorType: ErrorTypeNetwork}
+	}
+
+	config := ConcurrentTestConfig{
+		Concurrency: 3,
+		MaxRetries:  1,
+		RetryDelay:  time.Millisecond,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan *ScanResult, 1)
+	go func() {
+		done <- TestCredentialsConcurrently(ctx, credentials, authFn, "test", config)
+	}()
+
+	for i := 0; i < config.Concurrency; i++ {
+		select {
+		case <-authStarted:
+		case <-time.After(time.Second):
+			close(releaseAuth)
+			t.Fatalf("authFn started %d workers, want %d", i, config.Concurrency)
+		}
+	}
+
+	start := time.Now()
+	cancel()
+	select {
+	case result := <-done:
+		close(releaseAuth)
+		if result.Success {
+			t.Fatal("context取消后不应该返回成功")
+		}
+		if elapsed := time.Since(start); elapsed > 200*time.Millisecond {
+			t.Fatalf("取消后返回过慢: %v", elapsed)
+		}
+	case <-time.After(time.Second):
+		close(releaseAuth)
+		t.Fatal("authFn 卡住时并发测试没有及时返回")
+	}
+}
+
 // =============================================================================
 // 单凭据测试
 // =============================================================================
@@ -358,6 +492,49 @@ func TestTestSingleCredential_Success(t *testing.T) {
 	}
 	if result.Conn == nil {
 		t.Error("成功时应该返回连接")
+	}
+}
+
+func TestTestSingleCredential_CanceledContextSkipsAuth(t *testing.T) {
+	var calls atomic.Int32
+	authFn := func(ctx context.Context, cred Credential) *AuthResult {
+		calls.Add(1)
+		return &AuthResult{Success: true}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	result := TestSingleCredential(ctx, Credential{Username: "admin", Password: "admin"}, authFn)
+	if result.Success {
+		t.Fatal("canceled context should not return success")
+	}
+	if calls.Load() != 0 {
+		t.Fatalf("authFn calls = %d, want 0", calls.Load())
+	}
+}
+
+func TestTestSingleCredential_NilAuthFunc(t *testing.T) {
+	result := TestSingleCredential(context.Background(), Credential{Username: "admin", Password: "admin"}, nil)
+	if result.Success {
+		t.Fatal("nil authFn should not return success")
+	}
+	if result.Error == nil {
+		t.Fatal("nil authFn should return an error")
+	}
+}
+
+func TestTestSingleCredential_RecoverAuthPanic(t *testing.T) {
+	authFn := func(ctx context.Context, cred Credential) *AuthResult {
+		panic("boom")
+	}
+
+	result := TestSingleCredential(context.Background(), Credential{Username: "admin", Password: "admin"}, authFn)
+	if result.Success {
+		t.Fatal("panic authFn should not return success")
+	}
+	if result.Error == nil {
+		t.Fatal("panic authFn should return an error")
 	}
 }
 
@@ -403,9 +580,7 @@ func TestTestSingleCredential_ContextCancel(t *testing.T) {
 }
 
 func TestTestSingleCredential_ContextCancelCleanupIsBounded(t *testing.T) {
-	oldWait := authCleanupWait
-	authCleanupWait = 20 * time.Millisecond
-	defer func() { authCleanupWait = oldWait }()
+	defer setAuthCleanupWaitForTest(20 * time.Millisecond)()
 
 	authStarted := make(chan struct{})
 	releaseAuth := make(chan struct{})
@@ -477,6 +652,45 @@ func TestRetryLogic_NetworkErrorRetries(t *testing.T) {
 	}
 	if attempts.Load() != 3 {
 		t.Errorf("应该尝试3次，实际 %d 次", attempts.Load())
+	}
+}
+
+func TestRetryLogic_SuccessWithoutConn(t *testing.T) {
+	var attempts atomic.Int32
+	authFn := func(ctx context.Context, cred Credential) *AuthResult {
+		attempts.Add(1)
+		return &AuthResult{Success: true}
+	}
+
+	result := TestCredentialsConcurrently(context.Background(), []Credential{{Username: "admin", Password: "admin"}}, authFn, "test", ConcurrentTestConfig{
+		Concurrency: 1,
+		MaxRetries:  3,
+	})
+	if !result.Success {
+		t.Fatalf("success result without Conn should be accepted: %v", result.Error)
+	}
+	if attempts.Load() != 1 {
+		t.Fatalf("attempts = %d, want 1", attempts.Load())
+	}
+}
+
+func TestRetryLogic_NilAuthResultDoesNotPanic(t *testing.T) {
+	var attempts atomic.Int32
+	authFn := func(ctx context.Context, cred Credential) *AuthResult {
+		attempts.Add(1)
+		return nil
+	}
+
+	result := TestCredentialsConcurrently(context.Background(), []Credential{{Username: "admin", Password: "admin"}}, authFn, "test", ConcurrentTestConfig{
+		Concurrency: 1,
+		MaxRetries:  2,
+		RetryDelay:  time.Millisecond,
+	})
+	if result.Success {
+		t.Fatal("nil auth result should not return success")
+	}
+	if attempts.Load() != 2 {
+		t.Fatalf("attempts = %d, want 2", attempts.Load())
 	}
 }
 

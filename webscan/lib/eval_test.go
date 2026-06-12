@@ -640,6 +640,15 @@ func TestURLTypeToString(t *testing.T) {
 			expected: "http://example.com/test",
 		},
 		{
+			name: "IPv6 host",
+			url: &UrlType{
+				Scheme: "http",
+				Host:   "2001:db8::1",
+				Path:   "/test",
+			},
+			expected: "http://[2001:db8::1]/test",
+		},
+		{
 			name: "仅路径",
 			url: &UrlType{
 				Path: "/api/test",

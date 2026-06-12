@@ -145,6 +145,35 @@ type LocalExploitConfig struct {
 	DownloadSavePath    string // 下载保存路径
 }
 
+func cloneStringSlice(values []string) []string {
+	if values == nil {
+		return nil
+	}
+	return append([]string(nil), values...)
+}
+
+func cloneStringSliceMap(values map[string][]string) map[string][]string {
+	if values == nil {
+		return nil
+	}
+	cloned := make(map[string][]string, len(values))
+	for key, value := range values {
+		cloned[key] = cloneStringSlice(value)
+	}
+	return cloned
+}
+
+func clonePortMap(values map[int][]string) map[int][]string {
+	if values == nil {
+		return nil
+	}
+	cloned := make(map[int][]string, len(values))
+	for key, value := range values {
+		cloned[key] = cloneStringSlice(value)
+	}
+	return cloned
+}
+
 // NewConfig 创建带默认值的Config（后备用，正常流程使用BuildConfigFromFlags）
 func NewConfig() *Config {
 	return &Config{
@@ -163,13 +192,13 @@ func NewConfig() *Config {
 		MaxRetries: 3,
 
 		// 高级功能 - 使用默认配置
-		PortMap:    config.DefaultPortMap,
-		DefaultMap: config.DefaultProbeMap,
+		PortMap:    clonePortMap(config.DefaultPortMap),
+		DefaultMap: cloneStringSlice(config.DefaultProbeMap),
 
 		// 分组配置 - 使用默认字典
 		Credentials: CredentialConfig{
-			Userdict:      config.DefaultUserDict,
-			Passwords:     config.DefaultPasswords,
+			Userdict:      cloneStringSliceMap(config.DefaultUserDict),
+			Passwords:     cloneStringSlice(config.DefaultPasswords),
 			UserPassPairs: nil,
 		},
 		Network: NetworkConfig{

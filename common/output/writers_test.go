@@ -67,7 +67,10 @@ func TestTargetWithPortIPv6(t *testing.T) {
 		{name: "ipv4 without port", target: "192.168.1.1", port: 80, want: "192.168.1.1:80"},
 		{name: "ipv4 with port", target: "192.168.1.1:80", port: 443, want: "192.168.1.1:80"},
 		{name: "ipv6 without port", target: "2001:db8::1", port: 443, want: "[2001:db8::1]:443"},
+		{name: "bracketed ipv6 without port", target: "[2001:db8::1]", port: 443, want: "[2001:db8::1]:443"},
 		{name: "ipv6 with port", target: "[2001:db8::1]:443", port: 80, want: "[2001:db8::1]:443"},
+		{name: "empty port", target: "example.com", port: "", want: "example.com"},
+		{name: "blank port", target: "example.com", port: " \t", want: "example.com"},
 	}
 
 	for _, tt := range tests {
