@@ -54,7 +54,7 @@ jobs:
       - name: 设置 Go 环境
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.25'
           cache: true
 
       - name: 运行 golangci-lint
@@ -114,7 +114,7 @@ jobs:
       - name: 设置 Go 环境
         uses: actions/setup-go@v5
         with:
-          go-version: '1.20'
+          go-version: '1.25'
           cache: true
 
       - name: 下载依赖
@@ -181,7 +181,7 @@ jobs:
       - name: 设置 Go 环境
         uses: actions/setup-go@v5
         with:
-          go-version: '1.20'
+          go-version: '1.25'
           cache: true
 
       - name: 构建验证
