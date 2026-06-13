@@ -139,26 +139,46 @@ func MakeVarDecl(key, value string) *exprpb.Decl {
 	}
 }
 
-// Evaluate 评估 CEL 表达式
+// CelProgCache 缓存编译后的 CEL Program，避免同一 POC 内重复编译
+// 在 executePoc 中创建，同一个 POC 的所有规则/参数组合共享
+type CelProgCache map[string]cel.Program
+
+// Evaluate 评估 CEL 表达式（无缓存，用于 Set/Sets 求值等低频路径）
 func Evaluate(env *cel.Env, expression string, params map[string]interface{}) (ref.Val, error) {
-	// 空表达式默认返回 true
+	return EvaluateCached(env, expression, params, nil)
+}
+
+// EvaluateCached 评估 CEL 表达式（带编译缓存，用于规则执行热路径）
+func EvaluateCached(env *cel.Env, expression string, params map[string]interface{}, cache CelProgCache) (ref.Val, error) {
 	if expression == "" {
 		return types.Bool(true), nil
 	}
 
-	// 编译表达式
-	ast, issues := env.Compile(expression)
-	if issues.Err() != nil {
-		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_expression_compile_failed"), issues.Err())
+	var program cel.Program
+
+	if cache != nil {
+		if cached, ok := cache[expression]; ok {
+			program = cached
+		}
 	}
 
-	// 创建程序（使用缓存的程序选项）
-	program, err := env.Program(ast, GetBaseProgramOptions()...)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_program_create_failed"), err)
+	if program == nil {
+		ast, issues := env.Compile(expression)
+		if issues.Err() != nil {
+			return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_expression_compile_failed"), issues.Err())
+		}
+
+		var err error
+		program, err = env.Program(ast, GetBaseProgramOptions()...)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_program_create_failed"), err)
+		}
+
+		if cache != nil {
+			cache[expression] = program
+		}
 	}
 
-	// 执行评估
 	result, _, err := program.Eval(params)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_expression_eval_failed"), err)

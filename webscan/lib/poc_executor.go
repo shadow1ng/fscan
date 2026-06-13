@@ -92,59 +92,7 @@ func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int, pocCtx *POCConte
 				// 仅当通过普通POC规则(非clusterpoc)检测到漏洞时，才创建结果
 				// 因为clusterpoc已在内部处理了漏洞输出
 				if isVulnerable && vulName != "" {
-					// 构造漏洞详细信息
-					details := make(map[string]interface{}, 6)
-					details["vulnerability_type"] = task.Poc.Name
-					details["vulnerability_name"] = vulName
-
-					// 添加作者信息（如果有）
-					if task.Poc.Detail.Author != "" {
-						details["author"] = task.Poc.Detail.Author
-					}
-
-					// 添加参考链接（如果有）
-					if len(task.Poc.Detail.Links) != 0 {
-						details["references"] = task.Poc.Detail.Links
-					}
-
-					// 添加漏洞描述（如果有）
-					if task.Poc.Detail.Description != "" {
-						details["description"] = task.Poc.Detail.Description
-					}
-
-					// 创建并保存扫描结果
-					result := &output.ScanResult{
-						Time:    time.Now(),
-						Type:    output.TypeVuln,
-						Target:  task.Req.URL.String(),
-						Status:  "vulnerable",
-						Details: details,
-					}
-					_ = pocCtx.Session.SaveResult(result)
-
-					// 构造控制台输出的日志信息
-					logMsg := i18n.Tr("webscan_vuln_detail_header",
-						task.Req.URL,
-						task.Poc.Name,
-						vulName)
-
-					// 添加作者信息到日志
-					if task.Poc.Detail.Author != "" {
-						logMsg += "\n\t" + i18n.Tr("webscan_vuln_author", task.Poc.Detail.Author)
-					}
-
-					// 添加参考链接到日志
-					if len(task.Poc.Detail.Links) != 0 {
-						logMsg += "\n\t" + i18n.Tr("webscan_vuln_references", strings.Join(task.Poc.Detail.Links, "\n"))
-					}
-
-					// 添加描述信息到日志
-					if task.Poc.Detail.Description != "" {
-						logMsg += "\n\t" + i18n.Tr("webscan_vuln_description", task.Poc.Detail.Description)
-					}
-
-					// 输出成功日志
-					pocCtx.Session.LogVuln(logMsg)
+					saveVulnResult(task.Req.URL.String(), task.Poc, vulName, nil, pocCtx.Session)
 				}
 			}
 		}()
@@ -223,17 +171,20 @@ func executePoc(oReq *http.Request, p *Poc, pocCtx *POCContext) (bool, string, e
 		}
 	}
 
+	// CEL 编译缓存：同一个 POC 的所有规则/参数组合共享
+	progCache := make(CelProgCache)
+
 	// 处理爆破模式
 	if len(p.Sets) > 0 {
-		success, err := clusterpoc(oReq, p, variableMap, req, env, pocCtx)
+		success, err := clusterpoc(oReq, p, variableMap, req, env, pocCtx, progCache)
 		return success, "", err
 	}
 
-	return executeRules(oReq, p, variableMap, req, env, pocCtx.Session)
+	return executeRules(oReq, p, variableMap, req, env, pocCtx.Session, progCache)
 }
 
 // executeRules 执行POC规则并返回结果
-func executeRules(oReq *http.Request, p *Poc, variableMap map[string]interface{}, req *Request, env *cel.Env, session *common.ScanSession) (bool, string, error) {
+func executeRules(oReq *http.Request, p *Poc, variableMap map[string]interface{}, req *Request, env *cel.Env, session *common.ScanSession, progCache CelProgCache) (bool, string, error) {
 	// 处理单个规则的函数
 	executeRule := func(rule Rules) (bool, error) {
 		Headers := cloneMap(rule.Headers)
@@ -301,8 +252,8 @@ func executeRules(oReq *http.Request, p *Poc, variableMap map[string]interface{}
 			}
 		}
 
-		// 执行表达式
-		out, err := Evaluate(env, rule.Expression, variableMap)
+		// 执行表达式（使用编译缓存）
+		out, err := EvaluateCached(env, rule.Expression, variableMap, progCache)
 		if err != nil {
 			return false, err
 		}
@@ -452,7 +403,7 @@ func newReverse(dnsLog bool) *Reverse {
 }
 
 // clusterpoc 执行集群POC检测，支持批量参数组合测试
-func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, req *Request, env *cel.Env, pocCtx *POCContext) (success bool, err error) {
+func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, req *Request, env *cel.Env, pocCtx *POCContext, progCache CelProgCache) (success bool, err error) {
 	var strMap StrMap     // 存储成功的参数组合
 	var shiroKeyCount int // shiro key测试计数
 
@@ -461,7 +412,7 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 		// 检查是否需要进行参数Fuzz测试
 		if !isFuzz(rule, p.Sets) {
 			// 不需要Fuzz,直接发送请求
-			success, err = clustersend(oReq, variableMap, req, env, rule, pocCtx.Session)
+			success, err = clustersend(oReq, variableMap, req, env, rule, pocCtx.Session, progCache)
 			if err != nil {
 				return false, err
 			}
@@ -527,7 +478,7 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 			ruleHash[ruleMD5] = struct{}{}
 
 			// 发送请求并处理结果
-			success, err = clustersend(oReq, variableMap, req, env, currentRule, pocCtx.Session)
+			success, err = clustersend(oReq, variableMap, req, env, currentRule, pocCtx.Session, progCache)
 			if err != nil {
 				return false, err
 			}
@@ -651,59 +602,78 @@ func getRuleHash(rule *Rules) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-// recordVulnerabilityResult 记录漏洞检测结果
-func recordVulnerabilityResult(targetURL string, pocDef *Poc, params StrMap, skipSave bool, session *common.ScanSession) {
-	// 构造详细信息
-	details := make(map[string]interface{})
+// buildVulnDetails 构造统一的漏洞详情 map（消除 CheckMultiPoc 和 recordVulnerabilityResult 的重复逻辑）
+func buildVulnDetails(pocDef *Poc, vulName string, params StrMap) map[string]interface{} {
+	details := make(map[string]interface{}, 6)
 	details["vulnerability_type"] = pocDef.Name
-	details["vulnerability_name"] = pocDef.Name // 使用POC名称作为漏洞名称
-
-	// 添加作者信息（如果有）
+	details["vulnerability_name"] = vulName
 	if pocDef.Detail.Author != "" {
 		details["author"] = pocDef.Detail.Author
 	}
-
-	// 添加参考链接（如果有）
 	if len(pocDef.Detail.Links) != 0 {
 		details["references"] = pocDef.Detail.Links
 	}
-
-	// 添加漏洞描述（如果有）
 	if pocDef.Detail.Description != "" {
 		details["description"] = pocDef.Detail.Description
 	}
-
-	// 添加参数信息（如果有）
 	if len(params) > 0 {
-		paramMap := make(map[string]string)
+		paramMap := make(map[string]string, len(params))
 		for _, item := range params {
 			paramMap[item.Key] = item.Value
 		}
 		details["parameters"] = paramMap
 	}
+	return details
+}
 
-	// 保存漏洞结果（除非明确指示跳过）
+// buildVulnLogMsg 构造统一的漏洞日志消息
+func buildVulnLogMsg(targetURL string, pocDef *Poc, vulName string, params StrMap) string {
+	var logMsg string
+	if pocDef.Name == "poc-yaml-backup-file" || pocDef.Name == "poc-yaml-sql-file" {
+		logMsg = i18n.Tr("webscan_vuln_detected", targetURL, pocDef.Name)
+	} else if len(params) > 0 {
+		logMsg = i18n.Tr("webscan_vuln_detected_params", targetURL, pocDef.Name, params)
+	} else {
+		logMsg = i18n.Tr("webscan_vuln_detail_header", targetURL, pocDef.Name, vulName)
+		if pocDef.Detail.Author != "" {
+			logMsg += "\n\t" + i18n.Tr("webscan_vuln_author", pocDef.Detail.Author)
+		}
+		if len(pocDef.Detail.Links) != 0 {
+			logMsg += "\n\t" + i18n.Tr("webscan_vuln_references", strings.Join(pocDef.Detail.Links, "\n"))
+		}
+		if pocDef.Detail.Description != "" {
+			logMsg += "\n\t" + i18n.Tr("webscan_vuln_description", pocDef.Detail.Description)
+		}
+	}
+	return logMsg
+}
+
+// saveVulnResult 统一的漏洞结果保存 + 日志输出
+func saveVulnResult(targetURL string, pocDef *Poc, vulName string, params StrMap, session *common.ScanSession) {
+	details := buildVulnDetails(pocDef, vulName, params)
+	_ = session.SaveResult(&output.ScanResult{
+		Time:    time.Now(),
+		Type:    output.TypeVuln,
+		Target:  targetURL,
+		Status:  "vulnerable",
+		Details: details,
+	})
+	session.LogVuln(buildVulnLogMsg(targetURL, pocDef, vulName, params))
+}
+
+// recordVulnerabilityResult 记录漏洞检测结果（clusterpoc 路径）
+func recordVulnerabilityResult(targetURL string, pocDef *Poc, params StrMap, skipSave bool, session *common.ScanSession) {
 	if !skipSave {
-		result := &output.ScanResult{
+		details := buildVulnDetails(pocDef, pocDef.Name, params)
+		_ = session.SaveResult(&output.ScanResult{
 			Time:    time.Now(),
 			Type:    output.TypeVuln,
 			Target:  targetURL,
 			Status:  "vulnerable",
 			Details: details,
-		}
-		_ = session.SaveResult(result)
+		})
 	}
-
-	// 生成日志消息
-	var logMsg string
-	if pocDef.Name == "poc-yaml-backup-file" || pocDef.Name == "poc-yaml-sql-file" {
-		logMsg = i18n.Tr("webscan_vuln_detected", targetURL, pocDef.Name)
-	} else {
-		logMsg = i18n.Tr("webscan_vuln_detected_params", targetURL, pocDef.Name, params)
-	}
-
-	// 输出成功日志
-	session.LogVuln(logMsg)
+	session.LogVuln(buildVulnLogMsg(targetURL, pocDef, pocDef.Name, params))
 }
 
 // isFuzz 检查规则是否包含需要Fuzz测试的参数
@@ -773,7 +743,7 @@ func MakeData(base [][]string, nextData []string) [][]string {
 }
 
 // clustersend 执行单个规则的HTTP请求和响应检测
-func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Request, env *cel.Env, rule Rules, session *common.ScanSession) (bool, error) {
+func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Request, env *cel.Env, rule Rules, session *common.ScanSession, progCache CelProgCache) (bool, error) {
 	// 替换请求中的变量
 	for varName, varValue := range variableMap {
 		// 跳过map类型的变量
@@ -844,8 +814,8 @@ func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Re
 		}
 	}
 
-	// 执行CEL表达式
-	out, err := Evaluate(env, rule.Expression, variableMap)
+	// 执行CEL表达式（使用编译缓存）
+	out, err := EvaluateCached(env, rule.Expression, variableMap, progCache)
 	if err != nil {
 		if strings.Contains(err.Error(), "Syntax error") {
 			common.LogError(i18n.Tr("webscan_cel_syntax_error", rule.Expression, err))

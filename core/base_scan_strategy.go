@@ -29,6 +29,7 @@ const (
 type BaseScanStrategy struct {
 	strategyName string
 	filterType   PluginFilterType
+	state        *common.State
 }
 
 // NewBaseScanStrategy 创建基础扫描策略
@@ -37,6 +38,11 @@ func NewBaseScanStrategy(name string, filterType PluginFilterType) *BaseScanStra
 		strategyName: name,
 		filterType:   filterType,
 	}
+}
+
+// SetState 注入 session state（用于 per-session 服务缓存）
+func (b *BaseScanStrategy) SetState(state *common.State) {
+	b.state = state
 }
 
 // GetPlugins 获取插件列表
@@ -123,7 +129,7 @@ func (b *BaseScanStrategy) isLocalPluginExplicitlySpecified(pluginName string, c
 // 匹配策略：端口匹配 → 服务名称匹配（解决非标准端口问题）
 func (b *BaseScanStrategy) isPluginApplicableToPortWithHost(pluginName string, targetHost string, targetPort int) bool {
 	if b.isWebPlugin(pluginName) {
-		return IsMarkedWebService(targetHost, targetPort)
+		return IsMarkedWebServiceWithState(b.state, targetHost, targetPort)
 	}
 
 	pluginPorts := b.getPluginPorts(pluginName)
@@ -145,7 +151,7 @@ func (b *BaseScanStrategy) isPluginApplicableToPortWithHost(pluginName string, t
 	// 端口不匹配时，按指纹识别结果匹配
 	// 例：8881 端口上识别到 ssh 服务 → ssh 插件应该执行
 	if targetHost != "" && targetPort > 0 {
-		if info, ok := GetCachedServiceInfo(targetHost, targetPort); ok && info != nil {
+		if info, ok := GetCachedServiceInfoWithState(b.state, targetHost, targetPort); ok && info != nil {
 			if strings.EqualFold(info.Name, pluginName) {
 				return true
 			}
