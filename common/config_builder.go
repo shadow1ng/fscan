@@ -129,9 +129,14 @@ func parseUsernames(fv *FlagVars) ([]string, error) {
 func parsePasswords(fv *FlagVars) ([]string, error) {
 	var passwords []string
 
-	// 命令行密码
+	// 命令行密码（支持逗号分隔多个值，保留空格作为密码的一部分）
 	if fv.Password != "" {
-		passwords = append(passwords, fv.Password)
+		for _, p := range strings.Split(fv.Password, ",") {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				passwords = append(passwords, p)
+			}
+		}
 	}
 
 	// 从文件读取
