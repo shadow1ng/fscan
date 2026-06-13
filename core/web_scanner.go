@@ -208,12 +208,9 @@ func (w *WebPortDetector) tryHTTP(ctx context.Context, client *http.Client, sess
 // 基于服务指纹的Web服务识别
 // ===============================
 
-// 服务识别缓存 - 存储所有识别到的服务（不仅限于 Web）
-// 端口扫描阶段写入，插件匹配阶段读取
-var (
-	serviceCache      = make(map[string]*ServiceInfo)
-	serviceCacheMutex sync.RWMutex
-)
+// globalState 全局 State 兼容指针（向后兼容不接受 State 的旧调用方）
+// 新代码应通过 State 方法访问服务缓存
+var globalState *common.State
 
 // IsWebServiceByFingerprint 基于服务指纹判断Web服务 - 保持API兼容
 // 服务识别规则 - 编译期常量，避免运行时分配
@@ -279,47 +276,81 @@ func isDefinitelyNonWeb(serviceInfo *ServiceInfo) bool {
 	return false
 }
 
-// CacheServiceInfo 缓存识别到的服务信息
-func CacheServiceInfo(host string, port int, serviceInfo *ServiceInfo) {
-	cacheKey := net.JoinHostPort(host, strconv.Itoa(port))
-
-	serviceCacheMutex.Lock()
-	defer serviceCacheMutex.Unlock()
-
-	serviceCache[cacheKey] = serviceInfo
+// SetGlobalState 设置全局 State（RunScan 入口调用，兼容旧代码路径）
+func SetGlobalState(state *common.State) {
+	globalState = state
 }
 
-// MarkAsWebService 标记 Web 服务（兼容旧调用）
+func resolveState(state *common.State) *common.State {
+	if state != nil {
+		return state
+	}
+	return globalState
+}
+
+// CacheServiceInfoWithState 缓存服务信息到指定 State
+func CacheServiceInfoWithState(state *common.State, host string, port int, serviceInfo *ServiceInfo) {
+	s := resolveState(state)
+	if s == nil {
+		return
+	}
+	key := net.JoinHostPort(host, strconv.Itoa(port))
+	s.CacheService(key, serviceInfo)
+}
+
+// CacheServiceInfo 兼容旧调用（使用全局 State）
+func CacheServiceInfo(host string, port int, serviceInfo *ServiceInfo) {
+	CacheServiceInfoWithState(nil, host, port, serviceInfo)
+}
+
+// MarkAsWebService 标记 Web 服务
 func MarkAsWebService(host string, port int, serviceInfo *ServiceInfo) {
 	CacheServiceInfo(host, port, serviceInfo)
 }
 
-// GetCachedServiceInfo 获取缓存的服务信息
-func GetCachedServiceInfo(host string, port int) (*ServiceInfo, bool) {
-	cacheKey := net.JoinHostPort(host, strconv.Itoa(port))
-
-	serviceCacheMutex.RLock()
-	defer serviceCacheMutex.RUnlock()
-
-	serviceInfo, exists := serviceCache[cacheKey]
-	return serviceInfo, exists
-}
-
-// GetWebServiceInfo 获取 Web 服务信息（兼容旧调用）
-func GetWebServiceInfo(host string, port int) (*ServiceInfo, bool) {
-	info, exists := GetCachedServiceInfo(host, port)
-	if !exists {
+// GetCachedServiceInfoWithState 从指定 State 获取缓存的服务信息
+func GetCachedServiceInfoWithState(state *common.State, host string, port int) (*ServiceInfo, bool) {
+	s := resolveState(state)
+	if s == nil {
 		return nil, false
 	}
-	if !IsWebServiceByFingerprint(info) {
+	key := net.JoinHostPort(host, strconv.Itoa(port))
+	val, ok := s.GetCachedService(key)
+	if !ok {
+		return nil, false
+	}
+	info, ok := val.(*ServiceInfo)
+	return info, ok
+}
+
+// GetCachedServiceInfo 兼容旧调用
+func GetCachedServiceInfo(host string, port int) (*ServiceInfo, bool) {
+	return GetCachedServiceInfoWithState(nil, host, port)
+}
+
+// GetWebServiceInfo 获取 Web 服务信息
+func GetWebServiceInfo(host string, port int) (*ServiceInfo, bool) {
+	return GetWebServiceInfoWithState(nil, host, port)
+}
+
+// GetWebServiceInfoWithState 从指定 State 获取 Web 服务信息
+func GetWebServiceInfoWithState(state *common.State, host string, port int) (*ServiceInfo, bool) {
+	info, exists := GetCachedServiceInfoWithState(state, host, port)
+	if !exists || !IsWebServiceByFingerprint(info) {
 		return nil, false
 	}
 	return info, true
 }
 
-// IsMarkedWebService 检查是否为 Web 服务
+// IsMarkedWebService 检查是否为 Web 服务（使用全局 State）
 func IsMarkedWebService(host string, port int) bool {
 	_, exists := GetWebServiceInfo(host, port)
+	return exists
+}
+
+// IsMarkedWebServiceWithState 检查是否为 Web 服务（指定 State）
+func IsMarkedWebServiceWithState(state *common.State, host string, port int) bool {
+	_, exists := GetWebServiceInfoWithState(state, host, port)
 	return exists
 }
 

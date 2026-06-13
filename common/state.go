@@ -56,6 +56,10 @@ type State struct {
 	forwardShellActive int32 // 使用int32以便原子操作
 	reverseShellActive int32
 	socks5ProxyActive  int32
+
+	// 服务识别缓存（per-session，避免跨扫描污染）
+	// key: "host:port", value: interface{}（core.ServiceInfo 指针）
+	serviceCache sync.Map
 }
 
 // NewState 创建新的状态对象
@@ -454,4 +458,18 @@ func (s *State) CheckAndIncrementPacketRate(rateLimit int64) (bool, error) {
 	}
 
 	return true, nil
+}
+
+// =============================================================================
+// 服务识别缓存 - per-session，消除跨扫描污染
+// =============================================================================
+
+// CacheService 缓存服务信息
+func (s *State) CacheService(key string, info interface{}) {
+	s.serviceCache.Store(key, info)
+}
+
+// GetCachedService 获取缓存的服务信息
+func (s *State) GetCachedService(key string) (interface{}, bool) {
+	return s.serviceCache.Load(key)
 }

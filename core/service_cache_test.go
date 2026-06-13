@@ -4,6 +4,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/shadow1ng/fscan/common"
 	"github.com/shadow1ng/fscan/plugins"
 )
 
@@ -22,9 +23,8 @@ func registerTestPlugins(t *testing.T) {
 }
 
 func clearServiceCache() {
-	serviceCacheMutex.Lock()
-	serviceCache = make(map[string]*ServiceInfo)
-	serviceCacheMutex.Unlock()
+	state := common.NewState()
+	SetGlobalState(state)
 }
 
 // =============================================================================

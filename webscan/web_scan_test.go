@@ -338,11 +338,7 @@ func TestFilterPocs(t *testing.T) {
 		{Name: "Nginx-Path-Traversal"},
 	}
 
-	// 保存原始 allPocs 并在测试后恢复
-	origAllPocs := allPocs
-	defer func() { allPocs = origAllPocs }()
-
-	allPocs = testPocs
+	// 直接使用 testPocs 作为输入
 
 	tests := []struct {
 		name          string
@@ -408,7 +404,7 @@ func TestFilterPocs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := filterPocs(tt.pocName)
+			result := filterPocs(tt.pocName, testPocs)
 
 			if len(result) != tt.expectedCount {
 				t.Errorf("filterPocs(%q) returned %d pocs, want %d", tt.pocName, len(result), tt.expectedCount)
@@ -449,19 +445,14 @@ func TestFilterPocs(t *testing.T) {
 }
 
 func TestFilterPocsNilSafety(t *testing.T) {
-	// 测试全是 nil 的情况
-	origAllPocs := allPocs
-	defer func() { allPocs = origAllPocs }()
+	nilPocs := []*lib.Poc{nil, nil, nil}
 
-	allPocs = []*lib.Poc{nil, nil, nil}
-
-	result := filterPocs("test")
+	result := filterPocs("test", nilPocs)
 	if len(result) != 0 {
 		t.Errorf("filterPocs with all nil should return empty slice, got %d items", len(result))
 	}
 
-	// 空 pocName 返回所有 POCs（包括 nil）
-	result = filterPocs("")
+	result = filterPocs("", nilPocs)
 	if len(result) != 3 {
 		t.Errorf("filterPocs with empty name should return all pocs (including nil), got %d items, want 3", len(result))
 	}
@@ -497,12 +488,10 @@ func TestCreateBaseRequestHeaders(t *testing.T) {
 func TestExecutePOCsEarlyReturns(t *testing.T) {
 	cfg := common.NewConfig()
 	session := common.NewScanSession(cfg, common.NewState(), &common.FlagVars{})
-	previous := allPocs
-	allPocs = nil
-	t.Cleanup(func() { allPocs = previous })
 
-	executePOCs(context.Background(), config.PocInfo{}, cfg, session)
-	executePOCs(context.Background(), config.PocInfo{Target: "http://example.com", PocName: "missing"}, cfg, session)
+	var emptyPocs []*lib.Poc
+	executePOCs(context.Background(), config.PocInfo{}, cfg, session, emptyPocs)
+	executePOCs(context.Background(), config.PocInfo{Target: "http://example.com", PocName: "missing"}, cfg, session, emptyPocs)
 }
 
 func TestDirectoryExists(t *testing.T) {

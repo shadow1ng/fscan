@@ -100,6 +100,9 @@ func RunScan(ctx context.Context, info common.HostInfo, session *common.ScanSess
 	config := session.Config
 	state := session.State
 
+	// 设置全局 State（兼容旧代码路径中未传 state 的调用）
+	SetGlobalState(state)
+
 	// 初始化HTTP客户端（静默，无需日志）
 	if err := lib.Inithttp(config); err != nil {
 		session.LogError(i18n.Tr("http_client_init_failed", err))
@@ -189,6 +192,11 @@ func finishScan(session *common.ScanSession) {
 // ExecuteScanTasks 任务执行通用框架
 func ExecuteScanTasks(ctx context.Context, session *common.ScanSession, targets []common.HostInfo, strategy ScanStrategy, ch chan struct{}, wg *sync.WaitGroup) {
 	config := session.Config
+
+	// 注入 session state 到策略（用于 per-session 服务缓存）
+	if setter, ok := strategy.(interface{ SetState(*common.State) }); ok {
+		setter.SetState(session.State)
+	}
 
 	// 获取要执行的插件
 	pluginsToRun, isCustomMode := strategy.GetPlugins(config)

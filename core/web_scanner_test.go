@@ -440,9 +440,7 @@ func TestCreateTargetFromURL(t *testing.T) {
 // TestWebServiceCache 测试Web服务缓存操作
 func TestWebServiceCache(t *testing.T) {
 	// 清空缓存
-	serviceCacheMutex.Lock()
-	serviceCache = make(map[string]*ServiceInfo)
-	serviceCacheMutex.Unlock()
+	SetGlobalState(common.NewState())
 
 	t.Run("存储和读取", func(t *testing.T) {
 		serviceInfo := &ServiceInfo{
@@ -517,9 +515,7 @@ func TestWebServiceCache(t *testing.T) {
 // TestWebServiceCache_Concurrent 测试并发安全性
 func TestWebServiceCache_Concurrent(t *testing.T) {
 	// 清空缓存
-	serviceCacheMutex.Lock()
-	serviceCache = make(map[string]*ServiceInfo)
-	serviceCacheMutex.Unlock()
+	SetGlobalState(common.NewState())
 
 	t.Run("不同key并发写入", func(t *testing.T) {
 		var wg sync.WaitGroup

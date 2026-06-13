@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/shadow1ng/fscan/common"
@@ -42,30 +41,22 @@ var (
 
 //go:embed pocs
 var pocsFS embed.FS
-var (
-	pocMu         sync.Mutex
-	pocLoaded     atomic.Bool
-	allPocs       []*lib.Poc
-	cachedPocPath string
-)
+
+// pocStore 按 PocPath 缓存已加载的 POC 集合，支持多 session 使用不同 POC 路径
+type pocStore struct {
+	mu    sync.Mutex
+	cache map[string][]*lib.Poc // key: pocPath（空字符串表示内嵌 POC）
+}
+
+var globalPocStore = &pocStore{cache: make(map[string][]*lib.Poc)}
 
 // WebScan 执行Web漏洞扫描
 func WebScan(ctx context.Context, info *common.HostInfo, cfg *common.Config, session *common.ScanSession) {
 	// 初始化POC配置（用于CEL回调函数）
 	lib.InitPOCConfig(cfg.DNSLog)
 
-	// 加载POC（DCLP: 快速路径无锁，慢路径互斥保护）
-	if !pocLoaded.Load() {
-		pocMu.Lock()
-		if !pocLoaded.Load() {
-			cachedPocPath = cfg.POC.PocPath
-			initPocs()
-			if len(allPocs) > 0 {
-				pocLoaded.Store(true)
-			}
-		}
-		pocMu.Unlock()
-	}
+	// 加载POC（按 PocPath 缓存，不同路径独立加载）
+	pocs := globalPocStore.getOrLoad(cfg.POC.PocPath)
 
 	// 验证输入
 	if info == nil {
@@ -73,7 +64,7 @@ func WebScan(ctx context.Context, info *common.HostInfo, cfg *common.Config, ses
 		return
 	}
 
-	if len(allPocs) == 0 {
+	if len(pocs) == 0 {
 		session.LogError(i18n.GetText("poc_load_failed"))
 		return
 	}
@@ -94,14 +85,11 @@ func WebScan(ctx context.Context, info *common.HostInfo, cfg *common.Config, ses
 
 	// 根据扫描策略执行POC
 	if cfg.POC.PocName == "" && len(info.Info) == 0 {
-		// 执行所有POC
-		executePOCs(ctx, config.PocInfo{Target: target}, cfg, session)
+		executePOCs(ctx, config.PocInfo{Target: target}, cfg, session, pocs)
 	} else if len(info.Info) > 0 {
-		// 基于指纹信息执行POC
-		scanByFingerprints(ctx, target, info.Info, cfg, session)
+		scanByFingerprints(ctx, target, info.Info, cfg, session, pocs)
 	} else if cfg.POC.PocName != "" {
-		// 基于指定POC名称执行
-		executePOCs(ctx, config.PocInfo{Target: target, PocName: cfg.POC.PocName}, cfg, session)
+		executePOCs(ctx, config.PocInfo{Target: target, PocName: cfg.POC.PocName}, cfg, session, pocs)
 	}
 }
 
@@ -178,8 +166,24 @@ func hasMalformedWebURLPort(host string) bool {
 	return strings.Contains(host, ":")
 }
 
+// getOrLoad 获取或加载指定路径的 POC 集合
+func (s *pocStore) getOrLoad(pocPath string) []*lib.Poc {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if pocs, ok := s.cache[pocPath]; ok {
+		return pocs
+	}
+
+	pocs := loadPocs(pocPath)
+	if len(pocs) > 0 {
+		s.cache[pocPath] = pocs
+	}
+	return pocs
+}
+
 // scanByFingerprints 根据指纹执行POC
-func scanByFingerprints(ctx context.Context, target string, fingerprints []string, cfg *common.Config, session *common.ScanSession) {
+func scanByFingerprints(ctx context.Context, target string, fingerprints []string, cfg *common.Config, session *common.ScanSession, pocs []*lib.Poc) {
 	for _, fingerprint := range fingerprints {
 		if fingerprint == "" {
 			continue
@@ -190,12 +194,12 @@ func scanByFingerprints(ctx context.Context, target string, fingerprints []strin
 			continue
 		}
 
-		executePOCs(ctx, config.PocInfo{Target: target, PocName: pocName}, cfg, session)
+		executePOCs(ctx, config.PocInfo{Target: target, PocName: pocName}, cfg, session, pocs)
 	}
 }
 
 // executePOCs 执行POC检测
-func executePOCs(ctx context.Context, pocInfo config.PocInfo, cfg *common.Config, session *common.ScanSession) {
+func executePOCs(ctx context.Context, pocInfo config.PocInfo, cfg *common.Config, session *common.ScanSession, pocs []*lib.Poc) {
 	// 验证目标
 	if pocInfo.Target == "" {
 		session.LogError(ErrEmptyTarget.Error())
@@ -222,7 +226,7 @@ func executePOCs(ctx context.Context, pocInfo config.PocInfo, cfg *common.Config
 	}
 
 	// 筛选POC
-	matchedPocs := filterPocs(pocInfo.PocName)
+	matchedPocs := filterPocs(pocInfo.PocName, pocs)
 	if len(matchedPocs) == 0 {
 		session.LogDebug(fmt.Sprintf("%v: %s", ErrPocNotFound, pocInfo.PocName))
 		return
@@ -257,28 +261,22 @@ func createBaseRequest(ctx context.Context, target string, cfg *common.Config) (
 	return req, nil
 }
 
-// initPocs 初始化并加载POC
-// 使用cachedPocPath包级变量
-func initPocs() {
-	// 预分配容量避免频繁扩容，典型POC数量在100-500之间
-	allPocs = make([]*lib.Poc, 0, 256)
-
-	if cachedPocPath == "" {
-		loadEmbeddedPocs()
-	} else {
-		loadExternalPocs(cachedPocPath)
+// loadPocs 加载指定路径的 POC（空路径表示内嵌 POC）
+func loadPocs(pocPath string) []*lib.Poc {
+	if pocPath == "" {
+		return loadEmbeddedPocs()
 	}
+	return loadExternalPocs(pocPath)
 }
 
 // loadEmbeddedPocs 加载内置POC
-func loadEmbeddedPocs() {
+func loadEmbeddedPocs() []*lib.Poc {
 	entries, err := pocsFS.ReadDir("pocs")
 	if err != nil {
 		common.LogError(i18n.Tr("webscan_builtin_poc_failed", err))
-		return
+		return nil
 	}
 
-	// 收集所有POC文件
 	var pocFiles []string
 	for _, entry := range entries {
 		if isPocFile(entry.Name()) {
@@ -286,24 +284,21 @@ func loadEmbeddedPocs() {
 		}
 	}
 
-	// 并发加载POC文件
-	loadPocsConcurrently(pocFiles, true, "")
+	return loadPocsConcurrently(pocFiles, true, "")
 }
 
 // loadExternalPocs 从外部路径加载POC
-func loadExternalPocs(pocPath string) {
+func loadExternalPocs(pocPath string) []*lib.Poc {
 	if !directoryExists(pocPath) {
 		common.LogError(i18n.Tr("webscan_poc_dir_not_exist", pocPath))
-		return
+		return nil
 	}
 
-	// 收集所有POC文件路径
 	var pocFiles []string
 	err := filepath.Walk(pocPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info == nil || info.IsDir() {
 			return nil
 		}
-
 		if isPocFile(info.Name()) {
 			pocFiles = append(pocFiles, path)
 		}
@@ -312,18 +307,17 @@ func loadExternalPocs(pocPath string) {
 
 	if err != nil {
 		common.LogError(i18n.Tr("webscan_poc_dir_walk_failed", err))
-		return
+		return nil
 	}
 
-	// 并发加载POC文件
-	loadPocsConcurrently(pocFiles, false, pocPath)
+	return loadPocsConcurrently(pocFiles, false, pocPath)
 }
 
-// loadPocsConcurrently 并发加载POC文件（channel 收集，无锁竞争）
-func loadPocsConcurrently(pocFiles []string, isEmbedded bool, pocPath string) {
+// loadPocsConcurrently 并发加载POC文件，返回加载结果
+func loadPocsConcurrently(pocFiles []string, isEmbedded bool, pocPath string) []*lib.Poc {
 	pocCount := len(pocFiles)
 	if pocCount == 0 {
-		return
+		return nil
 	}
 
 	var wg sync.WaitGroup
@@ -359,14 +353,14 @@ func loadPocsConcurrently(pocFiles []string, isEmbedded bool, pocPath string) {
 		close(results)
 	}()
 
-	var successCount int
+	pocs := make([]*lib.Poc, 0, pocCount)
 	for poc := range results {
-		allPocs = append(allPocs, poc)
-		successCount++
+		pocs = append(pocs, poc)
 	}
 
-	failCount := pocCount - successCount
-	common.LogInfo(i18n.Tr("poc_load_complete", pocCount, successCount, failCount))
+	failCount := pocCount - len(pocs)
+	common.LogInfo(i18n.Tr("poc_load_complete", pocCount, len(pocs), failCount))
+	return pocs
 }
 
 // directoryExists 检查目录是否存在
@@ -382,16 +376,15 @@ func isPocFile(filename string) bool {
 }
 
 // filterPocs 根据POC名称筛选
-func filterPocs(pocName string) []*lib.Poc {
+func filterPocs(pocName string, pocs []*lib.Poc) []*lib.Poc {
 	if pocName == "" {
-		return allPocs
+		return pocs
 	}
 
-	// 转换为小写以进行不区分大小写的匹配
 	searchName := strings.ToLower(pocName)
 
 	var matchedPocs []*lib.Poc
-	for _, poc := range allPocs {
+	for _, poc := range pocs {
 		if poc != nil && strings.Contains(strings.ToLower(poc.Name), searchName) {
 			matchedPocs = append(matchedPocs, poc)
 		}
