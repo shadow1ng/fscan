@@ -75,6 +75,10 @@ func (p *SNMPPlugin) probe(ctx context.Context, target, community string, timeou
 	}
 	defer conn.Close()
 
+	if dl, ok := conn.(interface{ SetReadDeadline(time.Time) error }); ok {
+		_ = dl.SetReadDeadline(time.Now().Add(timeout))
+	}
+
 	pkt := buildSNMPGetRequest(community, []int{1, 3, 6, 1, 2, 1, 1, 1, 0})
 	if _, err := conn.Write(pkt); err != nil {
 		return nil
