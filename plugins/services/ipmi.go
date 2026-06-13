@@ -53,9 +53,7 @@ func (p *IPMIPlugin) rmcpPing(ctx context.Context, target string, timeout time.D
 		0x00, // data length = 0
 	}
 
-	if dl, ok := conn.(interface{ SetReadDeadline(time.Time) error }); ok {
-		_ = dl.SetReadDeadline(time.Now().Add(timeout))
-	}
+	_ = conn.SetDeadline(time.Now().Add(timeout))
 
 	if _, err := conn.Write(ping); err != nil {
 		return nil

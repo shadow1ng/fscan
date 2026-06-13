@@ -33,9 +33,7 @@ func (p *TFTPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 	}
 	defer conn.Close()
 
-	if dl, ok := conn.(interface{ SetReadDeadline(time.Time) error }); ok {
-		_ = dl.SetReadDeadline(time.Now().Add(timeout))
-	}
+	_ = conn.SetDeadline(time.Now().Add(timeout))
 
 	if _, err := conn.Write(buildTFTPReadRequest("probe")); err != nil {
 		return &ScanResult{Success: false, Service: "tftp"}
