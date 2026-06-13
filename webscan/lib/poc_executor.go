@@ -3,11 +3,13 @@ package lib
 import (
 	"crypto/md5" //nolint:gosec // G501: MD5用于POC规则去重，非加密用途
 	"fmt"
+	"io"
 	"math/rand" //nolint:gosec // G404: math/rand用于生成测试数据，非加密用途
 	"net/http"
 	"net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -91,7 +93,7 @@ func CheckMultiPoc(req *http.Request, pocs []*Poc, workers int, pocCtx *POCConte
 				// 因为clusterpoc已在内部处理了漏洞输出
 				if isVulnerable && vulName != "" {
 					// 构造漏洞详细信息
-					details := make(map[string]interface{})
+					details := make(map[string]interface{}, 6)
 					details["vulnerability_type"] = task.Poc.Name
 					details["vulnerability_name"] = vulName
 
@@ -341,14 +343,22 @@ func executeRules(oReq *http.Request, p *Poc, variableMap map[string]interface{}
 	return false, "", nil
 }
 
+var regexCache sync.Map
+
 // doSearch 在响应体中执行正则匹配并提取命名捕获组
 func doSearch(re string, body string) map[string]string {
-	// 编译正则表达式
-	r, err := regexp.Compile(re)
-	// 正则表达式编译
-	if err != nil {
-		common.LogError(i18n.Tr("webscan_regex_compile_error", err))
-		return nil
+	// 编译正则表达式（带缓存）
+	var r *regexp.Regexp
+	if cached, ok := regexCache.Load(re); ok {
+		r = cached.(*regexp.Regexp)
+	} else {
+		compiled, err := regexp.Compile(re)
+		if err != nil {
+			common.LogError(i18n.Tr("webscan_regex_compile_error", err))
+			return nil
+		}
+		actual, _ := regexCache.LoadOrStore(re, compiled)
+		r = actual.(*regexp.Regexp)
 	}
 
 	// 执行正则匹配
@@ -537,7 +547,7 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 				if ruleIndex == len(p.Rules)-1 {
 					// 最终规则成功，记录完整的结果并返回
 					recordVulnerabilityResult(targetURL, p, strMap, false, pocCtx.Session)
-					return false, nil
+					return true, nil
 				}
 				break paramLoop
 			}
@@ -620,11 +630,25 @@ func applyParametersToRule(
 	return hasReplacement, replacedParams
 }
 
-// getRuleHash 计算规则的MD5哈希值用于去重
+// getRuleHash 计算规则的MD5哈希值用于去重（无反射，Headers 排序保证确定性）
 func getRuleHash(rule *Rules) string {
 	//nolint:gosec // G401: MD5用于规则去重，非加密用途
-	ruleDigest := md5.Sum([]byte(fmt.Sprintf("%v", rule)))
-	return fmt.Sprintf("%x", ruleDigest)
+	h := md5.New()
+	_, _ = io.WriteString(h, rule.Method)
+	_, _ = io.WriteString(h, rule.Path)
+	_, _ = io.WriteString(h, rule.Body)
+	if len(rule.Headers) > 0 {
+		keys := make([]string, 0, len(rule.Headers))
+		for k := range rule.Headers {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			_, _ = io.WriteString(h, k)
+			_, _ = io.WriteString(h, rule.Headers[k])
+		}
+	}
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 // recordVulnerabilityResult 记录漏洞检测结果
@@ -830,11 +854,10 @@ func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Re
 	}
 
 	// 检查表达式执行结果
-	if fmt.Sprintf("%v", out) == "false" {
-		return false, nil
+	if flag, ok := out.Value().(bool); ok {
+		return flag, nil
 	}
-
-	return true, nil
+	return false, nil
 }
 
 // cloneRules 深度复制Rules结构体
@@ -870,8 +893,8 @@ func cloneMap(tags map[string]string) map[string]string {
 func evalset(env *cel.Env, variableMap map[string]interface{}, k string, expression string) (string, error) {
 	out, err := Evaluate(env, expression, variableMap)
 	if err != nil {
-		variableMap[k] = expression
-		return expression, err
+		variableMap[k] = ""
+		return "", err
 	}
 
 	// 根据不同类型处理输出

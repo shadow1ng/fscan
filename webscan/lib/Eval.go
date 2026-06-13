@@ -3,6 +3,7 @@ package lib
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -368,11 +369,14 @@ func reverseCheck(r *Reverse, timeout int64) bool {
 	apiURL := fmt.Sprintf("http://api.ceye.io/v1/records?token=%s&type=dns&filter=%s",
 		ceyeAPI, sub)
 
-	// 创建并发送请求
-	req, err := http.NewRequest("GET", apiURL, nil)
+	// 创建并发送请求（带超时控制，避免 ceye API 无响应时阻塞）
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 	if err != nil {
 		return false
 	}
+	// nil session: CEL 回调无法获取 session，回退到全局限速（反连检查请求量极低，可接受）
 	resp, err := DoRequest(req, false, nil)
 	if err != nil {
 		return false

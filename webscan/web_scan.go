@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/shadow1ng/fscan/common"
@@ -43,7 +44,7 @@ var (
 var pocsFS embed.FS
 var (
 	pocMu         sync.Mutex
-	pocLoaded     bool
+	pocLoaded     atomic.Bool
 	allPocs       []*lib.Poc
 	cachedPocPath string
 )
@@ -53,16 +54,18 @@ func WebScan(ctx context.Context, info *common.HostInfo, cfg *common.Config, ses
 	// 初始化POC配置（用于CEL回调函数）
 	lib.InitPOCConfig(cfg.DNSLog)
 
-	// 加载POC（互斥保护，避免并发 race）
-	pocMu.Lock()
-	if !pocLoaded {
-		cachedPocPath = cfg.POC.PocPath
-		initPocs()
-		if len(allPocs) > 0 {
-			pocLoaded = true
+	// 加载POC（DCLP: 快速路径无锁，慢路径互斥保护）
+	if !pocLoaded.Load() {
+		pocMu.Lock()
+		if !pocLoaded.Load() {
+			cachedPocPath = cfg.POC.PocPath
+			initPocs()
+			if len(allPocs) > 0 {
+				pocLoaded.Store(true)
+			}
 		}
+		pocMu.Unlock()
 	}
-	pocMu.Unlock()
 
 	// 验证输入
 	if info == nil {
@@ -316,7 +319,7 @@ func loadExternalPocs(pocPath string) {
 	loadPocsConcurrently(pocFiles, false, pocPath)
 }
 
-// loadPocsConcurrently 并发加载POC文件
+// loadPocsConcurrently 并发加载POC文件（channel 收集，无锁竞争）
 func loadPocsConcurrently(pocFiles []string, isEmbedded bool, pocPath string) {
 	pocCount := len(pocFiles)
 	if pocCount == 0 {
@@ -324,48 +327,45 @@ func loadPocsConcurrently(pocFiles []string, isEmbedded bool, pocPath string) {
 	}
 
 	var wg sync.WaitGroup
-	var mu sync.Mutex
-	var successCount, failCount int
-
-	// 使用信号量控制并发数
+	results := make(chan *lib.Poc, pocCount)
 	semaphore := make(chan struct{}, concurrencyLimit)
 
 	for _, file := range pocFiles {
 		wg.Add(1)
-		semaphore <- struct{}{} // 获取信号量
+		semaphore <- struct{}{}
 
 		go func(filename string) {
 			defer func() {
-				<-semaphore // 释放信号量
+				<-semaphore
 				wg.Done()
 			}()
 
 			var poc *lib.Poc
 			var err error
-
-			// 根据不同的来源加载POC
 			if isEmbedded {
 				poc, err = lib.LoadPoc(filename, pocsFS)
 			} else {
 				poc, err = lib.LoadPocbyPath(filename)
 			}
 
-			mu.Lock()
-			defer mu.Unlock()
-
-			if err != nil {
-				failCount++
-				return
-			}
-
-			if poc != nil {
-				allPocs = append(allPocs, poc)
-				successCount++
+			if err == nil && poc != nil {
+				results <- poc
 			}
 		}(file)
 	}
 
-	wg.Wait()
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	var successCount int
+	for poc := range results {
+		allPocs = append(allPocs, poc)
+		successCount++
+	}
+
+	failCount := pocCount - successCount
 	common.LogInfo(i18n.Tr("poc_load_complete", pocCount, successCount, failCount))
 }
 

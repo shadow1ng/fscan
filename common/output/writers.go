@@ -350,13 +350,17 @@ func (w *TXTWriter) Close() error {
 		os.Remove(w.realtimePath)
 	}
 
+	var firstErr error
 	if err := w.bufWriter.Flush(); err != nil {
-		return err
+		firstErr = err
 	}
-	if err := w.file.Sync(); err != nil {
-		return err
+	if err := w.file.Sync(); err != nil && firstErr == nil {
+		firstErr = err
 	}
-	return w.file.Close()
+	if err := w.file.Close(); err != nil && firstErr == nil {
+		firstErr = err
+	}
+	return firstErr
 }
 
 // writeSection 写入一个分类的所有结果

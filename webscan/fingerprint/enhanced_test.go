@@ -447,7 +447,7 @@ func TestMatchMatcher_TypeDispatch(t *testing.T) {
 				matcher = createMatcher(tt.matcherType, nil, nil, nil, "", "", false)
 			}
 
-			result := matchMatcher(matcher, "nginx server", "Server: nginx", FaviconHashes{MMH3: "abc123", MD5: "def456"}, nil)
+			result := matchMatcher(matcher, "nginx server", "Server: nginx", FaviconHashes{MMH3: "abc123", MD5: "def456"})
 			if result != tt.expected {
 				t.Errorf("matchMatcher(type=%s) = %v, 期望 %v",
 					tt.matcherType, result, tt.expected)

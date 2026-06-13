@@ -307,8 +307,8 @@ func convertNucleiMatchers(matchers []NucleiMatcher, matchersCondition string) s
 				matcherConds = append(matcherConds, nucleiRegexCondition(m.Part, pattern))
 			}
 		case "dsl":
-			// DSL类型暂不支持，使用默认匹配
-			matcherConds = append(matcherConds, "response.status == 200")
+			// DSL类型暂不支持，安全降级为 false 避免误报
+			matcherConds = append(matcherConds, "false")
 		}
 
 		// 单个matcher内的条件组合
