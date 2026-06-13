@@ -35,6 +35,9 @@ type AdaptivePool struct {
 	pool    *ants.PoolWithFunc
 	metrics *ScanMetrics
 
+	// 网络环境（影响健康评估阈值）
+	networkEnv NetworkEnv
+
 	// 并发控制
 	target      int32 // 探测推荐的目标值
 	ceiling     int32 // 绝对上限（用户指定或探测推荐）
@@ -57,7 +60,7 @@ type AdaptivePool struct {
 // target: 目标并发数（来自 NetworkProfile.RecommendConcurrency）
 // ceiling: 最大并发上限
 // metrics: 共享的扫描度量（scanSinglePort 写入，pool 读取）
-func NewAdaptivePool(target, ceiling int, fn func(interface{}), metrics *ScanMetrics) (*AdaptivePool, error) {
+func NewAdaptivePool(target, ceiling int, fn func(interface{}), metrics *ScanMetrics, env ...NetworkEnv) (*AdaptivePool, error) {
 	// 慢启动初始值：target 的 25%，但不低于 10
 	initial := target / 4
 	if initial < 10 {
@@ -72,9 +75,15 @@ func NewAdaptivePool(target, ceiling int, fn func(interface{}), metrics *ScanMet
 		return nil, err
 	}
 
+	netEnv := EnvWAN
+	if len(env) > 0 {
+		netEnv = env[0]
+	}
+
 	return &AdaptivePool{
 		pool:          pool,
 		metrics:       metrics,
+		networkEnv:    netEnv,
 		target:        int32(target),
 		ceiling:       int32(ceiling),
 		currentSize:   int32(initial),
@@ -109,6 +118,10 @@ func (ap *AdaptivePool) adjust() {
 	if health == HealthUnknown {
 		return
 	}
+
+	// RTT 漂移微调：fast EMA 远高于 slow EMA 说明延迟持续恶化
+	// 压低 target 让 AIMD 的天花板跟着降，而不是只靠乘性减
+	ap.maybeReduceTarget()
 
 	current := int(atomic.LoadInt32(&ap.currentSize))
 	target := int(atomic.LoadInt32(&ap.target))
@@ -215,20 +228,58 @@ func (ap *AdaptivePool) assessHealth() HealthSignal {
 	exhaustRate := float64(deltaExhausted) / float64(deltaTotal)
 	rttRatio := ap.metrics.RTTRatio()
 
-	// 多信号综合判断
+	// 阈值根据网络环境调整：内网收紧，公网放宽
+	var congestExhaust, stressExhaust, congestRTT, stressRTT, goodRTT float64
+	switch ap.networkEnv {
+	case EnvLAN:
+		congestExhaust, stressExhaust = 0.08, 0.03
+		congestRTT, stressRTT, goodRTT = 1.8, 1.4, 1.15
+	case EnvWAN:
+		congestExhaust, stressExhaust = 0.15, 0.05
+		congestRTT, stressRTT, goodRTT = 2.5, 1.8, 1.3
+	default: // Internet / Slow
+		congestExhaust, stressExhaust = 0.25, 0.10
+		congestRTT, stressRTT, goodRTT = 3.5, 2.5, 1.5
+	}
+
 	switch {
-	case exhaustRate > 0.15:
+	case exhaustRate > congestExhaust:
 		return HealthCongested
-	case rttRatio > 2.5:
+	case rttRatio > congestRTT:
 		return HealthCongested
-	case exhaustRate > 0.05:
+	case exhaustRate > stressExhaust:
 		return HealthStressed
-	case rttRatio > 1.8:
+	case rttRatio > stressRTT:
 		return HealthStressed
-	case exhaustRate < 0.01 && rttRatio < 1.3:
+	case exhaustRate < 0.01 && rttRatio < goodRTT:
 		return HealthGood
 	default:
 		return HealthOK
+	}
+}
+
+// maybeReduceTarget 当 RTT 持续恶化时压低 target
+// 不低于 ceiling 的 20%，避免过度收缩
+func (ap *AdaptivePool) maybeReduceTarget() {
+	rttRatio := ap.metrics.RTTRatio()
+	if rttRatio <= 3.0 {
+		return
+	}
+
+	target := atomic.LoadInt32(&ap.target)
+	ceiling := atomic.LoadInt32(&ap.ceiling)
+	minTarget := ceiling / 5
+	if minTarget < 10 {
+		minTarget = 10
+	}
+
+	// 压低 10%
+	newTarget := int32(float64(target) * 0.9)
+	if newTarget < minTarget {
+		newTarget = minTarget
+	}
+	if newTarget < target {
+		atomic.StoreInt32(&ap.target, newTarget)
 	}
 }
 
@@ -246,9 +297,16 @@ func (ap *AdaptivePool) Cap() int { return int(atomic.LoadInt32(&ap.currentSize)
 // Release 释放线程池
 func (ap *AdaptivePool) Release() { ap.pool.Release() }
 
-// Wait 等待所有任务完成
+// Wait 等待所有任务完成（最多等待 10 分钟）
 func (ap *AdaptivePool) Wait() {
+	deadline := time.After(10 * time.Minute)
 	for ap.pool.Running() > 0 {
-		time.Sleep(10 * time.Millisecond)
+		select {
+		case <-deadline:
+			common.LogError(i18n.Tr("adaptive_pool_wait_timeout"))
+			return
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
 	}
 }

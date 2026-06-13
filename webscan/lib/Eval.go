@@ -28,7 +28,8 @@ import (
 
 // 基础CEL环境缓存（避免重复创建，减少内存分配）
 var (
-	baseEnvOnce    sync.Once
+	baseEnvMu      sync.Mutex
+	baseEnvInited  bool
 	baseEnv        *cel.Env
 	baseProgramOpt []cel.ProgramOption
 )
@@ -52,47 +53,49 @@ func NewEnv(c *CustomLib) (*cel.Env, error) {
 	return cachedCELEnv, cachedCELEnvErr
 }
 
-// initBaseEnv 初始化基础CEL环境（只执行一次）
+// initBaseEnv 初始化基础CEL环境（失败后允许重试）
 func initBaseEnv() {
-	baseEnvOnce.Do(func() {
-		// 收集所有函数声明
-		var allDeclarations []*exprpb.Decl
-		allDeclarations = append(allDeclarations, registerStringDeclarations()...)
-		allDeclarations = append(allDeclarations, registerEncodingDeclarations()...)
-		allDeclarations = append(allDeclarations, registerCryptoDeclarations()...)
-		allDeclarations = append(allDeclarations, registerRandomDeclarations()...)
-		allDeclarations = append(allDeclarations, registerMiscDeclarations()...)
+	baseEnvMu.Lock()
+	defer baseEnvMu.Unlock()
+	if baseEnvInited {
+		return
+	}
 
-		// 收集所有函数实现
-		var allImplementations []*functions.Overload
-		allImplementations = append(allImplementations, registerStringImplementations()...)
-		allImplementations = append(allImplementations, registerEncodingImplementations()...)
-		allImplementations = append(allImplementations, registerCryptoImplementations()...)
-		allImplementations = append(allImplementations, registerRandomImplementations()...)
-		allImplementations = append(allImplementations, registerMiscImplementations()...)
+	var allDeclarations []*exprpb.Decl
+	allDeclarations = append(allDeclarations, registerStringDeclarations()...)
+	allDeclarations = append(allDeclarations, registerEncodingDeclarations()...)
+	allDeclarations = append(allDeclarations, registerCryptoDeclarations()...)
+	allDeclarations = append(allDeclarations, registerRandomDeclarations()...)
+	allDeclarations = append(allDeclarations, registerMiscDeclarations()...)
 
-		// 保存程序选项供后续使用
-		//nolint:staticcheck // SA1019: cel.Functions已废弃但CEL库尚未提供替代方案
-		baseProgramOpt = []cel.ProgramOption{cel.Functions(allImplementations...)}
+	var allImplementations []*functions.Overload
+	allImplementations = append(allImplementations, registerStringImplementations()...)
+	allImplementations = append(allImplementations, registerEncodingImplementations()...)
+	allImplementations = append(allImplementations, registerCryptoImplementations()...)
+	allImplementations = append(allImplementations, registerRandomImplementations()...)
+	allImplementations = append(allImplementations, registerMiscImplementations()...)
 
-		// 创建基础环境
-		var err error
-		baseEnv, err = cel.NewEnv(
-			cel.Container("lib"),
-			cel.Types(&UrlType{}, &Request{}, &Response{}, &Reverse{}),
-			//nolint:staticcheck // SA1019: cel.Declarations已废弃但CEL库尚未提供替代方案
-			cel.Declarations(
-				decls.NewIdent("request", decls.NewObjectType("lib.Request"), nil),
-				decls.NewIdent("response", decls.NewObjectType("lib.Response"), nil),
-				decls.NewIdent("reverse", decls.NewObjectType("lib.Reverse"), nil),
-			),
-			//nolint:staticcheck // SA1019: cel.Declarations已废弃但CEL库尚未提供替代方案
-			cel.Declarations(allDeclarations...),
-		)
-		if err != nil {
-			common.LogError(i18n.Tr("webscan_cel_init_failed", err))
-		}
-	})
+	//nolint:staticcheck // SA1019: cel.Functions已废弃但CEL库尚未提供替代方案
+	baseProgramOpt = []cel.ProgramOption{cel.Functions(allImplementations...)}
+
+	var err error
+	baseEnv, err = cel.NewEnv(
+		cel.Container("lib"),
+		cel.Types(&UrlType{}, &Request{}, &Response{}, &Reverse{}),
+		//nolint:staticcheck // SA1019: cel.Declarations已废弃但CEL库尚未提供替代方案
+		cel.Declarations(
+			decls.NewIdent("request", decls.NewObjectType("lib.Request"), nil),
+			decls.NewIdent("response", decls.NewObjectType("lib.Response"), nil),
+			decls.NewIdent("reverse", decls.NewObjectType("lib.Reverse"), nil),
+		),
+		//nolint:staticcheck // SA1019: cel.Declarations已废弃但CEL库尚未提供替代方案
+		cel.Declarations(allDeclarations...),
+	)
+	if err != nil {
+		common.LogError(i18n.Tr("webscan_cel_init_failed", err))
+		return
+	}
+	baseEnvInited = true
 }
 
 // GetBaseEnv 获取基础CEL环境

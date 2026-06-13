@@ -25,6 +25,7 @@ type Config struct {
 	Timeout                 time.Duration // 通用超时
 	TimeoutExplicit         bool          // 用户显式指定了 -time
 	ThreadNum               int           // 主线程数
+	ThreadCeiling           int           // 线程数上限（自适应池允许的最大值）
 	ThreadNumExplicit       bool          // 用户显式指定了 -t
 	ModuleThreadNum         int           // 模块线程数
 	ModuleThreadNumExplicit bool          // 用户显式指定了 -mt
@@ -39,6 +40,7 @@ type Config struct {
 	AliveOnly          bool   // 仅存活检测
 	MaxRetries         int    // 最大重试次数
 	MaxRetriesExplicit bool   // 用户显式指定了 -retry
+	DetectedNetworkEnv int    // 探测到的网络环境（来自 core.NetworkEnv）
 
 	// 高级功能（从AdvancedConfig合并）
 	Shellcode             string           // Shellcode
@@ -180,6 +182,7 @@ func NewConfig() *Config {
 		// 高频字段 - 使用默认常量
 		Timeout:         time.Duration(DefaultTimeout) * time.Second,
 		ThreadNum:       DefaultThreadNum,
+		ThreadCeiling:   DefaultThreadNum,
 		ModuleThreadNum: 10,
 		DisableBrute:    false,
 		DisablePing:     false,

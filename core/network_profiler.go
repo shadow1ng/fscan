@@ -95,7 +95,7 @@ func (p *NetworkProfile) RecommendConcurrency(userThreadNum int, explicit bool) 
 }
 
 // probePorts 探测用的端口列表（高响应率的常见端口）
-var probePorts = []int{80, 443, 22}
+var probePorts = []int{80, 443, 22, 445, 8080, 3389, 21, 8443}
 
 func networkProbeAddress(host string, port int) string {
 	return net.JoinHostPort(host, strconv.Itoa(port))

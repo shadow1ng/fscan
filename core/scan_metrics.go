@@ -1,6 +1,7 @@
 package core
 
 import (
+	"runtime"
 	"sync/atomic"
 	"time"
 )
@@ -55,12 +56,14 @@ func updateEMA(target *atomic.Int64, sample int64, divisor int64) {
 			if target.CompareAndSwap(0, sample) {
 				return
 			}
+			runtime.Gosched()
 			continue
 		}
 		next := old + (sample-old)/divisor
 		if target.CompareAndSwap(old, next) {
 			return
 		}
+		runtime.Gosched()
 	}
 }
 
