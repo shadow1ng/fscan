@@ -107,7 +107,7 @@ func GetProgressManager() *ProgressManager {
 // InitProgress 初始化进度条
 func (pm *ProgressManager) InitProgress(total int64, description string) {
 	cfg := GetGlobalConfig()
-	if cfg.Output.DisableProgress || cfg.Output.Silent {
+	if cfg.Output.DisableProgress || cfg.Output.Silent || cfg.Output.NoColor {
 		pm.enabled = false
 		return
 	}
