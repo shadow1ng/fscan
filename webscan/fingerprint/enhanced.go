@@ -46,9 +46,7 @@ type EnhancedFingerprint struct {
 // EnhancedFingerprintDB 增强指纹数据库
 type EnhancedFingerprintDB struct {
 	Fingerprints []*EnhancedFingerprint
-	// 预编译的正则表达式缓存
-	regexCache   map[string]*regexp.Regexp
-	regexCacheMu sync.RWMutex // 保护regexCache的并发访问
+	regexCache   sync.Map // pattern → *regexp.Regexp，无锁并发安全
 }
 
 var (
@@ -63,9 +61,22 @@ func LoadEnhancedFingerprints() error {
 		return fmt.Errorf("%s: %w", i18n.GetText("fingerprint_enhanced_parse_failed"), err)
 	}
 
+	// 预处理：CaseInsensitive 的 matcher 预先小写化 Words，避免匹配时重复分配
+	for _, fp := range fps {
+		for hi := range fp.HTTP {
+			for mi := range fp.HTTP[hi].Matchers {
+				m := &fp.HTTP[hi].Matchers[mi]
+				if m.CaseInsensitive && m.Type == "word" {
+					for wi, w := range m.Words {
+						m.Words[wi] = strings.ToLower(w)
+					}
+				}
+			}
+		}
+	}
+
 	enhancedDB = &EnhancedFingerprintDB{
 		Fingerprints: fps,
-		regexCache:   make(map[string]*regexp.Regexp),
 	}
 
 	return nil
@@ -128,7 +139,7 @@ func MatchEnhancedFingerprints(body []byte, headers string, favicon FaviconHashe
 				}
 				httpRule := fp.HTTP[0]
 				for _, matcher := range httpRule.Matchers {
-					if matchMatcher(matcher, bodyStr, headers, favicon, enhancedDB.regexCache) {
+					if matchMatcher(matcher, bodyStr, headers, favicon) {
 						resultCh <- fingerprintMatch{
 							Name:     fp.Info.Name,
 							Priority: calcPriority(fp, matcher.Type),
@@ -202,13 +213,13 @@ func matchMatcher(matcher struct {
 	Part            string   `json:"part"`
 	CaseInsensitive bool     `json:"case-insensitive"`
 	Condition       string   `json:"condition"`
-}, body, headers string, favicon FaviconHashes, regexCache map[string]*regexp.Regexp) bool {
+}, body, headers string, favicon FaviconHashes) bool {
 
 	switch matcher.Type {
 	case "word":
 		return matchWords(matcher, body, headers)
 	case "regex":
-		return matchRegex(matcher, body, headers, regexCache)
+		return matchRegex(matcher, body, headers)
 	case "favicon":
 		return matchFavicon(matcher, favicon)
 	default:
@@ -233,21 +244,19 @@ func matchWords(matcher struct {
 		target = headers
 	}
 
-	// 预处理搜索词，避免循环内重复转换
-	searchWords := matcher.Words
+	// CaseInsensitive: target 转小写一次，Words 已在加载时预处理（直接调用时也兼容未预处理的词）
 	if matcher.CaseInsensitive {
 		target = strings.ToLower(target)
-		searchWords = make([]string, len(matcher.Words))
-		for i, w := range matcher.Words {
-			searchWords[i] = strings.ToLower(w)
-		}
 	}
 
 	// 默认condition为or
 	isAnd := matcher.Condition == "and"
 	matchCount := 0
 
-	for _, searchWord := range searchWords {
+	for _, searchWord := range matcher.Words {
+		if matcher.CaseInsensitive {
+			searchWord = strings.ToLower(searchWord)
+		}
 		if strings.Contains(target, searchWord) {
 			if !isAnd {
 				// OR条件：匹配任一即可
@@ -273,7 +282,7 @@ func matchRegex(matcher struct {
 	Part            string   `json:"part"`
 	CaseInsensitive bool     `json:"case-insensitive"`
 	Condition       string   `json:"condition"`
-}, body, headers string, regexCache map[string]*regexp.Regexp) bool {
+}, body, headers string) bool {
 
 	// 确定匹配目标
 	target := body
@@ -285,33 +294,23 @@ func matchRegex(matcher struct {
 	isAnd := matcher.Condition == "and"
 
 	for _, pattern := range matcher.Regex {
-		// 从缓存获取或编译正则（线程安全）
+		// CaseInsensitive 正则需要前缀
+		cacheKey := pattern
+		if matcher.CaseInsensitive {
+			cacheKey = "(?i)" + pattern
+		}
+
+		// 从 sync.Map 缓存获取或编译正则
 		var re *regexp.Regexp
-
-		// 先尝试读取缓存（读锁）
-		enhancedDB.regexCacheMu.RLock()
-		re, exists := regexCache[pattern]
-		enhancedDB.regexCacheMu.RUnlock()
-
-		if !exists {
-			// 不存在，需要编译并写入缓存（写锁）
-			enhancedDB.regexCacheMu.Lock()
-			// Double-check：可能其他goroutine已经编译了
-			re, exists = regexCache[pattern]
-			if !exists {
-				var err error
-				if matcher.CaseInsensitive {
-					re, err = regexp.Compile("(?i)" + pattern)
-				} else {
-					re, err = regexp.Compile(pattern)
-				}
-				if err != nil {
-					enhancedDB.regexCacheMu.Unlock()
-					continue
-				}
-				regexCache[pattern] = re
+		if cached, ok := enhancedDB.regexCache.Load(cacheKey); ok {
+			re = cached.(*regexp.Regexp)
+		} else {
+			compiled, err := regexp.Compile(cacheKey)
+			if err != nil {
+				continue
 			}
-			enhancedDB.regexCacheMu.Unlock()
+			actual, _ := enhancedDB.regexCache.LoadOrStore(cacheKey, compiled)
+			re = actual.(*regexp.Regexp)
 		}
 
 		// 确保 re 不为 nil（防止并发场景下的 nil panic）
@@ -402,7 +401,7 @@ func ExtractVersions(body string, headers string) []VersionInfo {
 	seen := make(map[string]struct{})
 
 	for _, extractor := range versionExtractors {
-		matches := extractor.pattern.FindAllStringSubmatch(content, -1)
+		matches := extractor.pattern.FindAllStringSubmatch(content, 5)
 		for _, match := range matches {
 			var name, version string
 

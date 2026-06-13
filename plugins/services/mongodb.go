@@ -328,6 +328,9 @@ func sendMongoMsg(ctx context.Context, conn io.ReadWriter, body []byte, timeout 
 
 // readMongoMsg 读取 MongoDB 响应
 func readMongoMsg(conn io.Reader, timeout time.Duration) ([]byte, error) {
+	if tc, ok := conn.(interface{ SetReadDeadline(time.Time) error }); ok {
+		_ = tc.SetReadDeadline(time.Now().Add(timeout))
+	}
 	// 读取 16 字节消息头
 	header := make([]byte, 16)
 	if _, err := io.ReadFull(conn, header); err != nil {

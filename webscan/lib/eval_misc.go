@@ -31,7 +31,7 @@ func registerMiscImplementations() []*functions.Overload {
 			Operator: "reverse_wait_int",
 			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				reverse, ok := lhs.Value().(*Reverse)
-				if !ok {
+				if !ok || reverse == nil {
 					return types.ValOrErr(lhs, "unexpected type '%v' passed to wait", lhs.Type())
 				}
 				timeout, ok := rhs.(types.Int)

@@ -2,6 +2,7 @@ package i18n
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 
 	"github.com/nicksnyder/go-i18n/v2/i18n"
@@ -80,9 +81,9 @@ func Tr(key string, args ...interface{}) string {
 	loc := localizer
 	mu.RUnlock()
 
-	data := make(map[string]interface{})
+	data := make(map[string]interface{}, len(args))
 	for i, arg := range args {
-		data[fmt.Sprintf("Arg%d", i+1)] = arg
+		data["Arg"+strconv.Itoa(i+1)] = arg
 	}
 
 	msg, err := loc.Localize(&i18n.LocalizeConfig{

@@ -143,12 +143,28 @@ func InitHTTPClient(ThreadsNum int, DownProxy string, Timeout time.Duration, max
 		KeepAlive: keepAlive,
 	}
 
+	// 连接池参数随并发数动态调整
+	maxConns := ThreadsNum * 2
+	if maxConns < 20 {
+		maxConns = 20
+	}
+	if maxConns > 200 {
+		maxConns = 200
+	}
+	idlePerHost := ThreadsNum / 2
+	if idlePerHost < 5 {
+		idlePerHost = 5
+	}
+	if idlePerHost > 20 {
+		idlePerHost = 20
+	}
+
 	// 配置Transport参数
 	tr := &http.Transport{
 		DialContext:         dialer.DialContext,
-		MaxConnsPerHost:     100, // 增加到100，避免连接池耗尽
-		MaxIdleConns:        100, // 保留100个空闲连接
-		MaxIdleConnsPerHost: 10,  // 每主机保留10个空闲连接
+		MaxConnsPerHost:     maxConns,
+		MaxIdleConns:        maxConns,
+		MaxIdleConnsPerHost: idlePerHost,
 		IdleConnTimeout:     keepAlive,
 		TLSClientConfig:     &tls.Config{MinVersion: tls.VersionTLS10, InsecureSkipVerify: true},
 		TLSHandshakeTimeout: 5 * time.Second,

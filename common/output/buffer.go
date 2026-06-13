@@ -22,10 +22,10 @@ type ResultBuffer struct {
 // NewResultBuffer 创建新的结果缓冲
 func NewResultBuffer() *ResultBuffer {
 	return &ResultBuffer{
-		seenHosts:    make(map[string]struct{}),
-		seenPorts:    make(map[string]struct{}),
-		seenServices: make(map[string]int),
-		seenVulns:    make(map[string]struct{}),
+		seenHosts:    make(map[string]struct{}, 256),
+		seenPorts:    make(map[string]struct{}, 512),
+		seenServices: make(map[string]int, 128),
+		seenVulns:    make(map[string]struct{}, 64),
 	}
 }
 
