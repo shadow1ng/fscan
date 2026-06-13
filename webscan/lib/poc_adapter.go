@@ -89,15 +89,14 @@ func DetectPocFormat(data []byte) PocFormat {
 	}
 
 	// xray格式特征：name + transport + rules(映射)
+	// 注意：有 transport 但 rules 是数组的属于 fscan 格式，不能在这里兜底
 	if _, hasName := raw["name"]; hasName {
 		if _, hasTransport := raw["transport"]; hasTransport {
 			if rules, hasRules := raw["rules"]; hasRules {
-				// 检查 rules 是否为映射
 				if _, isMap := rules.(map[interface{}]interface{}); isMap {
 					return FormatXray
 				}
 			}
-			return FormatXray
 		}
 	}
 
