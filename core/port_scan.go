@@ -101,10 +101,9 @@ func (c *resultCollector) GetAll() []string {
 
 // portScanTask 端口扫描任务（轻量级，用于滑动窗口调度）
 type portScanTask struct {
-	host      string
-	port      int
-	addr      string        // 预格式化的 host:port，避免 fmt.Sprintf 热路径分配
-	semaphore chan struct{} // 完成时释放窗口槽位
+	host string
+	port int
+	addr string // 预格式化的 host:port，避免 fmt.Sprintf 热路径分配
 }
 
 // failedPortInfo 失败端口信息
@@ -216,20 +215,22 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 	failedCollector := &failedPortCollector{}
 	var wg sync.WaitGroup
 
+	ceiling := config.ThreadCeiling
+	if ceiling < threadNum {
+		ceiling = threadNum
+	}
+	netEnv := NetworkEnv(config.DetectedNetworkEnv)
 	session.LogDebug(i18n.Tr("port_scan_debug_pool_create", threadNum))
-	pool, err := NewAdaptivePool(threadNum, threadNum, func(task interface{}) {
+	pool, err := NewAdaptivePool(threadNum, ceiling, func(task interface{}) {
 		taskInfo, ok := task.(portScanTask)
 		if !ok {
 			return
 		}
-		defer func() {
-			<-taskInfo.semaphore // 释放窗口槽位
-			wg.Done()
-		}()
+		defer wg.Done()
 
 		scanSinglePort(ctx, taskInfo.host, taskInfo.port, taskInfo.addr, adaptiveTO, metrics, &count, collector, failedCollector, session)
 		common.UpdateProgressBar(1)
-	}, metrics)
+	}, metrics, netEnv)
 	if err != nil {
 		session.LogError(i18n.Tr("thread_pool_create_failed", err))
 		if stream != nil {
@@ -242,7 +243,7 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 
 	session.LogDebug(i18n.GetText("port_scan_debug_schedule_start"))
 	// 滑动窗口调度
-	slidingWindowSchedule(iter, pool, &wg, threadNum)
+	slidingWindowSchedule(iter, pool, &wg)
 	session.LogDebug(i18n.GetText("port_scan_debug_schedule_done"))
 
 	// 收集结果
@@ -287,30 +288,21 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 }
 
 // slidingWindowSchedule 滑动窗口调度器
-// 核心思想：维护固定数量的"飞行中"任务，一个完成立即补充新的
-// 优势：避免任务队列堆积，内存使用恒定
-func slidingWindowSchedule(iter *SocketIterator, pool *AdaptivePool, wg *sync.WaitGroup, windowSize int) {
-	// 使用信号量控制窗口大小
-	semaphore := make(chan struct{}, windowSize)
-
+// ants.PoolWithFunc.Invoke 在池满时阻塞，天然提供反压，无需额外 semaphore
+func slidingWindowSchedule(iter *SocketIterator, pool *AdaptivePool, wg *sync.WaitGroup) {
 	for {
 		host, port, ok := iter.Next()
 		if !ok {
 			break
 		}
 
-		// 获取窗口槽位（阻塞直到有空位）
-		semaphore <- struct{}{}
-
 		wg.Add(1)
 		task := portScanTask{
-			host:      host,
-			port:      port,
-			addr:      net.JoinHostPort(host, fmtPort(port)),
-			semaphore: semaphore,
+			host: host,
+			port: port,
+			addr: net.JoinHostPort(host, fmtPort(port)),
 		}
 		if err := pool.Invoke(task); err != nil {
-			<-semaphore
 			wg.Done()
 		}
 	}
@@ -724,6 +716,14 @@ func processServiceResult(ctx context.Context, host string, port int, addr strin
 	// 保存并输出服务信息
 	details := buildServiceDetails(port, serviceInfo)
 	isWeb := IsWebServiceByFingerprint(serviceInfo)
+
+	// 指纹既不匹配 webKeywords 也不匹配 nonWebKeywords（不确定区间）
+	// 补做一次 HTTP 探测，覆盖自定义 HTTP 框架等漏网场景
+	if !isWeb && !isDefinitelyNonWeb(serviceInfo) {
+		if tryHTTPFallbackDetection(ctx, host, port, addr, config, session) {
+			isWeb = true
+		}
+	}
 
 	if isWeb {
 		details["is_web"] = true

@@ -38,8 +38,19 @@ func (ep *EnvironmentProfile) TuneConfig(config *common.Config, session *common.
 	net := &ep.Net
 	sys := &ep.System
 
-	// ---------- ThreadNum ----------
-	// 已在 AdaptivePool 层处理（ProbeNetwork + AIMD），这里不重复
+	// ---------- NetworkEnv ----------
+	config.DetectedNetworkEnv = int(net.Env)
+
+	// ---------- ThreadNum / ThreadCeiling ----------
+	if !isExplicit(config, "t") {
+		target, ceiling := net.RecommendConcurrency(config.ThreadNum, config.ThreadNumExplicit)
+		old := config.ThreadNum
+		config.ThreadNum = target
+		config.ThreadCeiling = ceiling
+		session.LogDebug(fmt.Sprintf("ThreadNum: %d -> %d, Ceiling: %d (env=%s)", old, target, ceiling, net.Env))
+	} else {
+		config.ThreadCeiling = config.ThreadNum
+	}
 
 	// ---------- Timeout ----------
 	// 公式: median_rtt + 4 * stddev，下限 1s，上限 10s
@@ -65,8 +76,7 @@ func (ep *EnvironmentProfile) TuneConfig(config *common.Config, session *common.
 	//       单个服务的连接能力远低于 TCP SYN 扫描
 	//       公网服务通常有限流（MaxStartups 等），并发过高适得其反
 	if !isExplicit(config, "mt") {
-		target, _ := net.RecommendConcurrency(config.ThreadNum, config.ThreadNumExplicit)
-		computed := target / 30
+		computed := config.ThreadNum / 30
 		computed = clampInt(computed, 5, 50)
 
 		// 高丢包环境进一步压低，避免大量连接被丢弃浪费
@@ -79,7 +89,7 @@ func (ep *EnvironmentProfile) TuneConfig(config *common.Config, session *common.
 
 		old := config.ModuleThreadNum
 		config.ModuleThreadNum = computed
-		session.LogDebug(fmt.Sprintf("ModuleThreadNum: %d -> %d (target_concurrency=%d)", old, computed, target))
+		session.LogDebug(fmt.Sprintf("ModuleThreadNum: %d -> %d (threadNum=%d)", old, computed, config.ThreadNum))
 	}
 
 	// ---------- MaxRetries ----------
@@ -88,7 +98,7 @@ func (ep *EnvironmentProfile) TuneConfig(config *common.Config, session *common.
 	// 例: 丢包率 5% → N=2, 丢包率 20% → N=3, 丢包率 50% → N=7
 	// 下限 1（零丢包也至少试一次），上限 6（避免对不可达目标死磕）
 	if !isExplicit(config, "retry") && net.Samples > 0 {
-		computed := computeRetries(net.LossRate)
+		computed := computeRetries(net.LossRate, net.Env)
 		old := config.MaxRetries
 		config.MaxRetries = computed
 		session.LogDebug(fmt.Sprintf("MaxRetries: %d -> %d (loss_rate=%.2f%%)", old, computed, net.LossRate*100))
@@ -135,22 +145,40 @@ func (ep *EnvironmentProfile) TuneConfig(config *common.Config, session *common.
 			session.LogInfo(i18n.Tr("env_fd_limit", config.ThreadNum, maxConcurrency, sys.FDLimit))
 			config.ThreadNum = maxConcurrency
 		}
+		if config.ThreadCeiling > maxConcurrency {
+			config.ThreadCeiling = maxConcurrency
+		}
 	}
 }
 
-// computeRetries 基于丢包率计算重试次数
-// 目标：重试 N 次后仍全部失败的概率 < 1%
-func computeRetries(lossRate float64) int {
+// computeRetries 基于丢包率和网络环境计算重试次数
+// 内网丢包异常，用更严格的目标概率（0.5%）和更低上限
+// 公网/慢速丢包常见，放宽目标概率（2%）和更高上限
+func computeRetries(lossRate float64, env NetworkEnv) int {
 	if lossRate <= 0.001 {
-		return 1 // 几乎无丢包
+		return 1
 	}
+
+	var targetProb float64
+	var maxRetries int
+	switch env {
+	case EnvLAN:
+		targetProb = 0.005
+		maxRetries = 4
+	case EnvWAN:
+		targetProb = 0.01
+		maxRetries = 5
+	default:
+		targetProb = 0.02
+		maxRetries = 6
+	}
+
 	if lossRate >= 0.95 {
-		return 6 // 上限
+		return maxRetries
 	}
-	// P(N次全失败) = lossRate^N < 0.01
-	// N > log(0.01) / log(lossRate)
-	n := math.Ceil(math.Log(0.01) / math.Log(lossRate))
-	return clampInt(int(n), 1, 6)
+	// P(N次全失败) = lossRate^N < targetProb
+	n := math.Ceil(math.Log(targetProb) / math.Log(lossRate))
+	return clampInt(int(n), 1, maxRetries)
 }
 
 // computeICMPRate 基于环境计算 ICMP 发包速率

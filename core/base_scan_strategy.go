@@ -86,6 +86,11 @@ func (b *BaseScanStrategy) IsPluginApplicableByName(pluginName string, targetHos
 		return b.isPluginPassesFilterType(pluginName, isCustomMode, config)
 	}
 
+	// -full 模式下，web 插件对所有开放端口生效（跳过 IsMarkedWebService 检查）
+	if config.POC.Full && b.isWebPlugin(pluginName) {
+		return b.isPluginPassesFilterType(pluginName, isCustomMode, config)
+	}
+
 	// 检查端口匹配和过滤器类型
 	return b.isPluginApplicableToPortWithHost(pluginName, targetHost, targetPort) && b.isPluginPassesFilterType(pluginName, isCustomMode, config)
 }

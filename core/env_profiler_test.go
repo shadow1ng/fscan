@@ -25,15 +25,15 @@ func TestComputeRetries(t *testing.T) {
 		{0.10, 2, 3, "10% 丢包: ceil(log(0.01)/log(0.1))=2, 但边界取 ceil 可能是 3"},
 		{0.20, 3, 3, "20% 丢包: 0.2^3=0.008 < 0.01"},
 		{0.30, 3, 4, "30% 丢包"},
-		{0.50, 6, 6, "50% 丢包: ceil(log(0.01)/log(0.5))=7 但上限 6"},
-		{0.80, 6, 6, "80% 丢包: 需要很多次但上限 6"},
-		{0.95, 6, 6, "95% 丢包: 触顶"},
-		{1.0, 6, 6, "100% 丢包: 触顶"},
+		{0.50, 5, 5, "50% 丢包: ceil(log(0.01)/log(0.5))=7 但上限 5"},
+		{0.80, 5, 5, "80% 丢包: 需要很多次但上限 5"},
+		{0.95, 5, 5, "95% 丢包: 触顶"},
+		{1.0, 5, 5, "100% 丢包: 触顶"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			got := computeRetries(tt.lossRate)
+			got := computeRetries(tt.lossRate, EnvWAN)
 			if got < tt.wantMin || got > tt.wantMax {
 				t.Errorf("computeRetries(%.2f) = %d, want [%d, %d]",
 					tt.lossRate, got, tt.wantMin, tt.wantMax)

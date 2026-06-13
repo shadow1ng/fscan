@@ -889,6 +889,12 @@ func evalset(env *cel.Env, variableMap map[string]interface{}, k string, express
 
 // evalset1 执行CEL表达式的简化版本
 func evalset1(env *cel.Env, variableMap map[string]interface{}, k string, expression string) (string, error) {
+	// 纯字面量字符串（无函数调用、运算符、变量引用）直接当值用，跳过 CEL 编译
+	// 避免 sets 中的 "sql"、"database" 等被当成 CEL 变量引用产生大量错误日志
+	if isPlainLiteral(expression, variableMap) {
+		variableMap[k] = expression
+		return expression, nil
+	}
 	out, err := Evaluate(env, expression, variableMap)
 	if err != nil {
 		variableMap[k] = expression
@@ -896,6 +902,26 @@ func evalset1(env *cel.Env, variableMap map[string]interface{}, k string, expres
 		variableMap[k] = fmt.Sprintf("%v", out)
 	}
 	return fmt.Sprintf("%v", variableMap[k]), err
+}
+
+// isPlainLiteral 判断表达式是否是纯字面量值（不需要 CEL 求值）
+// 排除法：含 CEL 语法特征（括号、运算符、引号）的需要走 CEL，其余当字面量
+func isPlainLiteral(expr string, variableMap map[string]interface{}) bool {
+	if expr == "" {
+		return false
+	}
+	// 如果是已声明的变量引用，必须走 CEL 求值
+	if _, exists := variableMap[expr]; exists {
+		return false
+	}
+	// 含 CEL 语法特征的需要走 CEL 编译
+	for _, c := range expr {
+		switch c {
+		case '(', ')', '[', ']', '+', '*', '%', '=', '!', '<', '>', '&', '|', '"', '\'', '?', ':':
+			return false
+		}
+	}
+	return true
 }
 
 // CheckInfoPoc 检查POC信息并返回别名

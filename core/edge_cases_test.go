@@ -23,24 +23,24 @@ func TestComputeRetries_EdgeCases(t *testing.T) {
 		{0.0, 1, 1, "精确零"},
 		{0.001, 1, 1, "精确边界 0.001"},
 		{0.0009, 1, 1, "低于 0.001 边界"},
-		{0.0011, 1, 6, "高于 0.001 边界"},
-		{0.95, 6, 6, "精确边界 0.95"},
-		{0.949, 1, 6, "低于 0.95 边界"},
-		{0.951, 6, 6, "高于 0.95 边界"},
-		{1.0, 6, 6, "精确 1.0"},
-		{1.5, 6, 6, "超过 1.0"},
-		{100.0, 6, 6, "极大值"},
+		{0.0011, 1, 5, "高于 0.001 边界"},
+		{0.95, 5, 5, "精确边界 0.95"},
+		{0.949, 1, 5, "低于 0.95 边界"},
+		{0.951, 5, 5, "高于 0.95 边界"},
+		{1.0, 5, 5, "精确 1.0"},
+		{1.5, 5, 5, "超过 1.0"},
+		{100.0, 5, 5, "极大值"},
 		{math.SmallestNonzeroFloat64, 1, 1, "最小正浮点数"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			got := computeRetries(tt.lossRate)
+			got := computeRetries(tt.lossRate, EnvWAN)
 			if got < tt.wantMin || got > tt.wantMax {
 				t.Errorf("computeRetries(%v) = %d, want [%d, %d]",
 					tt.lossRate, got, tt.wantMin, tt.wantMax)
 			}
-			if got < 1 || got > 6 {
+			if got < 1 || got > 5 {
 				t.Errorf("computeRetries(%v) = %d, 超出 [1,6] 范围", tt.lossRate, got)
 			}
 		})
@@ -50,8 +50,8 @@ func TestComputeRetries_EdgeCases(t *testing.T) {
 func TestComputeRetries_NaN_Inf(t *testing.T) {
 	// 确保不 panic
 	for _, v := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
-		got := computeRetries(v)
-		if got < 1 || got > 6 {
+		got := computeRetries(v, EnvWAN)
+		if got < 1 || got > 5 {
 			t.Errorf("computeRetries(%v) = %d, 超出 [1,6] 范围", v, got)
 		}
 	}

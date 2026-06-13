@@ -264,6 +264,21 @@ func IsWebServiceByFingerprint(serviceInfo *ServiceInfo) bool {
 	return false
 }
 
+// isDefinitelyNonWeb 判断服务是否明确不是 Web 服务
+// 只检查 nonWebKeywords，不在里面 = 不确定 = 值得做 HTTP 探测
+func isDefinitelyNonWeb(serviceInfo *ServiceInfo) bool {
+	if serviceInfo == nil || serviceInfo.Name == "" {
+		return false
+	}
+	serviceName := strings.ToLower(serviceInfo.Name)
+	for _, keyword := range nonWebKeywords {
+		if strings.Contains(serviceName, keyword) {
+			return true
+		}
+	}
+	return false
+}
+
 // CacheServiceInfo 缓存识别到的服务信息
 func CacheServiceInfo(host string, port int, serviceInfo *ServiceInfo) {
 	cacheKey := net.JoinHostPort(host, strconv.Itoa(port))
