@@ -37,12 +37,7 @@ func (p *RedisPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 	config := session.Config
 	target := info.Target()
 
-	// 如果禁用暴力破解，只做服务识别
-	if config.DisableBrute {
-		return p.identifyService(ctx, info, session)
-	}
-
-	// 首先检查未授权访问
+	// 首先检查未授权访问（无论是否禁用爆破都要检测）
 	if result := p.testUnauthorizedAccess(ctx, info, session); result != nil && result.Success {
 		session.LogVuln(i18n.Tr("redis_unauth_success", target)) //nolint:govet
 
@@ -51,6 +46,11 @@ func (p *RedisPlugin) Scan(ctx context.Context, info *common.HostInfo, session *
 			p.exploitWithPassword(ctx, info, "", session)
 		}
 		return result
+	}
+
+	// 禁用爆破时不继续密码测试
+	if config.DisableBrute {
+		return p.identifyService(ctx, info, session)
 	}
 
 	// 生成测试凭据

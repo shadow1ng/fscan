@@ -186,7 +186,10 @@ func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *comm
 			ep.TuneConfig(config, session)
 		}
 
-		s.dispatchUDPPlugins(ctx, session, hosts, info, config, ch, wg)
+		// 仅在默认端口扫描时调度 UDP 插件（用户指定 -p 时跳过，避免不相关的 UDP 探测拖慢扫描）
+		if config.Target.Ports == "" || config.Target.Ports == "all" {
+			s.dispatchUDPPlugins(ctx, session, hosts, info, config, ch, wg)
+		}
 		s.scanHostBatch(ctx, session, hosts, info, pluginsToRun, isCustomMode, ch, wg)
 	}
 

@@ -9,7 +9,7 @@ import (
 
 func TestParsePasswordsKeepsPrimaryPasswordLiteral(t *testing.T) {
 	fv := &FlagVars{
-		Password:     "root admin",
+		Password:     "root admin,pass0",
 		AddPasswords: "pass1 pass2,pass3\tpass4",
 	}
 
@@ -17,7 +17,8 @@ func TestParsePasswordsKeepsPrimaryPasswordLiteral(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parsePasswords error = %v", err)
 	}
-	want := []string{"root admin", "pass1", "pass2", "pass3", "pass4"}
+	// -pwd 逗号分隔，空格保留；-pwda 逗号/空格/tab 分隔
+	want := []string{"root admin", "pass0", "pass1", "pass2", "pass3", "pass4"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("parsePasswords() = %#v, want %#v", got, want)
 	}
