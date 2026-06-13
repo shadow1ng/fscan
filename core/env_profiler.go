@@ -97,11 +97,18 @@ func (ep *EnvironmentProfile) TuneConfig(config *common.Config, session *common.
 	// 含义: 重试 N 次后仍然全部丢包的概率 < 1%
 	// 例: 丢包率 5% → N=2, 丢包率 20% → N=3, 丢包率 50% → N=7
 	// 下限 1（零丢包也至少试一次），上限 6（避免对不可达目标死磕）
-	if !isExplicit(config, "retry") && net.Samples > 0 {
-		computed := computeRetries(net.LossRate, net.Env)
-		old := config.MaxRetries
-		config.MaxRetries = computed
-		session.LogDebug(fmt.Sprintf("MaxRetries: %d -> %d (loss_rate=%.2f%%)", old, computed, net.LossRate*100))
+	if !isExplicit(config, "retry") {
+		if net.Samples > 0 {
+			computed := computeRetries(net.LossRate, net.Env)
+			old := config.MaxRetries
+			config.MaxRetries = computed
+			session.LogDebug(fmt.Sprintf("MaxRetries: %d -> %d (loss_rate=%.2f%%)", old, computed, net.LossRate*100))
+		} else if config.MaxRetries > 2 {
+			// 无网络探测数据（-np 跳过存活探测），降低默认重试避免对不可达主机死磕
+			old := config.MaxRetries
+			config.MaxRetries = 2
+			session.LogDebug(fmt.Sprintf("MaxRetries: %d -> %d (no network probe data)", old, config.MaxRetries))
+		}
 	}
 
 	// ---------- ICMPRate ----------

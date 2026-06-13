@@ -344,8 +344,9 @@ func TestTuneConfig_NoSamples(t *testing.T) {
 	if config.Timeout != origTimeout {
 		t.Errorf("零样本不应改 Timeout: %v -> %v", origTimeout, config.Timeout)
 	}
-	if config.MaxRetries != origRetry {
-		t.Errorf("零样本不应改 MaxRetries: %d -> %d", origRetry, config.MaxRetries)
+	// 零样本时，默认重试降到 2（避免对不可达主机死磕）
+	if origRetry > 2 && config.MaxRetries != 2 {
+		t.Errorf("零样本应降 MaxRetries 至 2: %d -> %d", origRetry, config.MaxRetries)
 	}
 	if config.Network.ICMPRate != origICMP {
 		t.Errorf("零样本不应改 ICMPRate: %.2f -> %.2f", origICMP, config.Network.ICMPRate)

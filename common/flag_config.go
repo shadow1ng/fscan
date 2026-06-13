@@ -1,9 +1,11 @@
 package common
 
 import (
+	"os"
 	"time"
 
 	"github.com/shadow1ng/fscan/common/config"
+	"golang.org/x/term"
 )
 
 /*
@@ -195,7 +197,7 @@ func BuildConfigFromFlags(fv *FlagVars) *Config {
 			File:            fv.Outputfile,
 			Format:          fv.OutputFormat,
 			DisableSave:     fv.DisableSave,
-			NoColor:         fv.NoColor,
+			NoColor:         fv.NoColor || !isStdoutTerminal(),
 			Silent:          fv.Silent,
 			DisableProgress: fv.DisableProgress,
 			ShowProgress:    !fv.DisableProgress,
@@ -236,4 +238,8 @@ func BuildConfigFromFlags(fv *FlagVars) *Config {
 			ExcludePorts: fv.ExcludePorts,
 		},
 	}
+}
+
+func isStdoutTerminal() bool {
+	return term.IsTerminal(int(os.Stdout.Fd()))
 }
