@@ -94,10 +94,16 @@ func selectStrategy(config *common.Config, state *common.State, info common.Host
 // RunScan 执行整体扫描流程
 func RunScan(ctx context.Context, info common.HostInfo, session *common.ScanSession) (ScanReport, error) {
 	start := time.Now()
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	config := session.Config
+
+	// 全局超时：-gt 参数设置整个扫描的硬性截止时间
+	var cancel context.CancelFunc
+	if config.GlobalTimeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, config.GlobalTimeout)
+	} else {
+		ctx, cancel = context.WithCancel(ctx)
+	}
+	defer cancel()
 	state := session.State
 
 	// 设置全局 State（兼容旧代码路径中未传 state 的调用）

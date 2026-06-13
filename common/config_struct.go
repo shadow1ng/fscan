@@ -61,6 +61,9 @@ type Config struct {
 	LocalExploit LocalExploitConfig
 	Target       TargetConfig // 扫描目标配置
 
+	// 全局超时
+	GlobalTimeout time.Duration
+
 	// SOCKS5代理端口配置
 	Socks5ProxyPort int // SOCKS5代理端口
 }
