@@ -4,7 +4,6 @@ package web
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/shadow1ng/fscan/common"
@@ -92,8 +91,8 @@ func (p *WebPocPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 	config := session.Config
 	if config.POC.Disabled {
 		return &WebScanResult{
-			Success: false,
-			Error:   fmt.Errorf("%s", i18n.GetText("webpoc_disabled")),
+			Success: true,
+			Skipped: true,
 		}
 	}
 

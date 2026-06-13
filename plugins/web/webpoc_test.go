@@ -40,8 +40,8 @@ func TestWebPocEarlyReturnBranches(t *testing.T) {
 
 	cfg.POC.Disabled = true
 	disabled := plugin.Scan(context.Background(), info, session)
-	if disabled.Success || disabled.Error == nil {
-		t.Fatalf("disabled scan = %#v, want failed result with error", disabled)
+	if !disabled.Skipped {
+		t.Fatalf("disabled scan = %#v, want skipped result", disabled)
 	}
 
 	cfg.POC.Disabled = false
