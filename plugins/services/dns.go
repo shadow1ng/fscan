@@ -28,25 +28,12 @@ func (p *DNSPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	queryID := randomUint16()
 	query := buildDNSRootNSQuery(queryID)
 
-	conn, err := session.DialUDP(ctx, target, timeout)
-	if err != nil {
-		return &ScanResult{Success: false, Service: "dns"}
-	}
-	defer conn.Close()
-
-	_ = conn.SetDeadline(time.Now().Add(timeout))
-
-	if _, err := conn.Write(query); err != nil {
+	data, n := udpProbe(ctx, session, target, timeout, query, 1500)
+	if data == nil || n < 12 {
 		return &ScanResult{Success: false, Service: "dns"}
 	}
 
-	buf := make([]byte, 1500)
-	n, err := conn.Read(buf)
-	if err != nil || n < 12 {
-		return &ScanResult{Success: false, Service: "dns"}
-	}
-
-	banner, ok := parseDNSResponse(buf[:n], queryID)
+	banner, ok := parseDNSResponse(data[:n], queryID)
 	if !ok {
 		return &ScanResult{Success: false, Service: "dns"}
 	}

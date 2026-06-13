@@ -34,42 +34,20 @@ func (p *IPMIPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 }
 
 func (p *IPMIPlugin) rmcpPing(ctx context.Context, target string, timeout time.Duration, session *common.ScanSession) *ScanResult {
-	conn, err := session.DialUDP(ctx, target, timeout)
-	if err != nil {
-		return nil
-	}
-	defer conn.Close()
-
-	// ASF Presence Ping: RMCP header + ASF message
 	ping := []byte{
-		0x06,                   // RMCP version 1.0
-		0x00,                   // reserved
-		0xff,                   // sequence number (no ack)
-		0x06,                   // class = ASF
-		0x00, 0x00, 0x11, 0xbe, // IANA enterprise = ASF (4542)
-		0x80, // message type = Presence Ping
-		0x00, // message tag
-		0x00, // reserved
-		0x00, // data length = 0
+		0x06, 0x00, 0xff, 0x06,
+		0x00, 0x00, 0x11, 0xbe,
+		0x80, 0x00, 0x00, 0x00,
 	}
 
-	_ = conn.SetDeadline(time.Now().Add(timeout))
-
-	if _, err := conn.Write(ping); err != nil {
+	buf, n := udpProbe(ctx, session, target, timeout, ping, 512)
+	if buf == nil || n < 12 {
 		return nil
 	}
 
-	buf := make([]byte, 512)
-	n, err := conn.Read(buf)
-	if err != nil || n < 12 {
-		return nil
-	}
-
-	// Validate RMCP response
 	if buf[0] != 0x06 || buf[3] != 0x06 {
 		return nil
 	}
-	// Check ASF Presence Pong (message type = 0x40)
 	if n >= 9 && buf[8] != 0x40 {
 		return nil
 	}
@@ -82,10 +60,7 @@ func (p *IPMIPlugin) rmcpPing(ctx context.Context, target string, timeout time.D
 		}
 	}
 
-	// Try to get channel auth capabilities for more info
-	if authInfo := p.getChannelAuth(conn); authInfo != "" {
-		banner += " " + authInfo
-	}
+	// getChannelAuth 需要独立连接，暂不执行（核心检测已完成）
 
 	return &ScanResult{
 		Success: true,

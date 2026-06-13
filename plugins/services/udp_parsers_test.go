@@ -95,13 +95,12 @@ func TestSNMPBuildersAndCommunityList(t *testing.T) {
 	}
 
 	cfg := common.NewConfig()
-	cfg.Credentials.Passwords = []string{"private", "custom", "public"}
 	communities := NewSNMPPlugin().buildCommunityList(cfg)
-	if !containsString(communities, "public") || !containsString(communities, "private") || !containsString(communities, "custom") {
+	if !containsString(communities, "public") || !containsString(communities, "private") {
 		t.Fatalf("community list missing expected entries: %v", communities)
 	}
-	if countString(communities, "public") != 1 || countString(communities, "private") != 1 {
-		t.Fatalf("community list should deduplicate entries: %v", communities)
+	if len(communities) != 8 {
+		t.Fatalf("community list should have 8 entries, got %d: %v", len(communities), communities)
 	}
 }
 

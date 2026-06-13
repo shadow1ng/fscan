@@ -27,25 +27,12 @@ func (p *TFTPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 	}
 
 	target := info.Target()
-	conn, err := session.DialUDP(ctx, target, timeout)
-	if err != nil {
-		return &ScanResult{Success: false, Service: "tftp"}
-	}
-	defer conn.Close()
-
-	_ = conn.SetDeadline(time.Now().Add(timeout))
-
-	if _, err := conn.Write(buildTFTPReadRequest("probe")); err != nil {
+	data, n := udpProbe(ctx, session, target, timeout, buildTFTPReadRequest("probe"), 516)
+	if data == nil || n < 4 {
 		return &ScanResult{Success: false, Service: "tftp"}
 	}
 
-	buf := make([]byte, 516)
-	n, err := conn.Read(buf)
-	if err != nil || n < 4 {
-		return &ScanResult{Success: false, Service: "tftp"}
-	}
-
-	banner, ok := parseTFTPResponse(buf[:n])
+	banner, ok := parseTFTPResponse(data[:n])
 	if !ok {
 		return &ScanResult{Success: false, Service: "tftp"}
 	}
