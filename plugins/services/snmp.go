@@ -42,6 +42,9 @@ func (p *SNMPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 	communities := p.buildCommunityList(config)
 	alreadyProbed := "public"
 	var found []string
+	// 首次 probe 已确认服务存活，后续 community 用更短超时 + 连续失败快速退出
+	bruteTimeout := 3 * time.Second
+	consecutiveFails := 0
 	for _, community := range communities {
 		if community == alreadyProbed {
 			continue
@@ -51,8 +54,14 @@ func (p *SNMPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 			return result
 		default:
 		}
-		if r := p.probe(ctx, target, community, timeout, session); r != nil && r.Success {
+		if consecutiveFails >= 3 {
+			break
+		}
+		if r := p.probe(ctx, target, community, bruteTimeout, session); r != nil && r.Success {
 			found = append(found, community)
+			consecutiveFails = 0
+		} else {
+			consecutiveFails++
 		}
 	}
 
@@ -69,7 +78,11 @@ func (p *SNMPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 }
 
 func (p *SNMPPlugin) probe(ctx context.Context, target, community string, timeout time.Duration, session *common.ScanSession) *ScanResult {
-	conn, err := session.DialUDP(ctx, target, timeout)
+	// 用 context 超时保护整个 probe（防止 UDP Write/Read 在某些内核下永久阻塞）
+	probeCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	conn, err := session.DialUDP(probeCtx, target, timeout)
 	if err != nil {
 		return nil
 	}
@@ -77,46 +90,47 @@ func (p *SNMPPlugin) probe(ctx context.Context, target, community string, timeou
 
 	_ = conn.SetDeadline(time.Now().Add(timeout))
 
-	pkt := buildSNMPGetRequest(community, []int{1, 3, 6, 1, 2, 1, 1, 1, 0})
-	if _, err := conn.Write(pkt); err != nil {
-		return nil
+	// 在 goroutine 中执行 I/O，context 超时时强制关闭连接
+	type probeResult struct {
+		sysDescr string
 	}
+	ch := make(chan *probeResult, 1)
+	go func() {
+		pkt := buildSNMPGetRequest(community, []int{1, 3, 6, 1, 2, 1, 1, 1, 0})
+		if _, err := conn.Write(pkt); err != nil {
+			ch <- nil
+			return
+		}
+		buf := make([]byte, 1500)
+		n, err := conn.Read(buf)
+		if err != nil {
+			ch <- nil
+			return
+		}
+		ch <- &probeResult{sysDescr: parseSNMPResponse(buf[:n])}
+	}()
 
-	buf := make([]byte, 1500)
-	n, err := conn.Read(buf)
-	if err != nil {
+	select {
+	case <-probeCtx.Done():
+		_ = conn.Close()
 		return nil
-	}
-
-	sysDescr := parseSNMPResponse(buf[:n])
-	if sysDescr == "" {
-		return nil
-	}
-
-	return &ScanResult{
-		Success: true,
-		Type:    plugins.ResultTypeService,
-		Service: "snmp",
-		Banner:  fmt.Sprintf("community=%s sysDescr=%s", community, sysDescr),
+	case r := <-ch:
+		if r == nil || r.sysDescr == "" {
+			return nil
+		}
+		return &ScanResult{
+			Success: true,
+			Type:    plugins.ResultTypeService,
+			Service: "snmp",
+			Banner:  "community: " + community + " | " + r.sysDescr,
+		}
 	}
 }
 
 func (p *SNMPPlugin) buildCommunityList(config *common.Config) []string {
-	defaults := []string{"public", "private", "community", "manager", "monitor", "admin", "snmp", "default"}
-
-	passwords := config.Credentials.Passwords
-	if len(passwords) > 0 {
-		seen := make(map[string]struct{}, len(defaults)+len(passwords))
-		var merged []string
-		for _, c := range append(defaults, passwords...) {
-			if _, ok := seen[c]; !ok {
-				seen[c] = struct{}{}
-				merged = append(merged, c)
-			}
-		}
-		return merged
-	}
-	return defaults
+	// SNMP community 仅使用专用列表，不混入通用密码字典
+	// 通用密码（如 123456、P@ssw0rd）不可能是 community string，混入会导致 60+ 次串行探测
+	return []string{"public", "private", "community", "manager", "monitor", "admin", "snmp", "default"}
 }
 
 // SNMPv2c GetRequest 编码

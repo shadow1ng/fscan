@@ -28,25 +28,12 @@ func (p *BACnetPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 	}
 
 	target := info.Target()
-	conn, err := session.DialUDP(ctx, target, timeout)
-	if err != nil {
-		return &ScanResult{Success: false, Service: "bacnet"}
-	}
-	defer conn.Close()
-
-	_ = conn.SetDeadline(time.Now().Add(timeout))
-
-	if _, err := conn.Write(bacnetWhoIs); err != nil {
+	data, n := udpProbe(ctx, session, target, timeout, bacnetWhoIs, 1476)
+	if data == nil {
 		return &ScanResult{Success: false, Service: "bacnet"}
 	}
 
-	buf := make([]byte, 1476)
-	n, err := conn.Read(buf)
-	if err != nil {
-		return &ScanResult{Success: false, Service: "bacnet"}
-	}
-
-	banner, ok := parseBACnetResponse(buf[:n])
+	banner, ok := parseBACnetResponse(data[:n])
 	if !ok {
 		return &ScanResult{Success: false, Service: "bacnet"}
 	}
