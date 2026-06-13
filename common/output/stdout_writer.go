@@ -90,7 +90,11 @@ func (w *StdoutNDJSONWriter) flatten(r *ScanResult) *ndjsonRecord {
 
 	rec.Service = strVal(d, "service")
 	rec.Protocol = strVal(d, "protocol")
-	rec.Banner = strVal(d, "banner")
+	if banner := strVal(d, "banner"); len(banner) > 200 {
+		rec.Banner = banner[:200] + "..."
+	} else {
+		rec.Banner = banner
+	}
 	rec.Title = strVal(d, "title")
 	rec.URL = strVal(d, "url")
 	rec.Vulnerability = strVal(d, "vulnerability")

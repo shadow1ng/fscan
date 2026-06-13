@@ -398,13 +398,13 @@ var resultSerializers = map[plugins.ResultType]resultSerializer{
 			return r.Banner
 		},
 		fillDetail: func(r *plugins.Result, _ *common.HostInfo, d map[string]interface{}) {
-			// 优先使用VulInfo，为空则回退到Banner
 			vuln := r.VulInfo
 			if vuln == "" {
 				vuln = r.Banner
 			}
 			d["vulnerability"] = vuln
 			d["service"] = r.Service
+			d["type"] = "vulnerability"
 		},
 	},
 	plugins.ResultTypeWeb: {
