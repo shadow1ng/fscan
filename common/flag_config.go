@@ -169,6 +169,9 @@ func BuildConfigFromFlags(fv *FlagVars) *Config {
 		PortMap:               clonePortMap(config.DefaultPortMap),
 		DefaultMap:            cloneStringSlice(config.DefaultProbeMap),
 
+		// 全局超时
+		GlobalTimeout: time.Duration(fv.GlobalTimeout) * time.Second,
+
 		// SOCKS5代理端口
 		Socks5ProxyPort: fv.Socks5ProxyPort,
 
