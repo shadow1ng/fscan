@@ -339,6 +339,16 @@ func (p *WebTitlePlugin) formatHeaders(headers http.Header) string {
 
 // detectProtocol 智能检测HTTP/HTTPS协议（基于服务识别和主动探测）
 func (p *WebTitlePlugin) detectProtocol(ctx context.Context, info *common.HostInfo, config *common.Config, session *common.ScanSession) string {
+	// 用户已通过 -u 显式指定协议时，直接使用，跳过 TLS 探测
+	if info.URL != "" {
+		if strings.HasPrefix(info.URL, "https://") {
+			return "https"
+		}
+		if strings.HasPrefix(info.URL, "http://") {
+			return "http"
+		}
+	}
+
 	host := info.Host
 	port := info.Port
 

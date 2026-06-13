@@ -321,12 +321,13 @@ func (pm *ProgressManager) showCompletionInfo() {
 	completionMsg := i18n.GetText("progress_scan_completed")
 	doneMsg := i18n.GetText("progress_done")
 	durationMsg := i18n.GetText("progress_duration")
+	total := pm.total.Load()
 	if pm.noColor {
-		fmt.Printf("[%s] %s %d/%d (%s: %s)\n",
-			doneMsg, completionMsg, pm.total.Load(), pm.total.Load(), durationMsg, formatDuration(elapsed))
+		fmt.Printf("[%s] %s: %d/%d (%s: %s)\n",
+			doneMsg, completionMsg, total, total, durationMsg, formatDuration(elapsed))
 	} else {
-		fmt.Printf("%s[%s] %s %d/%d%s %s(%s: %s)%s\n",
-			AnsiGreen, doneMsg, completionMsg, pm.total.Load(), pm.total.Load(), AnsiReset,
+		fmt.Printf("%s[%s] %s: %d/%d%s %s(%s: %s)%s\n",
+			AnsiGreen, doneMsg, completionMsg, total, total, AnsiReset,
 			AnsiGray, durationMsg, formatDuration(elapsed), AnsiReset)
 	}
 }

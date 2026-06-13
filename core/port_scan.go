@@ -700,6 +700,18 @@ func saveOpenPort(session *common.ScanSession, host string, port int) {
 	})
 }
 
+// correctServiceByBanner 根据 banner 特征校正被 nmap 指纹误匹配的服务名
+func correctServiceByBanner(info *ServiceInfo) {
+	if info == nil || info.Banner == "" {
+		return
+	}
+	banner := strings.ToLower(info.Banner)
+	// MySQL 握手包包含认证插件名，nmap 随机 salt 可能导致误匹配
+	if strings.Contains(banner, "mysql_native_password") || strings.Contains(banner, "caching_sha2_password") {
+		info.Name = "mysql"
+	}
+}
+
 // processServiceResult 处理服务识别结果
 func processServiceResult(ctx context.Context, host string, port int, addr string, serviceInfo *ServiceInfo, config *common.Config, session *common.ScanSession) {
 	if serviceInfo == nil {
@@ -709,6 +721,9 @@ func processServiceResult(ctx context.Context, host string, port int, addr strin
 		}
 		return
 	}
+
+	// Banner 校正：nmap 指纹库可能将 MySQL 握手包的随机 salt 误匹配为其他服务
+	correctServiceByBanner(serviceInfo)
 
 	// 缓存指纹识别结果，供插件按服务类型匹配（解决非标准端口问题）
 	CacheServiceInfo(host, port, serviceInfo)

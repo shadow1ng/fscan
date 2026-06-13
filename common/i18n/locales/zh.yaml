@@ -198,7 +198,7 @@ scan_alive_hosts_list:
 progress_scanning_description:
   other: "扫描进度"
 progress_scan_completed:
-  other: "扫描完成:"
+  other: "扫描完成"
 progress_waiting:
   other: "等待中..."
 progress_done:
