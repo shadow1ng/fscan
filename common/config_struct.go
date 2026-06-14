@@ -179,6 +179,17 @@ func clonePortMap(values map[int][]string) map[int][]string {
 	return cloned
 }
 
+const minModuleTimeout = 3 * time.Second
+
+// ModuleTimeout 返回插件级超时（用于弱口令测试、服务交互等多轮协议）
+// 保证下限 3s，避免自适应把端口扫描超时压低后影响 SSH/SNMP 等交互型协议
+func (c *Config) ModuleTimeout() time.Duration {
+	if c.Timeout >= minModuleTimeout {
+		return c.Timeout
+	}
+	return minModuleTimeout
+}
+
 // NewConfig 创建带默认值的Config（后备用，正常流程使用BuildConfigFromFlags）
 func NewConfig() *Config {
 	return &Config{

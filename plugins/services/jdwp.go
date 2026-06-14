@@ -23,7 +23,7 @@ func NewJDWPPlugin() *JDWPPlugin {
 }
 
 func (p *JDWPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
-	timeout := session.Config.Timeout
+	timeout := session.Config.ModuleTimeout()
 	if timeout <= 0 {
 		timeout = 3 * time.Second
 	}

@@ -78,7 +78,7 @@ func (p *SMTPPlugin) createAuthFunc(info *common.HostInfo, session *common.ScanS
 // doSMTPAuth 执行SMTP认证
 func (p *SMTPPlugin) doSMTPAuth(ctx context.Context, info *common.HostInfo, cred Credential, session *common.ScanSession) *AuthResult {
 	target := info.Target()
-	timeout := session.Config.Timeout
+	timeout := session.Config.ModuleTimeout()
 
 	resultChan := make(chan *AuthResult, 1)
 
@@ -236,7 +236,7 @@ func (p *SMTPPlugin) testAnonymousAccess(ctx context.Context, info *common.HostI
 	resultChan := make(chan *ScanResult, 1)
 
 	go func() {
-		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.ModuleTimeout())
 		if err != nil {
 			resultChan <- nil
 			return
@@ -288,7 +288,7 @@ func (p *SMTPPlugin) testOpenRelay(ctx context.Context, info *common.HostInfo, s
 	resultChan := make(chan *ScanResult, 1)
 
 	go func() {
-		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.ModuleTimeout())
 		if err != nil {
 			resultChan <- nil
 			return
@@ -340,14 +340,14 @@ func (p *SMTPPlugin) testVRFYCommand(ctx context.Context, info *common.HostInfo,
 	resultChan := make(chan *ScanResult, 1)
 
 	go func() {
-		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.ModuleTimeout())
 		if err != nil {
 			resultChan <- nil
 			return
 		}
 		defer func() { _ = conn.Close() }()
 
-		_ = conn.SetDeadline(time.Now().Add(session.Config.Timeout))
+		_ = conn.SetDeadline(time.Now().Add(session.Config.ModuleTimeout()))
 
 		if _, heloWriteErr := fmt.Fprintf(conn, "HELO fscan.test\r\n"); heloWriteErr != nil {
 			resultChan <- nil
@@ -410,14 +410,14 @@ func (p *SMTPPlugin) testEXPNCommand(ctx context.Context, info *common.HostInfo,
 	resultChan := make(chan *ScanResult, 1)
 
 	go func() {
-		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.ModuleTimeout())
 		if err != nil {
 			resultChan <- nil
 			return
 		}
 		defer func() { _ = conn.Close() }()
 
-		_ = conn.SetDeadline(time.Now().Add(session.Config.Timeout))
+		_ = conn.SetDeadline(time.Now().Add(session.Config.ModuleTimeout()))
 
 		if _, heloWriteErr := fmt.Fprintf(conn, "HELO fscan.test\r\n"); heloWriteErr != nil {
 			resultChan <- nil
@@ -480,14 +480,14 @@ func (p *SMTPPlugin) getServerInfo(ctx context.Context, info *common.HostInfo, s
 	resultChan := make(chan string, 1)
 
 	go func() {
-		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.ModuleTimeout())
 		if err != nil {
 			resultChan <- ""
 			return
 		}
 		defer func() { _ = conn.Close() }()
 
-		_ = conn.SetReadDeadline(time.Now().Add(session.Config.Timeout))
+		_ = conn.SetReadDeadline(time.Now().Add(session.Config.ModuleTimeout()))
 		buffer := make([]byte, 1024)
 		n, err := conn.Read(buffer)
 		if err != nil {
@@ -524,7 +524,7 @@ func (p *SMTPPlugin) identifyService(ctx context.Context, info *common.HostInfo,
 	if serverInfo != "" {
 		banner = i18n.Tr("smtp_mail_service_info", serverInfo)
 	} else {
-		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.ModuleTimeout())
 		if err != nil {
 			return &ScanResult{
 				Success: false,

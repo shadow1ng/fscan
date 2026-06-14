@@ -23,10 +23,7 @@ func NewSNMPPlugin() *SNMPPlugin {
 
 func (p *SNMPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
-	timeout := config.Timeout
-	if timeout <= 0 {
-		timeout = 3 * time.Second
-	}
+	timeout := config.ModuleTimeout()
 
 	target := info.Target()
 
@@ -34,6 +31,8 @@ func (p *SNMPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *c
 	if result == nil {
 		return &ScanResult{Success: false, Service: "snmp"}
 	}
+
+	session.LogVuln(fmt.Sprintf("SNMP %s %s", target, result.Banner))
 
 	if config.DisableBrute {
 		return result

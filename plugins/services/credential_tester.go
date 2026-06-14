@@ -37,9 +37,10 @@ credential_tester.go - 统一凭据测试框架
 type ErrorType int
 
 const (
-	ErrorTypeAuth    ErrorType = iota // 认证错误 - 密码错误，不重试
-	ErrorTypeNetwork                  // 网络错误 - 连接问题，可重试
-	ErrorTypeUnknown                  // 未知错误
+	ErrorTypeAuth     ErrorType = iota // 认证错误 - 密码错误，不重试
+	ErrorTypeNetwork                   // 网络错误 - 连接不可达，可重试但计入连续失败
+	ErrorTypeThrottle                  // 限流错误 - 服务端拒绝连接（MaxStartups等），退避后重试，不计入连续失败
+	ErrorTypeUnknown                   // 未知错误
 )
 
 // =============================================================================
@@ -321,10 +322,13 @@ func workerTestCredentials(
 			return
 		}
 
-		// 跟踪连续网络错误
-		if errType == ErrorTypeNetwork {
+		// 跟踪连续网络错误（限流错误不计入，只做短暂退避）
+		switch errType {
+		case ErrorTypeNetwork:
 			consecutiveNetErrors++
-		} else {
+		case ErrorTypeThrottle:
+			time.Sleep(500 * time.Millisecond)
+		default:
 			consecutiveNetErrors = 0
 		}
 	}
@@ -374,8 +378,8 @@ func testCredentialWithRetry(
 		case ErrorTypeAuth:
 			// 认证错误（密码错误），不重试
 			return nil, result.ErrorType
-		case ErrorTypeNetwork, ErrorTypeUnknown:
-			// 网络错误或未知错误，可以重试（可能是服务端限流等临时问题）
+		case ErrorTypeNetwork, ErrorTypeThrottle, ErrorTypeUnknown:
+			// 网络/限流/未知错误，可以重试
 			if attempt < testConfig.MaxRetries-1 {
 				timer := time.NewTimer(testConfig.RetryDelay)
 				select {

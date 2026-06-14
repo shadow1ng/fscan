@@ -72,8 +72,8 @@ func (p *OraclePlugin) doOracleAuth(ctx context.Context, info *common.HostInfo, 
 	serviceNames := []string{"ORCL", "XE", "XEPDB1", target}
 
 	for _, serviceName := range serviceNames {
-		connectCtx, cancel := context.WithTimeout(ctx, config.Timeout)
-		err := oracleRawAuth(connectCtx, info.Host, info.Port, serviceName, cred.Username, cred.Password, config.Timeout)
+		connectCtx, cancel := context.WithTimeout(ctx, config.ModuleTimeout())
+		err := oracleRawAuth(connectCtx, info.Host, info.Port, serviceName, cred.Username, cred.Password, config.ModuleTimeout())
 		if err != nil {
 			cancel()
 			errorType := classifyOracleErrorType(err)
@@ -168,7 +168,7 @@ func (p *OraclePlugin) testUnauthorizedAccess(ctx context.Context, info *common.
 func (p *OraclePlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
-	conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
+	conn, err := session.DialTCP(ctx, "tcp", target, session.Config.ModuleTimeout())
 	if err != nil {
 		return &ScanResult{
 			Success: false,

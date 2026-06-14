@@ -84,7 +84,7 @@ func (p *RabbitMQPlugin) doRabbitMQAuth(ctx context.Context, info *common.HostIn
 	}
 
 	baseURL := "http://" + net.JoinHostPort(info.Host, strconv.Itoa(port))
-	client := &http.Client{Timeout: config.Timeout}
+	client := &http.Client{Timeout: config.ModuleTimeout()}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/api/overview", nil)
 	if err != nil {
@@ -165,7 +165,7 @@ func (p *RabbitMQPlugin) testUnauthorizedAccess(ctx context.Context, info *commo
 	}
 
 	baseURL := "http://" + net.JoinHostPort(info.Host, strconv.Itoa(port))
-	client := &http.Client{Timeout: config.Timeout}
+	client := &http.Client{Timeout: config.ModuleTimeout()}
 
 	// 测试无认证访问
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/api/overview", nil)
@@ -213,13 +213,13 @@ func (p *RabbitMQPlugin) testUnauthorizedAccess(ctx context.Context, info *commo
 func (p *RabbitMQPlugin) testAMQPProtocol(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
-	conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
+	conn, err := session.DialTCP(ctx, "tcp", target, session.Config.ModuleTimeout())
 	if err != nil {
 		return nil
 	}
 	defer func() { _ = conn.Close() }()
 
-	_ = conn.SetDeadline(time.Now().Add(session.Config.Timeout))
+	_ = conn.SetDeadline(time.Now().Add(session.Config.ModuleTimeout()))
 
 	// 发送AMQP协议头
 	amqpHeader := []byte{0x41, 0x4d, 0x51, 0x50, 0x00, 0x00, 0x09, 0x01}
@@ -280,7 +280,7 @@ func (p *RabbitMQPlugin) testManagementInterface(ctx context.Context, info *comm
 	target := info.Target()
 	baseURL := "http://" + info.Target()
 
-	client := &http.Client{Timeout: config.Timeout}
+	client := &http.Client{Timeout: config.ModuleTimeout()}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL, nil)
 	if err != nil {

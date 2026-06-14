@@ -20,7 +20,7 @@ func NewIPMIPlugin() *IPMIPlugin {
 }
 
 func (p *IPMIPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
-	timeout := session.Config.Timeout
+	timeout := session.Config.ModuleTimeout()
 	if timeout <= 0 {
 		timeout = 3 * time.Second
 	}
@@ -60,8 +60,6 @@ func (p *IPMIPlugin) rmcpPing(ctx context.Context, target string, timeout time.D
 		}
 	}
 
-	// getChannelAuth 需要独立连接，暂不执行（核心检测已完成）
-
 	return &ScanResult{
 		Success: true,
 		Type:    plugins.ResultTypeVuln,
@@ -69,68 +67,6 @@ func (p *IPMIPlugin) rmcpPing(ctx context.Context, target string, timeout time.D
 		VulInfo: "IPMI Service Exposed (hash dump possible with rakp)",
 		Banner:  banner,
 	}
-}
-
-func (p *IPMIPlugin) getChannelAuth(conn interface {
-	Read([]byte) (int, error)
-	Write([]byte) (int, error)
-	SetDeadline(time.Time) error
-}) string {
-	_ = conn.SetDeadline(time.Now().Add(2 * time.Second))
-
-	// IPMI Get Channel Authentication Capabilities
-	// RMCP header + IPMI session wrapper + message
-	pkt := []byte{
-		0x06, 0x00, 0xff, 0x07, // RMCP: version, reserved, seq=0xff, class=IPMI
-		0x00, 0x00, 0x00, 0x00, // auth type = none
-		0x00, 0x00, 0x00, 0x00, // session seq
-		0x00, 0x00, 0x00, 0x00, // session id
-		0x09, // message length
-		0x20, // target = BMC
-		0x18, // netFn=App(6) << 2 | lun=0
-		0xc8, // checksum
-		0x81, // source
-		0x00, // seq
-		0x38, // cmd = Get Channel Auth Capabilities
-		0x8e, // channel=14 (current), IPMI v2.0
-		0x04, // privilege = Administrator
-		0xb5, // checksum
-	}
-
-	if _, err := conn.Write(pkt); err != nil {
-		return ""
-	}
-
-	buf := make([]byte, 512)
-	n, err := conn.Read(buf)
-	if err != nil || n < 30 {
-		return ""
-	}
-
-	// Parse auth capabilities from response
-	if n >= 27 {
-		authTypes := buf[22]
-		var methods []string
-		if authTypes&0x01 != 0 {
-			methods = append(methods, "none")
-		}
-		if authTypes&0x02 != 0 {
-			methods = append(methods, "md2")
-		}
-		if authTypes&0x04 != 0 {
-			methods = append(methods, "md5")
-		}
-		if authTypes&0x10 != 0 {
-			methods = append(methods, "password")
-		}
-		if authTypes&0x20 != 0 {
-			methods = append(methods, "oem")
-		}
-		if len(methods) > 0 {
-			return fmt.Sprintf("[auth: %v]", methods)
-		}
-	}
-	return ""
 }
 
 func init() {

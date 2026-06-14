@@ -76,7 +76,7 @@ func (p *ElasticsearchPlugin) Scan(ctx context.Context, info *common.HostInfo, s
 func (p *ElasticsearchPlugin) testCredential(ctx context.Context, info *common.HostInfo, cred Credential, session *common.ScanSession) bool {
 	config := session.Config
 	client := &http.Client{
-		Timeout: config.Timeout,
+		Timeout: config.ModuleTimeout(),
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},

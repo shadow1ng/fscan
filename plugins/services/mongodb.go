@@ -91,7 +91,7 @@ func (p *MongoDBPlugin) createAuthFunc(info *common.HostInfo, config *common.Con
 
 func (p *MongoDBPlugin) doMongoDBAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
 	addr := info.Target()
-	timeout := config.Timeout
+	timeout := config.ModuleTimeout()
 
 	conn, err := dialTCP(ctx, addr, timeout)
 	if err != nil {
@@ -369,6 +369,7 @@ type mongoCommandReply struct {
 	errmsg          string
 }
 
+//nolint:gocyclo
 func parseMongoCommandReply(doc []byte) (mongoCommandReply, error) {
 	var reply mongoCommandReply
 	if len(doc) < 5 {
@@ -557,11 +558,6 @@ func dialTCP(ctx context.Context, addr string, timeout time.Duration) (net.Conn,
 	return dialer.DialContext(ctx, "tcp", addr)
 }
 
-// base64EncodeStr Base64 编码（标准编码）
-func base64EncodeStr(s string) string {
-	return base64.StdEncoding.EncodeToString([]byte(s))
-}
-
 // randomString 生成加密安全的随机字符串
 func randomString(n int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -641,7 +637,7 @@ func (p *MongoDBPlugin) mongodbUnauth(ctx context.Context, info *common.HostInfo
 }
 
 func (p *MongoDBPlugin) checkMongoAuth(ctx context.Context, address string, packet []byte, session *common.ScanSession) (string, error) {
-	conn, err := session.DialTCP(ctx, "tcp", address, session.Config.Timeout)
+	conn, err := session.DialTCP(ctx, "tcp", address, session.Config.ModuleTimeout())
 	if err != nil {
 		return "", fmt.Errorf(i18n.Tr("service_connection_failed", "%w"), err)
 	}
@@ -653,7 +649,7 @@ func (p *MongoDBPlugin) checkMongoAuth(ctx context.Context, address string, pack
 	default:
 	}
 
-	if deadlineErr := conn.SetDeadline(time.Now().Add(session.Config.Timeout)); deadlineErr != nil {
+	if deadlineErr := conn.SetDeadline(time.Now().Add(session.Config.ModuleTimeout())); deadlineErr != nil {
 		return "", deadlineErr
 	}
 

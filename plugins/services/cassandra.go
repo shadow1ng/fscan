@@ -88,7 +88,7 @@ const (
 
 func (p *CassandraPlugin) doCassandraAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
 	addr := info.Target()
-	timeout := config.Timeout
+	timeout := config.ModuleTimeout()
 
 	dialer := net.Dialer{Timeout: timeout}
 	conn, err := dialer.DialContext(ctx, "tcp", addr)
@@ -270,7 +270,7 @@ func (p *CassandraPlugin) tryNoAuthConnection(ctx context.Context, info *common.
 	state := session.State
 	target := info.Target()
 	addr := info.Target()
-	timeout := config.Timeout
+	timeout := config.ModuleTimeout()
 
 	dialer := net.Dialer{Timeout: timeout}
 	conn, err := dialer.DialContext(ctx, "tcp", addr)
@@ -286,7 +286,7 @@ func (p *CassandraPlugin) tryNoAuthConnection(ctx context.Context, info *common.
 		state.IncrementTCPFailedPacketCount()
 		return nil
 	}
-	opcode, body, err := cqlRecv(conn)
+	opcode, _, err := cqlRecv(conn)
 	if err != nil || opcode != cqlOpReady {
 		return nil
 	}
@@ -296,6 +296,7 @@ func (p *CassandraPlugin) tryNoAuthConnection(ctx context.Context, info *common.
 	if err := cqlSend(conn, cqlOpQuery, queryBody); err != nil {
 		return nil
 	}
+	var body []byte
 	opcode, body, err = cqlRecv(conn)
 	if err != nil {
 		return nil
@@ -321,7 +322,7 @@ func (p *CassandraPlugin) identifyService(ctx context.Context, info *common.Host
 	state := session.State
 	target := info.Target()
 	addr := info.Target()
-	timeout := config.Timeout
+	timeout := config.ModuleTimeout()
 
 	dialer := net.Dialer{Timeout: timeout}
 	conn, err := dialer.DialContext(ctx, "tcp", addr)

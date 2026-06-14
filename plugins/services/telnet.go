@@ -121,7 +121,7 @@ func (p *TelnetPlugin) doTelnetAuth(ctx context.Context, info *common.HostInfo, 
 	resultChan := make(chan *AuthResult, 1)
 
 	go func() {
-		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.ModuleTimeout())
 		if err != nil {
 			resultChan <- &AuthResult{
 				Success:   false,
@@ -131,7 +131,7 @@ func (p *TelnetPlugin) doTelnetAuth(ctx context.Context, info *common.HostInfo, 
 			return
 		}
 
-		_ = conn.SetDeadline(time.Now().Add(session.Config.Timeout))
+		_ = conn.SetDeadline(time.Now().Add(session.Config.ModuleTimeout()))
 
 		if p.performTelnetAuth(conn, cred.Username, cred.Password) {
 			resultChan <- &AuthResult{
@@ -215,14 +215,14 @@ func (p *TelnetPlugin) testUnauthAccess(ctx context.Context, info *common.HostIn
 	resultChan := make(chan *ScanResult, 1)
 
 	go func() {
-		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.ModuleTimeout())
 		if err != nil {
 			resultChan <- nil
 			return
 		}
 		defer func() { _ = conn.Close() }()
 
-		_ = conn.SetDeadline(time.Now().Add(session.Config.Timeout))
+		_ = conn.SetDeadline(time.Now().Add(session.Config.ModuleTimeout()))
 
 		buffer := make([]byte, 1024)
 		attempts := 0
@@ -510,7 +510,7 @@ func (p *TelnetPlugin) identifyService(ctx context.Context, info *common.HostInf
 	resultChan := make(chan *ScanResult, 1)
 
 	go func() {
-		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.ModuleTimeout())
 		if err != nil {
 			resultChan <- &ScanResult{
 				Success: false,
@@ -521,7 +521,7 @@ func (p *TelnetPlugin) identifyService(ctx context.Context, info *common.HostInf
 		}
 		defer func() { _ = conn.Close() }()
 
-		_ = conn.SetDeadline(time.Now().Add(session.Config.Timeout))
+		_ = conn.SetDeadline(time.Now().Add(session.Config.ModuleTimeout()))
 
 		buffer := make([]byte, 2048)
 		n, err := conn.Read(buffer)
@@ -595,14 +595,14 @@ func (p *TelnetPlugin) verifyCommandExecution(ctx context.Context, info *common.
 	resultChan := make(chan rceResult, 1)
 
 	go func() {
-		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.ModuleTimeout())
 		if err != nil {
 			resultChan <- rceResult{}
 			return
 		}
 		defer func() { _ = conn.Close() }()
 
-		_ = conn.SetDeadline(time.Now().Add(session.Config.Timeout + telnetRCEExtraTimeout))
+		_ = conn.SetDeadline(time.Now().Add(session.Config.ModuleTimeout() + telnetRCEExtraTimeout))
 
 		// 需要认证时先登录
 		if username != "" || password != "" {
@@ -808,7 +808,7 @@ func (p *TelnetPlugin) checkCVE202624061Concurrent(ctx context.Context, info *co
 // 利用 NEW-ENVIRON (option 39) 子协商注入恶意环境变量,实现认证绕过
 // 返回 (是否漏洞, 触发用户名, 证据)
 func (p *TelnetPlugin) checkCVE202624061(ctx context.Context, info *common.HostInfo, session *common.ScanSession, user string) (bool, string, string) {
-	conn, err := session.DialTCP(ctx, "tcp", info.Target(), session.Config.Timeout)
+	conn, err := session.DialTCP(ctx, "tcp", info.Target(), session.Config.ModuleTimeout())
 	if err != nil {
 		return false, "", ""
 	}

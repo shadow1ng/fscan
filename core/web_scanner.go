@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -58,17 +57,14 @@ func DetectHTTPSchemeContext(ctx context.Context, host string, port int, config 
 	}
 
 	// 第二步：尝试国密TLS握手（GM TLS fallback）
-	// 抑制 gmtls 库的 fmt.Println("handshake error") 噪声输出
-	gmConn, gmErr := suppressGMTLSStdout(func() (net.Conn, error) {
-		return gmtls.DialWithDialer(
-			tlsDialer,
-			"tcp", addr,
-			&gmtls.Config{
-				GMSupport:          gmtls.NewGMSupport(),
-				InsecureSkipVerify: true,
-			},
-		)
-	})
+	gmConn, gmErr := gmtls.DialWithDialer(
+		tlsDialer,
+		"tcp", addr,
+		&gmtls.Config{
+			GMSupport:          gmtls.NewGMSupport(),
+			InsecureSkipVerify: true,
+		},
+	)
 
 	if gmErr == nil {
 		_ = gmConn.Close()
@@ -503,22 +499,3 @@ func hasMalformedURLPort(host string) bool {
 	return strings.Contains(host, ":")
 }
 
-// suppressGMTLSStdout 抑制 gmtls 库硬编码的 fmt.Println("handshake error") 输出
-// gmtls/conn.go:1304 在握手失败时直接 Println 到 os.Stdout，无法通过 API 关闭
-var gmtlsStdoutMu sync.Mutex
-
-func suppressGMTLSStdout(fn func() (net.Conn, error)) (net.Conn, error) {
-	gmtlsStdoutMu.Lock()
-	orig := os.Stdout
-	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
-	if err == nil {
-		os.Stdout = devNull
-	}
-	conn, dialErr := fn()
-	os.Stdout = orig
-	if devNull != nil {
-		_ = devNull.Close()
-	}
-	gmtlsStdoutMu.Unlock()
-	return conn, dialErr
-}

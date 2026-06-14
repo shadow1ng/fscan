@@ -72,7 +72,7 @@ func (p *Neo4jPlugin) doNeo4jAuth(ctx context.Context, info *common.HostInfo, cr
 	config := session.Config
 	baseURL := "http://" + info.Target()
 
-	client := &http.Client{Timeout: config.Timeout}
+	client := &http.Client{Timeout: config.ModuleTimeout()}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/user/neo4j", nil)
 	if err != nil {
@@ -148,7 +148,7 @@ func (p *Neo4jPlugin) testUnauthorizedAccess(ctx context.Context, info *common.H
 	config := session.Config
 	baseURL := "http://" + info.Target()
 
-	client := &http.Client{Timeout: config.Timeout}
+	client := &http.Client{Timeout: config.ModuleTimeout()}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/db/data/", nil)
 	if err != nil {
@@ -193,7 +193,7 @@ func (p *Neo4jPlugin) identifyService(ctx context.Context, info *common.HostInfo
 	target := info.Target()
 	baseURL := "http://" + info.Target()
 
-	client := &http.Client{Timeout: config.Timeout}
+	client := &http.Client{Timeout: config.ModuleTimeout()}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL, nil)
 	if err != nil {

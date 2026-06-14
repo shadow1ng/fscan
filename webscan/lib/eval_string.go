@@ -73,14 +73,14 @@ func registerStringImplementations() []*functions.Overload {
 				pattern := string(v1)
 				var re *regexp.Regexp
 				if cached, found := regexCache.Load(pattern); found {
-					re = cached.(*regexp.Regexp)
+					re, _ = cached.(*regexp.Regexp)
 				} else {
 					compiled, err := regexp.Compile(pattern)
 					if err != nil {
 						return types.NewErr("%v", err)
 					}
 					actual, _ := regexCache.LoadOrStore(pattern, compiled)
-					re = actual.(*regexp.Regexp)
+					re, _ = actual.(*regexp.Regexp)
 				}
 				return types.Bool(re.Match(v2))
 			},

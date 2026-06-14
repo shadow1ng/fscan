@@ -159,7 +159,7 @@ func (p *RDPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 
 // rdpCrack 使用NLA认证验证凭据，不建立完整会话，不会挤掉已登录用户
 func (p *RDPPlugin) rdpCrack(host, domain, user, password string, config *common.Config, state *common.State) (bool, error) {
-	timeout := int64(config.Timeout.Seconds())
+	timeout := int64(config.ModuleTimeout().Seconds())
 
 	// 使用NLA仅验证模式：只验证凭据，不建立RDP会话
 	// 这样不会挤掉目标机器上已登录的用户
@@ -180,7 +180,7 @@ func (p *RDPPlugin) rdpCrack(host, domain, user, password string, config *common
 
 // probeOSInfo 通过NLA协商获取系统信息（无需密码）
 func (p *RDPPlugin) probeOSInfo(host string, config *common.Config, state *common.State) map[string]any {
-	timeout := int64(config.Timeout.Seconds())
+	timeout := int64(config.ModuleTimeout().Seconds())
 	client := login.NewClient(host, glog.NONE)
 
 	// 使用 PROTOCOL_HYBRID 协议探测系统信息

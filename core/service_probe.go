@@ -21,6 +21,8 @@ const (
 	defaultIntensity   = 7    // 默认探测强度 (1-9)
 )
 
+var errConnLost = errors.New("connection lost and reconnect failed")
+
 // sslSecondProbes SSL服务二次探测的探针名称
 var sslSecondProbes = []string{"TerminalServerCookie", "TerminalServer"}
 
@@ -527,7 +529,7 @@ var defaultReadTimeoutMS = WrTimeout * 1000
 // Write 写入数据到连接
 func (i *Info) Write(msg []byte) error {
 	if i.Conn == nil {
-		return nil
+		return errConnLost
 	}
 
 	// 设置写入超时
@@ -570,7 +572,7 @@ func (i *Info) Write(msg []byte) error {
 // Read 从连接读取响应
 func (i *Info) Read() ([]byte, error) {
 	if i.Conn == nil {
-		return nil, nil
+		return nil, errConnLost
 	}
 
 	// 设置读取超时（使用动态超时）

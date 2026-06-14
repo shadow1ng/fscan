@@ -73,7 +73,7 @@ func (p *PostgreSQLPlugin) createAuthFunc(info *common.HostInfo, config *common.
 
 // doPostgreSQLAuth 执行PostgreSQL认证
 func (p *PostgreSQLPlugin) doPostgreSQLAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
-	connStr := postgreSQLConnString(cred.Username, cred.Password, info, int64(config.Timeout.Seconds()))
+	connStr := postgreSQLConnString(cred.Username, cred.Password, info, int64(config.ModuleTimeout().Seconds()))
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -85,11 +85,11 @@ func (p *PostgreSQLPlugin) doPostgreSQLAuth(ctx context.Context, info *common.Ho
 		}
 	}
 
-	db.SetConnMaxLifetime(config.Timeout)
+	db.SetConnMaxLifetime(config.ModuleTimeout())
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(0)
 
-	pingCtx, cancel := context.WithTimeout(ctx, config.Timeout)
+	pingCtx, cancel := context.WithTimeout(ctx, config.ModuleTimeout())
 	defer cancel()
 
 	err = db.PingContext(pingCtx)
@@ -169,7 +169,7 @@ func postgreSQLConnString(username, password string, info *common.HostInfo, time
 
 // testUnauthorizedAccess 测试PostgreSQL未授权访问
 func (p *PostgreSQLPlugin) testUnauthorizedAccess(ctx context.Context, info *common.HostInfo, config *common.Config, state *common.State) *ScanResult {
-	connStr := postgreSQLConnString("postgres", "", info, int64(config.Timeout.Seconds()))
+	connStr := postgreSQLConnString("postgres", "", info, int64(config.ModuleTimeout().Seconds()))
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -177,11 +177,11 @@ func (p *PostgreSQLPlugin) testUnauthorizedAccess(ctx context.Context, info *com
 	}
 	defer func() { _ = db.Close() }()
 
-	db.SetConnMaxLifetime(config.Timeout)
+	db.SetConnMaxLifetime(config.ModuleTimeout())
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(0)
 
-	pingCtx, cancel := context.WithTimeout(ctx, config.Timeout)
+	pingCtx, cancel := context.WithTimeout(ctx, config.ModuleTimeout())
 	defer cancel()
 
 	err = db.PingContext(pingCtx)
@@ -192,7 +192,7 @@ func (p *PostgreSQLPlugin) testUnauthorizedAccess(ctx context.Context, info *com
 
 	state.IncrementTCPSuccessPacketCount()
 
-	queryCtx, queryCancel := context.WithTimeout(ctx, config.Timeout)
+	queryCtx, queryCancel := context.WithTimeout(ctx, config.ModuleTimeout())
 	defer queryCancel()
 
 	var version string
@@ -222,7 +222,7 @@ func (p *PostgreSQLPlugin) identifyService(ctx context.Context, info *common.Hos
 	state := session.State
 	target := info.Target()
 
-	connStr := postgreSQLConnString("invalid", "invalid", info, int64(config.Timeout.Seconds()))
+	connStr := postgreSQLConnString("invalid", "invalid", info, int64(config.ModuleTimeout().Seconds()))
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -234,7 +234,7 @@ func (p *PostgreSQLPlugin) identifyService(ctx context.Context, info *common.Hos
 	}
 	defer func() { _ = db.Close() }()
 
-	pingCtx, cancel := context.WithTimeout(ctx, config.Timeout)
+	pingCtx, cancel := context.WithTimeout(ctx, config.ModuleTimeout())
 	defer cancel()
 
 	err = db.PingContext(pingCtx)

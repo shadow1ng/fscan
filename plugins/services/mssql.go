@@ -63,10 +63,10 @@ func (p *MSSQLPlugin) createAuthFunc(info *common.HostInfo, config *common.Confi
 
 // doMSSQLAuth 执行MSSQL认证
 func (p *MSSQLPlugin) doMSSQLAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
-	authCtx, cancel := context.WithTimeout(ctx, config.Timeout)
+	authCtx, cancel := context.WithTimeout(ctx, config.ModuleTimeout())
 	defer cancel()
 
-	_, err := mssqlRawLogin(authCtx, info.Host, info.Port, cred.Username, cred.Password, config.Timeout)
+	_, err := mssqlRawLogin(authCtx, info.Host, info.Port, cred.Username, cred.Password, config.ModuleTimeout())
 	if err != nil {
 		state.IncrementTCPFailedPacketCount()
 		return &AuthResult{
@@ -129,10 +129,10 @@ func (p *MSSQLPlugin) identifyService(ctx context.Context, info *common.HostInfo
 	state := session.State
 	target := info.Target()
 
-	identifyCtx, cancel := context.WithTimeout(ctx, config.Timeout)
+	identifyCtx, cancel := context.WithTimeout(ctx, config.ModuleTimeout())
 	defer cancel()
 
-	result, err := mssqlRawLogin(identifyCtx, info.Host, info.Port, "invalid", "invalid", config.Timeout)
+	result, err := mssqlRawLogin(identifyCtx, info.Host, info.Port, "invalid", "invalid", config.ModuleTimeout())
 
 	if err != nil {
 		state.IncrementTCPFailedPacketCount()

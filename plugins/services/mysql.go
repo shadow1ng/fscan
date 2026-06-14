@@ -79,7 +79,7 @@ func (p *MySQLPlugin) createAuthFunc(info *common.HostInfo, config *common.Confi
 
 // doMySQLAuth 执行MySQL认证
 func (p *MySQLPlugin) doMySQLAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
-	connStr, err := mySQLConnString(cred.Username, cred.Password, info, config.Timeout)
+	connStr, err := mySQLConnString(cred.Username, cred.Password, info, config.ModuleTimeout())
 	if err != nil {
 		return &AuthResult{
 			Success:   false,
@@ -98,7 +98,7 @@ func (p *MySQLPlugin) doMySQLAuth(ctx context.Context, info *common.HostInfo, cr
 		}
 	}
 
-	db.SetConnMaxLifetime(config.Timeout)
+	db.SetConnMaxLifetime(config.ModuleTimeout())
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(0)
 
@@ -194,7 +194,7 @@ func (p *MySQLPlugin) identifyService(ctx context.Context, info *common.HostInfo
 }
 
 func (p *MySQLPlugin) readMySQLBanner(conn net.Conn, config *common.Config) string {
-	_ = conn.SetReadDeadline(time.Now().Add(config.Timeout))
+	_ = conn.SetReadDeadline(time.Now().Add(config.ModuleTimeout()))
 
 	header := make([]byte, 5)
 	if _, err := io.ReadFull(conn, header); err != nil {

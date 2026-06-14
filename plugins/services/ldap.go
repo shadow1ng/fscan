@@ -210,7 +210,7 @@ func (p *LDAPPlugin) connectLDAP(ctx context.Context, info *common.HostInfo, ses
 	resultChan := make(chan result, 1)
 
 	go func() {
-		tcpConn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
+		tcpConn, err := session.DialTCP(ctx, "tcp", target, session.Config.ModuleTimeout())
 		if err != nil {
 			resultChan <- result{nil, err}
 			return
@@ -222,7 +222,7 @@ func (p *LDAPPlugin) connectLDAP(ctx context.Context, info *common.HostInfo, ses
 		} else {
 			conn = ldaplib.NewConn(tcpConn, false)
 		}
-		conn.SetTimeout(session.Config.Timeout)
+		conn.SetTimeout(session.Config.ModuleTimeout())
 		conn.Start()
 
 		resultChan <- result{conn, nil}
