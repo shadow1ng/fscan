@@ -45,6 +45,9 @@ func applyLogLevel() {
 			StartTime:    GetGlobalState().GetStartTime(),
 			LevelColors:  logging.GetDefaultLevelColors(),
 		}
+		if fv.Debug {
+			config.DebugLogFile = "fscan_debug.log"
+		}
 
 		newLogger := logging.NewLogger(config)
 		newLogger.SetCoordinatedOutput(LogWithProgress)
