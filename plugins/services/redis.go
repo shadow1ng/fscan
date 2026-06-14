@@ -86,7 +86,7 @@ func (p *RedisPlugin) createAuthFunc(info *common.HostInfo, session *common.Scan
 // doRedisAuth 执行Redis认证
 func (p *RedisPlugin) doRedisAuth(ctx context.Context, info *common.HostInfo, cred Credential, session *common.ScanSession) *AuthResult {
 	target := info.Target()
-	timeout := session.Config.Timeout
+	timeout := session.Config.ModuleTimeout()
 
 	// 建立TCP连接
 	conn, err := session.DialTCP(ctx, "tcp", target, timeout)
@@ -223,7 +223,7 @@ func (p *RedisPlugin) testUnauthorizedAccess(ctx context.Context, info *common.H
 func (p *RedisPlugin) exploitWithPassword(ctx context.Context, info *common.HostInfo, password string, session *common.ScanSession) {
 	target := info.Target()
 
-	conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
+	conn, err := session.DialTCP(ctx, "tcp", target, session.Config.ModuleTimeout())
 	if err != nil {
 		session.LogError(i18n.Tr("redis_reconnect_failed", err))
 		return
@@ -232,11 +232,11 @@ func (p *RedisPlugin) exploitWithPassword(ctx context.Context, info *common.Host
 
 	// 如果有密码，先认证
 	if password != "" {
-		_ = conn.SetWriteDeadline(time.Now().Add(session.Config.Timeout))
+		_ = conn.SetWriteDeadline(time.Now().Add(session.Config.ModuleTimeout()))
 		if _, writeErr := conn.Write(buildRedisAuthCommand(password)); writeErr != nil {
 			return
 		}
-		_ = conn.SetReadDeadline(time.Now().Add(session.Config.Timeout))
+		_ = conn.SetReadDeadline(time.Now().Add(session.Config.ModuleTimeout()))
 		response := make([]byte, 512)
 		if _, readErr := conn.Read(response); readErr != nil {
 			return
@@ -249,7 +249,7 @@ func (p *RedisPlugin) exploitWithPassword(ctx context.Context, info *common.Host
 // identifyService 服务识别
 func (p *RedisPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
-	timeout := session.Config.Timeout
+	timeout := session.Config.ModuleTimeout()
 
 	conn, err := session.DialTCP(ctx, "tcp", target, timeout)
 	if err != nil {
@@ -325,7 +325,7 @@ func (p *RedisPlugin) exploit(ctx context.Context, info *common.HostInfo, conn n
 		return
 	}
 
-	_ = conn.SetDeadline(time.Time{})
+	_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
 
 	dbfilename, dir, err := p.getConfig(conn)
 	if err != nil {
@@ -397,12 +397,22 @@ func (p *RedisPlugin) exploit(ctx context.Context, info *common.HostInfo, conn n
 // =============================================================================
 
 func (p *RedisPlugin) readReply(conn net.Conn) (string, error) {
-	_ = conn.SetReadDeadline(time.Now().Add(time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 	bytes, err := io.ReadAll(io.LimitReader(conn, maxRedisReplyBytes))
-	if len(bytes) > 0 {
+	if len(bytes) > 0 && isTimeoutError(err) {
 		err = nil
 	}
 	return string(bytes), err
+}
+
+func isTimeoutError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if ne, ok := err.(net.Error); ok && ne.Timeout() {
+		return true
+	}
+	return false
 }
 
 // sendCmd 发送Redis命令并检查OK响应

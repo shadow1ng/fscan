@@ -22,7 +22,7 @@ func NewIMAPPlugin() *IMAPPlugin {
 
 func (p *IMAPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	config := session.Config
-	timeout := config.Timeout
+	timeout := config.ModuleTimeout()
 	if timeout <= 0 {
 		timeout = 3 * time.Second
 	}

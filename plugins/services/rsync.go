@@ -242,7 +242,7 @@ func (p *RsyncPlugin) testUnauthorizedAccess(ctx context.Context, info *common.H
 // connectToRsync 连接到Rsync服务
 func (p *RsyncPlugin) connectToRsync(ctx context.Context, info *common.HostInfo, session *common.ScanSession) net.Conn {
 	target := info.Target()
-	timeout := session.Config.Timeout
+	timeout := session.Config.ModuleTimeout()
 
 	connChan := make(chan net.Conn, 1)
 
@@ -272,7 +272,7 @@ func (p *RsyncPlugin) connectToRsync(ctx context.Context, info *common.HostInfo,
 
 // getModules 获取Rsync模块列表
 func (p *RsyncPlugin) getModules(conn net.Conn, config *common.Config) []string {
-	timeout := config.Timeout
+	timeout := config.ModuleTimeout()
 
 	// 读取服务器版本
 	_ = conn.SetReadDeadline(time.Now().Add(timeout))
@@ -342,7 +342,7 @@ func (p *RsyncPlugin) identifyService(ctx context.Context, info *common.HostInfo
 	}
 	defer func() { _ = conn.Close() }()
 
-	timeout := session.Config.Timeout
+	timeout := session.Config.ModuleTimeout()
 
 	_ = conn.SetWriteDeadline(time.Now().Add(timeout))
 	if _, err := conn.Write([]byte("\n")); err != nil {

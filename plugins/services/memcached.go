@@ -68,7 +68,7 @@ func (p *MemcachedPlugin) testUnauthorizedAccess(ctx context.Context, info *comm
 
 func (p *MemcachedPlugin) connectToMemcached(ctx context.Context, info *common.HostInfo, session *common.ScanSession) net.Conn {
 	target := info.Target()
-	timeout := session.Config.Timeout
+	timeout := session.Config.ModuleTimeout()
 
 	connChan := make(chan net.Conn, 1)
 
@@ -97,12 +97,12 @@ func (p *MemcachedPlugin) connectToMemcached(ctx context.Context, info *common.H
 }
 
 func (p *MemcachedPlugin) testBasicCommand(conn net.Conn, config *common.Config) bool {
-	_ = conn.SetWriteDeadline(time.Now().Add(config.Timeout))
+	_ = conn.SetWriteDeadline(time.Now().Add(config.ModuleTimeout()))
 	if _, err := conn.Write([]byte("version\r\n")); err != nil {
 		return false
 	}
 
-	_ = conn.SetReadDeadline(time.Now().Add(config.Timeout))
+	_ = conn.SetReadDeadline(time.Now().Add(config.ModuleTimeout()))
 	response := make([]byte, 1024)
 	n, err := conn.Read(response)
 	if err != nil {

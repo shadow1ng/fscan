@@ -72,7 +72,7 @@ func (p *ActiveMQPlugin) createAuthFunc(info *common.HostInfo, session *common.S
 func (p *ActiveMQPlugin) doActiveMQAuth(ctx context.Context, info *common.HostInfo, cred Credential, session *common.ScanSession) *AuthResult {
 	target := info.Target()
 	config := session.Config
-	timeout := config.Timeout
+	timeout := config.ModuleTimeout()
 
 	resultChan := make(chan *AuthResult, 1)
 
@@ -157,7 +157,7 @@ func classifyActiveMQErrorType(err error) ErrorType {
 
 // authenticateSTOMP 使用STOMP协议认证ActiveMQ
 func (p *ActiveMQPlugin) authenticateSTOMP(conn net.Conn, username, password string, config *common.Config) (bool, error) {
-	timeout := config.Timeout
+	timeout := config.ModuleTimeout()
 	if err := rejectLineBreaks(username, password); err != nil {
 		return false, err
 	}
@@ -202,7 +202,7 @@ func (p *ActiveMQPlugin) authenticateSTOMP(conn net.Conn, username, password str
 // identifyService ActiveMQ服务识别
 func (p *ActiveMQPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
-	timeout := session.Config.Timeout
+	timeout := session.Config.ModuleTimeout()
 
 	conn, err := session.DialTCP(ctx, "tcp", target, timeout)
 	if err != nil {

@@ -186,10 +186,8 @@ func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *comm
 			ep.TuneConfig(config, session)
 		}
 
-		// 仅在默认端口扫描时调度 UDP 插件（用户指定 -p 时跳过，避免不相关的 UDP 探测拖慢扫描）
-		if config.Target.Ports == "" || config.Target.Ports == "all" {
-			s.dispatchUDPPlugins(ctx, session, hosts, info, config, ch, wg)
-		}
+		// UDP 插件调度：默认端口模式全量调度，用户指定 -p 时只调度端口有交集的 UDP 插件
+		s.dispatchUDPPlugins(ctx, session, hosts, info, config, ch, wg)
 		s.scanHostBatch(ctx, session, hosts, info, pluginsToRun, isCustomMode, ch, wg)
 	}
 
@@ -271,9 +269,22 @@ func (s *ServiceScanStrategy) dispatchUDPPlugins(ctx context.Context, session *c
 		return
 	}
 
+	// 用户指定 -p 时，只调度端口有交集的 UDP 插件
+	var userPorts map[int]bool
+	if config.Target.Ports != "" && config.Target.Ports != "all" {
+		parsed := parsers.ParsePort(config.Target.Ports)
+		userPorts = make(map[int]bool, len(parsed))
+		for _, p := range parsed {
+			userPorts[p] = true
+		}
+	}
+
 	for _, host := range hosts {
 		for _, pluginName := range udpPlugins {
 			for _, port := range plugins.GetPluginPorts(pluginName) {
+				if userPorts != nil && !userPorts[port] {
+					continue
+				}
 				target := baseInfo
 				target.Host = host
 				target.Port = port

@@ -303,14 +303,18 @@ func matchRegex(matcher struct {
 		// 从 sync.Map 缓存获取或编译正则
 		var re *regexp.Regexp
 		if cached, ok := enhancedDB.regexCache.Load(cacheKey); ok {
-			re = cached.(*regexp.Regexp)
+			if r, ok := cached.(*regexp.Regexp); ok {
+				re = r
+			}
 		} else {
 			compiled, err := regexp.Compile(cacheKey)
 			if err != nil {
 				continue
 			}
 			actual, _ := enhancedDB.regexCache.LoadOrStore(cacheKey, compiled)
-			re = actual.(*regexp.Regexp)
+			if r, ok := actual.(*regexp.Regexp); ok {
+				re = r
+			}
 		}
 
 		// 确保 re 不为 nil（防止并发场景下的 nil panic）

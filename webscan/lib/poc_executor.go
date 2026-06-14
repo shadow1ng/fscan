@@ -301,7 +301,7 @@ func doSearch(re string, body string) map[string]string {
 	// 编译正则表达式（带缓存）
 	var r *regexp.Regexp
 	if cached, ok := regexCache.Load(re); ok {
-		r = cached.(*regexp.Regexp)
+		r, _ = cached.(*regexp.Regexp)
 	} else {
 		compiled, err := regexp.Compile(re)
 		if err != nil {
@@ -309,7 +309,7 @@ func doSearch(re string, body string) map[string]string {
 			return nil
 		}
 		actual, _ := regexCache.LoadOrStore(re, compiled)
-		r = actual.(*regexp.Regexp)
+		r, _ = actual.(*regexp.Regexp)
 	}
 
 	// 执行正则匹配

@@ -74,7 +74,7 @@ func (p *VNCPlugin) doVNCAuth(ctx context.Context, info *common.HostInfo, cred C
 	resultChan := make(chan *AuthResult, 1)
 
 	go func() {
-		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
+		conn, err := session.DialTCP(ctx, "tcp", target, session.Config.ModuleTimeout())
 		if err != nil {
 			resultChan <- &AuthResult{
 				Success:   false,
@@ -84,7 +84,7 @@ func (p *VNCPlugin) doVNCAuth(ctx context.Context, info *common.HostInfo, cred C
 			return
 		}
 
-		_ = conn.SetDeadline(time.Now().Add(session.Config.Timeout))
+		_ = conn.SetDeadline(time.Now().Add(session.Config.ModuleTimeout()))
 
 		vncConfig := &vnc.ClientConfig{
 			Auth: []vnc.ClientAuth{

@@ -291,13 +291,13 @@ func (p *MS17010Plugin) checkMS17010Vulnerability(ctx context.Context, ip string
 }
 
 func (p *MS17010Plugin) checkMS17010VulnerabilityAt(ctx context.Context, address string, session *common.ScanSession) (bool, string, bool, error) {
-	conn, err := session.DialTCP(ctx, "tcp", address, session.Config.Timeout)
+	conn, err := session.DialTCP(ctx, "tcp", address, session.Config.ModuleTimeout())
 	if err != nil {
 		return false, "", false, fmt.Errorf("%s: %w", i18n.GetText("ms17010_connection_error"), err)
 	}
 	defer func() { _ = conn.Close() }()
 
-	if err = conn.SetDeadline(time.Now().Add(session.Config.Timeout)); err != nil {
+	if err = conn.SetDeadline(time.Now().Add(session.Config.ModuleTimeout())); err != nil {
 		return false, "", false, fmt.Errorf("%s: %w", i18n.GetText("ms17010_set_timeout_error"), err)
 	}
 

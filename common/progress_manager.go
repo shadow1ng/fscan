@@ -32,7 +32,7 @@ type ProgressManager struct {
 	current         atomic.Int64
 	description     string
 	startTime       time.Time
-	isActive        bool
+	isActive        atomic.Bool
 	terminalHeight  int
 	reservedLines   int // 为进度条保留的行数
 	lastContentLine int // 最后一行内容的位置
@@ -121,7 +121,7 @@ func (pm *ProgressManager) InitProgress(total int64, description string) {
 	pm.current.Store(0)
 	pm.description = description
 	pm.startTime = time.Now()
-	pm.isActive = true
+	pm.isActive.Store(true)
 	pm.enabled = true
 	pm.lastActivity = time.Now()
 	pm.spinnerIndex = 0
@@ -139,7 +139,7 @@ func (pm *ProgressManager) InitProgress(total int64, description string) {
 
 // UpdateProgress 更新进度
 func (pm *ProgressManager) UpdateProgress(increment int64) {
-	if !pm.enabled || !pm.isActive {
+	if !pm.enabled || !pm.isActive.Load() {
 		return
 	}
 
@@ -171,7 +171,7 @@ func (pm *ProgressManager) UpdateProgress(increment int64) {
 
 // FinishProgress 完成进度条
 func (pm *ProgressManager) FinishProgress() {
-	if !pm.enabled || !pm.isActive {
+	if !pm.enabled || !pm.isActive.Load() {
 		return
 	}
 
@@ -189,7 +189,7 @@ func (pm *ProgressManager) FinishProgress() {
 
 	// 清理进度条区域，恢复正常输出
 	pm.clearProgressArea()
-	pm.isActive = false
+	pm.isActive.Store(false)
 }
 
 // setupProgressSpace 设置进度条空间
@@ -342,7 +342,7 @@ func (pm *ProgressManager) clearProgressArea() {
 func (pm *ProgressManager) IsActive() bool {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
-	return pm.isActive && pm.enabled
+	return pm.isActive.Load() && pm.enabled
 }
 
 // getTerminalHeight 获取终端高度
@@ -479,7 +479,7 @@ func (pm *ProgressManager) GetPercent() float64 {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
 
-	if !pm.isActive || pm.total.Load() == 0 {
+	if !pm.isActive.Load() || pm.total.Load() == 0 {
 		return 0
 	}
 	return float64(pm.current.Load()) / float64(pm.total.Load()) * 100
@@ -517,7 +517,7 @@ func LogWithProgress(message string) {
 
 // renderProgressUnsafe 不加锁的进度条渲染（内部使用）
 func (pm *ProgressManager) renderProgressUnsafe() {
-	if !pm.enabled || !pm.isActive {
+	if !pm.enabled || !pm.isActive.Load() {
 		return
 	}
 
@@ -586,7 +586,7 @@ func (pm *ProgressManager) startActivityIndicator() {
 			select {
 			case <-pm.activityTicker.C:
 				// 只有在活跃状态下才更新指示器
-				if pm.isActive && pm.enabled {
+				if pm.isActive.Load() && pm.enabled {
 					pm.mu.Lock()
 					pm.spinnerIndex = (pm.spinnerIndex + 1) % len(spinnerChars)
 					pm.mu.Unlock()

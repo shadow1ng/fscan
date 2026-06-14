@@ -164,14 +164,14 @@ func (p *NetBIOSPlugin) queryNetBIOSNames(host string, config *common.Config, st
 
 	target := fmt.Sprintf("%s:137", host)
 
-	conn, err := net.DialTimeout("udp", target, config.Timeout)
+	conn, err := net.DialTimeout("udp", target, config.ModuleTimeout())
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", i18n.GetText("netbios_name_connect_failed"), err)
 	}
 	state.IncrementUDPPacketCount()
 	defer func() { _ = conn.Close() }()
 
-	_ = conn.SetDeadline(time.Now().Add(config.Timeout))
+	_ = conn.SetDeadline(time.Now().Add(config.ModuleTimeout()))
 
 	_, err = conn.Write(queryPacket)
 	if err != nil {
@@ -191,13 +191,13 @@ func (p *NetBIOSPlugin) queryNetBIOSNames(host string, config *common.Config, st
 func (p *NetBIOSPlugin) queryNetBIOSSession(ctx context.Context, host string, session *common.ScanSession) (*NetBIOSInfo, error) {
 	target := fmt.Sprintf("%s:139", host)
 
-	conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
+	conn, err := session.DialTCP(ctx, "tcp", target, session.Config.ModuleTimeout())
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", i18n.GetText("netbios_session_connect_failed"), err)
 	}
 	defer func() { _ = conn.Close() }()
 
-	_ = conn.SetDeadline(time.Now().Add(session.Config.Timeout))
+	_ = conn.SetDeadline(time.Now().Add(session.Config.ModuleTimeout()))
 
 	// 发送SMB协商数据包
 	smbNegotiate1 := []byte{

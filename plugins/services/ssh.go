@@ -64,8 +64,12 @@ func (p *SSHPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	}
 
 	// 使用公共框架进行并发凭据测试
+	// SSH 并发限制为 3：OpenSSH MaxStartups 默认 10:30:60，高并发会被随机丢弃
 	authFn := p.createAuthFunc(info, session)
 	testConfig := DefaultConcurrentTestConfigWithTarget(config, info)
+	if testConfig.Concurrency > 3 {
+		testConfig.Concurrency = 3
+	}
 
 	result := TestCredentialsConcurrently(ctx, credentials, authFn, "ssh", testConfig)
 
@@ -90,9 +94,10 @@ func (p *SSHPlugin) doSSHAuth(ctx context.Context, info *common.HostInfo, cred C
 	target := info.Target()
 
 	// 创建SSH配置
+	moduleTimeout := config.ModuleTimeout()
 	sshConfig := &ssh.ClientConfig{
 		User:    cred.Username,
-		Timeout: config.Timeout,
+		Timeout: moduleTimeout,
 		//nolint:gosec // G106: 扫描工具需要忽略主机密钥验证以连接未知主机
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
@@ -133,6 +138,9 @@ func (p *SSHPlugin) doSSHAuth(ctx context.Context, info *common.HostInfo, cred C
 		}
 	}()
 
+	// 设置 TCP 级别 deadline 兜底整个握手过程
+	_ = conn.SetDeadline(time.Now().Add(moduleTimeout))
+
 	// 在TCP连接上创建SSH客户端
 	sshConn, chans, reqs, err := ssh.NewClientConn(conn, target, sshConfig)
 	if err != nil {
@@ -150,6 +158,9 @@ func (p *SSHPlugin) doSSHAuth(ctx context.Context, info *common.HostInfo, cred C
 			Error:     err,
 		}
 	}
+
+	// 握手成功，清除 deadline
+	_ = conn.SetDeadline(time.Time{})
 
 	// 创建SSH客户端
 	client := ssh.NewClient(sshConn, chans, reqs)
@@ -183,16 +194,39 @@ func classifySSHErrorType(err error) ErrorType {
 		"no supported methods remain",
 	)
 
-	// SSH 特有的网络/临时错误（需要重试）
-	sshNetworkErrors := append(CommonNetworkErrors,
-		"handshake failed",        // 握手失败，可能是服务端限流
-		"ssh: disconnect",         // SSH 主动断开
-		"connection closed",       // 连接被关闭
-		"max startups",            // SSH MaxStartups 限制
-		"too many authentication", // 认证次数过多
-	)
+	// SSH 限流错误 — 服务端主动拒绝（MaxStartups 等），退避后重试即可
+	sshThrottleErrors := []string{
+		"handshake failed",
+		"ssh: disconnect",
+		"connection closed",
+		"max startups",
+		"too many authentication",
+	}
 
-	return ClassifyError(err, sshAuthErrors, sshNetworkErrors)
+	return classifySSHError(err, sshAuthErrors, sshThrottleErrors)
+}
+
+func classifySSHError(err error, authKeywords, throttleKeywords []string) ErrorType {
+	if err == nil {
+		return ErrorTypeUnknown
+	}
+	errStr := err.Error()
+	for _, kw := range authKeywords {
+		if containsIgnoreCase(errStr, kw) {
+			return ErrorTypeAuth
+		}
+	}
+	for _, kw := range throttleKeywords {
+		if containsIgnoreCase(errStr, kw) {
+			return ErrorTypeThrottle
+		}
+	}
+	for _, kw := range CommonNetworkErrors {
+		if containsIgnoreCase(errStr, kw) {
+			return ErrorTypeNetwork
+		}
+	}
+	return ErrorTypeUnknown
 }
 
 // scanWithKey 使用SSH私钥扫描
@@ -272,7 +306,7 @@ func (p *SSHPlugin) identifyService(ctx context.Context, info *common.HostInfo, 
 
 // readSSHBanner 读取SSH服务器Banner
 func (p *SSHPlugin) readSSHBanner(conn net.Conn, config *common.Config) string {
-	_ = conn.SetReadDeadline(time.Now().Add(config.Timeout))
+	_ = conn.SetReadDeadline(time.Now().Add(config.ModuleTimeout()))
 
 	banner := make([]byte, 256)
 	n, err := conn.Read(banner)

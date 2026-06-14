@@ -50,7 +50,7 @@ func (p *FindNetPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 		}
 	}
 
-	conn, err := session.DialTCP(ctx, "tcp", target, config.Timeout)
+	conn, err := session.DialTCP(ctx, "tcp", target, config.ModuleTimeout())
 	if err != nil {
 		return &ScanResult{
 			Success: false,
@@ -61,7 +61,7 @@ func (p *FindNetPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 	defer func() { _ = conn.Close() }()
 
 	// 设置超时
-	_ = conn.SetDeadline(time.Now().Add(config.Timeout))
+	_ = conn.SetDeadline(time.Now().Add(config.ModuleTimeout()))
 
 	// 执行RPC网络发现
 	networkInfo, err := p.performNetworkDiscovery(conn)

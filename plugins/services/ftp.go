@@ -81,7 +81,7 @@ func (p *FTPPlugin) createAuthFunc(info *common.HostInfo, config *common.Config,
 func (p *FTPPlugin) doFTPAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
 	target := info.Target()
 
-	conn, err := ftplib.Dial(target, ftpDialOptions(ctx, config.Timeout)...)
+	conn, err := ftplib.Dial(target, ftpDialOptions(ctx, config.ModuleTimeout())...)
 	if err != nil {
 		state.IncrementTCPFailedPacketCount()
 		return &AuthResult{
@@ -162,7 +162,7 @@ func (p *FTPPlugin) identifyService(info *common.HostInfo, session *common.ScanS
 	state := session.State
 	target := info.Target()
 
-	conn, err := ftplib.Dial(target, ftplib.DialWithTimeout(config.Timeout))
+	conn, err := ftplib.Dial(target, ftplib.DialWithTimeout(config.ModuleTimeout()))
 	if err != nil {
 		state.IncrementTCPFailedPacketCount()
 		return &ScanResult{
@@ -241,7 +241,7 @@ func (p *FTPPlugin) testAnonymousAccess(ctx context.Context, info *common.HostIn
 func (p *FTPPlugin) getFileListAfterAuth(info *common.HostInfo, username, password string, config *common.Config, state *common.State) []string {
 	target := info.Target()
 
-	conn, err := ftplib.Dial(target, ftplib.DialWithTimeout(config.Timeout))
+	conn, err := ftplib.Dial(target, ftplib.DialWithTimeout(config.ModuleTimeout()))
 	if err != nil {
 		return nil
 	}

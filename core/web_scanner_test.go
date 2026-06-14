@@ -708,12 +708,8 @@ func TestIsWebServiceByFingerprint_Priority(t *testing.T) {
 
 // TestDetectHTTPScheme 测试HTTP/HTTPS协议智能检测
 func TestDetectHTTPScheme(t *testing.T) {
-	// 设置WebTimeout避免测试超时
-	cfg := common.GetGlobalConfig()
-	oldTimeout := cfg.Network.WebTimeout
+	cfg := common.NewConfig()
 	cfg.Network.WebTimeout = 2 * time.Second
-	defer func() { cfg.Network.WebTimeout = oldTimeout }()
-
 	session := common.NewScanSession(cfg, common.NewState(), common.GetFlagVars())
 
 	t.Run("HTTPS服务器检测", func(t *testing.T) {

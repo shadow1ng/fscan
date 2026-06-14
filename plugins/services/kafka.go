@@ -67,7 +67,7 @@ func (p *KafkaPlugin) createAuthFunc(info *common.HostInfo, config *common.Confi
 
 func (p *KafkaPlugin) doKafkaAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
 	target := info.Target()
-	timeout := config.Timeout
+	timeout := config.ModuleTimeout()
 
 	dialer := net.Dialer{Timeout: timeout}
 	conn, err := dialer.DialContext(ctx, "tcp", target)
@@ -242,7 +242,7 @@ func (p *KafkaPlugin) identifyService(ctx context.Context, info *common.HostInfo
 	config := session.Config
 	state := session.State
 	target := info.Target()
-	timeout := config.Timeout
+	timeout := config.ModuleTimeout()
 
 	dialer := net.Dialer{Timeout: timeout}
 	conn, err := dialer.DialContext(ctx, "tcp", target)

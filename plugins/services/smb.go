@@ -39,7 +39,7 @@ func (p *SmbPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	}
 
 	// 1. 协议探测和信息收集
-	smbTarget, err := probeTarget(ctx, info.Host, info.Port, config.Timeout, session)
+	smbTarget, err := probeTarget(ctx, info.Host, info.Port, config.ModuleTimeout(), session)
 	if err != nil {
 		return &ScanResult{
 			Success: false,
@@ -53,7 +53,7 @@ func (p *SmbPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 
 	// 2. 漏洞检测 (仅SMBv2+且端口445)
 	if smbTarget.Protocol == SMBProtocol2 && info.Port == 445 {
-		if checkSMBGhost(ctx, info.Host, config.Timeout, session) {
+		if checkSMBGhost(ctx, info.Host, config.ModuleTimeout(), session) {
 			smbTarget.Vulnerable = &SMBVuln{CVE20200796: true}
 			session.LogVuln(i18n.Tr("smbghost_vuln", target))
 		}
@@ -120,7 +120,7 @@ func (p *SmbPlugin) getAuthenticator(protocol SMBProtocol) SMBAuthenticator {
 func (p *SmbPlugin) createAuthFunc(info *common.HostInfo, auth SMBAuthenticator, session *common.ScanSession) AuthFunc {
 	config := session.Config
 	return func(ctx context.Context, cred Credential) *AuthResult {
-		result, _ := auth.Authenticate(ctx, info.Host, info.Port, cred, config.Credentials.Domain, config.Timeout, session)
+		result, _ := auth.Authenticate(ctx, info.Host, info.Port, cred, config.Credentials.Domain, config.ModuleTimeout(), session)
 		return result
 	}
 }
@@ -136,7 +136,7 @@ func (p *SmbPlugin) testUnauthorizedAccess(ctx context.Context, info *common.Hos
 	}
 
 	for _, cred := range unauthorizedCreds {
-		shareInfo, err := auth.ListShares(ctx, info.Host, info.Port, cred, config.Credentials.Domain, config.Timeout, session)
+		shareInfo, err := auth.ListShares(ctx, info.Host, info.Port, cred, config.Credentials.Domain, config.ModuleTimeout(), session)
 		if err == nil && len(shareInfo) > 0 {
 			var output strings.Builder
 			displayUser := cred.Username

@@ -21,7 +21,7 @@ func NewModbusPlugin() *ModbusPlugin {
 }
 
 func (p *ModbusPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
-	timeout := session.Config.Timeout
+	timeout := session.Config.ModuleTimeout()
 	if timeout <= 0 {
 		timeout = 3 * time.Second
 	}
