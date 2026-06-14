@@ -202,11 +202,15 @@ func parseHashes(fv *FlagVars) ([]string, [][]byte, error) {
 	var hashValues []string
 	var hashBytes [][]byte
 
-	// 命令行哈希
+	// 命令行哈希（支持纯 NTLM 32字符 或 LM:NT 格式）
 	if fv.HashValue != "" {
 		hash := strings.TrimSpace(fv.HashValue)
+		// LM:NT 格式取 NT hash 部分
+		if parts := strings.SplitN(hash, ":", 2); len(parts) == 2 && len(parts[1]) == 32 {
+			hash = parts[1]
+		}
 		if len(hash) != 32 {
-			return nil, nil, fmt.Errorf("invalid hash length: %s", hash)
+			return nil, nil, fmt.Errorf("invalid hash length: %s", fv.HashValue)
 		}
 		hashByte, err := hex.DecodeString(hash)
 		if err != nil {
