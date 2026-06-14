@@ -118,7 +118,7 @@ func (p *SSHPlugin) doSSHAuth(ctx context.Context, info *common.HostInfo, cred C
 	}
 
 	// 建立TCP连接
-	conn, err := session.DialTCP(ctx, "tcp", target, config.Timeout)
+	conn, err := session.DialTCP(ctx, "tcp", target, moduleTimeout)
 	if err != nil {
 		return &AuthResult{
 			Success:   false,
@@ -277,7 +277,7 @@ func (p *SSHPlugin) scanWithKey(ctx context.Context, info *common.HostInfo, sess
 func (p *SSHPlugin) identifyService(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
 	target := info.Target()
 
-	conn, err := session.DialTCP(ctx, "tcp", target, session.Config.Timeout)
+	conn, err := session.DialTCP(ctx, "tcp", target, session.Config.ModuleTimeout())
 	if err != nil {
 		return &ScanResult{
 			Success: false,

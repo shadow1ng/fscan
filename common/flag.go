@@ -137,6 +137,7 @@ func Flag(Info *HostInfo) error {
 	flag.StringVar(&fv.TargetURL, "u", "", i18n.GetText("flag_target_url"))
 	flag.StringVar(&fv.URLsFile, "uf", "", i18n.GetText("flag_urls_file"))
 	flag.StringVar(&fv.Cookie, "cookie", "", i18n.GetText("flag_cookie"))
+	flag.StringVar(&fv.UserAgent, "ua", "", i18n.GetText("flag_user_agent"))
 	flag.Int64Var(&fv.WebTimeout, "wt", 5, i18n.GetText("flag_web_timeout"))
 	flag.IntVar(&fv.MaxRedirects, "max-redirect", 10, i18n.GetText("flag_max_redirects"))
 	flag.StringVar(&fv.HTTPProxy, "proxy", "", i18n.GetText("flag_http_proxy"))

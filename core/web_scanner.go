@@ -56,19 +56,21 @@ func DetectHTTPSchemeContext(ctx context.Context, host string, port int, config 
 		return "https"
 	}
 
-	// 第二步：尝试国密TLS握手（GM TLS fallback）
-	gmConn, gmErr := gmtls.DialWithDialer(
-		tlsDialer,
-		"tcp", addr,
-		&gmtls.Config{
-			GMSupport:          gmtls.NewGMSupport(),
-			InsecureSkipVerify: true,
-		},
-	)
-
-	if gmErr == nil {
-		_ = gmConn.Close()
-		return "https-gm"
+	// 第二步：仅在标准 TLS 握手级别失败（cipher/protocol 不兼容）时尝试国密
+	// 连接级别失败（timeout/refused/非 TLS 端口）不需要尝试
+	if maybeGMTLS(err) {
+		gmConn, gmErr := gmtls.DialWithDialer(
+			tlsDialer,
+			"tcp", addr,
+			&gmtls.Config{
+				GMSupport:          gmtls.NewGMSupport(),
+				InsecureSkipVerify: true,
+			},
+		)
+		if gmErr == nil {
+			_ = gmConn.Close()
+			return "https-gm"
+		}
 	}
 
 	// TLS和GM TLS都失败，尝试HTTP
@@ -489,6 +491,20 @@ func (s *WebScanStrategy) createTargetFromURLWithSession(baseInfo common.HostInf
 	MarkAsWebService(urlInfo.Host, urlInfo.Port, &ServiceInfo{Name: "http"})
 
 	return &urlInfo
+}
+
+// maybeGMTLS 判断标准 TLS 握手错误是否可能是国密服务端
+// 只有 cipher/protocol 层面的不兼容才值得尝试国密回退
+// 连接超时、拒绝、非 TLS 端口等连接级错误直接跳过
+func maybeGMTLS(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := err.Error()
+	return strings.Contains(s, "handshake failure") ||
+		strings.Contains(s, "protocol version") ||
+		strings.Contains(s, "no mutual") ||
+		strings.Contains(s, "cipher suite")
 }
 
 func hasMalformedURLPort(host string) bool {

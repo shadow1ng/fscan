@@ -27,7 +27,6 @@ type FlagVars struct {
 	ExcludeHostsFile string
 	Ports            string
 	ExcludePorts     string
-	AddPorts         string
 	HostsFile        string
 	PortsFile        string
 
@@ -226,7 +225,7 @@ func BuildConfigFromFlags(fv *FlagVars) *Config {
 		},
 		HTTP: HTTPConfig{
 			Cookie:    fv.Cookie,
-			UserAgent: fv.UserAgent,
+			UserAgent: defaultUserAgent(fv.UserAgent),
 			Accept:    fv.Accept,
 		},
 		LocalExploit: LocalExploitConfig{
@@ -245,4 +244,12 @@ func BuildConfigFromFlags(fv *FlagVars) *Config {
 
 func isStdoutTerminal() bool {
 	return term.IsTerminal(int(os.Stdout.Fd()))
+}
+
+// defaultUserAgent 用户未通过 -ua 指定时回退到默认 UA，避免发送空 User-Agent 被 WAF 识别
+func defaultUserAgent(ua string) string {
+	if ua != "" {
+		return ua
+	}
+	return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 }

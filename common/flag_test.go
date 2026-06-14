@@ -955,8 +955,9 @@ func TestBuildConfigFromFlags_BoundaryValues(t *testing.T) {
 				if cfg.HTTP.Cookie != "" {
 					t.Errorf("Cookie 应该为空")
 				}
-				if cfg.HTTP.UserAgent != "" {
-					t.Errorf("UserAgent 应该为空")
+				// 空输入回退到默认 UA，避免发送空 User-Agent
+				if cfg.HTTP.UserAgent == "" {
+					t.Errorf("UserAgent 空输入应回退到默认 UA")
 				}
 			},
 		},

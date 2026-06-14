@@ -4,7 +4,7 @@
 
 内网综合扫描工具，一键自动化漏扫。
 
-**版本**: 2.2.0-rc
+**版本**: 2.2.0-rc.1
 
 ## 功能特性
 
@@ -186,10 +186,10 @@
 
 ```bash
 # 标准编译
-go build -ldflags="-s -w" -trimpath -o fscan main.go
+go build -ldflags="-s -w" -trimpath -o fscan .
 
 # 带Web管理界面
-go build -tags web -ldflags="-s -w" -trimpath -o fscan main.go
+go build -tags web -ldflags="-s -w" -trimpath -o fscan-web .
 ```
 
 ## 安装

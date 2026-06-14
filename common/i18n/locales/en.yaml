@@ -64,6 +64,8 @@ flag_urls_file:
   other: "URLs file"
 flag_cookie:
   other: "HTTP Cookie"
+flag_user_agent:
+  other: "Custom User-Agent header"
 flag_web_timeout:
   other: "Web timeout"
 flag_max_redirects:

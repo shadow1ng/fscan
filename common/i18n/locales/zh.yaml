@@ -64,6 +64,8 @@ flag_urls_file:
   other: "URL文件"
 flag_cookie:
   other: "HTTP Cookie"
+flag_user_agent:
+  other: "自定义 User-Agent 请求头"
 flag_web_timeout:
   other: "Web超时时间"
 flag_max_redirects:
