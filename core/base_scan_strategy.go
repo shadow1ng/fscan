@@ -203,27 +203,9 @@ func (b *BaseScanStrategy) isPluginPassesFilterType(pluginName string, isCustomM
 	}
 }
 
-// LogPluginInfo 输出插件信息
+// LogPluginInfo 默认不输出插件信息（service 默认端口模式有意保持安静，减少干扰）。
+// 子类 LocalScanStrategy / ServiceScanStrategy 按需重写。
 func (b *BaseScanStrategy) LogPluginInfo(config *common.Config, session *common.ScanSession) {
-	allPlugins, isCustomMode := b.GetPlugins(config)
-
-	var prefix string
-	switch b.filterType {
-	case FilterLocal:
-		prefix = i18n.GetText("concurrency_local_plugin")
-	case FilterService:
-		prefix = i18n.GetText("concurrency_service_plugin")
-	case FilterWeb:
-		prefix = i18n.GetText("concurrency_web_plugin")
-	default:
-		prefix = i18n.GetText("concurrency_plugin")
-	}
-
-	// 插件信息不再输出，减少干扰
-	_ = allPlugins
-	_ = isCustomMode
-	_ = prefix
-	_ = session
 }
 
 // formatPluginList 格式化插件列表（超过5个时精简显示）
