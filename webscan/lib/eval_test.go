@@ -1238,7 +1238,7 @@ func TestDoRequestSkipsNilGMTLSFallback(t *testing.T) {
 	}()
 
 	ClientNoRedirect = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
-		return nil, errors.New("standard tls failed")
+		return nil, errors.New("tls: handshake failure")
 	})}
 	ClientNoRedirectGM = nil
 
@@ -1261,7 +1261,7 @@ func TestDoRequestReplaysBodyForGMTLSFallback(t *testing.T) {
 
 	ClientNoRedirect = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		_, _ = io.ReadAll(req.Body)
-		return nil, errors.New("standard tls failed")
+		return nil, errors.New("tls: handshake failure")
 	})}
 
 	var gotBody string

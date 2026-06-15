@@ -58,6 +58,9 @@ bin/
 *.dll
 *.so
 *.dylib
+/fscan_cli
+/fscan_web
+/embed-agent
 
 # Web UI build / Web前端构建
 web-ui/node_modules/

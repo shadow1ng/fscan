@@ -4,7 +4,7 @@
 
 Comprehensive intranet scanning tool for automated vulnerability assessment.
 
-**Version**: 2.2.0-rc
+**Version**: 2.2.0-rc.1.1
 
 ## Features
 
@@ -185,10 +185,10 @@ Comprehensive intranet scanning tool for automated vulnerability assessment.
 
 ```bash
 # Standard build
-go build -ldflags="-s -w" -trimpath -o fscan main.go
+go build -ldflags="-s -w" -trimpath -o fscan .
 
 # With Web UI
-go build -tags web -ldflags="-s -w" -trimpath -o fscan main.go
+go build -tags web -ldflags="-s -w" -trimpath -o fscan-web .
 ```
 
 ## Install

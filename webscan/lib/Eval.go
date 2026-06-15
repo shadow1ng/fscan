@@ -508,8 +508,9 @@ func DoRequest(req *http.Request, redirect bool, session *common.ScanSession) (*
 		oResp, err = requestClient(false).Do(req)
 	}
 
-	// 标准TLS连接失败时，尝试国密TLS客户端
-	if err != nil && req.URL.Scheme == "https" {
+	// 标准TLS握手级别失败时，尝试国密TLS客户端
+	// 跳过连接超时、拒绝等非 TLS 相关错误，避免无意义的国密握手尝试
+	if err != nil && req.URL.Scheme == "https" && maybeGMTLSError(err) {
 		if req.GetBody != nil {
 			if body, bodyErr := req.GetBody(); bodyErr == nil {
 				req.Body = body
@@ -681,4 +682,15 @@ func getRespBody(oResp *http.Response) ([]byte, error) {
 	}
 
 	return body, nil
+}
+
+func maybeGMTLSError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := err.Error()
+	return strings.Contains(s, "handshake failure") ||
+		strings.Contains(s, "protocol version") ||
+		strings.Contains(s, "no mutual") ||
+		strings.Contains(s, "cipher suite")
 }

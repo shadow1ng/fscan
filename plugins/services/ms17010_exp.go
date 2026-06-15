@@ -198,6 +198,10 @@ func smb1GetResponse(conn net.Conn) ([]byte, *smbHeader, error) {
 	sizeBuf := make([]byte, 4)
 	copy(sizeBuf[1:], buf[1:])
 	size := int(binary.BigEndian.Uint32(sizeBuf))
+	// 畸形响应（size < SMB 头长度）会导致后续 buf[:smbHeaderSize] 越界 panic
+	if size < smbHeaderSize {
+		return nil, nil, fmt.Errorf("SMB1 response too short: %d bytes", size)
+	}
 	// SMB
 	buf = make([]byte, size)
 	_, err = io.ReadFull(conn, buf)

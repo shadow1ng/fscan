@@ -325,7 +325,7 @@ func (p *RedisPlugin) exploit(ctx context.Context, info *common.HostInfo, conn n
 		return
 	}
 
-	_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
+	_ = conn.SetDeadline(time.Now().Add(config.ModuleTimeout()))
 
 	dbfilename, dir, err := p.getConfig(conn)
 	if err != nil {
