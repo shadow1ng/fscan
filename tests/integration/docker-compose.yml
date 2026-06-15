@@ -1,0 +1,89 @@
+services:
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass test123
+    ports:
+      - "16379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "test123", "ping"]
+      interval: 3s
+      retries: 10
+
+  redis-noauth:
+    image: redis:7-alpine
+    ports:
+      - "16380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      retries: 10
+
+  mysql:
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_ROOT_HOST: "%"
+      MYSQL_DATABASE: testdb
+    ports:
+      - "13307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot123"]
+      interval: 5s
+      retries: 20
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: testdb
+    ports:
+      - "15432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      retries: 10
+
+  ftp:
+    image: fauria/vsftpd
+    environment:
+      FTP_USER: ftpuser
+      FTP_PASS: ftp123
+      PASV_MIN_PORT: 21100
+      PASV_MAX_PORT: 21110
+      PASV_ADDRESS: 127.0.0.1
+    ports:
+      - "10021:21"
+      - "21100-21110:21100-21110"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/21' || exit 1"]
+      interval: 5s
+      retries: 10
+
+  ssh:
+    image: lscr.io/linuxserver/openssh-server:latest
+    environment:
+      PUID: 1000
+      PGID: 1000
+      USER_NAME: sshuser
+      USER_PASSWORD: ssh123
+      PASSWORD_ACCESS: "true"
+    ports:
+      - "10022:2222"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 2222 || exit 1"]
+      interval: 3s
+      retries: 10
+
+  mongodb:
+    image: mongo:4.4
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: mongo123
+    ports:
+      - "17017:27017"
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')", "-u", "admin", "-p", "mongo123"]
+      interval: 5s
+      retries: 20

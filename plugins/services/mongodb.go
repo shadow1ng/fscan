@@ -101,7 +101,7 @@ func (p *MongoDBPlugin) doMongoDBAuth(ctx context.Context, info *common.HostInfo
 	defer conn.Close()
 
 	// Step 1: isMaster 获取服务参数
-	isMasterCmd := buildMongoCommand("admin", "isMaster", mongoDoc{})
+	isMasterCmd := buildMongoCommand("admin", "isMaster")
 	if _, err := sendMongoMsg(ctx, conn, isMasterCmd, timeout); err != nil {
 		state.IncrementTCPFailedPacketCount()
 		return &AuthResult{Success: false, ErrorType: classifyMongoDBErrorType(err), Error: err}
@@ -117,13 +117,12 @@ func (p *MongoDBPlugin) doMongoDBAuth(ctx context.Context, info *common.HostInfo
 	clientFirstBare := "n=" + cred.Username + ",r=" + nonce
 	saslPayload := "n,," + clientFirstBare
 
-	saslStartBody := mongoDoc{
-		"saslStart":     1,
-		"mechanism":     "SCRAM-SHA-1",
-		"payload":       []byte(saslPayload),
-		"autoAuthorize": 1,
-	}
-	saslStartCmd := buildMongoCommand("admin", saslStartBody)
+	saslStartCmd := buildMongoCommand("admin", orderedDoc(
+		kv("saslStart", 1),
+		kv("mechanism", "SCRAM-SHA-1"),
+		kv("payload", []byte(saslPayload)),
+		kv("autoAuthorize", 1),
+	))
 	if _, err := sendMongoMsg(ctx, conn, saslStartCmd, timeout); err != nil {
 		state.IncrementTCPFailedPacketCount()
 		return &AuthResult{Success: false, ErrorType: ErrorTypeNetwork, Error: err}
@@ -152,12 +151,11 @@ func (p *MongoDBPlugin) doMongoDBAuth(ctx context.Context, info *common.HostInfo
 		return &AuthResult{Success: false, ErrorType: ErrorTypeAuth, Error: err}
 	}
 
-	saslContinueBody := mongoDoc{
-		"saslContinue":   1,
-		"conversationId": int(startReply.conversationID),
-		"payload":        []byte(clientFinal),
-	}
-	saslContinueCmd := buildMongoCommand("admin", saslContinueBody)
+	saslContinueCmd := buildMongoCommand("admin", orderedDoc(
+		kv("saslContinue", 1),
+		kv("conversationId", int(startReply.conversationID)),
+		kv("payload", []byte(clientFinal)),
+	))
 	if _, err := sendMongoMsg(ctx, conn, saslContinueCmd, timeout); err != nil {
 		state.IncrementTCPFailedPacketCount()
 		return &AuthResult{Success: false, ErrorType: ErrorTypeNetwork, Error: err}
@@ -196,64 +194,64 @@ func nextRequestID() uint32 {
 }
 
 // buildMongoCommand 构建 MongoDB 命令的 OP_MSG body (最小 BSON 实现)
-// key 为字符串时，构建 {key: value} 作为命令名
-// key 为 map 时，展开所有字段
+// MongoDB 要求命令名是 BSON 文档的第一个键，因此使用 orderedDoc 保证顺序。
 func buildMongoCommand(db string, args ...interface{}) []byte {
 	var buf []byte
-	// flags: 0 (ChecksumPresent=0, MoreToCome=0, ExhaustAllowed=0)
-	buf = append(buf, 0, 0, 0, 0)
-	// section kind 0: body
-	buf = append(buf, 0)
+	buf = append(buf, 0, 0, 0, 0) // flags
+	buf = append(buf, 0)           // section kind 0: body
 
-	// 构建 BSON 文档
-	if len(db) > 0 {
-		// {$db: "admin", ...}
-		docs := mongoDoc{"$db": db}
-		for i := 0; i < len(args); i++ {
-			switch v := args[i].(type) {
-			case string:
-				if i+1 < len(args) {
-					docs[v] = args[i+1]
-					i++
-				}
-			case mongoDoc:
-				for k, val := range v {
-					docs[k] = val
-				}
+	var doc []mongoKV
+
+	for i := 0; i < len(args); i++ {
+		switch v := args[i].(type) {
+		case string:
+			if i+1 < len(args) {
+				doc = append(doc, kv(v, args[i+1]))
+				i++
+			} else {
+				doc = append(doc, kv(v, 1))
 			}
+		case mongoDoc:
+			for k, val := range v {
+				doc = append(doc, kv(k, val))
+			}
+		case []mongoKV:
+			doc = append(doc, v...)
 		}
-		return append(buf, buildBSON(docs)...)
 	}
 
-	// 简单命令: {commandName: 1, $db: "admin"}
-	if len(args) >= 1 {
-		docs := mongoDoc{}
-		if cmdName, ok := args[0].(string); ok {
-			docs[cmdName] = 1
-		}
-		if len(args) >= 2 {
-			switch v := args[1].(type) {
-			case mongoDoc:
-				for k, val := range v {
-					docs[k] = val
-				}
-			}
-		}
-		if db != "" {
-			docs["$db"] = db
-		}
-		return append(buf, buildBSON(docs)...)
+	if db != "" {
+		doc = append(doc, kv("$db", db))
 	}
 
-	return buf
+	return append(buf, buildBSON(doc)...)
 }
 
-type mongoDoc map[string]interface{}
+type mongoDoc = map[string]interface{}
 
-// buildBSON 构建最小 BSON 文档（仅支持 string/int32/double/binary/subdocument）
-func buildBSON(doc mongoDoc) []byte {
+type mongoKV struct {
+	Key   string
+	Value interface{}
+}
+
+func orderedDoc(kvs ...mongoKV) []mongoKV { return kvs }
+func kv(k string, v interface{}) mongoKV  { return mongoKV{k, v} }
+
+func buildBSON(doc interface{}) []byte {
+	var pairs []mongoKV
+	switch d := doc.(type) {
+	case []mongoKV:
+		pairs = d
+	case mongoDoc:
+		for k, v := range d {
+			pairs = append(pairs, mongoKV{k, v})
+		}
+	default:
+		return []byte{5, 0, 0, 0, 0}
+	}
 	var buf []byte
-	for k, v := range doc {
+	for _, p := range pairs {
+		k, v := p.Key, p.Value
 		switch val := v.(type) {
 		case string:
 			buf = append(buf, 0x02) // type string
@@ -284,8 +282,12 @@ func buildBSON(doc mongoDoc) []byte {
 			buf = append(buf, 0x03) // type document
 			buf = append(buf, []byte(k)...)
 			buf = append(buf, 0x00)
-			sub := buildBSON(val)
-			buf = append(buf, sub...)
+			buf = append(buf, buildBSON(val)...)
+		case []mongoKV:
+			buf = append(buf, 0x03) // type document
+			buf = append(buf, []byte(k)...)
+			buf = append(buf, 0x00)
+			buf = append(buf, buildBSON(val)...)
 		case []byte:
 			buf = append(buf, 0x05) // type binary
 			buf = append(buf, []byte(k)...)
