@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/shadow1ng/fscan/common"
 	"github.com/shadow1ng/fscan/plugins"
@@ -430,6 +431,128 @@ func TestSelectStrategy_EmptyHostInfo(t *testing.T) {
 	strategyType := fmt.Sprintf("%T", strategy)
 	if strategyType != expectedType {
 		t.Errorf("空HostInfo策略类型 = %s, 期望 %s", strategyType, expectedType)
+	}
+}
+
+// =============================================================================
+// buildScanReport 测试
+// =============================================================================
+
+// TestBuildScanReport 验证 buildScanReport 字段映射正确
+func TestBuildScanReport(t *testing.T) {
+	state := common.NewState()
+
+	// 填充各计数器
+	state.SetEnd(10)
+	state.SetNum(7)
+	state.IncrementTCPSuccessPacketCount() // +1 total, +1 tcp, +1 tcpSuccess
+	state.IncrementTCPSuccessPacketCount() // +1 total, +1 tcp, +1 tcpSuccess
+	state.IncrementTCPFailedPacketCount()  // +1 total, +1 tcp, +1 tcpFailed
+	state.IncrementUDPPacketCount()        // +1 total, +1 udp
+	state.IncrementHTTPPacketCount()       // +1 total, +1 http
+	state.IncrementResourceExhaustedCount()
+
+	start := time.Now().Add(-time.Second) // 模拟 1 秒前开始
+	report := buildScanReport(state, start)
+
+	if report.TasksTotal != 10 {
+		t.Errorf("TasksTotal = %d, 期望 10", report.TasksTotal)
+	}
+	if report.TasksCompleted != 7 {
+		t.Errorf("TasksCompleted = %d, 期望 7", report.TasksCompleted)
+	}
+	if report.Packets != 5 {
+		t.Errorf("Packets = %d, 期望 5", report.Packets)
+	}
+	if report.TCPPackets != 3 {
+		t.Errorf("TCPPackets = %d, 期望 3", report.TCPPackets)
+	}
+	if report.TCPSuccessPackets != 2 {
+		t.Errorf("TCPSuccessPackets = %d, 期望 2", report.TCPSuccessPackets)
+	}
+	if report.TCPFailedPackets != 1 {
+		t.Errorf("TCPFailedPackets = %d, 期望 1", report.TCPFailedPackets)
+	}
+	if report.UDPPackets != 1 {
+		t.Errorf("UDPPackets = %d, 期望 1", report.UDPPackets)
+	}
+	if report.HTTPPackets != 1 {
+		t.Errorf("HTTPPackets = %d, 期望 1", report.HTTPPackets)
+	}
+	if report.ResourceExhausted != 1 {
+		t.Errorf("ResourceExhausted = %d, 期望 1", report.ResourceExhausted)
+	}
+	if report.Duration < time.Millisecond {
+		t.Errorf("Duration = %v, 期望 >= 1ms", report.Duration)
+	}
+}
+
+// TestBuildScanReport_ZeroState 验证空 State 返回零值报告
+func TestBuildScanReport_ZeroState(t *testing.T) {
+	state := common.NewState()
+	start := time.Now()
+	report := buildScanReport(state, start)
+
+	if report.TasksTotal != 0 || report.TasksCompleted != 0 || report.Packets != 0 {
+		t.Errorf("空 State 期望全零报告，实际 %+v", report)
+	}
+	if report.Duration < 0 {
+		t.Errorf("Duration 不能为负: %v", report.Duration)
+	}
+}
+
+// =============================================================================
+// determineScanMode IsLocalMode 分支测试
+// =============================================================================
+
+// TestDetermineScanMode_IsLocalModeCallback 覆盖 IsLocalMode 回调分支
+func TestDetermineScanMode_IsLocalModeCallback(t *testing.T) {
+	// 保存原始值
+	origIsLocalMode := common.IsLocalMode
+	defer func() { common.IsLocalMode = origIsLocalMode }()
+
+	// 注册回调：mode == "localtest" 时认为是本地模式
+	common.IsLocalMode = func(mode string) bool {
+		return mode == "localtest"
+	}
+
+	cfg := &common.Config{
+		AliveOnly: false,
+		Mode:      "localtest",
+		LocalMode: false,
+	}
+	state := common.NewState()
+
+	mode := determineScanMode(cfg, state)
+	if mode != ScanModeLocal {
+		t.Errorf("determineScanMode() = %v, 期望 ScanModeLocal", mode)
+	}
+	// 回调命中后应同时设置 LocalMode 和 LocalPlugin
+	if !cfg.LocalMode {
+		t.Error("IsLocalMode 命中后应设置 cfg.LocalMode = true")
+	}
+	if cfg.LocalPlugin != "localtest" {
+		t.Errorf("LocalPlugin = %q, 期望 \"localtest\"", cfg.LocalPlugin)
+	}
+}
+
+// TestDetermineScanMode_IsLocalModeCallbackNoMatch 回调不命中时不影响模式
+func TestDetermineScanMode_IsLocalModeCallbackNoMatch(t *testing.T) {
+	origIsLocalMode := common.IsLocalMode
+	defer func() { common.IsLocalMode = origIsLocalMode }()
+
+	common.IsLocalMode = func(mode string) bool { return false }
+
+	cfg := &common.Config{
+		AliveOnly: false,
+		Mode:      "something",
+		LocalMode: false,
+	}
+	state := common.NewState()
+
+	mode := determineScanMode(cfg, state)
+	if mode != ScanModeService {
+		t.Errorf("回调不命中时期望 ScanModeService, 实际 %v", mode)
 	}
 }
 

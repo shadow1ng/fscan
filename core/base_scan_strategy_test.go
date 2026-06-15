@@ -462,3 +462,134 @@ func TestBaseScanStrategy_ValidateConfiguration(t *testing.T) {
 		t.Errorf("ValidateConfiguration 应返回 nil, 实际: %v", err)
 	}
 }
+
+// =============================================================================
+// IsPluginApplicableByName 补充覆盖
+// =============================================================================
+
+// TestIsPluginApplicableByName_FullModeWebPlugin 测试 -full 模式下 web 插件对任意端口生效
+func TestIsPluginApplicableByName_FullModeWebPlugin(t *testing.T) {
+	registerTestPlugins(t)
+	clearServiceCache()
+
+	cfg := common.NewConfig()
+	cfg.POC.Full = true
+
+	strategy := NewBaseScanStrategy("service", FilterService)
+
+	// webtitle 是 web 插件；-full 模式下不检查 IsMarkedWebService，直接走 passesFilterType
+	// FilterService 不允许 local/udp，但允许 web 插件
+	got := strategy.IsPluginApplicableByName("webtitle", "10.0.0.1", 12345, false, cfg)
+	if !got {
+		t.Error("full 模式下 web 插件应对任意端口返回 true")
+	}
+}
+
+// TestIsPluginApplicableByName_FullModeNonWebPlugin 确认 -full 不影响非 web 插件的端口匹配
+func TestIsPluginApplicableByName_FullModeNonWebPlugin(t *testing.T) {
+	registerTestPlugins(t)
+	clearServiceCache()
+
+	cfg := common.NewConfig()
+	cfg.POC.Full = true
+
+	strategy := NewBaseScanStrategy("service", FilterService)
+
+	// ssh 不是 web 插件，-full 无特殊逻辑，走普通端口匹配
+	// ssh 默认端口 22；用 99999 端口应该不匹配
+	got := strategy.IsPluginApplicableByName("ssh", "10.0.0.1", 99999, false, cfg)
+	if got {
+		t.Error("-full 模式对非 web 插件不应绕过端口匹配")
+	}
+}
+
+// =============================================================================
+// isPluginApplicableToPort 补充覆盖
+// =============================================================================
+
+// TestIsPluginApplicableToPort_WebPlugin web 插件忽略端口直接返回 true
+func TestIsPluginApplicableToPort_WebPlugin(t *testing.T) {
+	registerTestPlugins(t)
+	strategy := NewBaseScanStrategy("service", FilterService)
+
+	// webtitle 是 web 插件，任何端口都应返回 true
+	if !strategy.isPluginApplicableToPort("webtitle", 8080) {
+		t.Error("web 插件在任意端口应返回 true")
+	}
+	if !strategy.isPluginApplicableToPort("webtitle", 0) {
+		t.Error("web 插件在端口 0 也应返回 true")
+	}
+}
+
+// TestIsPluginApplicableToPort_NonWebPlugin 非 web 插件走端口匹配逻辑
+func TestIsPluginApplicableToPort_NonWebPlugin(t *testing.T) {
+	registerTestPlugins(t)
+	clearServiceCache()
+	strategy := NewBaseScanStrategy("service", FilterService)
+
+	// ssh 端口 22 匹配
+	if !strategy.isPluginApplicableToPort("ssh", 22) {
+		t.Error("ssh 应匹配端口 22")
+	}
+	// ssh 端口 9999 不匹配（无服务缓存）
+	if strategy.isPluginApplicableToPort("ssh", 9999) {
+		t.Error("ssh 不应匹配端口 9999")
+	}
+}
+
+// =============================================================================
+// isPluginPassesFilterType 补充覆盖
+// =============================================================================
+
+// TestIsPluginPassesFilterType_CustomMode isCustomMode=true 应直接跳过过滤返回 true（非 UDP）
+func TestIsPluginPassesFilterType_CustomMode(t *testing.T) {
+	registerTestPlugins(t)
+	cfg := common.NewConfig()
+
+	// FilterLocal 策略下 custom mode 也应通过
+	localStrategy := NewBaseScanStrategy("local", FilterLocal)
+	if !localStrategy.isPluginPassesFilterType("ssh", true, cfg) {
+		t.Error("custom mode 下非 UDP 插件应直接返回 true")
+	}
+
+	// FilterService 策略下 custom mode 也应通过
+	serviceStrategy := NewBaseScanStrategy("service", FilterService)
+	if !serviceStrategy.isPluginPassesFilterType("ssh", true, cfg) {
+		t.Error("custom mode 下 service 策略应直接返回 true")
+	}
+}
+
+// TestIsPluginPassesFilterType_FilterNoneNonLocal FilterNone + 普通 TCP 插件 → true
+func TestIsPluginPassesFilterType_FilterNoneNonLocal(t *testing.T) {
+	registerTestPlugins(t)
+	cfg := common.NewConfig()
+
+	noneStrategy := NewBaseScanStrategy("none", FilterNone)
+
+	// ssh 不是 local 插件，FilterNone 应直接返回 true
+	if !noneStrategy.isPluginPassesFilterType("ssh", false, cfg) {
+		t.Error("FilterNone + 非 local 插件应返回 true")
+	}
+	if !noneStrategy.isPluginPassesFilterType("redis", false, cfg) {
+		t.Error("FilterNone + 非 local 插件 redis 应返回 true")
+	}
+}
+
+// TestIsPluginPassesFilterType_FilterNoneLocalPlugin FilterNone + local 插件：需要 -local 显式指定
+func TestIsPluginPassesFilterType_FilterNoneLocalPlugin(t *testing.T) {
+	plugins.RegisterWithOptions("core_test_local_none", func() plugins.Plugin { return nil }, nil, []string{plugins.PluginTypeLocal}, false)
+	cfg := common.NewConfig()
+
+	noneStrategy := NewBaseScanStrategy("none", FilterNone)
+
+	// 未指定 LocalPlugin，应返回 false
+	if noneStrategy.isPluginPassesFilterType("core_test_local_none", false, cfg) {
+		t.Error("FilterNone + local 插件未显式指定时应返回 false")
+	}
+
+	// 指定后应返回 true
+	cfg.LocalPlugin = "core_test_local_none"
+	if !noneStrategy.isPluginPassesFilterType("core_test_local_none", false, cfg) {
+		t.Error("FilterNone + local 插件显式指定后应返回 true")
+	}
+}

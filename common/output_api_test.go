@@ -105,6 +105,24 @@ func TestInitOutputValidationAndDefaultExtension(t *testing.T) {
 	}
 }
 
+func TestCloseOutputWithStdoutWriter(t *testing.T) {
+	preserveOutputAPIGlobals(t)
+
+	// 初始化 silent 模式以创建 StdoutWriter
+	flagVars = &FlagVars{Silent: true, DisableSave: true}
+	if err := InitOutput(); err != nil {
+		t.Fatalf("InitOutput silent error = %v", err)
+	}
+	if StdoutWriter == nil {
+		t.Fatal("StdoutWriter 应在 Silent 模式下被初始化")
+	}
+
+	// CloseOutput 应正常关闭 StdoutWriter
+	if err := CloseOutput(); err != nil {
+		t.Fatalf("CloseOutput with StdoutWriter error = %v", err)
+	}
+}
+
 func TestSaveResultFacadeCallbackAndDisabledSave(t *testing.T) {
 	preserveOutputAPIGlobals(t)
 

@@ -1342,3 +1342,54 @@ func TestRandomStrRejectsNegativeLength(t *testing.T) {
 		t.Fatalf("RandomStr negative length = %q, want empty", got)
 	}
 }
+
+// =============================================================================
+// MakeVarDecl 测试
+// =============================================================================
+
+func TestMakeVarDecl(t *testing.T) {
+	tests := []struct {
+		name      string
+		key       string
+		value     string
+		wantIdent string // 期望 Decl.Name
+		wantKind  string // "int" / "string" / "object"
+	}{
+		{"randomInt 前缀 -> Int", "myrand", "randomInt(1,100)", "myrand", "int"},
+		{"newReverse 前缀 -> Object", "myrev", "newReverse()", "myrev", "object"},
+		{"普通字符串 -> String", "myvar", "somevalue", "myvar", "string"},
+		{"空值 -> String", "empty", "", "empty", "string"},
+		{"randomIntExtra -> Int", "n", "randomInt(0, 65535)", "n", "int"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			decl := MakeVarDecl(tt.key, tt.value)
+			if decl == nil {
+				t.Fatal("MakeVarDecl() returned nil")
+			}
+			if decl.Name != tt.wantIdent {
+				t.Errorf("Decl.Name = %q, want %q", decl.Name, tt.wantIdent)
+			}
+			// 通过 Type 字段判断类型种类
+			tp := decl.GetIdent().GetType()
+			if tp == nil {
+				t.Fatal("Decl.GetIdent().GetType() == nil")
+			}
+			switch tt.wantKind {
+			case "int":
+				if tp.GetPrimitive().String() != "INT64" {
+					t.Errorf("type = %v, want INT64", tp)
+				}
+			case "string":
+				if tp.GetPrimitive().String() != "STRING" {
+					t.Errorf("type = %v, want STRING", tp)
+				}
+			case "object":
+				if tp.GetMessageType() == "" {
+					t.Errorf("type = %v, want MessageType", tp)
+				}
+			}
+		})
+	}
+}

@@ -517,6 +517,74 @@ func TestPocExecutorPureHelpers(t *testing.T) {
 	})
 }
 
+// =============================================================================
+// isPlainLiteral 测试
+// =============================================================================
+
+func TestIsPlainLiteral_EmptyString(t *testing.T) {
+	if isPlainLiteral("", nil) {
+		t.Error("空字符串不是字面量")
+	}
+}
+
+func TestIsPlainLiteral_PlainWord(t *testing.T) {
+	if !isPlainLiteral("database", nil) {
+		t.Error("纯单词 'database' 应视为字面量")
+	}
+}
+
+func TestIsPlainLiteral_WithParens(t *testing.T) {
+	if isPlainLiteral("func()", nil) {
+		t.Error("含括号的表达式不是字面量")
+	}
+}
+
+func TestIsPlainLiteral_WithOperator(t *testing.T) {
+	for _, expr := range []string{"a+b", "a*b", "a==b", "a!=b", "a<b", "a>b", "a&&b", "a||b"} {
+		if isPlainLiteral(expr, nil) {
+			t.Errorf("含运算符的表达式 %q 不是字面量", expr)
+		}
+	}
+}
+
+func TestIsPlainLiteral_WithQuotes(t *testing.T) {
+	if isPlainLiteral(`"hello"`, nil) {
+		t.Error("含引号的表达式不是字面量")
+	}
+	if isPlainLiteral("'hello'", nil) {
+		t.Error("含单引号的表达式不是字面量")
+	}
+}
+
+func TestIsPlainLiteral_VariableRef(t *testing.T) {
+	// 如果 expr 是已声明变量的名字，应走 CEL 求值
+	varMap := map[string]interface{}{"token": "abc123"}
+	if isPlainLiteral("token", varMap) {
+		t.Error("已声明变量不应被视为字面量")
+	}
+}
+
+func TestIsPlainLiteral_UndeclaredVariable(t *testing.T) {
+	varMap := map[string]interface{}{"token": "abc123"}
+	// 未声明的变量名且无特殊字符 -> 字面量
+	if !isPlainLiteral("sql", varMap) {
+		t.Error("未声明的纯单词 'sql' 应视为字面量")
+	}
+}
+
+func TestIsPlainLiteral_WithBracket(t *testing.T) {
+	if isPlainLiteral("arr[0]", nil) {
+		t.Error("含方括号的表达式不是字面量")
+	}
+}
+
+func TestIsPlainLiteral_PathLike(t *testing.T) {
+	// 路径中可能含 /，但 / 不在排除字符中，视为字面量
+	if !isPlainLiteral("admin", nil) {
+		t.Error("纯字母字符串应为字面量")
+	}
+}
+
 func stringMatrixEqual(a, b [][]string) bool {
 	if len(a) != len(b) {
 		return false
@@ -532,4 +600,268 @@ func stringMatrixEqual(a, b [][]string) bool {
 		}
 	}
 	return true
+}
+
+// =============================================================================
+// buildVulnDetails 测试
+// =============================================================================
+
+func TestBuildVulnDetails(t *testing.T) {
+	tests := []struct {
+		name          string
+		pocDef        *Poc
+		vulName       string
+		params        StrMap
+		wantKeys      []string
+		wantNoKeys    []string
+		wantVulnType  string
+		wantVulnName  string
+		wantParamVal  string
+		wantParamKey  string
+	}{
+		{
+			name:         "最小Poc只有Name",
+			pocDef:       &Poc{Name: "poc-yaml-test"},
+			vulName:      "poc-yaml-test",
+			params:       nil,
+			wantKeys:     []string{"vulnerability_type", "vulnerability_name"},
+			wantNoKeys:   []string{"author", "references", "description", "parameters"},
+			wantVulnType: "poc-yaml-test",
+			wantVulnName: "poc-yaml-test",
+		},
+		{
+			name: "完整Poc含Author+Links+Description",
+			pocDef: &Poc{
+				Name: "poc-yaml-full",
+				Detail: Detail{
+					Author:      "kei",
+					Links:       []string{"https://example.com"},
+					Description: "test vuln",
+				},
+			},
+			vulName:      "Full Vuln",
+			params:       nil,
+			wantKeys:     []string{"vulnerability_type", "vulnerability_name", "author", "references", "description"},
+			wantNoKeys:   []string{"parameters"},
+			wantVulnType: "poc-yaml-full",
+			wantVulnName: "Full Vuln",
+		},
+		{
+			name:   "有params则details含parameters字段",
+			pocDef: &Poc{Name: "poc-yaml-params"},
+			vulName: "Params Vuln",
+			params: StrMap{
+				{Key: "user", Value: "admin"},
+				{Key: "pass", Value: "123456"},
+			},
+			wantKeys:    []string{"vulnerability_type", "vulnerability_name", "parameters"},
+			wantNoKeys:  []string{"author"},
+			wantParamKey: "user",
+			wantParamVal: "admin",
+		},
+		{
+			name:       "空params不含parameters字段",
+			pocDef:     &Poc{Name: "poc-yaml-empty-params"},
+			vulName:    "Empty Params",
+			params:     StrMap{},
+			wantKeys:   []string{"vulnerability_type", "vulnerability_name"},
+			wantNoKeys: []string{"parameters"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			details := buildVulnDetails(tt.pocDef, tt.vulName, tt.params)
+
+			for _, k := range tt.wantKeys {
+				if _, ok := details[k]; !ok {
+					t.Errorf("details 缺少字段 %q", k)
+				}
+			}
+			for _, k := range tt.wantNoKeys {
+				if _, ok := details[k]; ok {
+					t.Errorf("details 不应含字段 %q", k)
+				}
+			}
+			if tt.wantVulnType != "" {
+				if got, _ := details["vulnerability_type"].(string); got != tt.wantVulnType {
+					t.Errorf("vulnerability_type = %q, want %q", got, tt.wantVulnType)
+				}
+			}
+			if tt.wantVulnName != "" {
+				if got, _ := details["vulnerability_name"].(string); got != tt.wantVulnName {
+					t.Errorf("vulnerability_name = %q, want %q", got, tt.wantVulnName)
+				}
+			}
+			if tt.wantParamKey != "" {
+				pm, ok := details["parameters"].(map[string]string)
+				if !ok {
+					t.Fatalf("parameters 类型错误，实际 %T", details["parameters"])
+				}
+				if got := pm[tt.wantParamKey]; got != tt.wantParamVal {
+					t.Errorf("parameters[%q] = %q, want %q", tt.wantParamKey, got, tt.wantParamVal)
+				}
+			}
+		})
+	}
+}
+
+// =============================================================================
+// buildVulnLogMsg 测试
+// =============================================================================
+
+func TestBuildVulnLogMsg(t *testing.T) {
+	tests := []struct {
+		name      string
+		targetURL string
+		pocDef    *Poc
+		vulName   string
+		params    StrMap
+	}{
+		{
+			name:      "backup-file名称走特殊模板",
+			targetURL: "http://example.com",
+			pocDef:    &Poc{Name: "poc-yaml-backup-file"},
+			vulName:   "poc-yaml-backup-file",
+			params:    nil,
+		},
+		{
+			name:      "sql-file名称走特殊模板",
+			targetURL: "http://example.com",
+			pocDef:    &Poc{Name: "poc-yaml-sql-file"},
+			vulName:   "poc-yaml-sql-file",
+			params:    nil,
+		},
+		{
+			name:      "有params走params模板",
+			targetURL: "http://example.com",
+			pocDef:    &Poc{Name: "poc-yaml-rce"},
+			vulName:   "RCE",
+			params:    StrMap{{Key: "cmd", Value: "id"}},
+		},
+		{
+			name:      "无params走detail_header模板",
+			targetURL: "http://example.com",
+			pocDef: &Poc{
+				Name: "poc-yaml-sqli",
+				Detail: Detail{
+					Author:      "kei",
+					Links:       []string{"https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-0001"},
+					Description: "SQL injection",
+				},
+			},
+			vulName: "SQLi",
+			params:  nil,
+		},
+		{
+			name:      "无params无detail只走header",
+			targetURL: "http://example.com",
+			pocDef:    &Poc{Name: "poc-yaml-generic"},
+			vulName:   "Generic",
+			params:    nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			msg := buildVulnLogMsg(tt.targetURL, tt.pocDef, tt.vulName, tt.params)
+			if msg == "" {
+				t.Errorf("buildVulnLogMsg() 返回空字符串")
+			}
+		})
+	}
+}
+
+// =============================================================================
+// collectVarDeclarations 测试
+// =============================================================================
+
+func TestCollectVarDeclarations(t *testing.T) {
+	t.Run("空 POC 返回空切片", func(t *testing.T) {
+		p := &Poc{}
+		decls := collectVarDeclarations(p)
+		if len(decls) != 0 {
+			t.Fatalf("len = %d, want 0", len(decls))
+		}
+	})
+
+	t.Run("仅 Set 字段", func(t *testing.T) {
+		p := &Poc{
+			Set: StrMap{
+				{Key: "token", Value: "randomLowercase(8)"},
+				{Key: "port", Value: "randomInt(1000, 9000)"},
+			},
+		}
+		decls := collectVarDeclarations(p)
+		if len(decls) != 2 {
+			t.Fatalf("len = %d, want 2", len(decls))
+		}
+		if decls[0].Name != "token" {
+			t.Errorf("decls[0].Name = %q, want token", decls[0].Name)
+		}
+		if decls[1].Name != "port" {
+			t.Errorf("decls[1].Name = %q, want port", decls[1].Name)
+		}
+	})
+
+	t.Run("仅 Sets 字段", func(t *testing.T) {
+		p := &Poc{
+			Sets: ListMap{
+				{Key: "user", Value: []string{"admin", "root"}},
+			},
+		}
+		decls := collectVarDeclarations(p)
+		if len(decls) != 1 {
+			t.Fatalf("len = %d, want 1", len(decls))
+		}
+		if decls[0].Name != "user" {
+			t.Errorf("decls[0].Name = %q, want user", decls[0].Name)
+		}
+	})
+
+	t.Run("Sets 空值列表不 panic", func(t *testing.T) {
+		p := &Poc{
+			Sets: ListMap{
+				{Key: "empty", Value: []string{}},
+			},
+		}
+		decls := collectVarDeclarations(p)
+		if len(decls) != 1 {
+			t.Fatalf("len = %d, want 1", len(decls))
+		}
+		if decls[0].Name != "empty" {
+			t.Errorf("decls[0].Name = %q, want empty", decls[0].Name)
+		}
+	})
+
+	t.Run("Set 和 Sets 合并", func(t *testing.T) {
+		p := &Poc{
+			Set: StrMap{
+				{Key: "a", Value: "x"},
+			},
+			Sets: ListMap{
+				{Key: "b", Value: []string{"y"}},
+			},
+		}
+		decls := collectVarDeclarations(p)
+		if len(decls) != 2 {
+			t.Fatalf("len = %d, want 2", len(decls))
+		}
+	})
+
+	t.Run("newReverse 前缀推断 Object 类型", func(t *testing.T) {
+		p := &Poc{
+			Set: StrMap{
+				{Key: "rev", Value: "newReverse()"},
+			},
+		}
+		decls := collectVarDeclarations(p)
+		if len(decls) != 1 {
+			t.Fatalf("len = %d, want 1", len(decls))
+		}
+		tp := decls[0].GetIdent().GetType()
+		if tp == nil || tp.GetMessageType() == "" {
+			t.Errorf("期望 Object 类型，实际 %v", tp)
+		}
+	})
 }

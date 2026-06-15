@@ -3,6 +3,7 @@
 package services
 
 import (
+	"errors"
 	"io"
 	"net"
 	"strings"
@@ -83,5 +84,53 @@ func TestMySQLConnStringRejectsUnsupportedUsernameDelimiters(t *testing.T) {
 	info := &common.HostInfo{Host: "127.0.0.1", Port: 3306}
 	if _, err := mySQLConnString("user:name", "pass", info, time.Second); err == nil {
 		t.Fatal("mySQLConnString() error = nil, want unsupported delimiter error")
+	}
+}
+
+func TestMySQLConnStringRejectsAtSign(t *testing.T) {
+	info := &common.HostInfo{Host: "127.0.0.1", Port: 3306}
+	if _, err := mySQLConnString("user@host", "pass", info, time.Second); err == nil {
+		t.Fatal("mySQLConnString() error = nil, want unsupported delimiter error for @")
+	}
+}
+
+func TestMySQLConnStringRejectsSlash(t *testing.T) {
+	info := &common.HostInfo{Host: "127.0.0.1", Port: 3306}
+	if _, err := mySQLConnString("user/name", "pass", info, time.Second); err == nil {
+		t.Fatal("mySQLConnString() error = nil, want unsupported delimiter error for /")
+	}
+}
+
+func TestMySQLConnStringValidUser(t *testing.T) {
+	info := &common.HostInfo{Host: "127.0.0.1", Port: 3306}
+	dsn, err := mySQLConnString("root", "password", info, 3*time.Second)
+	if err != nil {
+		t.Fatalf("mySQLConnString() error = %v", err)
+	}
+	if dsn == "" {
+		t.Fatal("mySQLConnString() returned empty DSN")
+	}
+}
+
+func TestClassifyMySQLErrorType(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want ErrorType
+	}{
+		{"nil error", nil, ErrorTypeUnknown},
+		{"access denied for user", errors.New("access denied for user"), ErrorTypeAuth},
+		{"host is not allowed", errors.New("host is not allowed"), ErrorTypeAuth},
+		{"too many connections", errors.New("too many connections"), ErrorTypeNetwork},
+		{"can't connect to mysql server", errors.New("can't connect to mysql server"), ErrorTypeNetwork},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := classifyMySQLErrorType(tt.err)
+			if got != tt.want {
+				t.Errorf("classifyMySQLErrorType(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
 	}
 }

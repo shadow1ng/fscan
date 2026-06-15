@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/binary"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -126,5 +127,27 @@ func TestBuildMongoSCRAMClientFinalBuildsProof(t *testing.T) {
 	}
 	if !strings.HasPrefix(got, "c=biws,r=clientserver,p=") {
 		t.Fatalf("client final = %q", got)
+	}
+}
+
+func TestClassifyMongoDBErrorType(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want ErrorType
+	}{
+		{"nil", nil, ErrorTypeUnknown},
+		{"authentication failed", errors.New("authentication failed"), ErrorTypeAuth},
+		{"bad auth", errors.New("bad auth"), ErrorTypeAuth},
+		{"dial tcp", errors.New("dial tcp connection refused"), ErrorTypeNetwork},
+		{"eof", errors.New("eof"), ErrorTypeNetwork},
+		{"unknown", errors.New("random mongodb error"), ErrorTypeUnknown},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := classifyMongoDBErrorType(tt.err); got != tt.want {
+				t.Errorf("classifyMongoDBErrorType() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

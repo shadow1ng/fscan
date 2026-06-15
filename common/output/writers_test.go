@@ -1728,3 +1728,420 @@ func TestManager_ConcurrentSave(t *testing.T) {
 	t.Logf("✓ 并发保存测试通过（%d个goroutine，每个%d次，输出%d行）",
 		numGoroutines, savesPerGoroutine, len(lines))
 }
+
+// =============================================================================
+// TXTWriter - 内部格式化函数覆盖率测试
+// =============================================================================
+
+// newTestTXTWriter 创建用于单元测试的 TXTWriter（写到临时文件，调用方负责 Close）
+func newTestTXTWriter(t *testing.T) *TXTWriter {
+	t.Helper()
+	w, err := NewTXTWriter(filepath.Join(t.TempDir(), "unit.txt"))
+	if err != nil {
+		t.Fatalf("创建 TXTWriter 失败: %v", err)
+	}
+	return w
+}
+
+// TestFormatServiceLine 覆盖 formatServiceLine 的各分支
+func TestFormatServiceLine(t *testing.T) {
+	w := newTestTXTWriter(t)
+	defer w.Close()
+
+	tests := []struct {
+		name    string
+		details map[string]interface{}
+		want    []string // 输出中必须包含的子串
+		notwant []string // 输出中不应包含的子串
+	}{
+		{
+			name: "非web服务带service和banner",
+			details: map[string]interface{}{
+				"port":    22,
+				"service": "ssh",
+				"banner":  "OpenSSH_8.0",
+			},
+			want:    []string{"ssh", "OpenSSH_8.0"},
+			notwant: []string{"http://", "https://"},
+		},
+		{
+			name: "非web服务只有service",
+			details: map[string]interface{}{
+				"port":    3306,
+				"service": "mysql",
+			},
+			want:    []string{"mysql"},
+			notwant: []string{"http://"},
+		},
+		{
+			name: "非web服务无banner",
+			details: map[string]interface{}{
+				"port":    21,
+				"service": "ftp",
+			},
+			want: []string{"ftp"},
+		},
+		{
+			name: "service=http 走 web 分支",
+			details: map[string]interface{}{
+				"port":    80,
+				"service": "http",
+				"title":   "Home",
+				"status":  200,
+			},
+			want:    []string{"http://", "Home"},
+			notwant: []string{"ssh"},
+		},
+		{
+			name: "service=https 走 web 分支",
+			details: map[string]interface{}{
+				"port":    443,
+				"service": "https",
+				"title":   "Secure",
+				"status":  200,
+			},
+			want: []string{"https://", "Secure"},
+		},
+		{
+			name: "is_web=true 走 web 分支",
+			details: map[string]interface{}{
+				"port":   8080,
+				"is_web": true,
+				"title":  "Dashboard",
+				"status": 302,
+			},
+			want: []string{"http://", "Dashboard"},
+		},
+		{
+			name: "有 status 字段触发 web 分支",
+			details: map[string]interface{}{
+				"port":   8080,
+				"status": 200,
+			},
+			want: []string{"http://"},
+		},
+		{
+			name: "有 server 字段触发 web 分支",
+			details: map[string]interface{}{
+				"port":   8080,
+				"server": "nginx",
+			},
+			want: []string{"http://", "nginx"},
+		},
+		{
+			name: "banner 含控制字符被转义",
+			details: map[string]interface{}{
+				"port":    9999,
+				"service": "custom",
+				"banner":  "hello\nworld\r\n",
+			},
+			want:    []string{"\\n", "\\r"},
+			notwant: []string{"http://"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := &ScanResult{
+				Target:  "192.168.1.1",
+				Type:    TypeService,
+				Details: tt.details,
+			}
+			got := w.formatServiceLine(result)
+			for _, s := range tt.want {
+				if !strings.Contains(got, s) {
+					t.Errorf("formatServiceLine() = %q，缺少 %q", got, s)
+				}
+			}
+			for _, s := range tt.notwant {
+				if strings.Contains(got, s) {
+					t.Errorf("formatServiceLine() = %q，不应含 %q", got, s)
+				}
+			}
+		})
+	}
+}
+
+// TestGetFingerprints 覆盖 getFingerprints 的各类型分支
+func TestGetFingerprints(t *testing.T) {
+	w := newTestTXTWriter(t)
+	defer w.Close()
+
+	tests := []struct {
+		name    string
+		details map[string]interface{}
+		want    string
+	}{
+		{
+			name:    "nil fingerprints",
+			details: map[string]interface{}{},
+			want:    "",
+		},
+		{
+			name:    "[]string 非空",
+			details: map[string]interface{}{"fingerprints": []string{"nginx", "php"}},
+			want:    "[nginx,php]",
+		},
+		{
+			name:    "[]string 空slice",
+			details: map[string]interface{}{"fingerprints": []string{}},
+			want:    "",
+		},
+		{
+			name:    "[]interface{} 非空",
+			details: map[string]interface{}{"fingerprints": []interface{}{"wordpress", "jquery"}},
+			want:    "[wordpress,jquery]",
+		},
+		{
+			name:    "[]interface{} 含数字",
+			details: map[string]interface{}{"fingerprints": []interface{}{"apache", 2}},
+			want:    "[apache,2]",
+		},
+		{
+			name:    "[]interface{} 空slice",
+			details: map[string]interface{}{"fingerprints": []interface{}{}},
+			want:    "",
+		},
+		{
+			name:    "不支持的类型返回空",
+			details: map[string]interface{}{"fingerprints": "just-a-string"},
+			want:    "",
+		},
+		{
+			name:    "单个元素",
+			details: map[string]interface{}{"fingerprints": []string{"tomcat"}},
+			want:    "[tomcat]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := &ScanResult{Target: "1.2.3.4", Details: tt.details}
+			got := w.getFingerprints(result)
+			if got != tt.want {
+				t.Errorf("getFingerprints() = %q，want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestFormatVulnLine 覆盖 formatVulnLine 的各分支
+func TestFormatVulnLine(t *testing.T) {
+	w := newTestTXTWriter(t)
+	defer w.Close()
+
+	tests := []struct {
+		name    string
+		target  string
+		status  string
+		details map[string]interface{}
+		want    string
+	}{
+		{
+			name:   "weak_credential 带 service",
+			target: "192.168.1.1:22",
+			details: map[string]interface{}{
+				"type":     "weak_credential",
+				"service":  "ssh",
+				"username": "root",
+				"password": "123456",
+			},
+			want: "192.168.1.1:22 ssh root/123456",
+		},
+		{
+			name:   "weak_credential 不带 service",
+			target: "192.168.1.1:3306",
+			details: map[string]interface{}{
+				"type":     "weak_credential",
+				"username": "admin",
+				"password": "pass",
+			},
+			want: "192.168.1.1:3306 admin/pass",
+		},
+		{
+			name:   "有 vulnerability 字段",
+			target: "10.0.0.1",
+			details: map[string]interface{}{
+				"type":          "poc",
+				"vulnerability": "CVE-2024-1234",
+			},
+			want: "10.0.0.1 CVE-2024-1234",
+		},
+		{
+			name:   "无 vulnerability 字段回退到 status",
+			target: "10.0.0.2",
+			status: "VULNERABLE",
+			details: map[string]interface{}{
+				"type": "unknown",
+			},
+			want: "10.0.0.2 VULNERABLE",
+		},
+		{
+			name:    "空 details 回退到 status",
+			target:  "10.0.0.3",
+			status:  "poc_hit",
+			details: map[string]interface{}{},
+			want:    "10.0.0.3 poc_hit",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := &ScanResult{
+				Target:  tt.target,
+				Status:  tt.status,
+				Type:    TypeVuln,
+				Details: tt.details,
+			}
+			got := w.formatVulnLine(result)
+			if got != tt.want {
+				t.Errorf("formatVulnLine() = %q，want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestIsWebService 覆盖 isWebService 的各判断分支
+func TestIsWebService(t *testing.T) {
+	w := newTestTXTWriter(t)
+	defer w.Close()
+
+	tests := []struct {
+		name    string
+		details map[string]interface{}
+		want    bool
+	}{
+		{
+			name:    "is_web=true",
+			details: map[string]interface{}{"is_web": true},
+			want:    true,
+		},
+		{
+			name:    "is_web=false 无其他标志",
+			details: map[string]interface{}{"is_web": false},
+			want:    false,
+		},
+		{
+			name:    "有 status 字段",
+			details: map[string]interface{}{"status": 200},
+			want:    true,
+		},
+		{
+			name:    "status=nil 不触发",
+			details: map[string]interface{}{},
+			want:    false,
+		},
+		{
+			name:    "有非空 server 字段",
+			details: map[string]interface{}{"server": "nginx"},
+			want:    true,
+		},
+		{
+			name:    "空 server 字段不触发",
+			details: map[string]interface{}{"server": ""},
+			want:    false,
+		},
+		{
+			name:    "service=http",
+			details: map[string]interface{}{"service": "http"},
+			want:    true,
+		},
+		{
+			name:    "service=https",
+			details: map[string]interface{}{"service": "https"},
+			want:    true,
+		},
+		{
+			name:    "service=ssh 不是 web",
+			details: map[string]interface{}{"service": "ssh"},
+			want:    false,
+		},
+		{
+			name:    "nil Details",
+			details: nil,
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := &ScanResult{Target: "1.2.3.4", Details: tt.details}
+			got := w.isWebService(result)
+			if got != tt.want {
+				t.Errorf("isWebService() = %v，want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestWebProtocol 覆盖 webProtocol 的各判断分支
+func TestWebProtocol(t *testing.T) {
+	w := newTestTXTWriter(t)
+	defer w.Close()
+
+	tests := []struct {
+		name    string
+		target  string
+		details map[string]interface{}
+		want    string
+	}{
+		{
+			name:    "protocol=https 直接返回",
+			target:  "1.2.3.4:8443",
+			details: map[string]interface{}{"protocol": "https"},
+			want:    "https",
+		},
+		{
+			name:    "protocol=http 直接返回",
+			target:  "1.2.3.4:8080",
+			details: map[string]interface{}{"protocol": "http"},
+			want:    "http",
+		},
+		{
+			name:    "protocol=HTTPS 大小写不敏感",
+			target:  "1.2.3.4:443",
+			details: map[string]interface{}{"protocol": "HTTPS"},
+			want:    "https",
+		},
+		{
+			name:    "service=https 回退",
+			target:  "1.2.3.4:8080",
+			details: map[string]interface{}{"service": "https"},
+			want:    "https",
+		},
+		{
+			name:    "target 含 :443 回退 https",
+			target:  "example.com:443",
+			details: map[string]interface{}{},
+			want:    "https",
+		},
+		{
+			name:    "无任何标志默认 http",
+			target:  "1.2.3.4:8080",
+			details: map[string]interface{}{},
+			want:    "http",
+		},
+		{
+			name:    "service=http 默认 http",
+			target:  "1.2.3.4:80",
+			details: map[string]interface{}{"service": "http"},
+			want:    "http",
+		},
+		{
+			name:    "protocol 为其他值走 service 分支",
+			target:  "1.2.3.4:9000",
+			details: map[string]interface{}{"protocol": "tcp", "service": "https"},
+			want:    "https",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := &ScanResult{Target: tt.target, Details: tt.details}
+			got := w.webProtocol(result, tt.target)
+			if got != tt.want {
+				t.Errorf("webProtocol() = %q，want %q", got, tt.want)
+			}
+		})
+	}
+}

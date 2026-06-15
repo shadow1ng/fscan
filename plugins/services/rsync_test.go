@@ -3,6 +3,7 @@
 package services
 
 import (
+	"errors"
 	"io"
 	"testing"
 )
@@ -35,5 +36,26 @@ func TestReadRsyncLineHandlesChunkedReads(t *testing.T) {
 	}
 	if got != "@RSYNCD: 31.0\n" {
 		t.Fatalf("readRsyncLine() = %q", got)
+	}
+}
+
+func TestClassifyRsyncErrorType(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want ErrorType
+	}{
+		{"nil", nil, ErrorTypeUnknown},
+		{"authentication failed", errors.New("authentication failed"), ErrorTypeAuth},
+		{"access denied", errors.New("access denied"), ErrorTypeAuth},
+		{"connection refused", errors.New("connection refused"), ErrorTypeNetwork},
+		{"unknown", errors.New("random rsync error"), ErrorTypeUnknown},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := classifyRsyncErrorType(tt.err); got != tt.want {
+				t.Errorf("classifyRsyncErrorType() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

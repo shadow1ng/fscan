@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/shadow1ng/fscan/common/output"
 )
 
 func TestScanSessionLogMethodsHonorSilentConfig(t *testing.T) {
@@ -158,6 +160,85 @@ func TestParseProxyURLExtractsAuthWithoutScheme(t *testing.T) {
 	}
 	if username != "user" || password != "pass" {
 		t.Fatalf("credentials = %q/%q, want user/pass", username, password)
+	}
+}
+
+// TestScanSessionSaveResultUsesSink 测试 SaveResult 通过 ResultSink 分发
+func TestScanSessionSaveResultUsesSink(t *testing.T) {
+	preserveOutputAPIGlobals(t)
+
+	cfg := NewConfig()
+	cfg.Output.DisableSave = true
+	SetGlobalConfig(cfg)
+	flagVars = &FlagVars{DisableSave: true}
+	_ = InitOutput()
+
+	var sinkGot *output.ScanResult
+	session := NewScanSession(cfg, NewState(), &FlagVars{})
+	session.ResultSink = func(r *output.ScanResult) error {
+		sinkGot = r
+		return nil
+	}
+
+	result := &output.ScanResult{
+		Type:   output.TypeHost,
+		Target: "10.0.0.1",
+		Status: "ALIVE",
+	}
+	if err := session.SaveResult(result); err != nil {
+		t.Fatalf("session.SaveResult error = %v", err)
+	}
+	if sinkGot != result {
+		t.Fatalf("ResultSink 未被调用或参数不符: got %v", sinkGot)
+	}
+}
+
+// TestScanSessionSaveResultFallsBackToGlobal 测试无 sink 时回退到全局 SaveResult
+func TestScanSessionSaveResultFallsBackToGlobal(t *testing.T) {
+	preserveOutputAPIGlobals(t)
+
+	cfg := NewConfig()
+	cfg.Output.DisableSave = true
+	SetGlobalConfig(cfg)
+	flagVars = &FlagVars{DisableSave: true}
+	_ = InitOutput()
+
+	called := false
+	SetResultCallback(func(payload interface{}) {
+		called = true
+	})
+
+	session := NewScanSession(cfg, NewState(), &FlagVars{})
+	// 不设置 ResultSink，应回退到全局
+
+	result := &output.ScanResult{
+		Type:   output.TypeHost,
+		Target: "10.0.0.2",
+		Status: "ALIVE",
+	}
+	if err := session.SaveResult(result); err != nil {
+		t.Fatalf("session.SaveResult (fallback) error = %v", err)
+	}
+	if !called {
+		t.Fatal("回退到全局 SaveResult 时应触发 ResultCallback")
+	}
+}
+
+// TestScanSessionLogMethodsEnabledByDefault 测试非 Silent 配置下 Log 方法不被屏蔽
+func TestScanSessionLogMethodsEnabledByDefault(t *testing.T) {
+	cfg := NewConfig()
+	cfg.Output.Silent = false
+	session := NewScanSession(cfg, NewState(), &FlagVars{})
+	if !session.loggingEnabled() {
+		t.Fatal("非 Silent 配置下 loggingEnabled 应返回 true")
+	}
+}
+
+// TestNilScanSessionLoggingEnabled 测试 nil session 的 loggingEnabled
+func TestNilScanSessionLoggingEnabled(t *testing.T) {
+	var session *ScanSession
+	if !session.loggingEnabled() {
+		t.Fatal("nil session 的 loggingEnabled 应返回 true（安全降级）")
 	}
 }
 

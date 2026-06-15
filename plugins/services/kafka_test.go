@@ -4,6 +4,7 @@ package services
 
 import (
 	"encoding/binary"
+	"errors"
 	"io"
 	"testing"
 )
@@ -59,5 +60,27 @@ func TestKafkaRecvRejectsShortResponse(t *testing.T) {
 
 	if _, err := kafkaRecv(&chunkedKafkaReader{data: packet}); err == nil {
 		t.Fatal("kafkaRecv() error = nil, want invalid length error")
+	}
+}
+
+func TestClassifyKafkaErrorType(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want ErrorType
+	}{
+		{"nil", nil, ErrorTypeUnknown},
+		{"sasl auth failed", errors.New("sasl authentication failed"), ErrorTypeAuth},
+		{"unauthorized", errors.New("unauthorized"), ErrorTypeAuth},
+		{"broker not available", errors.New("broker not available"), ErrorTypeNetwork},
+		{"connection refused", errors.New("connection refused"), ErrorTypeNetwork},
+		{"unknown", errors.New("random kafka error"), ErrorTypeUnknown},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := classifyKafkaErrorType(tt.err); got != tt.want {
+				t.Errorf("classifyKafkaErrorType() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

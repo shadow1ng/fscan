@@ -2,6 +2,7 @@ package core
 
 import (
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -127,4 +128,115 @@ func TestScanMetrics_ConcurrentSafety(t *testing.T) {
 
 	// 验证 RTTRatio 不 panic
 	_ = m.RTTRatio()
+}
+
+// =============================================================================
+// 补充测试：按题目要求的函数名
+// =============================================================================
+
+// TestScanMetricsTotal — 各计数器各调一次，Total() 应返回 4
+func TestScanMetricsTotal(t *testing.T) {
+	m := &ScanMetrics{}
+	m.RecordConnect(time.Millisecond)
+	m.RecordRefused(time.Millisecond)
+	m.RecordTimeout()
+	m.RecordExhausted()
+	if got := m.Total(); got != 4 {
+		t.Errorf("Total() = %d, want 4", got)
+	}
+}
+
+// TestScanMetricsSnapshot — 记录数据后 Snapshot() 返回正确快照
+func TestScanMetricsSnapshot(t *testing.T) {
+	m := &ScanMetrics{}
+	m.RecordConnect(5 * time.Millisecond)
+	m.RecordConnect(10 * time.Millisecond)
+	m.RecordRefused(2 * time.Millisecond)
+	m.RecordTimeout()
+	m.RecordExhausted()
+
+	snap := m.Snapshot()
+	tests := []struct {
+		name string
+		got  int64
+		want int64
+	}{
+		{"Connects", snap.Connects, 2},
+		{"Refused", snap.Refused, 1},
+		{"Timeouts", snap.Timeouts, 1},
+		{"Exhausted", snap.Exhausted, 1},
+	}
+	for _, tt := range tests {
+		if tt.got != tt.want {
+			t.Errorf("Snapshot.%s = %d, want %d", tt.name, tt.got, tt.want)
+		}
+	}
+	if snap.RTTFastNs <= 0 {
+		t.Errorf("Snapshot.RTTFastNs = %d, want > 0", snap.RTTFastNs)
+	}
+}
+
+// TestScanMetricsRTTRatio — 样本不足返回 1.0；20+ 个相同 RTT 接近 1.0
+func TestScanMetricsRTTRatio(t *testing.T) {
+	t.Run("样本不足返回1.0", func(t *testing.T) {
+		m := &ScanMetrics{}
+		for i := 0; i < 19; i++ {
+			m.RecordConnect(time.Millisecond)
+		}
+		if r := m.RTTRatio(); r != 1.0 {
+			t.Errorf("样本不足 RTTRatio() = %f, want 1.0", r)
+		}
+	})
+
+	t.Run("稳定RTT接近1.0", func(t *testing.T) {
+		m := &ScanMetrics{}
+		for i := 0; i < 30; i++ {
+			m.RecordConnect(10 * time.Millisecond)
+		}
+		r := m.RTTRatio()
+		if r < 0.9 || r > 1.1 {
+			t.Errorf("稳定RTT下 RTTRatio() = %f, want ~1.0", r)
+		}
+	})
+}
+
+// TestScanMetricsRTTFast — 初始为 0，记录后非零
+func TestScanMetricsRTTFast(t *testing.T) {
+	m := &ScanMetrics{}
+	if m.RTTFast() != 0 {
+		t.Errorf("初始 RTTFast() = %v, want 0", m.RTTFast())
+	}
+	m.RecordConnect(5 * time.Millisecond)
+	if m.RTTFast() == 0 {
+		t.Errorf("记录后 RTTFast() 仍为 0")
+	}
+}
+
+// TestMetricsSnapshotTotal — MetricsSnapshot 各字段求和
+func TestMetricsSnapshotTotal(t *testing.T) {
+	snap := MetricsSnapshot{Connects: 1, Refused: 2, Timeouts: 3, Exhausted: 4}
+	if got := snap.Total(); got != 10 {
+		t.Errorf("MetricsSnapshot.Total() = %d, want 10", got)
+	}
+}
+
+// TestUpdateEMA — 直接测 updateEMA 行为
+func TestUpdateEMA(t *testing.T) {
+	t.Run("target为0时直接设为sample", func(t *testing.T) {
+		var a atomic.Int64
+		updateEMA(&a, 100, 10)
+		if got := a.Load(); got != 100 {
+			t.Errorf("初始为0时 updateEMA 结果 = %d, want 100", got)
+		}
+	})
+
+	t.Run("target非零时做EMA更新", func(t *testing.T) {
+		var a atomic.Int64
+		a.Store(200)
+		// next = 200 + (100-200)/10 = 200 - 10 = 190
+		updateEMA(&a, 100, 10)
+		if got := a.Load(); got != 190 {
+			t.Errorf("EMA更新结果 = %d, want 190", got)
+		}
+	})
 }

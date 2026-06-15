@@ -862,3 +862,76 @@ func TestConvertToTargetInfos_DeepCopy(t *testing.T) {
 		}
 	})
 }
+
+// =============================================================================
+// mergeHostPorts 测试
+// =============================================================================
+
+func TestMergeHostPorts(t *testing.T) {
+	// 结果顺序不确定（map 遍历），用集合比较
+	toSet := func(ss []string) map[string]struct{} {
+		m := make(map[string]struct{}, len(ss))
+		for _, s := range ss {
+			m[s] = struct{}{}
+		}
+		return m
+	}
+	setsEqual := func(a, b map[string]struct{}) bool {
+		if len(a) != len(b) {
+			return false
+		}
+		for k := range a {
+			if _, ok := b[k]; !ok {
+				return false
+			}
+		}
+		return true
+	}
+
+	tests := []struct {
+		name string
+		a    []string
+		b    []string
+		want []string
+	}{
+		{
+			name: "两个空切片返回空",
+			a:    []string{},
+			b:    []string{},
+			want: []string{},
+		},
+		{
+			name: "无重复-并集",
+			a:    []string{"1.1.1.1:80"},
+			b:    []string{"2.2.2.2:443"},
+			want: []string{"1.1.1.1:80", "2.2.2.2:443"},
+		},
+		{
+			name: "有重复-去重",
+			a:    []string{"1.1.1.1:80", "2.2.2.2:443"},
+			b:    []string{"2.2.2.2:443", "3.3.3.3:22"},
+			want: []string{"1.1.1.1:80", "2.2.2.2:443", "3.3.3.3:22"},
+		},
+		{
+			name: "a为nil-返回b内容",
+			a:    nil,
+			b:    []string{"1.1.1.1:80", "2.2.2.2:443"},
+			want: []string{"1.1.1.1:80", "2.2.2.2:443"},
+		},
+		{
+			name: "b为nil-返回a内容",
+			a:    []string{"1.1.1.1:80"},
+			b:    nil,
+			want: []string{"1.1.1.1:80"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := mergeHostPorts(tt.a, tt.b)
+			if !setsEqual(toSet(got), toSet(tt.want)) {
+				t.Errorf("mergeHostPorts() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

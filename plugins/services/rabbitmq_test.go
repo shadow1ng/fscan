@@ -5,6 +5,7 @@ package services
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -59,4 +60,25 @@ func (r *chunkedByteReader) Read(p []byte) (int, error) {
 	copy(p, r.data[:n])
 	r.data = r.data[n:]
 	return n, nil
+}
+
+func TestClassifyRabbitMQErrorType(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want ErrorType
+	}{
+		{"nil", nil, ErrorTypeUnknown},
+		{"authentication failed", errors.New("authentication failed"), ErrorTypeAuth},
+		{"401 unauthorized", errors.New("401 unauthorized"), ErrorTypeAuth},
+		{"connection refused", errors.New("connection refused"), ErrorTypeNetwork},
+		{"unknown", errors.New("random rabbitmq error"), ErrorTypeUnknown},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := classifyRabbitMQErrorType(tt.err); got != tt.want {
+				t.Errorf("classifyRabbitMQErrorType() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

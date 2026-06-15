@@ -529,3 +529,72 @@ func TestExtras_ToMap_EmptyStringFiltering(t *testing.T) {
 		}
 	})
 }
+
+// =============================================================================
+// ParseVersionInfo 测试
+// =============================================================================
+
+func TestParseVersionInfo(t *testing.T) {
+	tests := []struct {
+		name        string
+		versionInfo string
+		foundItems  []string
+		wantVP      string // VendorProduct
+		wantVer     string // Version
+		wantCPE     string
+	}{
+		{
+			name:        "只有product-斜线分隔符",
+			versionInfo: " p/Apache/",
+			wantVP:      "Apache",
+		},
+		{
+			name:        "product和version-斜线分隔符",
+			versionInfo: " p/nginx/ v/1.18.0/",
+			wantVP:      "nginx",
+			wantVer:     "1.18.0",
+		},
+		{
+			name:        "pipe分隔符",
+			versionInfo: " p|OpenSSH| v|8.2p1|",
+			wantVP:      "OpenSSH",
+			wantVer:     "8.2p1",
+		},
+		{
+			name:        "含$1占位符替换后解析",
+			versionInfo: " p/OpenSSH/ v/$1/",
+			foundItems:  []string{"8.2p1"},
+			wantVP:      "OpenSSH",
+			wantVer:     "8.2p1",
+		},
+		{
+			name:        "CPE解析",
+			versionInfo: " cpe:/a:apache:httpd:2.4.41",
+			wantCPE:     "a:apache:httpd:2.4.41",
+		},
+		{
+			name:        "空VersionInfo返回全空Extras",
+			versionInfo: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &Match{
+				VersionInfo: tt.versionInfo,
+				FoundItems:  tt.foundItems,
+			}
+			got := m.ParseVersionInfo(nil)
+
+			if got.VendorProduct != tt.wantVP {
+				t.Errorf("VendorProduct = %q, want %q", got.VendorProduct, tt.wantVP)
+			}
+			if got.Version != tt.wantVer {
+				t.Errorf("Version = %q, want %q", got.Version, tt.wantVer)
+			}
+			if got.CPE != tt.wantCPE {
+				t.Errorf("CPE = %q, want %q", got.CPE, tt.wantCPE)
+			}
+		})
+	}
+}
