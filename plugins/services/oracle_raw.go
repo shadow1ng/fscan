@@ -117,7 +117,7 @@ func oracleRawAuth(ctx context.Context, host string, port int, serviceName, user
 	}
 	if s.acfl0&1 != 0 && s.acfl0&4 == 0 && s.acfl1&8 == 0 {
 		if err := s.advancedNegotiation(); err != nil {
-			return err
+			return fmt.Errorf("ANO: %w", err)
 		}
 	}
 	nego, err := s.protocolNegotiation()
@@ -156,20 +156,36 @@ func (s *oracleSession) connect(ctx context.Context, host string, port int, serv
 	if len(connectData) <= 230 {
 		copy(buf[70:], connectData)
 	}
-	if err := s.writeRaw(ctx, buf); err != nil {
+	sendConnect := func() error {
+		if err := s.writeRaw(ctx, buf); err != nil {
+			return err
+		}
+		if len(connectData) > 230 {
+			s.reset()
+			s.putBytes([]byte(connectData)...)
+			return s.writeData()
+		}
+		return nil
+	}
+	if err := sendConnect(); err != nil {
 		return err
 	}
-	if len(connectData) > 230 {
-		s.reset()
-		s.putBytes([]byte(connectData)...)
-		if err := s.writeData(); err != nil {
+
+	var p *oraclePacket
+	for resends := 0; resends < 3; resends++ {
+		var err error
+		p, err = s.readPacket()
+		if err != nil {
+			return err
+		}
+		if p.typ != oraclePacketResend {
+			break
+		}
+		if err := sendConnect(); err != nil {
 			return err
 		}
 	}
-	p, err := s.readPacket()
-	if err != nil {
-		return err
-	}
+
 	switch p.typ {
 	case oraclePacketAccept:
 		if len(p.raw) < 40 {
@@ -188,7 +204,9 @@ func (s *oracleSession) connect(ctx context.Context, host string, port int, serv
 		}
 		s.acfl0 = p.raw[22]
 		s.acfl1 = p.raw[23]
-		s.handshakeComplete = true
+		if s.version >= 315 {
+			s.handshakeComplete = true
+		}
 		return nil
 	case oraclePacketRefuse:
 		return oracleRefuseError(p.raw)
@@ -658,22 +676,45 @@ func toUint64(v interface{}) uint64 {
 }
 
 func (s *oracleSession) advancedNegotiation() error {
+	// 按 go-ora 参考实现，构造 ANO 请求
+	// Service 4 (supervisor): version + cid + servArray
+	// Service 1 (auth): version + UB2(0xE0E1) + status(0xFCFF)
+	// Service 2 (encrypt): version + algorithms([0]=rejected) + UB1(1)
+	// Service 3 (data integrity): version + algorithms([0]=rejected)
+
+	// 构建 ANO body 到临时 buffer 计算精确 length
+	var ab oracleSession
+	ab.clrChunkSize = s.clrChunkSize
+
+	// Service 4 (supervisor): cid + service array
+	ab.writeANOServiceHeader(4, 3)
+	ab.writeANOVersion()
+	ab.writeANOBytes([]byte{0, 0, 16, 28, 102, 236, 40, 234})
+	ab.writeANOUB2Array([]int{4, 1, 2, 3})
+
+	// Service 1 (auth): UB2(0xE0E1) + status(0xFCFF)
+	ab.writeANOServiceHeader(1, 3)
+	ab.writeANOVersion()
+	ab.writeANOPacketHeader(2, 3)
+	ab.putInt(0xE0E1, 2, true, false)
+	ab.writeANOStatus(0xfcff)
+
+	// Service 2 (encrypt): supported algos + driver
+	ab.writeANOServiceHeader(2, 3)
+	ab.writeANOVersion()
+	ab.writeANOBytes([]byte{0, 1, 8, 10, 6, 2, 15, 16, 17})
+	ab.writeANOUB1(1)
+
+	// Service 3 (data integrity): supported algos
+	ab.writeANOServiceHeader(3, 2)
+	ab.writeANOVersion()
+	ab.writeANOBytes([]byte{0, 1, 3, 4, 5, 6})
+
+	body := ab.out.Bytes()
 	s.reset()
-	s.writeANOHeader(101, 4, 0)
-	s.writeANOServiceHeader(4, 3)
-	s.writeANOVersion()
-	s.writeANOBytes([]byte{0, 0, 16, 28, 102, 236, 40, 234})
-	s.writeANOUB2Array([]int{4, 1, 2, 3})
-	s.writeANOServiceHeader(1, 3)
-	s.writeANOVersion()
-	s.writeANOStatus(0xfcff)
-	s.writeANOServiceHeader(2, 3)
-	s.writeANOVersion()
-	s.writeANOBytes([]byte{0})
-	s.writeANOUB1(1)
-	s.writeANOServiceHeader(3, 2)
-	s.writeANOVersion()
-	s.writeANOBytes([]byte{0})
+	s.writeANOHeader(13+len(body), 4, 0)
+	s.putBytes(body...)
+
 	if err := s.writeData(); err != nil {
 		return err
 	}

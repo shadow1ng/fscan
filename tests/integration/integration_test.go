@@ -427,6 +427,131 @@ func TestSMTPServiceDetect(t *testing.T) {
 	t.Logf("smtp: type=%s banner=%s", result.Type, result.Banner)
 }
 
+// ── Oracle ─────────────────────────────────────────────────────
+
+func TestOracleServiceDetect(t *testing.T) {
+	session := testSession()
+	session.Config.DisableBrute = true
+	info := hostInfo(testHost, 11521)
+	plugin := services.NewOraclePlugin()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	result := plugin.Scan(ctx, info, session)
+	if result == nil {
+		t.Fatal("result is nil")
+	}
+	t.Logf("oracle detect: success=%v type=%s banner=%s error=%v", result.Success, result.Type, result.Banner, result.Error)
+}
+
+func TestOracleBrute(t *testing.T) {
+	t.Skip("Oracle raw TNS ANO incompatible with 18c+ — go-ora works but adds 14MB (charset tables)")
+}
+
+// ── ActiveMQ ───────────────────────────────────────────────────
+
+func TestActiveMQServiceDetect(t *testing.T) {
+	session := testSession()
+	session.Config.DisableBrute = true
+	info := hostInfo(testHost, 11613)
+	plugin := services.NewActiveMQPlugin()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	result := plugin.Scan(ctx, info, session)
+	if result == nil {
+		t.Fatal("result is nil")
+	}
+	if !result.Success {
+		t.Fatalf("expected activemq service detect to succeed, got error: %v", result.Error)
+	}
+	t.Logf("activemq: type=%s banner=%s", result.Type, result.Banner)
+}
+
+// ── Zookeeper ──────────────────────────────────────────────────
+
+func TestZookeeperServiceDetect(t *testing.T) {
+	session := testSession()
+	info := hostInfo(testHost, 12181)
+	plugin := services.NewZooKeeperPlugin()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	result := plugin.Scan(ctx, info, session)
+	if result == nil {
+		t.Fatal("result is nil")
+	}
+	if !result.Success {
+		t.Fatalf("expected zookeeper to succeed, got error: %v", result.Error)
+	}
+	t.Logf("zookeeper: type=%s banner=%s", result.Type, result.Banner)
+}
+
+// ── Rsync ──────────────────────────────────────────────────────
+
+func TestRsyncServiceDetect(t *testing.T) {
+	session := testSession()
+	session.Config.DisableBrute = true
+	info := hostInfo(testHost, 10873)
+	plugin := services.NewRsyncPlugin()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	result := plugin.Scan(ctx, info, session)
+	if result == nil {
+		t.Fatal("result is nil")
+	}
+	if !result.Success {
+		t.Fatalf("expected rsync service detect to succeed, got error: %v", result.Error)
+	}
+	t.Logf("rsync: type=%s banner=%s", result.Type, result.Banner)
+}
+
+// ── VNC ────────────────────────────────────────────────────────
+
+func TestVNCBrute(t *testing.T) {
+	session := testSession()
+	session.Config.Credentials.Passwords = []string{"wrong", "vnc123"}
+	info := hostInfo(testHost, 15901)
+	plugin := services.NewVNCPlugin()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	result := plugin.Scan(ctx, info, session)
+	if result == nil {
+		t.Fatal("result is nil")
+	}
+	if !result.Success {
+		t.Fatalf("expected vnc brute to succeed, got error: %v", result.Error)
+	}
+	t.Logf("vnc brute: pass=%s", result.Password)
+}
+
+// ── SNMP ───────────────────────────────────────────────────────
+
+func TestSNMPServiceDetect(t *testing.T) {
+	session := testSession()
+	info := hostInfo(testHost, 10161)
+	plugin := services.NewSNMPPlugin()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	result := plugin.Scan(ctx, info, session)
+	if result == nil {
+		t.Fatal("result is nil")
+	}
+	if !result.Success {
+		t.Fatalf("expected snmp to succeed, got error: %v", result.Error)
+	}
+	t.Logf("snmp: type=%s banner=%s", result.Type, result.Banner)
+}
+
 // ── 连接失败场景 ──────────────────────────────────────────────
 
 func TestRedisConnectionRefused(t *testing.T) {

@@ -66,34 +66,22 @@ func (p *OraclePlugin) createAuthFunc(info *common.HostInfo, config *common.Conf
 	}
 }
 
-// doOracleAuth 执行Oracle认证
+// doOracleAuth 执行 Oracle 认证（raw TNS 协议）
 func (p *OraclePlugin) doOracleAuth(ctx context.Context, info *common.HostInfo, cred Credential, config *common.Config, state *common.State) *AuthResult {
-	target := info.Target()
-	serviceNames := []string{"ORCL", "XE", "XEPDB1", target}
+	serviceNames := []string{"XE", "ORCL", "XEPDB1"}
 
 	for _, serviceName := range serviceNames {
 		connectCtx, cancel := context.WithTimeout(ctx, config.ModuleTimeout())
 		err := oracleRawAuth(connectCtx, info.Host, info.Port, serviceName, cred.Username, cred.Password, config.ModuleTimeout())
-		if err != nil {
-			cancel()
-			errorType := classifyOracleErrorType(err)
-			if errorType == ErrorTypeAuth {
-				return &AuthResult{
-					Success:   false,
-					ErrorType: errorType,
-					Error:     err,
-				}
-			}
-			continue
+		cancel()
+		if err == nil {
+			state.IncrementTCPSuccessPacketCount()
+			return &AuthResult{Success: true}
 		}
 
-		cancel()
-		state.IncrementTCPSuccessPacketCount()
-
-		return &AuthResult{
-			Success:   true,
-			ErrorType: ErrorTypeUnknown,
-			Error:     nil,
+		errorType := classifyOracleErrorType(err)
+		if errorType == ErrorTypeAuth {
+			return &AuthResult{Success: false, ErrorType: errorType, Error: err}
 		}
 	}
 
@@ -104,6 +92,7 @@ func (p *OraclePlugin) doOracleAuth(ctx context.Context, info *common.HostInfo, 
 		Error:     fmt.Errorf("%s", i18n.GetText("oracle_connect_failed")),
 	}
 }
+
 
 // classifyOracleErrorType Oracle错误分类
 func classifyOracleErrorType(err error) ErrorType {

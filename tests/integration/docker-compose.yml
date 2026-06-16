@@ -147,7 +147,7 @@ services:
       interval: 5s
       retries: 10
 
-openldap:
+  openldap:
     image: osixia/openldap:1.5.0
     environment:
       LDAP_ORGANISATION: "Test"
@@ -199,5 +199,66 @@ openldap:
       - "18025:8025"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8025/api/v2/messages || exit 1"]
+      interval: 5s
+      retries: 10
+
+  oracle:
+    image: gvenzl/oracle-xe:18-slim
+    environment:
+      ORACLE_PASSWORD: oracle123
+    ports:
+      - "11521:1521"
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh"]
+      interval: 10s
+      retries: 30
+
+  activemq:
+    image: rmohr/activemq:5.15.9
+    ports:
+      - "11613:61613"
+      - "18161:8161"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://admin:admin@localhost:8161/api/jolokia || exit 1"]
+      interval: 5s
+      retries: 15
+
+  zookeeper:
+    image: zookeeper:3.9
+    ports:
+      - "12181:2181"
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep -q imok"]
+      interval: 5s
+      retries: 10
+
+  rsync:
+    image: vimagick/rsyncd
+    ports:
+      - "10873:873"
+    volumes:
+      - ./rsyncd.conf:/etc/rsyncd.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 873 || exit 1"]
+      interval: 5s
+      retries: 10
+
+  vnc:
+    image: consol/debian-xfce-vnc:latest
+    environment:
+      VNC_PW: vnc123
+    ports:
+      - "15901:5901"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 5901 || exit 1"]
+      interval: 5s
+      retries: 15
+
+  snmp:
+    image: polinux/snmpd
+    ports:
+      - "10161:161/udp"
+    healthcheck:
+      test: ["CMD-SHELL", "snmpget -v2c -c public localhost sysDescr.0 || exit 0"]
       interval: 5s
       retries: 10
