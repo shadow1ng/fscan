@@ -87,3 +87,117 @@ services:
       test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')", "-u", "admin", "-p", "mongo123"]
       interval: 5s
       retries: 20
+
+  memcached:
+    image: memcached:1-alpine
+    ports:
+      - "11211:11211"
+    healthcheck:
+      test: ["CMD-SHELL", "echo stats | nc localhost 11211 | grep -q pid"]
+      interval: 3s
+      retries: 10
+
+  elasticsearch:
+    image: elasticsearch:7.17.24
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms256m -Xmx256m"
+    ports:
+      - "19200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 5s
+      retries: 20
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "MssqlTest123!"
+      MSSQL_PID: Express
+    ports:
+      - "11433:1433"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'MssqlTest123!' -Q 'SELECT 1' || exit 1"]
+      interval: 5s
+      retries: 30
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: rabbit123
+    ports:
+      - "15672:15672"
+      - "15673:5672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 5s
+      retries: 20
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    ports:
+      - "11883:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 -W 2 || exit 1"]
+      interval: 5s
+      retries: 10
+
+openldap:
+    image: osixia/openldap:1.5.0
+    environment:
+      LDAP_ORGANISATION: "Test"
+      LDAP_DOMAIN: "test.local"
+      LDAP_ADMIN_PASSWORD: "ldap123"
+    ports:
+      - "10389:389"
+    healthcheck:
+      test: ["CMD-SHELL", "ldapsearch -x -H ldap://localhost -b 'dc=test,dc=local' -D 'cn=admin,dc=test,dc=local' -w ldap123 || exit 1"]
+      interval: 5s
+      retries: 10
+
+  cassandra:
+    image: cassandra:4.1
+    environment:
+      CASSANDRA_AUTHENTICATOR: AllowAllAuthenticator
+    ports:
+      - "19042:9042"
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'DESCRIBE CLUSTER' || exit 1"]
+      interval: 10s
+      retries: 30
+
+  neo4j:
+    image: neo4j:5
+    environment:
+      NEO4J_AUTH: "neo4j/neo4jtest123"
+    ports:
+      - "17687:7687"
+      - "17474:7474"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 5s
+      retries: 20
+
+  kafka:
+    image: apache/kafka:3.7.0
+    ports:
+      - "19092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 10s
+      retries: 20
+
+  smtp:
+    image: mailhog/mailhog
+    ports:
+      - "11025:1025"
+      - "18025:8025"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8025/api/v2/messages || exit 1"]
+      interval: 5s
+      retries: 10

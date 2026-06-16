@@ -74,7 +74,7 @@ func (p *CassandraPlugin) createAuthFunc(info *common.HostInfo, config *common.C
 //
 //	[1B version|flags] [2B stream] [1B opcode] [4B length] [body]
 const (
-	cqlVersion      = 0x84 // version=4, direction=request
+	cqlVersion      = 0x04 // version=4, direction=request
 	cqlOpStartup    = 0x01
 	cqlOpAuthRsp    = 0x0f
 	cqlOpQuery      = 0x07
@@ -178,12 +178,13 @@ func nextCQLStreamID() uint16 {
 func cqlSend(conn net.Conn, opcode byte, body []byte) error {
 	id := nextCQLStreamID()
 
-	// frame: [1B version|flags] [2B stream] [1B opcode] [4B length] [body]
-	header := make([]byte, 8)
-	header[0] = cqlVersion
-	binary.BigEndian.PutUint16(header[1:3], id)
-	header[3] = opcode
-	binary.BigEndian.PutUint32(header[4:8], uint32(len(body)))
+	// CQL v4 frame: [1B version] [1B flags] [2B stream] [1B opcode] [4B length] [body]
+	header := make([]byte, 9)
+	header[0] = cqlVersion // 0x04 = request, version 4
+	header[1] = 0x00       // flags
+	binary.BigEndian.PutUint16(header[2:4], id)
+	header[4] = opcode
+	binary.BigEndian.PutUint32(header[5:9], uint32(len(body)))
 
 	buf := append(header, body...)
 	_, err := conn.Write(buf)
