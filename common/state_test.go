@@ -222,8 +222,9 @@ func TestState_GetOutputMutex(t *testing.T) {
 	if mu == nil {
 		t.Fatal("GetOutputMutex returned nil")
 	}
-	// 验证返回的指针可以正常加锁
+	// 验证返回的指针可以正常加锁解锁
 	mu.Lock()
+	_ = 1 //nolint:staticcheck // SA2001: 故意测试空临界区
 	mu.Unlock()
 }
 
