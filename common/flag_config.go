@@ -39,6 +39,7 @@ type FlagVars struct {
 	TimeoutSec              int64 // 秒，需转换为 time.Duration
 	TimeoutExplicit         bool
 	GlobalTimeout           int64
+	GlobalTimeoutExplicit   bool
 	DisablePing             bool
 	DisableTcpProbe         bool
 	DisableSubnetProbe      bool
@@ -171,7 +172,8 @@ func BuildConfigFromFlags(fv *FlagVars) *Config {
 		DefaultMap:            cloneStringSlice(config.DefaultProbeMap),
 
 		// 全局超时
-		GlobalTimeout: time.Duration(fv.GlobalTimeout) * time.Second,
+		GlobalTimeout:         time.Duration(fv.GlobalTimeout) * time.Second,
+		GlobalTimeoutExplicit: fv.GlobalTimeoutExplicit,
 
 		// SOCKS5代理端口
 		Socks5ProxyPort: fv.Socks5ProxyPort,

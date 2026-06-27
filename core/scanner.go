@@ -13,6 +13,7 @@ import (
 	"github.com/shadow1ng/fscan/common"
 	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/common/output"
+	"github.com/shadow1ng/fscan/common/parsers"
 	"github.com/shadow1ng/fscan/plugins"
 	"github.com/shadow1ng/fscan/webscan/lib"
 )
@@ -95,6 +96,15 @@ func selectStrategy(config *common.Config, state *common.State, info common.Host
 func RunScan(ctx context.Context, info common.HostInfo, session *common.ScanSession) (ScanReport, error) {
 	start := time.Now()
 	config := session.Config
+
+	// 全局超时自适应：用户未显式指定 -gt 时，根据扫描规模自动调大
+	if !config.GlobalTimeoutExplicit && config.GlobalTimeout > 0 {
+		if adjusted := estimateGlobalTimeout(config, session); adjusted > config.GlobalTimeout {
+			session.LogInfo(i18n.Tr("global_timeout_adjusted",
+				int(config.GlobalTimeout.Seconds()), int(adjusted.Seconds())))
+			config.GlobalTimeout = adjusted
+		}
+	}
 
 	// 全局超时：-gt 参数设置整个扫描的硬性截止时间
 	var cancel context.CancelFunc
@@ -487,5 +497,34 @@ func addCommonDetails(result *plugins.Result, details map[string]interface{}) {
 	}
 	if result.Server != "" {
 		details["server"] = result.Server
+	}
+}
+
+func estimateGlobalTimeout(config *common.Config, session *common.ScanSession) time.Duration {
+	portCount := len(parsers.ParsePort(config.Target.Ports))
+	if portCount == 0 {
+		portCount = len(parsers.ParsePort("21,22,80,443,445,1433,3306,3389,6379,8080"))
+	}
+
+	hasHostFile := session.Params != nil && session.Params.HostsFile != ""
+
+	// 启发式：端口数越多、有文件输入（目标可能很多），超时越大
+	switch {
+	case portCount > 10000 && hasHostFile:
+		return 24 * time.Hour
+	case portCount > 10000:
+		return 6 * time.Hour
+	case portCount > 1000 && hasHostFile:
+		return 6 * time.Hour
+	case portCount > 1000:
+		return 1 * time.Hour
+	case portCount > 100 && hasHostFile:
+		return 1 * time.Hour
+	case portCount > 100:
+		return 30 * time.Minute
+	case hasHostFile:
+		return 30 * time.Minute
+	default:
+		return config.GlobalTimeout
 	}
 }

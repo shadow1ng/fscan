@@ -161,6 +161,11 @@ func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *comm
 	for {
 		hosts, err := iter.NextBatch(ctx, targetHostBatchSize(config))
 		if err != nil {
+			if ctx.Err() != nil {
+				session.LogError(i18n.Tr("global_timeout_exceeded",
+					int(config.GlobalTimeout.Seconds())))
+				return
+			}
 			session.LogError(fmt.Sprintf("%s: %v", i18n.GetText("parse_target_failed"), err))
 			return
 		}

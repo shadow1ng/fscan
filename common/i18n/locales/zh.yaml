@@ -26,6 +26,10 @@ flag_module_thread_num:
   other: "模块线程数"
 flag_global_timeout:
   other: "全局超时时间"
+global_timeout_adjusted:
+  other: "扫描规模较大，全局超时从 {{.V0}}s 自动调整为 {{.V1}}s（可用 -gt 手动指定）"
+global_timeout_exceeded:
+  other: "全局超时已到（-gt {{.V0}}s），扫描被终止。大规模扫描请用 -gt 调大超时或设为 0 禁用"
 flag_disable_ping:
   other: "禁用ping探测"
 flag_disable_tcp_probe:

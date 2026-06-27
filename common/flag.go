@@ -226,6 +226,8 @@ func Flag(Info *HostInfo) error {
 			fv.ModuleThreadNumExplicit = true
 		case "retry":
 			fv.MaxRetriesExplicit = true
+		case "gt":
+			fv.GlobalTimeoutExplicit = true
 		case "icmp-rate":
 			fv.ICMPRateExplicit = true
 		case "num":
