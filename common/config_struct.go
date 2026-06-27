@@ -32,6 +32,7 @@ type Config struct {
 	DisableBrute            bool          // 禁用暴力破解
 	DisablePing             bool          // 禁用Ping检测
 	DisableTcpProbe         bool          // 禁用TCP补充探测
+	DisableSubnetProbe      bool          // 禁用网段预筛
 
 	// 扫描模式
 	Mode               string // 扫描模式
@@ -200,7 +201,8 @@ func NewConfig() *Config {
 		ModuleThreadNum: 10,
 		DisableBrute:    false,
 		DisablePing:     false,
-		DisableTcpProbe: false,
+		DisableTcpProbe:    false,
+		DisableSubnetProbe: false,
 
 		// 扫描模式
 		Mode:       DefaultScanMode,

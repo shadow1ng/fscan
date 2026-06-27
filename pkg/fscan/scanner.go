@@ -411,6 +411,7 @@ func buildFlagVars(config Config, target Target) *common.FlagVars {
 		GlobalTimeout:       180,
 		DisablePing:         config.DisablePing,
 		DisableTcpProbe:     config.DisableTCPProbe,
+		DisableSubnetProbe:  config.DisableSubnetProbe,
 		AliveOnly:           false,
 		DisableBrute:        config.DisableBrute,
 		MaxRetries:          maxRetries,

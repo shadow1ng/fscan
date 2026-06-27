@@ -113,6 +113,7 @@ func Flag(Info *HostInfo) error {
 	flag.Int64Var(&fv.GlobalTimeout, "gt", 180, i18n.GetText("flag_global_timeout"))
 	flag.BoolVar(&fv.DisablePing, "np", false, i18n.GetText("flag_disable_ping"))
 	flag.BoolVar(&fv.DisableTcpProbe, "ntp", false, i18n.GetText("flag_disable_tcp_probe"))
+	flag.BoolVar(&fv.DisableSubnetProbe, "nsp", false, i18n.GetText("flag_disable_subnet_probe"))
 	flag.StringVar(&fv.LocalPlugin, "local", "", i18n.GetText("flag_local_plugin"))
 	flag.BoolVar(&fv.AliveOnly, "ao", false, i18n.GetText("flag_alive_only"))
 

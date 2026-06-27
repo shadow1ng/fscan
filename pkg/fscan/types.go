@@ -133,9 +133,10 @@ type Config struct {
 	ModuleThreads int
 	MaxRetries    int
 
-	DisablePing     bool
-	DisableTCPProbe bool
-	DisableBrute    bool
+	DisablePing        bool
+	DisableTCPProbe    bool
+	DisableSubnetProbe bool
+	DisableBrute       bool
 
 	Usernames       []string
 	Passwords       []string

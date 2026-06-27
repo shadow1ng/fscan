@@ -147,7 +147,7 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 	session.LogDebug(i18n.Tr("port_scan_debug_start", len(hosts), config.ThreadNum))
 
 	// 大规模扫描预筛：跨多个 /24 时先做网段探活，跳过空网段
-	if len(hosts) > subnetProbeThreshold {
+	if !config.DisableSubnetProbe && len(hosts) > subnetProbeThreshold {
 		hosts = probeSubnets(ctx, hosts, time.Duration(timeout)*time.Second, session)
 		if len(hosts) == 0 {
 			session.LogInfo(i18n.GetText("port_scan_no_alive_subnet"))

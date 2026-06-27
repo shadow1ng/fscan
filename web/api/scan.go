@@ -38,8 +38,9 @@ type ScanRequest struct {
 	ThreadNum       int    `json:"thread_num"`
 	Timeout         int    `json:"timeout"`
 	ModuleThreadNum int    `json:"module_thread_num"`
-	DisablePing     bool   `json:"disable_ping"`
-	DisableBrute    bool   `json:"disable_brute"`
+	DisablePing        bool `json:"disable_ping"`
+	DisableBrute       bool `json:"disable_brute"`
+	DisableSubnetProbe bool `json:"disable_subnet_probe"`
 	AliveOnly       bool   `json:"alive_only"`
 
 	// 认证
@@ -199,6 +200,7 @@ func (h *ScanHandler) runScan(req ScanRequest) {
 	}
 	fv.DisablePing = req.DisablePing
 	fv.DisableBrute = req.DisableBrute
+	fv.DisableSubnetProbe = req.DisableSubnetProbe
 	fv.AliveOnly = req.AliveOnly
 	fv.Username = req.Username
 	fv.Password = req.Password

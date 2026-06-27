@@ -30,6 +30,8 @@ flag_disable_ping:
   other: "禁用ping探测"
 flag_disable_tcp_probe:
   other: "禁用TCP补充探测"
+flag_disable_subnet_probe:
+  other: "禁用网段预筛（大规模扫描时跳过空 /24 网段的优化）"
 flag_local_plugin:
   other: "指定本地插件名称 (如: cleaner, systeminfo, keylogger 等)"
 flag_debug:
