@@ -98,6 +98,9 @@ func (w *StdoutNDJSONWriter) flatten(r *ScanResult) *ndjsonRecord {
 	rec.Title = strVal(d, "title")
 	rec.URL = strVal(d, "url")
 	rec.Vulnerability = strVal(d, "vulnerability")
+	if rec.Vulnerability == "" {
+		rec.Vulnerability = strVal(d, "vulnerability_name")
+	}
 	rec.Username = strVal(d, "username")
 	rec.Password = strVal(d, "password")
 	rec.Plugin = strVal(d, "plugin")

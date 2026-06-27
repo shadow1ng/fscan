@@ -283,6 +283,9 @@ func (w *TXTWriter) formatVulnLine(result *ScanResult) string {
 	}
 
 	vuln := w.getDetailStr(result, "vulnerability")
+	if vuln == "" {
+		vuln = w.getDetailStr(result, "vulnerability_name")
+	}
 	if vuln != "" {
 		return fmt.Sprintf("%s %s", result.Target, vuln)
 	}
@@ -789,12 +792,18 @@ func formatFingerprints(value interface{}) string {
 
 func (w *CSVWriter) formatVulnRecord(result *ScanResult) []string {
 	vulnType := ""
+	vulnName := result.Status
 	if result.Details != nil {
 		if t, ok := result.Details["type"].(string); ok {
 			vulnType = t
 		}
+		if v, ok := result.Details["vulnerability"].(string); ok && v != "" {
+			vulnName = v
+		} else if v, ok := result.Details["vulnerability_name"].(string); ok && v != "" {
+			vulnName = v
+		}
 	}
-	return []string{result.Target, vulnType, result.Status}
+	return []string{result.Target, vulnType, vulnName}
 }
 
 // GetFormat 获取格式类型
