@@ -501,30 +501,50 @@ func addCommonDetails(result *plugins.Result, details map[string]interface{}) {
 }
 
 func estimateGlobalTimeout(config *common.Config, session *common.ScanSession) time.Duration {
-	portCount := len(parsers.ParsePort(config.Target.Ports))
+	portCount := int64(len(parsers.ParsePort(config.Target.Ports)))
 	if portCount == 0 {
-		portCount = len(parsers.ParsePort("21,22,80,443,445,1433,3306,3389,6379,8080"))
+		portCount = 10
 	}
 
-	hasHostFile := session.Params != nil && session.Params.HostsFile != ""
-
-	// 启发式：端口数越多、有文件输入（目标可能很多），超时越大
-	switch {
-	case portCount > 10000 && hasHostFile:
-		return 24 * time.Hour
-	case portCount > 10000:
-		return 6 * time.Hour
-	case portCount > 1000 && hasHostFile:
-		return 6 * time.Hour
-	case portCount > 1000:
-		return 1 * time.Hour
-	case portCount > 100 && hasHostFile:
-		return 1 * time.Hour
-	case portCount > 100:
-		return 30 * time.Minute
-	case hasHostFile:
-		return 30 * time.Minute
-	default:
-		return config.GlobalTimeout
+	var hostFile string
+	var hostStr string
+	if session.Params != nil {
+		hostFile = session.Params.HostsFile
+		hostStr = session.Params.Host
 	}
+	hostCount := parsers.EstimateHostCount(hostStr, hostFile)
+	if hostCount <= 0 {
+		hostCount = 1
+	}
+
+	totalTasks := hostCount * portCount
+	threads := int64(config.ThreadNum)
+	if threads <= 0 {
+		threads = 600
+	}
+
+	// 端口扫描：平均每个任务约 50ms（大部分连接快速失败）
+	portScanSec := float64(totalTasks) * 0.05 / float64(threads)
+
+	// 插件扫描：开放率随端口数下降（全端口约 0.1%，少量端口约 5%）
+	openRate := 0.05
+	if portCount > 1000 {
+		openRate = 0.002
+	} else if portCount > 100 {
+		openRate = 0.01
+	}
+	moduleThreads := float64(config.ModuleThreadNum)
+	if moduleThreads <= 0 {
+		moduleThreads = 20
+	}
+	pluginSec := float64(totalTasks) * openRate * 2.0 / moduleThreads
+	// 总估算 + 20% 余量
+	estimatedSec := (portScanSec + pluginSec) * 1.2
+
+	const maxTimeout = 2 * time.Hour
+	estimated := time.Duration(estimatedSec) * time.Second
+	if estimated > maxTimeout {
+		estimated = maxTimeout
+	}
+	return estimated
 }

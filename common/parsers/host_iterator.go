@@ -488,3 +488,90 @@ func ipToUint32(ip net.IP) (uint32, bool) {
 func uint32ToIP(v uint32) string {
 	return fmt.Sprintf("%d.%d.%d.%d", byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 }
+
+// EstimateHostCount 快速估算主机总数（不消费 iterator）
+func EstimateHostCount(host string, filename string) int64 {
+	var total int64
+
+	if filename != "" {
+		if f, err := os.Open(filename); err == nil {
+			scanner := bufio.NewScanner(f)
+			for scanner.Scan() {
+				line := strings.TrimSpace(scanner.Text())
+				if line == "" || strings.HasPrefix(line, "#") {
+					continue
+				}
+				total += estimateHostEntry(line)
+			}
+			_ = f.Close()
+		}
+	}
+
+	for _, h := range strings.Split(host, ",") {
+		h = strings.TrimSpace(h)
+		if h != "" {
+			total += estimateHostEntry(h)
+		}
+	}
+
+	return total
+}
+
+func estimateHostEntry(entry string) int64 {
+	switch {
+	case entry == "192":
+		return 65536 // /16
+	case entry == "172":
+		return 1 << 20 // /12
+	case entry == "10":
+		return 1 << 24 // /8
+	case strings.Contains(entry, "/"):
+		_, ipNet, err := net.ParseCIDR(entry)
+		if err != nil {
+			return 1
+		}
+		ones, bits := ipNet.Mask.Size()
+		if bits != 32 {
+			return 1
+		}
+		size := int64(1) << uint(32-ones)
+		if size > 2 {
+			size -= 2
+		}
+		return size
+	case strings.Contains(entry, "-") && !strings.Contains(entry, ":") && looksLikeIPRange(entry):
+		parts := strings.SplitN(entry, "-", 2)
+		startIP := net.ParseIP(strings.TrimSpace(parts[0]))
+		if startIP == nil {
+			return 1
+		}
+		startU, ok := ipToUint32(startIP)
+		if !ok {
+			return 1
+		}
+		endStr := strings.TrimSpace(parts[1])
+		var endU uint32
+		if len(endStr) < 4 || !strings.Contains(endStr, ".") {
+			n, err := strconv.Atoi(endStr)
+			if err != nil || n > 255 {
+				return 1
+			}
+			endU = (startU & 0xFFFFFF00) | uint32(n)
+		} else {
+			endIP := net.ParseIP(endStr)
+			if endIP == nil {
+				return 1
+			}
+			endU, ok = ipToUint32(endIP)
+			if !ok {
+				return 1
+			}
+		}
+		if endU < startU {
+			return 1
+		}
+		return int64(endU-startU) + 1
+	default:
+		return 1
+	}
+}
