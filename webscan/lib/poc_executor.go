@@ -2,9 +2,11 @@ package lib
 
 import (
 	"crypto/md5" //nolint:gosec // G501: MD5用于POC规则去重，非加密用途
+	"errors"
 	"fmt"
 	"io"
 	"math/rand" //nolint:gosec // G404: math/rand用于生成测试数据，非加密用途
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -236,6 +238,9 @@ func executeRules(oReq *http.Request, p *Poc, variableMap map[string]interface{}
 		resp, err := DoRequest(newRequest, rule.FollowRedirects, session)
 		newRequest = nil
 		if err != nil {
+			if isTransportError(err) {
+				return false, nil
+			}
 			return false, err
 		}
 
@@ -793,6 +798,9 @@ func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Re
 	// 发送请求
 	resp, err := DoRequest(newRequest, rule.FollowRedirects, session)
 	if err != nil {
+		if isTransportError(err) {
+			return false, nil
+		}
 		return false, fmt.Errorf("%s: %w", i18n.GetText("webscan_request_send_error"), err)
 	}
 
@@ -935,4 +943,21 @@ func GetHeader(header map[string]string) string {
 	}
 	builder.WriteString("\r\n")
 	return builder.String()
+}
+
+func isTransportError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var netErr *net.OpError
+	if errors.As(err, &netErr) {
+		return true
+	}
+	s := err.Error()
+	return strings.Contains(s, "malformed HTTP") ||
+		strings.Contains(s, "transport connection broken") ||
+		strings.Contains(s, "connection reset") ||
+		strings.Contains(s, "connection refused") ||
+		strings.Contains(s, "i/o timeout") ||
+		strings.Contains(s, "EOF")
 }
