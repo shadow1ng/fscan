@@ -392,6 +392,10 @@ func (i *Info) tryProbes(response []byte, probes []*Probe) bool {
 
 // GetInfo 分析响应数据并提取服务信息
 func (i *Info) GetInfo(response []byte, probe *Probe) {
+	if probe == nil {
+		return
+	}
+
 	// 响应数据有效性检查
 	if len(response) <= 0 {
 		common.LogDebug(i18n.GetText("service_probe_empty_response"))

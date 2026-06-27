@@ -270,6 +270,7 @@ func (p *WebTitlePlugin) identifyFingerprintsMulti(ctx context.Context, info *co
 
 	// 非全量模式下，基于指纹触发POC扫描
 	if !config.POC.Full && !config.POC.Disabled {
+		info.URL = baseURL
 		p.triggerPocScan(ctx, info, fingerprints, config, session)
 	}
 

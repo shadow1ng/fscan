@@ -97,7 +97,11 @@ func WebScan(ctx context.Context, info *common.HostInfo, cfg *common.Config, ses
 func buildTargetURL(info *common.HostInfo) (string, error) {
 	// 自动构建URL
 	if info.URL == "" {
-		info.URL = protocolHTTP + net.JoinHostPort(info.Host, fmt.Sprint(info.Port))
+		protocol := protocolHTTP
+		if isTLSPort(info.Port) {
+			protocol = protocolHTTPS
+		}
+		info.URL = protocol + net.JoinHostPort(info.Host, fmt.Sprint(info.Port))
 	} else if !hasProtocolPrefix(info.URL) {
 		info.URL = protocolHTTP + normalizeSchemelessWebTarget(info.URL)
 	}
@@ -130,6 +134,15 @@ func buildTargetURL(info *common.HostInfo) (string, error) {
 func hasProtocolPrefix(urlStr string) bool {
 	urlStr = strings.ToLower(urlStr)
 	return strings.HasPrefix(urlStr, protocolHTTP) || strings.HasPrefix(urlStr, protocolHTTPS)
+}
+
+func isTLSPort(port int) bool {
+	switch port {
+	case 443, 8443, 4443, 9443:
+		return true
+	default:
+		return false
+	}
 }
 
 func normalizeSchemelessWebTarget(rawURL string) string {
