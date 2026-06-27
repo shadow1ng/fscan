@@ -297,10 +297,6 @@ func (p *TelnetPlugin) performTelnetAuth(conn net.Conn, username, password strin
 		cleaned := p.cleanResponse(response)
 		cleanedLower := strings.ToLower(cleaned)
 
-		if p.isShellPrompt(cleaned) {
-			return true
-		}
-
 		if strings.Contains(cleanedLower, "login") ||
 			strings.Contains(cleanedLower, "username") ||
 			strings.Contains(cleaned, ":") {
@@ -429,14 +425,47 @@ func (p *TelnetPlugin) isShellPrompt(data string) bool {
 		return false
 	}
 
-	data = strings.ToLower(strings.TrimSpace(data))
+	data = strings.TrimSpace(data)
 
-	shellPrompts := []string{"$", "#", ">", "~$", "]$", ")#", "bash", "shell", "cmd"}
-
-	for _, prompt := range shellPrompts {
-		if strings.Contains(data, prompt) {
-			return true
+	for _, line := range strings.Split(data, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
 		}
+
+		lineLower := strings.ToLower(line)
+
+		// 关键字匹配（整行包含即可）
+		for _, kw := range []string{"bash", "shell", "cmd"} {
+			if strings.Contains(lineLower, kw) {
+				return true
+			}
+		}
+
+		// 行尾 prompt 符号匹配：取最后一个非空格字符
+		trimmed := strings.TrimRight(line, " ")
+		if len(trimmed) == 0 {
+			continue
+		}
+		tail := trimmed[len(trimmed)-1]
+
+		if tail != '#' && tail != '$' && tail != '>' {
+			continue
+		}
+
+		// 排除装饰线：整行都是同一个字符（如 #### 或 >>>>）
+		allSame := true
+		for _, c := range trimmed {
+			if byte(c) != tail {
+				allSame = false
+				break
+			}
+		}
+		if allSame {
+			continue
+		}
+
+		return true
 	}
 
 	return false

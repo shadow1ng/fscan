@@ -37,3 +37,48 @@ func TestClassifyTelnetErrorType(t *testing.T) {
 		})
 	}
 }
+
+func TestIsShellPrompt(t *testing.T) {
+	p := NewTelnetPlugin()
+
+	positive := []struct {
+		name, data string
+	}{
+		{"linux root", "root@host:~#"},
+		{"linux user", "user@host:~$"},
+		{"cisco", "Router>"},
+		{"cisco enable", "Router#"},
+		{"bracket prompt", "[admin@host ~]$"},
+		{"paren prompt", "host(config)#"},
+		{"bash keyword", "bash-4.2$"},
+		{"trailing space", "root@host:~# "},
+		{"multiline last", "Welcome\nroot@host:~#"},
+	}
+
+	negative := []struct {
+		name, data string
+	}{
+		{"empty", ""},
+		{"decoration hashes", "################"},
+		{"decoration arrows", ">>>>>>>>"},
+		{"decoration dollars", "$$$$$$$$"},
+		{"cisco motd border", "###################################################"},
+		{"motd with hash mid", "# Welcome to Cisco IOS"},
+		{"plain text", "Cisco IOS Software, Version 12.2"},
+		{"login prompt", "Login:"},
+		{"password prompt", "Password:"},
+		{"motd multiline", "##########\nWelcome to Router\n##########"},
+	}
+
+	for _, tt := range positive {
+		if !p.isShellPrompt(tt.data) {
+			t.Errorf("isShellPrompt(%q) = false, want true [%s]", tt.data, tt.name)
+		}
+	}
+
+	for _, tt := range negative {
+		if p.isShellPrompt(tt.data) {
+			t.Errorf("isShellPrompt(%q) = true, want false [%s]", tt.data, tt.name)
+		}
+	}
+}
