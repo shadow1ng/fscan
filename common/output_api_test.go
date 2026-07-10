@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shadow1ng/fscan/common/output"
+	"scanner/common/output"
 )
 
 func readTestFile(t *testing.T, path string) string {

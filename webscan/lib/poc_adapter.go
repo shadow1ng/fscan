@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/shadow1ng/fscan/common/i18n"
+	"scanner/common/i18n"
 	"gopkg.in/yaml.v2"
 )
 
@@ -12,8 +12,8 @@ import (
 type PocFormat string
 
 const (
-	// FormatFscan fscan原生格式
-	FormatFscan PocFormat = "fscan"
+	// FormatNative scanner原生格式
+	FormatNative PocFormat = "native"
 	// FormatNuclei Nuclei格式
 	FormatNuclei PocFormat = "nuclei"
 	// FormatXray xray格式
@@ -55,7 +55,7 @@ func (l yamlStringList) String() string {
 type UniversalPoc interface {
 	GetName() string           // 获取POC名称
 	GetFormat() PocFormat      // 获取格式类型
-	ToFscanPoc() (*Poc, error) // 转换为fscan内部格式
+	ToNativePoc() (*Poc, error) // 转换为fscan内部格式
 }
 
 // DetectPocFormat 检测POC格式
@@ -105,11 +105,11 @@ func DetectPocFormat(data []byte) PocFormat {
 		if rules, hasRules := raw["rules"]; hasRules {
 			// 检查 rules 是否为数组（fscan 风格）
 			if _, isArray := rules.([]interface{}); isArray {
-				return FormatFscan
+				return FormatNative
 			}
 		}
 		if _, hasGroups := raw["groups"]; hasGroups {
-			return FormatFscan
+			return FormatNative
 		}
 	}
 
@@ -121,8 +121,8 @@ func LoadUniversalPoc(filename string, data []byte) (UniversalPoc, error) {
 	format := DetectPocFormat(data)
 
 	switch format {
-	case FormatFscan:
-		return loadFscanPoc(data)
+	case FormatNative:
+		return loadNativePoc(data)
 	case FormatNuclei:
 		return loadNucleiPoc(data)
 	case FormatXray:
@@ -136,31 +136,31 @@ func LoadUniversalPoc(filename string, data []byte) (UniversalPoc, error) {
 
 // ============= fscan格式适配器 =============
 
-// FscanPocAdapter fscan原生格式适配器
-type FscanPocAdapter struct {
+// NativePocAdapter fscan原生格式适配器
+type NativePocAdapter struct {
 	*Poc
 }
 
-func loadFscanPoc(data []byte) (*FscanPocAdapter, error) {
+func loadNativePoc(data []byte) (*NativePocAdapter, error) {
 	var poc Poc
 	if err := yaml.Unmarshal(data, &poc); err != nil {
-		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_fscan_format_parse_failed"), err)
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_native_format_parse_failed"), err)
 	}
-	return &FscanPocAdapter{&poc}, nil
+	return &NativePocAdapter{&poc}, nil
 }
 
 // GetName 获取POC名称
-func (f *FscanPocAdapter) GetName() string {
+func (f *NativePocAdapter) GetName() string {
 	return f.Name
 }
 
 // GetFormat 获取POC格式类型
-func (f *FscanPocAdapter) GetFormat() PocFormat {
-	return FormatFscan
+func (f *NativePocAdapter) GetFormat() PocFormat {
+	return FormatNative
 }
 
-// ToFscanPoc 转换为Fscan POC格式
-func (f *FscanPocAdapter) ToFscanPoc() (*Poc, error) {
+// ToNativePoc 转换为Fscan POC格式
+func (f *NativePocAdapter) ToNativePoc() (*Poc, error) {
 	return f.Poc, nil
 }
 
@@ -222,8 +222,8 @@ func (n *NucleiPocAdapter) GetFormat() PocFormat {
 	return FormatNuclei
 }
 
-// ToFscanPoc 将Nuclei格式转换为fscan格式
-func (n *NucleiPocAdapter) ToFscanPoc() (*Poc, error) {
+// ToNativePoc 将Nuclei格式转换为fscan格式
+func (n *NucleiPocAdapter) ToNativePoc() (*Poc, error) {
 	poc := &Poc{
 		Name: n.GetName(),
 		Detail: Detail{
@@ -440,8 +440,8 @@ func (x *XrayPocAdapter) GetFormat() PocFormat {
 	return FormatXray
 }
 
-// ToFscanPoc 将xray格式转换为fscan格式
-func (x *XrayPocAdapter) ToFscanPoc() (*Poc, error) {
+// ToNativePoc 将xray格式转换为fscan格式
+func (x *XrayPocAdapter) ToNativePoc() (*Poc, error) {
 	poc := &Poc{
 		Name:   x.Name,
 		Detail: x.Detail,
@@ -542,8 +542,8 @@ func (a *AfrogPocAdapter) GetFormat() PocFormat {
 	return FormatAfrog
 }
 
-// ToFscanPoc 将afrog格式转换为fscan格式
-func (a *AfrogPocAdapter) ToFscanPoc() (*Poc, error) {
+// ToNativePoc 将afrog格式转换为fscan格式
+func (a *AfrogPocAdapter) ToNativePoc() (*Poc, error) {
 	// 转换元数据（使用 Nuclei 风格的 info）
 	poc := &Poc{
 		Name: a.GetName(),

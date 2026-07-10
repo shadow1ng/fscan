@@ -22,7 +22,7 @@ rules:
   - method: GET
     path: /test
 `,
-			expected: FormatFscan,
+			expected: FormatNative,
 		},
 		{
 			name: "fscan格式 - 有name和groups",
@@ -33,7 +33,7 @@ groups:
     - method: GET
       path: /test
 `,
-			expected: FormatFscan,
+			expected: FormatNative,
 		},
 		{
 			name: "Nuclei格式 - 有id和info",
@@ -70,8 +70,8 @@ data: test
 	}
 }
 
-// TestFscanPocAdapter 测试fscan格式适配器
-func TestFscanPocAdapter(t *testing.T) {
+// TestNativePocAdapter 测试fscan格式适配器
+func TestNativePocAdapter(t *testing.T) {
 	yaml := `
 name: poc-yaml-test-fscan
 set:
@@ -87,22 +87,22 @@ detail:
     - https://example.com
 `
 
-	adapter, err := loadFscanPoc([]byte(yaml))
+	adapter, err := loadNativePoc([]byte(yaml))
 	if err != nil {
-		t.Fatalf("loadFscanPoc() error = %v", err)
+		t.Fatalf("loadNativePoc() error = %v", err)
 	}
 
-	if adapter.GetFormat() != FormatFscan {
-		t.Errorf("GetFormat() = %v, want %v", adapter.GetFormat(), FormatFscan)
+	if adapter.GetFormat() != FormatNative {
+		t.Errorf("GetFormat() = %v, want %v", adapter.GetFormat(), FormatNative)
 	}
 
 	if adapter.GetName() != "poc-yaml-test-fscan" {
 		t.Errorf("GetName() = %v, want %v", adapter.GetName(), "poc-yaml-test-fscan")
 	}
 
-	poc, err := adapter.ToFscanPoc()
+	poc, err := adapter.ToNativePoc()
 	if err != nil {
-		t.Fatalf("ToFscanPoc() error = %v", err)
+		t.Fatalf("ToNativePoc() error = %v", err)
 	}
 
 	if poc.Name != "poc-yaml-test-fscan" {
@@ -157,9 +157,9 @@ http:
 		t.Errorf("GetName() = %v, want %v", adapter.GetName(), "Test Nuclei Template")
 	}
 
-	poc, err := adapter.ToFscanPoc()
+	poc, err := adapter.ToNativePoc()
 	if err != nil {
-		t.Fatalf("ToFscanPoc() error = %v", err)
+		t.Fatalf("ToNativePoc() error = %v", err)
 	}
 
 	if poc.Name != "Test Nuclei Template" {
@@ -223,9 +223,9 @@ http:
 	if err != nil {
 		t.Fatalf("loadNucleiPoc() error = %v", err)
 	}
-	poc, err := adapter.ToFscanPoc()
+	poc, err := adapter.ToNativePoc()
 	if err != nil {
-		t.Fatalf("ToFscanPoc() error = %v", err)
+		t.Fatalf("ToNativePoc() error = %v", err)
 	}
 	if poc.Detail.Author != "alice, bob" {
 		t.Fatalf("Author = %q, want alice, bob", poc.Detail.Author)
@@ -256,9 +256,9 @@ rules:
 	if err != nil {
 		t.Fatalf("loadAfrogPoc() error = %v", err)
 	}
-	poc, err := adapter.ToFscanPoc()
+	poc, err := adapter.ToNativePoc()
 	if err != nil {
-		t.Fatalf("ToFscanPoc() error = %v", err)
+		t.Fatalf("ToNativePoc() error = %v", err)
 	}
 	if poc.Detail.Author != "carol" {
 		t.Fatalf("Author = %q, want carol", poc.Detail.Author)
@@ -508,7 +508,7 @@ rules:
   - method: GET
     path: /test
 `,
-			wantType: FormatFscan,
+			wantType: FormatNative,
 			wantErr:  false,
 		},
 		{
@@ -550,12 +550,12 @@ unknown: format
 				}
 
 				// 验证转换为fscan格式
-				fscanPoc, err := poc.ToFscanPoc()
+				fscanPoc, err := poc.ToNativePoc()
 				if err != nil {
-					t.Errorf("ToFscanPoc() error = %v", err)
+					t.Errorf("ToNativePoc() error = %v", err)
 				}
 				if fscanPoc == nil {
-					t.Error("ToFscanPoc() returned nil")
+					t.Error("ToNativePoc() returned nil")
 				}
 			}
 		})
@@ -596,9 +596,9 @@ detail:
 		t.Fatalf("loadXrayPoc() error = %v", err)
 	}
 
-	poc, err := adapter.ToFscanPoc()
+	poc, err := adapter.ToNativePoc()
 	if err != nil {
-		t.Fatalf("ToFscanPoc() error = %v", err)
+		t.Fatalf("ToNativePoc() error = %v", err)
 	}
 
 	if len(poc.Rules) != 2 {
@@ -647,9 +647,9 @@ detail:
 		t.Fatalf("loadXrayPoc() error = %v", err)
 	}
 
-	poc, err := adapter.ToFscanPoc()
+	poc, err := adapter.ToNativePoc()
 	if err != nil {
-		t.Fatalf("ToFscanPoc() error = %v", err)
+		t.Fatalf("ToNativePoc() error = %v", err)
 	}
 
 	if len(poc.Rules) != 1 {
@@ -694,9 +694,9 @@ rules:
 		t.Fatalf("loadAfrogPoc() error = %v", err)
 	}
 
-	poc, err := adapter.ToFscanPoc()
+	poc, err := adapter.ToNativePoc()
 	if err != nil {
-		t.Fatalf("ToFscanPoc() error = %v", err)
+		t.Fatalf("ToNativePoc() error = %v", err)
 	}
 
 	if len(poc.Rules) != 2 {

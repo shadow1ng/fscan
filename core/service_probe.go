@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/core/portfinger"
+	"scanner/common"
+	"scanner/common/i18n"
+	"scanner/core/portfinger"
 )
 
 // 默认超时时间常量

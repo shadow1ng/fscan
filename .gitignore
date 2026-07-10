@@ -54,18 +54,13 @@ test_output.txt
 # Build artifacts / 构建产物
 build/
 bin/
+/dist/
 *.exe
 *.dll
 *.so
 *.dylib
 /fscan_cli
-/fscan_web
 /embed-agent
-
-# Web UI build / Web前端构建
-web-ui/node_modules/
-web-ui/dist/
-!web/dist/
 
 # Go specific / Go 相关
 vendor/
@@ -79,6 +74,7 @@ go.work.sum
 
 # Performance profiling / 性能分析
 profiles/
+tools/perftest/results/
 
 # Local development tools / 本地开发工具
 .air.toml

@@ -4,18 +4,15 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/common/output"
-	"github.com/shadow1ng/fscan/common/parsers"
-	"github.com/shadow1ng/fscan/plugins"
-	"github.com/shadow1ng/fscan/webscan/lib"
+	"scanner/common"
+	"scanner/common/i18n"
+	"scanner/common/output"
+	"scanner/common/parsers"
+	"scanner/plugins"
+	"scanner/webscan/lib"
 )
 
 // ScanReport summarizes one scan execution.
@@ -45,7 +42,6 @@ type ScanMode int
 const (
 	ScanModeService ScanMode = iota // 默认：服务扫描
 	ScanModeAlive                   // 仅存活检测
-	ScanModeLocal                   // 本地插件
 	ScanModeWeb                     // Web扫描
 )
 
@@ -57,7 +53,6 @@ type strategyInfo struct {
 
 var strategyRegistry = map[ScanMode]strategyInfo{
 	ScanModeAlive:   {func() ScanStrategy { return NewAliveScanStrategy() }, "scan_mode_alive_selected"},
-	ScanModeLocal:   {func() ScanStrategy { return NewLocalScanStrategy() }, "scan_mode_local_selected"},
 	ScanModeWeb:     {func() ScanStrategy { return NewWebScanStrategy() }, "scan_mode_web_selected"},
 	ScanModeService: {func() ScanStrategy { return NewServiceScanStrategy() }, "scan_mode_service_selected"},
 }
@@ -67,12 +62,6 @@ func determineScanMode(config *common.Config, state *common.State) ScanMode {
 	switch {
 	case config.AliveOnly || config.Mode == "icmp":
 		return ScanModeAlive
-	case config.LocalMode:
-		return ScanModeLocal
-	case common.IsLocalMode != nil && common.IsLocalMode(config.Mode):
-		config.LocalMode = true
-		config.LocalPlugin = config.Mode
-		return ScanModeLocal
 	case len(state.GetURLs()) > 0:
 		return ScanModeWeb
 	default:
@@ -95,6 +84,10 @@ func selectStrategy(config *common.Config, state *common.State, info common.Host
 // RunScan 执行整体扫描流程
 func RunScan(ctx context.Context, info common.HostInfo, session *common.ScanSession) (ScanReport, error) {
 	start := time.Now()
+	if err := validateRunSession(session); err != nil {
+		return ScanReport{Duration: time.Since(start)}, err
+	}
+	defer session.Deactivate()
 	config := session.Config
 
 	// 全局超时自适应：用户未显式指定 -gt 时，根据扫描规模自动调大
@@ -116,11 +109,8 @@ func RunScan(ctx context.Context, info common.HostInfo, session *common.ScanSess
 	defer cancel()
 	state := session.State
 
-	// 设置全局 State（兼容旧代码路径中未传 state 的调用）
-	SetGlobalState(state)
-
 	// 初始化HTTP客户端（静默，无需日志）
-	if err := lib.Inithttp(config); err != nil {
+	if err := lib.InitSessionHTTP(config, session); err != nil {
 		session.LogError(i18n.Tr("http_client_init_failed", err))
 		return buildScanReport(state, start), fmt.Errorf("initialize http client: %w", err)
 	}
@@ -135,40 +125,83 @@ func RunScan(ctx context.Context, info common.HostInfo, session *common.ScanSess
 	// 执行策略
 	strategy.Execute(ctx, session, info, ch, &wg)
 
-	// 等待所有扫描完成
-	wg.Wait()
+	// 等待所有扫描完成。取消后只给在途插件一个有界清理窗口，避免不响应
+	// context 的第三方协议库永久阻塞整个扫描。
+	tasksFinished := waitForScanTasks(ctx, &wg)
 
-	// 检查是否有活跃的连接需要维持
-	if state.IsReverseShellActive() || state.IsSocks5ProxyActive() || state.IsForwardShellActive() {
-		if state.IsReverseShellActive() {
-			session.LogInfo(i18n.GetText("active_reverse_shell"))
-		}
-		if state.IsSocks5ProxyActive() {
-			session.LogInfo(i18n.GetText("active_socks5_proxy"))
-		}
-		if state.IsForwardShellActive() {
-			session.LogInfo(i18n.GetText("active_forward_shell"))
-		}
-		session.LogInfo(i18n.GetText("press_ctrl_c_exit"))
-
-		// 优雅等待信号或 context 取消（Web Stop）
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-		select {
-		case <-sigChan:
-			session.LogInfo(i18n.GetText("received_exit_signal"))
-		case <-ctx.Done():
-		}
-		cancel()
-		time.Sleep(500 * time.Millisecond)
+	// Stop late result delivery before global output/progress finalization.
+	if ctx.Err() != nil {
+		session.Deactivate()
 	}
 
 	// 完成扫描
 	finishScan(session)
+	if !tasksFinished {
+		return buildScanReport(state, start), fmt.Errorf("scan cancellation grace period exceeded: %w", ctx.Err())
+	}
 	if err := ctx.Err(); err != nil {
 		return buildScanReport(state, start), err
 	}
 	return buildScanReport(state, start), nil
+}
+
+const scanCancellationGracePeriod = 2 * time.Second
+
+func validateRunSession(session *common.ScanSession) error {
+	if session == nil {
+		return fmt.Errorf("scan session is nil")
+	}
+	if session.Config == nil {
+		return fmt.Errorf("scan config is nil")
+	}
+	if session.State == nil {
+		return fmt.Errorf("scan state is nil")
+	}
+	if session.Params == nil {
+		return fmt.Errorf("scan parameters are nil")
+	}
+
+	cfg := session.Config
+	switch {
+	case cfg.ThreadNum <= 0:
+		return fmt.Errorf("thread count must be greater than zero: %d", cfg.ThreadNum)
+	case cfg.ModuleThreadNum <= 0:
+		return fmt.Errorf("module thread count must be greater than zero: %d", cfg.ModuleThreadNum)
+	case cfg.Timeout <= 0:
+		return fmt.Errorf("timeout must be greater than zero: %s", cfg.Timeout)
+	case cfg.GlobalTimeout < 0:
+		return fmt.Errorf("global timeout cannot be negative: %s", cfg.GlobalTimeout)
+	case cfg.MaxRetries <= 0:
+		return fmt.Errorf("retry count must be greater than zero: %d", cfg.MaxRetries)
+	case cfg.POC.Num <= 0:
+		return fmt.Errorf("POC concurrency must be greater than zero: %d", cfg.POC.Num)
+	case cfg.Network.WebTimeout <= 0:
+		return fmt.Errorf("web timeout must be greater than zero: %s", cfg.Network.WebTimeout)
+	}
+	return nil
+}
+
+func waitForScanTasks(ctx context.Context, wg *sync.WaitGroup) bool {
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		return true
+	case <-ctx.Done():
+	}
+
+	timer := time.NewTimer(scanCancellationGracePeriod)
+	defer timer.Stop()
+	select {
+	case <-done:
+		return true
+	case <-timer.C:
+		return false
+	}
 }
 
 func buildScanReport(state *common.State, start time.Time) ScanReport {
@@ -274,13 +307,6 @@ func countApplicableTasks(targets []common.HostInfo, pluginsToRun []string, isCu
 	return count
 }
 
-// longRunningPlugins 长驻插件，不加入 scan WaitGroup，通过 ctx 取消退出
-var longRunningPlugins = map[string]bool{
-	"forwardshell": true,
-	"socks5proxy":  true,
-	"reverseshell": true,
-}
-
 // executeScanTask 执行单个扫描任务
 func executeScanTask(ctx context.Context, session *common.ScanSession, pluginName string, target common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
 	state := session.State
@@ -296,25 +322,6 @@ func executeScanTask(ctx context.Context, session *common.ScanSession, pluginNam
 		if err := session.PauseGate(ctx); err != nil {
 			return
 		}
-	}
-
-	// 长驻插件不进 WaitGroup，通过 ctx 管理生命周期
-	if longRunningPlugins[pluginName] {
-		ready := make(chan struct{}, 1)
-		go func() {
-			plugin := plugins.Get(pluginName)
-			if plugin != nil {
-				go func() {
-					time.Sleep(500 * time.Millisecond)
-					ready <- struct{}{}
-				}()
-				plugin.Scan(ctx, &target, session)
-			} else {
-				ready <- struct{}{}
-			}
-		}()
-		<-ready
-		return
 	}
 
 	wg.Add(1)

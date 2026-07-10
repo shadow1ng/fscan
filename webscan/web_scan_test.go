@@ -4,10 +4,28 @@ import (
 	"context"
 	"testing"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/config"
-	"github.com/shadow1ng/fscan/webscan/lib"
+	"scanner/common"
+	"scanner/common/config"
+	"scanner/webscan/lib"
 )
+
+func TestEmbeddedPocsArePreparedAtLoadTime(t *testing.T) {
+	entries, err := pocsFS.ReadDir("pocs")
+	if err != nil {
+		t.Fatalf("ReadDir(pocs) error = %v", err)
+	}
+	want := 0
+	for _, entry := range entries {
+		if isPocFile(entry.Name()) {
+			want++
+		}
+	}
+
+	pocs := loadEmbeddedPocs()
+	if len(pocs) != want {
+		t.Fatalf("prepared embedded POCs = %d, want %d", len(pocs), want)
+	}
+}
 
 func TestBuildTargetURL(t *testing.T) {
 	tests := []struct {
@@ -460,7 +478,7 @@ func TestFilterPocsNilSafety(t *testing.T) {
 
 func TestCreateBaseRequestHeaders(t *testing.T) {
 	cfg := common.NewConfig()
-	cfg.HTTP.UserAgent = "fscan-test-agent"
+	cfg.HTTP.UserAgent = "test-agent"
 	cfg.HTTP.Accept = "application/json"
 	cfg.HTTP.Cookie = "sid=abc"
 
@@ -471,7 +489,7 @@ func TestCreateBaseRequestHeaders(t *testing.T) {
 	if req.Method != "GET" {
 		t.Fatalf("method = %q, want GET", req.Method)
 	}
-	if got := req.Header.Get("User-agent"); got != "fscan-test-agent" {
+	if got := req.Header.Get("User-agent"); got != "test-agent" {
 		t.Fatalf("User-agent = %q", got)
 	}
 	if got := req.Header.Get("Accept"); got != "application/json" {

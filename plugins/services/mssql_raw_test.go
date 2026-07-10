@@ -25,7 +25,7 @@ func TestMSSQLLogin7DoesNotExposeClientIdentity(t *testing.T) {
 		t.Fatalf("client pid = %d, want 0", pid)
 	}
 
-	for _, value := range []string{"fscan", "target-host"} {
+	for _, value := range []string{"jdbc", "target-host"} {
 		if bytes.Contains(payload, mssqlUCS2(value)) {
 			t.Fatalf("login packet contains client-identifying value %q", value)
 		}

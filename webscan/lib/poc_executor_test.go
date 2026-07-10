@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/output"
+	"scanner/common"
+	"scanner/common/output"
 )
 
 // =============================================================================

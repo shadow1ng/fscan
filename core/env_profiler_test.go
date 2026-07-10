@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
+	"scanner/common"
 )
 
 // =============================================================================

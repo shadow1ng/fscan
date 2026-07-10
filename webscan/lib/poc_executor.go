@@ -16,11 +16,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/cel-go/cel"
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/common/output"
-	"github.com/shadow1ng/fscan/webscan/fingerprint"
+	"github.com/google/cel-go/common/types/ref"
+	"scanner/common"
+	"scanner/common/i18n"
+	"scanner/common/output"
+	"scanner/webscan/fingerprint"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -138,11 +138,8 @@ func collectVarDeclarations(p *Poc) []*exprpb.Decl {
 
 // executePoc 执行单个POC检测
 func executePoc(oReq *http.Request, p *Poc, pocCtx *POCContext) (bool, string, error) {
-	// 收集POC变量声明
-	varDecls := collectVarDeclarations(p)
-
-	// 从基础环境扩展（复用缓存的基础环境，仅添加变量声明）
-	env, err := ExtendEnvWithVars(varDecls)
+	// 文件 POC 已在加载阶段准备；手工构造的 POC 在这里惰性准备一次。
+	plan, err := p.executionPlan()
 	if err != nil {
 		return false, "", fmt.Errorf("%s %s: %w", i18n.GetText("webscan_exec_env_error"), p.Name, err)
 	}
@@ -168,25 +165,22 @@ func executePoc(oReq *http.Request, p *Poc, pocCtx *POCContext) (bool, string, e
 			variableMap[key] = newReverse(pocCtx.DNSLog)
 			continue
 		}
-		if _, err = evalset(env, variableMap, key, expression); err != nil {
+		if _, err = evalsetCached(plan, variableMap, key, expression); err != nil {
 			pocCtx.Session.LogError(i18n.Tr("webscan_set_exec_error", p.Name, err))
 		}
 	}
 
-	// CEL 编译缓存：同一个 POC 的所有规则/参数组合共享
-	progCache := make(CelProgCache)
-
 	// 处理爆破模式
 	if len(p.Sets) > 0 {
-		success, err := clusterpoc(oReq, p, variableMap, req, env, pocCtx, progCache)
+		success, err := clusterpoc(oReq, p, variableMap, req, plan, pocCtx)
 		return success, "", err
 	}
 
-	return executeRules(oReq, p, variableMap, req, env, pocCtx.Session, progCache)
+	return executeRules(oReq, p, variableMap, req, plan, pocCtx.Session)
 }
 
 // executeRules 执行POC规则并返回结果
-func executeRules(oReq *http.Request, p *Poc, variableMap map[string]interface{}, req *Request, env *cel.Env, session *common.ScanSession, progCache CelProgCache) (bool, string, error) {
+func executeRules(oReq *http.Request, p *Poc, variableMap map[string]interface{}, req *Request, plan *preparedPoc, session *common.ScanSession) (bool, string, error) {
 	// 处理单个规则的函数
 	executeRule := func(rule Rules) (bool, error) {
 		Headers := cloneMap(rule.Headers)
@@ -248,7 +242,7 @@ func executeRules(oReq *http.Request, p *Poc, variableMap map[string]interface{}
 
 		// 执行搜索规则
 		if rule.Search != "" {
-			result := doSearch(rule.Search, GetHeader(resp.Headers)+string(resp.Body))
+			result := plan.search(rule.Search, GetHeader(resp.Headers)+string(resp.Body))
 			if len(result) == 0 {
 				return false, nil
 			}
@@ -258,7 +252,7 @@ func executeRules(oReq *http.Request, p *Poc, variableMap map[string]interface{}
 		}
 
 		// 执行表达式（使用编译缓存）
-		out, err := EvaluateCached(env, rule.Expression, variableMap, progCache)
+		out, err := EvaluateCached(plan.env, rule.Expression, variableMap, plan.programs)
 		if err != nil {
 			return false, err
 		}
@@ -316,8 +310,13 @@ func doSearch(re string, body string) map[string]string {
 		actual, _ := regexCache.LoadOrStore(re, compiled)
 		r, _ = actual.(*regexp.Regexp)
 	}
+	return searchWithRegexp(r, body)
+}
 
-	// 执行正则匹配
+func searchWithRegexp(r *regexp.Regexp, body string) map[string]string {
+	if r == nil {
+		return nil
+	}
 	result := r.FindStringSubmatch(body)
 	names := r.SubexpNames()
 
@@ -327,7 +326,7 @@ func doSearch(re string, body string) map[string]string {
 		for i, name := range names {
 			if i > 0 && i < len(result) && name != "" {
 				// 特殊处理Set-Cookie头：剥离Path/Expires等属性，仅保留key=value
-				if strings.HasPrefix(re, "Set-Cookie:") {
+				if strings.HasPrefix(r.String(), "Set-Cookie:") {
 					paramsMap[name] = optimizeCookies(result[i])
 				} else {
 					paramsMap[name] = result[i]
@@ -408,7 +407,7 @@ func newReverse(dnsLog bool) *Reverse {
 }
 
 // clusterpoc 执行集群POC检测，支持批量参数组合测试
-func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, req *Request, env *cel.Env, pocCtx *POCContext, progCache CelProgCache) (success bool, err error) {
+func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, req *Request, plan *preparedPoc, pocCtx *POCContext) (success bool, err error) {
 	var strMap StrMap     // 存储成功的参数组合
 	var shiroKeyCount int // shiro key测试计数
 
@@ -417,7 +416,7 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 		// 检查是否需要进行参数Fuzz测试
 		if !isFuzz(rule, p.Sets) {
 			// 不需要Fuzz,直接发送请求
-			success, err = clustersend(oReq, variableMap, req, env, rule, pocCtx.Session, progCache)
+			success, err = clustersend(oReq, variableMap, req, plan, rule, pocCtx.Session)
 			if err != nil {
 				return false, err
 			}
@@ -460,7 +459,7 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 				if key == "payload" {
 					payloadExpr = expr
 				}
-				output, err := evalset1(env, variableMap, key, expr)
+				output, err := evalset1Cached(plan, variableMap, key, expr)
 				if err != nil {
 					pocCtx.Session.LogError(i18n.Tr("webscan_set_exec_error", key, err))
 				}
@@ -483,7 +482,7 @@ func clusterpoc(oReq *http.Request, p *Poc, variableMap map[string]interface{}, 
 			ruleHash[ruleMD5] = struct{}{}
 
 			// 发送请求并处理结果
-			success, err = clustersend(oReq, variableMap, req, env, currentRule, pocCtx.Session, progCache)
+			success, err = clustersend(oReq, variableMap, req, plan, currentRule, pocCtx.Session)
 			if err != nil {
 				return false, err
 			}
@@ -748,7 +747,7 @@ func MakeData(base [][]string, nextData []string) [][]string {
 }
 
 // clustersend 执行单个规则的HTTP请求和响应检测
-func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Request, env *cel.Env, rule Rules, session *common.ScanSession, progCache CelProgCache) (bool, error) {
+func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Request, plan *preparedPoc, rule Rules, session *common.ScanSession) (bool, error) {
 	// 替换请求中的变量
 	for varName, varValue := range variableMap {
 		// 跳过map类型的变量
@@ -810,7 +809,7 @@ func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Re
 	// 执行搜索规则
 	if rule.Search != "" {
 		searchContent := GetHeader(resp.Headers) + string(resp.Body)
-		result := doSearch(rule.Search, searchContent)
+		result := plan.search(rule.Search, searchContent)
 
 		if len(result) > 0 {
 			// 将搜索结果添加到变量映射
@@ -823,7 +822,7 @@ func clustersend(oReq *http.Request, variableMap map[string]interface{}, req *Re
 	}
 
 	// 执行CEL表达式（使用编译缓存）
-	out, err := EvaluateCached(env, rule.Expression, variableMap, progCache)
+	out, err := EvaluateCached(plan.env, rule.Expression, variableMap, plan.programs)
 	if err != nil {
 		if strings.Contains(err.Error(), "Syntax error") {
 			common.LogError(i18n.Tr("webscan_cel_syntax_error", rule.Expression, err))
@@ -867,9 +866,12 @@ func cloneMap(tags map[string]string) map[string]string {
 	return cloneTags
 }
 
-// evalset 执行CEL表达式并处理特殊类型结果
-func evalset(env *cel.Env, variableMap map[string]interface{}, k string, expression string) (string, error) {
-	out, err := Evaluate(env, expression, variableMap)
+func evalsetCached(plan *preparedPoc, variableMap map[string]interface{}, k string, expression string) (string, error) {
+	out, err := EvaluateCached(plan.env, expression, variableMap, plan.programs)
+	return applySetResult(variableMap, k, out, err)
+}
+
+func applySetResult(variableMap map[string]interface{}, k string, out ref.Val, err error) (string, error) {
 	if err != nil {
 		variableMap[k] = ""
 		return "", err
@@ -888,15 +890,20 @@ func evalset(env *cel.Env, variableMap map[string]interface{}, k string, express
 	return fmt.Sprintf("%v", variableMap[k]), nil
 }
 
-// evalset1 执行CEL表达式的简化版本
-func evalset1(env *cel.Env, variableMap map[string]interface{}, k string, expression string) (string, error) {
+func evalset1Cached(plan *preparedPoc, variableMap map[string]interface{}, k string, expression string) (string, error) {
+	return evalset1WithEvaluator(variableMap, k, expression, func() (ref.Val, error) {
+		return EvaluateCached(plan.env, expression, variableMap, plan.programs)
+	})
+}
+
+func evalset1WithEvaluator(variableMap map[string]interface{}, k string, expression string, evaluate func() (ref.Val, error)) (string, error) {
 	// 纯字面量字符串（无函数调用、运算符、变量引用）直接当值用，跳过 CEL 编译
 	// 避免 sets 中的 "sql"、"database" 等被当成 CEL 变量引用产生大量错误日志
 	if isPlainLiteral(expression, variableMap) {
 		variableMap[k] = expression
 		return expression, nil
 	}
-	out, err := Evaluate(env, expression, variableMap)
+	out, err := evaluate()
 	if err != nil {
 		variableMap[k] = expression
 	} else {

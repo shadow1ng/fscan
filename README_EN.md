@@ -4,7 +4,7 @@
 
 Comprehensive intranet scanning tool for automated vulnerability assessment.
 
-**Version**: 2.2.0
+**Version**: 2.2.2
 
 ## Features
 
@@ -28,16 +28,7 @@ Comprehensive intranet scanning tool for automated vulnerability assessment.
 
 ### Exploitation
 - **Redis Exploit** - Write pubkey, crontab, webshell, master-slave RCE
-- **MS17-010 Exploit** - ShellCode injection, add user, execute commands
 - **SSH Command Exec** - Auto command execution after authentication
-
-### Local Modules
-- **Info Gathering** - System info, environment variables, DC info, NIC config
-- **Credential Access** - Memory dump (MiniDump), keylogger, registry export
-- **Persistence** - Systemd service, Windows service, scheduled tasks, startup, LD_PRELOAD
-- **Reverse Shell** - Forward shell, reverse shell, SOCKS5 proxy service
-- **AV Detection** - Identify installed security software
-- **Trace Cleanup** - Log cleaning tool
 
 ### Input/Output
 - **Target Input** - IP/CIDR/domain/URL, batch file import
@@ -52,9 +43,8 @@ Comprehensive intranet scanning tool for automated vulnerability assessment.
 - **Concurrency** - Port scan threads, service scan threads independent config
 
 ### Extensions
-- **Web Management UI** - Visual scan task management (build with -tags web)
 - **Lab Environment** - Built-in Docker lab for testing and learning
-- **Plugin Architecture** - Service/Web/Local plugins separated, easy to extend
+- **Plugin Architecture** - Service and Web plugins separated, easy to extend
 - **Multi-language** - Chinese/English interface (-lang zh/en)
 - **Performance Stats** - JSON format performance report (-perf)
 
@@ -85,7 +75,6 @@ Comprehensive intranet scanning tool for automated vulnerability assessment.
 - **Concurrency Safety Optimization** - Optimized lock granularity and memory allocation
 
 ### New Features
-- **Web Management UI** - Visual scan task management with responsive layout and progress display
 - **Multi-format POC Adapter** - Support for xray and afrog format POCs
 - **Smart Scan Mode** - Bloom filter deduplication + proxy optimization
 - **Enhanced Fingerprint Library** - Integrated FingerprintHub (3139 fingerprints)
@@ -102,13 +91,12 @@ Comprehensive intranet scanning tool for automated vulnerability assessment.
 - **302 Redirect Dual Detection** - Identify fingerprints from both original and redirected responses
 - **TXT Output URL Summary** - Append web service URL list for batch testing
 - **gonmap Core Integration** - Three improvements: probe strategy/matching engine/version parsing
-- **Selective Plugin Compilation** - Build Tags system for independent service/local/web plugin compilation
+- **Selective Plugin Compilation** - Build Tags system for independent service/web plugin compilation
 - **Default Port Expansion** - Extended from 62 to 133 common ports
 - **Full Port Scan Support** - Expanded port range limits
 - **HTTP Redirect Control** - Configurable redirect count limit
 - **Performance Profiling Support** - Added pprof profiling and benchmark tests
 - **TCP Packet Statistics** - Service plugins support TCP packet send statistics
-- **fscan-lab Environment** - Intranet penetration training platform covering all vulnerability scenarios
 - **Redis Exploitation Enhancement** - Ported complete Redis exploitation (write pubkey/crontab/webshell/master-slave RCE)
 - **rsync Plugin Refactoring** - Restructured authentication logic using go-rsync library
 
@@ -171,9 +159,6 @@ Comprehensive intranet scanning tool for automated vulnerability assessment.
 # Web scanning
 ./fscan -u http://192.168.1.1
 
-# Local plugin
-./fscan -local systeminfo
-
 # Hash authentication
 ./fscan -h 192.168.1.1 -m smb2 -user admin -hash xxxxx
 
@@ -187,8 +172,6 @@ Comprehensive intranet scanning tool for automated vulnerability assessment.
 # Standard build
 go build -ldflags="-s -w" -trimpath -o fscan .
 
-# With Web UI
-go build -tags web -ldflags="-s -w" -trimpath -o fscan-web .
 ```
 
 ## Install
@@ -242,19 +225,6 @@ yay -S fscan-git
 - Continuously expand service plugin coverage
 - Develop more vulnerability detection and exploitation capabilities for each service plugin
 - Maintain backward compatibility of plugin APIs to ensure legacy POCs remain functional
-
-### Fscan-lite
-- Lightweight version rewritten in C
-- Smaller binary size, fewer dependencies
-- Support for embedded/restricted environments
-- Directory: [fscan-lite](./fscan-lite)
-
-### Fscan-lab
-- Intranet penetration testing lab environment
-- Covers all vulnerability scenarios supported by fscan
-- Development testing and feature verification platform
-- Learning and practice environment for beginners
-- Directory: [fscan-lab](./fscan-lab)
 
 ## Disclaimer
 

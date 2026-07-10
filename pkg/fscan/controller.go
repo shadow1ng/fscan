@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
+	"scanner/common"
 )
 
 // ScanController provides pause/resume control and live stats for an
@@ -72,7 +72,14 @@ func (c *ScanController) Stats() ScanStats {
 	states := c.states
 	c.stateMu.Unlock()
 
-	stats := ScanStats{Duration: time.Since(c.start)}
+	duration := time.Since(c.start)
+	// Windows can report zero for two reads within the same clock tick. A
+	// controller is already running once it is observable, so expose the
+	// smallest positive duration instead of a misleading zero value.
+	if duration <= 0 {
+		duration = time.Nanosecond
+	}
+	stats := ScanStats{Duration: duration}
 	for _, s := range states {
 		stats.TasksTotal += s.GetEnd()
 		stats.TasksCompleted += s.GetNum()

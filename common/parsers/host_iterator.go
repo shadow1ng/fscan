@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shadow1ng/fscan/common/i18n"
+	"scanner/common/i18n"
 )
 
 const DefaultHostBatchSize = 4096

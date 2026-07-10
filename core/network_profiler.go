@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
+	"scanner/common"
+	"scanner/common/i18n"
 )
 
 // NetworkEnv 网络环境分类
@@ -137,9 +137,13 @@ func ProbeNetwork(ctx context.Context, hosts []string, session *common.ScanSessi
 			default:
 			}
 
-			total++
-			wg.Add(1)
-			sem <- struct{}{}
+			select {
+			case sem <- struct{}{}:
+				total++
+				wg.Add(1)
+			case <-ctx.Done():
+				goto done
+			}
 
 			go func(h string, p int) {
 				defer func() { <-sem; wg.Done() }()

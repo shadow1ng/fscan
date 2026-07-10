@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	commonconfig "github.com/shadow1ng/fscan/common/config"
-	"github.com/shadow1ng/fscan/common/i18n"
+	"scanner/common"
+	commonconfig "scanner/common/config"
+	"scanner/common/i18n"
 )
 
 func TestBuildFlagVarsDefaults(t *testing.T) {

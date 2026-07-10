@@ -1,2 +1,0 @@
-FLAG 6 存储在 MySQL 中，使用命令获取：
-mysql -h 10.10.4.40 -u root -pPassword -e "SELECT flag FROM secrets.flags WHERE id=1;"

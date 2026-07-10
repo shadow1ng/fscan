@@ -1,0 +1,18 @@
+name: poc-yaml-spring-boot-admin-unauth
+rules:
+  - method: GET
+    path: /
+    follow_redirects: false
+    expression: |
+      response.status == 200 && (response.body.bcontains(b"<title>Spring Boot Admin</title>") || (response.body.bcontains(b"sba-settings.js") && response.body.bcontains(b"variables.css")))
+  - method: GET
+    path: /instances
+    follow_redirects: false
+    expression: |
+      response.status == 200 && response.content_type.contains("json") && (r'^\s*\[\s*\]\s*$'.bmatches(response.body) || (response.body.bcontains(b'"registration"') && (response.body.bcontains(b'"managementUrl"') || response.body.bcontains(b'"healthUrl"'))) || (response.body.bcontains(b'"_embedded"') && response.body.bcontains(b'"instances"')))
+detail:
+  author: CO0KlE1
+  description: The Spring Boot Admin instance registry is accessible without authentication. The check reads only the instance collection and does not proxy any Actuator endpoint.
+  links:
+    - https://docs.spring-boot-admin.com/4.0.4/docs/reference/rest-api/
+    - https://github.com/codecentric/spring-boot-admin

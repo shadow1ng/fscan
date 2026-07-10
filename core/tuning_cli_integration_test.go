@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
+	"scanner/common"
 )
 
 func TestCLIExplicitDefaultTuningFlagsSurviveTuneConfig(t *testing.T) {
@@ -20,9 +20,9 @@ func TestCLIExplicitDefaultTuningFlagsSurviveTuneConfig(t *testing.T) {
 	}()
 
 	*common.GetFlagVars() = common.FlagVars{}
-	flag.CommandLine = flag.NewFlagSet("fscan-test", flag.ContinueOnError)
+	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
 	os.Args = []string{
-		"fscan-test",
+		"test",
 		"-silent",
 		"-h", "127.0.0.1",
 		"-time", "3",

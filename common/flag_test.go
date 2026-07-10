@@ -108,20 +108,6 @@ func TestBuildConfigFromFlags_ScanControl(t *testing.T) {
 			},
 		},
 		{
-			name: "本地插件模式",
-			fv: &FlagVars{
-				LocalPlugin: "systeminfo",
-			},
-			validate: func(t *testing.T, cfg *Config) {
-				if !cfg.LocalMode {
-					t.Error("LocalMode 应该为 true")
-				}
-				if cfg.LocalPlugin != "systeminfo" {
-					t.Errorf("LocalPlugin = %q, want %q", cfg.LocalPlugin, "systeminfo")
-				}
-			},
-		},
-		{
 			name: "扫描模式组合",
 			fv: &FlagVars{
 				ScanMode: "ssh,ftp,mysql",
@@ -702,121 +688,6 @@ func TestBuildConfigFromFlags_Credentials(t *testing.T) {
 }
 
 // =============================================================================
-// BuildConfigFromFlags 测试 - 高级功能参数
-// =============================================================================
-
-func TestBuildConfigFromFlags_Advanced(t *testing.T) {
-	tests := []struct {
-		name     string
-		fv       *FlagVars
-		validate func(*testing.T, *Config)
-	}{
-		{
-			name: "Shellcode设置",
-			fv: &FlagVars{
-				Shellcode: "4831c048...",
-			},
-			validate: func(t *testing.T, cfg *Config) {
-				if cfg.Shellcode != "4831c048..." {
-					t.Errorf("Shellcode = %q, want %q", cfg.Shellcode, "4831c048...")
-				}
-			},
-		},
-		{
-			name: "反向Shell目标",
-			fv: &FlagVars{
-				ReverseShellTarget: "192.168.1.100:4444",
-			},
-			validate: func(t *testing.T, cfg *Config) {
-				if cfg.LocalExploit.ReverseShellTarget != "192.168.1.100:4444" {
-					t.Errorf("ReverseShellTarget = %q, want %q", cfg.LocalExploit.ReverseShellTarget, "192.168.1.100:4444")
-				}
-			},
-		},
-		{
-			name: "SOCKS5代理端口",
-			fv: &FlagVars{
-				Socks5ProxyPort: 1080,
-			},
-			validate: func(t *testing.T, cfg *Config) {
-				if cfg.Socks5ProxyPort != 1080 {
-					t.Errorf("Socks5ProxyPort = %d, want %d", cfg.Socks5ProxyPort, 1080)
-				}
-			},
-		},
-		{
-			name: "正向Shell端口",
-			fv: &FlagVars{
-				ForwardShellPort: 5555,
-			},
-			validate: func(t *testing.T, cfg *Config) {
-				if cfg.LocalExploit.ForwardShellPort != 5555 {
-					t.Errorf("ForwardShellPort = %d, want %d", cfg.LocalExploit.ForwardShellPort, 5555)
-				}
-			},
-		},
-		{
-			name: "持久化目标文件",
-			fv: &FlagVars{
-				PersistenceTargetFile: "/etc/crontab",
-			},
-			validate: func(t *testing.T, cfg *Config) {
-				if cfg.PersistenceTargetFile != "/etc/crontab" {
-					t.Errorf("PersistenceTargetFile = %q, want %q", cfg.PersistenceTargetFile, "/etc/crontab")
-				}
-			},
-		},
-		{
-			name: "Windows PE文件",
-			fv: &FlagVars{
-				WinPEFile: "C:\\Windows\\Temp\\payload.exe",
-			},
-			validate: func(t *testing.T, cfg *Config) {
-				if cfg.WinPEFile != "C:\\Windows\\Temp\\payload.exe" {
-					t.Errorf("WinPEFile = %q, want %q", cfg.WinPEFile, "C:\\Windows\\Temp\\payload.exe")
-				}
-			},
-		},
-		{
-			name: "键盘记录输出文件",
-			fv: &FlagVars{
-				KeyloggerOutputFile: "keylog.txt",
-			},
-			validate: func(t *testing.T, cfg *Config) {
-				if cfg.LocalExploit.KeyloggerOutputFile != "keylog.txt" {
-					t.Errorf("KeyloggerOutputFile = %q, want %q", cfg.LocalExploit.KeyloggerOutputFile, "keylog.txt")
-				}
-			},
-		},
-		{
-			name: "下载URL和路径",
-			fv: &FlagVars{
-				DownloadURL:      "http://example.com/file.txt",
-				DownloadSavePath: "/tmp/downloaded.txt",
-			},
-			validate: func(t *testing.T, cfg *Config) {
-				if cfg.LocalExploit.DownloadURL != "http://example.com/file.txt" {
-					t.Errorf("DownloadURL = %q, want %q", cfg.LocalExploit.DownloadURL, "http://example.com/file.txt")
-				}
-				if cfg.LocalExploit.DownloadSavePath != "/tmp/downloaded.txt" {
-					t.Errorf("DownloadSavePath = %q, want %q", cfg.LocalExploit.DownloadSavePath, "/tmp/downloaded.txt")
-				}
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := BuildConfigFromFlags(tt.fv)
-			if cfg == nil {
-				t.Fatal("BuildConfigFromFlags 返回 nil")
-			}
-			tt.validate(t, cfg)
-		})
-	}
-}
-
-// =============================================================================
 // BuildConfigFromFlags 测试 - 目标配置参数
 // =============================================================================
 
@@ -1094,41 +965,6 @@ func TestCheckParameterConflicts(t *testing.T) {
 			name: "无冲突",
 			fv: &FlagVars{
 				ScanMode: "all",
-			},
-			wantError: false,
-		},
-		{
-			name: "本地插件包含逗号",
-			fv: &FlagVars{
-				LocalPlugin: "systeminfo,avdetect",
-			},
-			wantError: true,
-		},
-		{
-			name: "本地插件包含分号",
-			fv: &FlagVars{
-				LocalPlugin: "systeminfo;avdetect",
-			},
-			wantError: true,
-		},
-		{
-			name: "本地插件包含空格",
-			fv: &FlagVars{
-				LocalPlugin: "systeminfo avdetect",
-			},
-			wantError: true,
-		},
-		{
-			name: "本地插件包含管道符",
-			fv: &FlagVars{
-				LocalPlugin: "systeminfo|avdetect",
-			},
-			wantError: true,
-		},
-		{
-			name: "单个本地插件-正常",
-			fv: &FlagVars{
-				LocalPlugin: "systeminfo",
 			},
 			wantError: false,
 		},

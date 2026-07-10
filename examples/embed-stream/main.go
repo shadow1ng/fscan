@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	fscan "github.com/shadow1ng/fscan/pkg/fscan"
+	fscan "scanner/pkg/fscan"
 )
 
 func main() {

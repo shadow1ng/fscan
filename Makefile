@@ -1,13 +1,13 @@
-# fscan Makefile
+# Scanner Makefile
 # 提供统一的构建、测试、检查命令
 
-.PHONY: help test test-cover build build-web build-ui build-debug build-race lint lint-fix clean ci deps install-tools stress-test
+.PHONY: help test test-cover build build-debug build-race lint lint-fix clean ci deps install-tools stress-test
 
 # 默认目标
 .DEFAULT_GOAL := help
 
 # 项目配置
-BINARY_NAME := fscan
+BINARY_NAME := scanner
 GO := go
 GOLANGCI_LINT := golangci-lint
 
@@ -19,7 +19,7 @@ NC := \033[0m # No Color
 
 ## help: 显示帮助信息
 help:
-	@echo "$(BLUE)fscan 构建工具$(NC)"
+	@echo "$(BLUE)Scanner 构建工具$(NC)"
 	@echo ""
 	@echo "$(GREEN)可用命令:$(NC)"
 	@grep -E '^## ' $(MAKEFILE_LIST) | sed 's/^## /  /'
@@ -53,31 +53,11 @@ test-cover:
 	$(GO) tool cover -html=coverage.out -o coverage.html
 	@echo "$(GREEN)✓ 覆盖率报告生成完成$(NC)"
 
-## build: 构建生产版本（无 pprof，优化体积）
+## build: 构建生产版本（不含利用组件）
 build:
-	@echo "$(BLUE)构建生产版本（无 pprof）...$(NC)"
+	@echo "$(BLUE)构建生产版本（默认扫描版，不含利用组件）...$(NC)"
 	$(GO) build -ldflags="-s -w" -trimpath -o $(BINARY_NAME) .
 	@echo "$(GREEN)✓ 构建完成: $(BINARY_NAME)$(NC)"
-
-## build-web: 构建带Web UI的版本（需要先构建前端）
-build-web: build-ui
-	@echo "$(BLUE)构建Web版本...$(NC)"
-	$(GO) build -tags web -ldflags="-s -w" -trimpath -o $(BINARY_NAME)-web .
-	@echo "$(GREEN)✓ 构建完成: $(BINARY_NAME)-web$(NC)"
-	@echo "$(BLUE)提示: 运行 ./$(BINARY_NAME)-web 启动Web界面（默认端口 10240）$(NC)"
-
-## build-ui: 构建前端（需要Node.js和npm）
-build-ui:
-	@echo "$(BLUE)构建前端...$(NC)"
-	@if [ ! -d "web-ui" ]; then \
-		echo "$(RED)错误: web-ui 目录不存在$(NC)"; \
-		echo "请先创建前端项目"; \
-		exit 1; \
-	fi
-	@cd web-ui && npm install && npm run build
-	@rm -rf web/dist
-	@cp -r web-ui/dist web/dist
-	@echo "$(GREEN)✓ 前端构建完成$(NC)"
 
 ## build-debug: 构建调试版本（带 pprof）
 build-debug:

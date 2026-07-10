@@ -7,7 +7,8 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/shadow1ng/fscan/webscan/lib"
+	"scanner/common"
+	"scanner/webscan/lib"
 )
 
 type faviconRoundTripper struct {
@@ -274,6 +275,28 @@ func TestFetchFaviconHashNon200(t *testing.T) {
 	hashes := p.fetchFaviconHash(context.Background(), "http://example.com")
 	if len(hashes.MMH3) != 0 || len(hashes.MD5) != 0 {
 		t.Fatalf("fetchFaviconHash non-200 returned hashes: %#v", hashes)
+	}
+}
+
+func TestFetchFaviconUsesConfiguredUserAgent(t *testing.T) {
+	previous := lib.Client
+	config := common.NewConfig()
+	config.HTTP.UserAgent = "Scanner-Test/1.0"
+	session := common.NewScanSession(config, common.NewState(), &common.FlagVars{})
+
+	lib.Client = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if got := req.UserAgent(); got != config.HTTP.UserAgent {
+				t.Fatalf("User-Agent = %q, want %q", got, config.HTTP.UserAgent)
+			}
+			return &http.Response{StatusCode: http.StatusNotFound, Body: http.NoBody}, nil
+		}),
+	}
+	defer func() { lib.Client = previous }()
+
+	hashes := NewWebTitlePlugin().fetchFaviconHashWithSession(context.Background(), "http://example.com", session)
+	if len(hashes.MMH3) != 0 || len(hashes.MD5) != 0 {
+		t.Fatalf("non-200 favicon returned hashes: %#v", hashes)
 	}
 }
 

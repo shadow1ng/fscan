@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/shadow1ng/fscan/common"
+	"scanner/common"
 )
 
 type chunkedMySQLConn struct {

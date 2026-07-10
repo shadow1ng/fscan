@@ -6,10 +6,10 @@ import (
 	"context"
 	"strings"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/plugins"
-	WebScan "github.com/shadow1ng/fscan/webscan"
+	"scanner/common"
+	"scanner/common/i18n"
+	"scanner/plugins"
+	WebScan "scanner/webscan"
 )
 
 // CDN/WAF指纹列表，检测到这些指纹时跳过漏洞扫描

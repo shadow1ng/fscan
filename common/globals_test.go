@@ -24,10 +24,10 @@ func TestGlobalHelpersAndPacketLimitErrors(t *testing.T) {
 	if GetVersion() == "" {
 		t.Fatal("GetVersion returned empty string")
 	}
-	if !ContainsAny("hello fscan", "none", "scan") {
+	if !ContainsAny("hello scan-test", "none", "scan") {
 		t.Fatal("ContainsAny should find a matching substring")
 	}
-	if ContainsAny("hello fscan", "none", "missing") {
+	if ContainsAny("hello test", "none", "missing") {
 		t.Fatal("ContainsAny should return false when nothing matches")
 	}
 

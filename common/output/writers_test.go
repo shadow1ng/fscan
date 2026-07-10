@@ -1,6 +1,7 @@
 package output
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -168,6 +169,53 @@ func TestCSVWriterFormatRecords(t *testing.T) {
 	}
 	if writer.GetFormat() != FormatCSV {
 		t.Fatalf("csv GetFormat = %q", writer.GetFormat())
+	}
+}
+
+func TestCSVWriterSanitizesSpreadsheetFormulas(t *testing.T) {
+	tests := map[string]string{
+		"=cmd|' /C calc'!A0": "'=cmd|' /C calc'!A0",
+		" +SUM(1,2)":         "' +SUM(1,2)",
+		"-10+20":             "'-10+20",
+		"@IMPORTXML(A1,B1)":  "'@IMPORTXML(A1,B1)",
+		"example.com":        "example.com",
+	}
+	for input, want := range tests {
+		if got := sanitizeCSVCell(input); got != want {
+			t.Fatalf("sanitizeCSVCell(%q) = %q, want %q", input, got, want)
+		}
+	}
+
+	path := filepath.Join(t.TempDir(), "formula.csv")
+	writer, err := NewCSVWriter(path)
+	if err != nil {
+		t.Fatalf("NewCSVWriter: %v", err)
+	}
+	if err := writer.Write(createTestResult(TypeHost, "=HYPERLINK(\"https://example.com\")", "", nil)); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer file.Close()
+	records, err := csv.NewReader(file).ReadAll()
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	found := false
+	for _, record := range records {
+		if len(record) == 1 && record[0] == "'=HYPERLINK(\"https://example.com\")" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("sanitized formula row not found in %#v", records)
 	}
 }
 

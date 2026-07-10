@@ -22,8 +22,8 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter/functions"
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
+	"scanner/common"
+	"scanner/common/i18n"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -36,15 +36,6 @@ var (
 )
 
 const maxPOCResponseBodyBytes = 8 << 20
-
-// 包级POC配置（atomic 保证并发安全）
-var pocDNSLog atomic.Bool
-
-// InitPOCConfig 初始化POC配置（在扫描开始前调用）
-// 这样CEL回调函数可以使用包级变量而非GetGlobalConfig
-func InitPOCConfig(dnsLog bool) {
-	pocDNSLog.Store(dnsLog)
-}
 
 // NewEnv 创建一个新的 CEL 环境（使用缓存避免重复注册函数）
 func NewEnv(c *CustomLib) (*cel.Env, error) {
@@ -139,9 +130,82 @@ func MakeVarDecl(key, value string) *exprpb.Decl {
 	}
 }
 
-// CelProgCache 缓存编译后的 CEL Program，避免同一 POC 内重复编译
-// 在 executePoc 中创建，同一个 POC 的所有规则/参数组合共享
-type CelProgCache map[string]cel.Program
+// CelProgCache 缓存编译后的 CEL Program。
+// 缓存由 POC 加载阶段预热，执行阶段可被多个目标并发复用。
+type CelProgCache struct {
+	mu       sync.RWMutex
+	programs map[string]cachedCELProgram
+	sealed   atomic.Bool
+}
+
+type cachedCELProgram struct {
+	program cel.Program
+	err     error
+}
+
+func newCelProgCache(capacity int) *CelProgCache {
+	if capacity < 0 {
+		capacity = 0
+	}
+	return &CelProgCache{programs: make(map[string]cachedCELProgram, capacity)}
+}
+
+func (c *CelProgCache) get(expression string) (cel.Program, error, bool) {
+	if c == nil {
+		return nil, nil, false
+	}
+	if c.sealed.Load() {
+		entry, exists := c.programs[expression]
+		return entry.program, entry.err, exists
+	}
+	c.mu.RLock()
+	entry, exists := c.programs[expression]
+	c.mu.RUnlock()
+	return entry.program, entry.err, exists
+}
+
+func (c *CelProgCache) putIfAbsent(expression string, program cel.Program, compileErr error) (cel.Program, error) {
+	if c == nil {
+		return program, compileErr
+	}
+	if c.sealed.Load() {
+		return program, compileErr
+	}
+	c.mu.Lock()
+	if c.sealed.Load() {
+		c.mu.Unlock()
+		return program, compileErr
+	}
+	if existing, exists := c.programs[expression]; exists {
+		c.mu.Unlock()
+		return existing.program, existing.err
+	}
+	c.programs[expression] = cachedCELProgram{program: program, err: compileErr}
+	c.mu.Unlock()
+	return program, compileErr
+}
+
+func (c *CelProgCache) len() int {
+	if c == nil {
+		return 0
+	}
+	if c.sealed.Load() {
+		return len(c.programs)
+	}
+	c.mu.RLock()
+	length := len(c.programs)
+	c.mu.RUnlock()
+	return length
+}
+
+func (c *CelProgCache) seal() {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	c.sealed.Store(true)
+	c.mu.Unlock()
+}
 
 // Evaluate 评估 CEL 表达式（无缓存，用于 Set/Sets 求值等低频路径）
 func Evaluate(env *cel.Env, expression string, params map[string]interface{}) (ref.Val, error) {
@@ -149,34 +213,26 @@ func Evaluate(env *cel.Env, expression string, params map[string]interface{}) (r
 }
 
 // EvaluateCached 评估 CEL 表达式（带编译缓存，用于规则执行热路径）
-func EvaluateCached(env *cel.Env, expression string, params map[string]interface{}, cache CelProgCache) (ref.Val, error) {
+func EvaluateCached(env *cel.Env, expression string, params map[string]interface{}, cache *CelProgCache) (ref.Val, error) {
 	if expression == "" {
 		return types.Bool(true), nil
 	}
 
-	var program cel.Program
-
-	if cache != nil {
-		if cached, ok := cache[expression]; ok {
-			program = cached
-		}
-	}
-
-	if program == nil {
+	program, compileErr, cached := cache.get(expression)
+	if !cached {
 		ast, issues := env.Compile(expression)
 		if issues.Err() != nil {
-			return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_expression_compile_failed"), issues.Err())
+			_, compileErr = cache.putIfAbsent(expression, nil, issues.Err())
+		} else {
+			program, compileErr = env.Program(ast, GetBaseProgramOptions()...)
+			program, compileErr = cache.putIfAbsent(expression, program, compileErr)
 		}
-
-		var err error
-		program, err = env.Program(ast, GetBaseProgramOptions()...)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_program_create_failed"), err)
-		}
-
-		if cache != nil {
-			cache[expression] = program
-		}
+	}
+	if compileErr != nil {
+		return nil, fmt.Errorf("%s: %w", i18n.GetText("webscan_expression_compile_failed"), compileErr)
+	}
+	if program == nil {
+		return nil, fmt.Errorf("%s", i18n.GetText("webscan_program_create_failed"))
 	}
 
 	result, _, err := program.Eval(params)
@@ -371,16 +427,23 @@ func randomString(n int) string {
 	return RandomStr(randSource, charset, n)
 }
 
-// reverseCheck 检查 DNS 记录是否存在
-// 使用包级pocDNSLog变量，由InitPOCConfig初始化
+// reverseCheck 检查 DNS 记录是否存在。
+// DNSLog 未启用时 newReverse 返回空对象，因此无需进程级开关。
 func reverseCheck(r *Reverse, timeout int64) bool {
-	// 检查必要条件（使用包级配置变量）
-	if ceyeAPI == "" || r.Domain == "" || !pocDNSLog.Load() {
+	if ceyeAPI == "" || r == nil || r.Domain == "" {
 		return false
 	}
 
-	// 等待指定时间
-	time.Sleep(time.Second * time.Duration(timeout))
+	// 外部 POC 可控该参数，限制范围以避免超长或溢出的阻塞。
+	if timeout < 0 {
+		return false
+	}
+	if timeout > 30 {
+		timeout = 30
+	}
+	if timeout > 0 {
+		time.Sleep(time.Second * time.Duration(timeout))
+	}
 
 	// 提取子域名
 	sub := strings.Split(r.Domain, ".")[0]
@@ -503,9 +566,9 @@ func DoRequest(req *http.Request, redirect bool, session *common.ScanSession) (*
 	)
 
 	if redirect {
-		oResp, err = requestClient(true).Do(req)
+		oResp, err = requestClient(session, true).Do(req)
 	} else {
-		oResp, err = requestClient(false).Do(req)
+		oResp, err = requestClient(session, false).Do(req)
 	}
 
 	// 标准TLS握手级别失败时，尝试国密TLS客户端
@@ -517,13 +580,13 @@ func DoRequest(req *http.Request, redirect bool, session *common.ScanSession) (*
 			}
 		}
 		if redirect {
-			if clientGM := gmRequestClient(true); clientGM != nil {
+			if clientGM := gmRequestClient(session, true); clientGM != nil {
 				if oResp2, err2 := clientGM.Do(req); err2 == nil {
 					oResp, err = oResp2, nil
 				}
 			}
 		} else {
-			if clientGM := gmRequestClient(false); clientGM != nil {
+			if clientGM := gmRequestClient(session, false); clientGM != nil {
 				if oResp2, err2 := clientGM.Do(req); err2 == nil {
 					oResp, err = oResp2, nil
 				}
@@ -550,15 +613,24 @@ func DoRequest(req *http.Request, redirect bool, session *common.ScanSession) (*
 	return resp, err
 }
 
-func requestClient(redirect bool) *http.Client {
+func requestClient(session *common.ScanSession, redirect bool) *http.Client {
+	if session != nil {
+		if redirect && session.HTTPClient != nil {
+			return session.HTTPClient
+		}
+		if !redirect && session.HTTPClientNoRedirect != nil {
+			return session.HTTPClientNoRedirect
+		}
+	}
+	clients := GetHTTPClientSet()
 	if redirect {
-		if Client != nil {
-			return Client
+		if clients.Client != nil {
+			return clients.Client
 		}
 		return http.DefaultClient
 	}
-	if ClientNoRedirect != nil {
-		return ClientNoRedirect
+	if clients.ClientNoRedirect != nil {
+		return clients.ClientNoRedirect
 	}
 	return &http.Client{
 		CheckRedirect: func(*http.Request, []*http.Request) error {
@@ -567,11 +639,20 @@ func requestClient(redirect bool) *http.Client {
 	}
 }
 
-func gmRequestClient(redirect bool) *http.Client {
-	if redirect {
-		return ClientGM
+func gmRequestClient(session *common.ScanSession, redirect bool) *http.Client {
+	if session != nil {
+		if redirect && session.HTTPClientGM != nil {
+			return session.HTTPClientGM
+		}
+		if !redirect && session.HTTPClientNoRedirectGM != nil {
+			return session.HTTPClientNoRedirectGM
+		}
 	}
-	return ClientNoRedirectGM
+	clients := GetHTTPClientSet()
+	if redirect {
+		return clients.ClientGM
+	}
+	return clients.ClientNoRedirectGM
 }
 
 // ParseURL 解析 TargetURL 并转换为自定义 TargetURL 类型

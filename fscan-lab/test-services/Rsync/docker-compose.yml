@@ -1,9 +1,0 @@
-version: '3.8'
-
-services:
-  rsync:
-    build: .
-    ports:
-      - "873:873"
-    container_name: rsync_test
-    restart: unless-stopped

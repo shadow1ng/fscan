@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/config"
+	"scanner/common"
+	"scanner/common/config"
 )
 
 /*
@@ -61,9 +61,6 @@ func TestPluginRegistryMetadata(t *testing.T) {
 	RegisterUDPWithPorts("unit_udp", func() Plugin {
 		return testPlugin{BasePlugin: NewBasePlugin("unit_udp")}
 	}, []int{161})
-	RegisterWithTypes("unit_local", func() Plugin {
-		return testPlugin{BasePlugin: NewBasePlugin("unit_local")}
-	}, nil, []string{PluginTypeLocal})
 	RegisterUnsafeWithTypes("unit_unsafe_web", func() Plugin {
 		return testPlugin{BasePlugin: NewBasePlugin("unit_unsafe_web")}
 	}, nil, []string{PluginTypeWeb})
@@ -77,13 +74,13 @@ func TestPluginRegistryMetadata(t *testing.T) {
 	if got := Get("missing_plugin"); got != nil {
 		t.Fatalf("Get(missing_plugin) = %#v, want nil", got)
 	}
-	if !HasType("unit_tcp", PluginTypeService) || !HasType("unit_local", PluginTypeLocal) {
+	if !HasType("unit_tcp", PluginTypeService) {
 		t.Fatal("registered plugin types were not recorded")
 	}
 	if !IsUDP("unit_udp") || IsUDP("unit_tcp") {
 		t.Fatal("UDP metadata is wrong")
 	}
-	if !IsSafe("unit_tcp") || IsSafe("unit_local") || IsSafe("unit_unsafe_web") || IsSafe("missing_plugin") {
+	if !IsSafe("unit_tcp") || IsSafe("unit_unsafe_web") || IsSafe("missing_plugin") {
 		t.Fatal("safe metadata is wrong")
 	}
 
@@ -94,40 +91,16 @@ func TestPluginRegistryMetadata(t *testing.T) {
 	if got := GetPluginPorts("missing_plugin"); len(got) != 0 {
 		t.Fatalf("missing plugin ports = %#v, want empty", got)
 	}
-	if !hasPluginType([]string{PluginTypeWeb, PluginTypeLocal}, PluginTypeLocal) ||
+	if !hasPluginType([]string{PluginTypeWeb, PluginTypeUDP}, PluginTypeUDP) ||
 		hasPluginType([]string{PluginTypeWeb}, PluginTypeUDP) {
 		t.Fatal("hasPluginType returned wrong result")
 	}
 
 	names := All()
-	for _, want := range []string{"unit_tcp", "unit_udp", "unit_local", "unit_unsafe_web"} {
+	for _, want := range []string{"unit_tcp", "unit_udp", "unit_unsafe_web"} {
 		if !containsPluginName(names, want) {
 			t.Fatalf("All() missing %q in %#v", want, names)
 		}
-	}
-}
-
-func TestPluginLocalModeHook(t *testing.T) {
-	preservePluginRegistry(t)
-
-	RegisterWithTypes("unit_local_mode", func() Plugin {
-		return testPlugin{BasePlugin: NewBasePlugin("unit_local_mode")}
-	}, nil, []string{PluginTypeLocal})
-	RegisterWithPorts("unit_service_mode", func() Plugin {
-		return testPlugin{BasePlugin: NewBasePlugin("unit_service_mode")}
-	}, []int{22})
-
-	if common.IsLocalMode == nil {
-		t.Fatal("IsLocalMode hook should be installed")
-	}
-	if !common.IsLocalMode("unit_local_mode") {
-		t.Fatal("single local plugin should be local mode")
-	}
-	if !common.IsLocalMode("unit_local_mode, unit_local_mode") {
-		t.Fatal("local plugin list should be local mode")
-	}
-	if common.IsLocalMode("") || common.IsLocalMode("all") || common.IsLocalMode("unit_local_mode,unit_service_mode") {
-		t.Fatal("non-local modes should not be local mode")
 	}
 }
 

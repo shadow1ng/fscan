@@ -39,9 +39,9 @@ func TestXrayRealPoc(t *testing.T) {
 
 	t.Run("转换为fscan格式", func(t *testing.T) {
 		poc, _ := LoadUniversalPoc("74cms-sqli-1.yml", data)
-		fscanPoc, err := poc.ToFscanPoc()
+		fscanPoc, err := poc.ToNativePoc()
 		if err != nil {
-			t.Fatalf("ToFscanPoc() error = %v", err)
+			t.Fatalf("ToNativePoc() error = %v", err)
 		}
 
 		if fscanPoc.Name != "poc-yaml-74cms-sqli-1" {
@@ -104,9 +104,9 @@ func TestAfrogRealPoc(t *testing.T) {
 
 	t.Run("转换为fscan格式", func(t *testing.T) {
 		poc, _ := LoadUniversalPoc("CNVD-2020-62422.yaml", data)
-		fscanPoc, err := poc.ToFscanPoc()
+		fscanPoc, err := poc.ToNativePoc()
 		if err != nil {
-			t.Fatalf("ToFscanPoc() error = %v", err)
+			t.Fatalf("ToNativePoc() error = %v", err)
 		}
 
 		if fscanPoc.Name != "致远oa系统存在任意文件读取漏洞" {
@@ -162,9 +162,9 @@ func TestAfrogMultiRulePoc(t *testing.T) {
 			t.Fatalf("LoadUniversalPoc() error = %v", err)
 		}
 
-		fscanPoc, err := poc.ToFscanPoc()
+		fscanPoc, err := poc.ToNativePoc()
 		if err != nil {
-			t.Fatalf("ToFscanPoc() error = %v", err)
+			t.Fatalf("ToNativePoc() error = %v", err)
 		}
 
 		// 这个 POC 有 r0 和 r1 两个规则
@@ -207,9 +207,9 @@ func TestXrayMultiRulePoc(t *testing.T) {
 			t.Fatalf("LoadUniversalPoc() error = %v", err)
 		}
 
-		fscanPoc, err := poc.ToFscanPoc()
+		fscanPoc, err := poc.ToNativePoc()
 		if err != nil {
-			t.Fatalf("ToFscanPoc() error = %v", err)
+			t.Fatalf("ToNativePoc() error = %v", err)
 		}
 
 		// 这个 POC 有 r0, r1, r2, r3 四个规则
@@ -244,7 +244,7 @@ func TestFormatDetectionComparison(t *testing.T) {
 		{
 			name:     "fscan格式",
 			path:     "C:\\Users\\29037\\GolandProjects\\fscan\\webscan\\pocs\\74cms-sqli-1.yml",
-			expected: FormatFscan,
+			expected: FormatNative,
 		},
 		{
 			name:     "xray格式",

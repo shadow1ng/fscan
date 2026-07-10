@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shadow1ng/fscan/common/output"
+	"scanner/common/output"
 )
 
 func TestScanSessionLogMethodsHonorSilentConfig(t *testing.T) {
@@ -36,6 +36,14 @@ func TestScanSessionLogMethodsHonorSilentConfig(t *testing.T) {
 	defer loggerMu.Unlock()
 	if globalLogger != nil {
 		t.Fatal("silent session log methods initialized global logger")
+	}
+}
+
+func TestScanSessionDeactivateRejectsLateResults(t *testing.T) {
+	session := NewScanSession(NewConfig(), NewState(), &FlagVars{})
+	session.Deactivate()
+	if err := session.SaveResult(&output.ScanResult{}); err == nil {
+		t.Fatal("SaveResult() error = nil after Deactivate()")
 	}
 }
 

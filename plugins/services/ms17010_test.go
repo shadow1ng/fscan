@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
+	"scanner/common"
 )
 
 func TestMS17010LegacyRequestsDecodeToSMB1Packets(t *testing.T) {

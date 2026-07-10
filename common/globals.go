@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/shadow1ng/fscan/common/i18n"
+	"scanner/common/i18n"
 )
 
 /*
@@ -69,7 +69,7 @@ const (
 
 // 版本信息，通过 ldflags 注入
 var (
-	version = "2.2.0"
+	version = "2.2.1"
 	commit  = "unknown"
 	date    = "unknown"
 )

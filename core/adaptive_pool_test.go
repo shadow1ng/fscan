@@ -1,10 +1,37 @@
 package core
 
 import (
+	"context"
 	"sync/atomic"
 	"testing"
 	"time"
 )
+
+func TestAdaptivePoolInvokeContextCancellation(t *testing.T) {
+	release := make(chan struct{})
+	started := make(chan struct{}, 1)
+	pool, _ := newTestPool(t, 1, func(interface{}) {
+		select {
+		case started <- struct{}{}:
+		default:
+		}
+		<-release
+	})
+	defer pool.Release()
+
+	if err := pool.Invoke(struct{}{}); err != nil {
+		t.Fatalf("first Invoke() error = %v", err)
+	}
+	<-started
+
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Millisecond)
+	defer cancel()
+	if err := pool.InvokeContext(ctx, struct{}{}); err != context.DeadlineExceeded {
+		close(release)
+		t.Fatalf("InvokeContext() error = %v, want deadline exceeded", err)
+	}
+	close(release)
+}
 
 // newTestPool 测试辅助：创建测试用的自适应线程池
 func newTestPool(t *testing.T, size int, fn func(interface{})) (*AdaptivePool, *ScanMetrics) {

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -259,7 +260,7 @@ func TestBuildWebServiceURLIPv6(t *testing.T) {
 func TestPortScanCollectorsAndHelpers(t *testing.T) {
 	t.Run("result collector deduplicates and streams", func(t *testing.T) {
 		stream := make(chan string, 2)
-		collector := newResultCollector(stream)
+		collector := newResultCollector(context.Background(), stream)
 		collector.Add("127.0.0.1:80")
 		collector.Add("127.0.0.1:80")
 		collector.Add("127.0.0.1:443")
@@ -279,6 +280,15 @@ func TestPortScanCollectorsAndHelpers(t *testing.T) {
 		sort.Strings(streamed)
 		if !stringSlicesEqual(streamed, expected) {
 			t.Fatalf("streamed results = %v, want %v", streamed, expected)
+		}
+	})
+
+	t.Run("stream send stops on context cancellation", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		collector := newResultCollector(ctx, make(chan string))
+		if collector.Add("127.0.0.1:8080") {
+			t.Fatal("Add should report a cancelled stream send")
 		}
 	})
 

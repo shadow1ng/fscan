@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shadow1ng/fscan/common/config"
-	"github.com/shadow1ng/fscan/common/i18n"
+	"scanner/common/config"
+	"scanner/common/i18n"
 )
 
 /*

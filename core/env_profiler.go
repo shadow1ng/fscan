@@ -6,8 +6,8 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
+	"scanner/common"
+	"scanner/common/i18n"
 )
 
 // EnvironmentProfile 综合环境探测结果

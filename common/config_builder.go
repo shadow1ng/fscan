@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shadow1ng/fscan/common/config"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/common/parsers"
+	"scanner/common/config"
+	"scanner/common/i18n"
+	"scanner/common/parsers"
 )
 
 /*
@@ -22,6 +22,8 @@ config_builder.go - 统一配置构建入口
 // BuildConfig 从 FlagVars 构建完整的 Config 和 State
 // 这是新的统一入口，替代原来的 Parse() + BuildConfigFromFlags() + updateGlobalVariables()
 func BuildConfig(fv *FlagVars, info *HostInfo) (*Config, *State, error) {
+	resolveDefaultOutputFile(fv, info)
+
 	// 1. 构建基础 Config（从 flag_config.go 的 BuildConfigFromFlags）
 	cfg := BuildConfigFromFlags(fv)
 

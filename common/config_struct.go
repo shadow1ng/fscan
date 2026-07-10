@@ -3,7 +3,7 @@ package common
 import (
 	"time"
 
-	"github.com/shadow1ng/fscan/common/config"
+	"scanner/common/config"
 )
 
 /*
@@ -36,38 +36,28 @@ type Config struct {
 
 	// 扫描模式
 	Mode               string // 扫描模式
-	LocalMode          bool   // 本地模式
-	LocalPlugin        string // 本地插件名
 	AliveOnly          bool   // 仅存活检测
 	MaxRetries         int    // 最大重试次数
 	MaxRetriesExplicit bool   // 用户显式指定了 -retry
 	DetectedNetworkEnv int    // 探测到的网络环境（来自 core.NetworkEnv）
 
 	// 高级功能（从AdvancedConfig合并）
-	Shellcode             string           // Shellcode
-	LocalPluginsList      []string         // 本地插件列表
-	DNSLog                bool             // DNSLog检测
-	PersistenceTargetFile string           // 持久化目标文件
-	WinPEFile             string           // WinPE文件
-	PortMap               map[int][]string // 端口映射
-	DefaultMap            []string         // 默认映射
+	DNSLog     bool             // DNSLog检测
+	PortMap    map[int][]string // 端口映射
+	DefaultMap []string         // 默认映射
 
 	// 分组配置 - 值类型
-	Credentials  CredentialConfig
-	Network      NetworkConfig
-	Output       OutputConfig
-	POC          POCConfig
-	Redis        RedisConfig
-	HTTP         HTTPConfig
-	LocalExploit LocalExploitConfig
-	Target       TargetConfig // 扫描目标配置
+	Credentials CredentialConfig
+	Network     NetworkConfig
+	Output      OutputConfig
+	POC         POCConfig
+	Redis       RedisConfig
+	HTTP        HTTPConfig
+	Target      TargetConfig // 扫描目标配置
 
 	// 全局超时
 	GlobalTimeout         time.Duration
 	GlobalTimeoutExplicit bool
-
-	// SOCKS5代理端口配置
-	Socks5ProxyPort int // SOCKS5代理端口
 }
 
 // TargetConfig 扫描目标配置
@@ -143,15 +133,6 @@ type HTTPConfig struct {
 	Accept    string // Accept头
 }
 
-// LocalExploitConfig 本地利用相关配置
-type LocalExploitConfig struct {
-	ReverseShellTarget  string // 反弹Shell目标
-	ForwardShellPort    int    // 正向Shell端口
-	KeyloggerOutputFile string // 键盘记录输出文件
-	DownloadURL         string // 下载URL
-	DownloadSavePath    string // 下载保存路径
-}
-
 func cloneStringSlice(values []string) []string {
 	if values == nil {
 		return nil
@@ -196,18 +177,17 @@ func (c *Config) ModuleTimeout() time.Duration {
 func NewConfig() *Config {
 	return &Config{
 		// 高频字段 - 使用默认常量
-		Timeout:         time.Duration(DefaultTimeout) * time.Second,
-		ThreadNum:       DefaultThreadNum,
-		ThreadCeiling:   DefaultThreadNum,
-		ModuleThreadNum: 10,
-		DisableBrute:    false,
-		DisablePing:     false,
+		Timeout:            time.Duration(DefaultTimeout) * time.Second,
+		ThreadNum:          DefaultThreadNum,
+		ThreadCeiling:      DefaultThreadNum,
+		ModuleThreadNum:    10,
+		DisableBrute:       false,
+		DisablePing:        false,
 		DisableTcpProbe:    false,
 		DisableSubnetProbe: false,
 
 		// 扫描模式
 		Mode:       DefaultScanMode,
-		LocalMode:  false,
 		AliveOnly:  false,
 		MaxRetries: 3,
 
@@ -235,9 +215,6 @@ func NewConfig() *Config {
 		},
 		POC: POCConfig{
 			Num: 20,
-		},
-		LocalExploit: LocalExploitConfig{
-			ForwardShellPort: 4444,
 		},
 	}
 }

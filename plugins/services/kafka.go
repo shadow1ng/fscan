@@ -11,9 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/plugins"
+	"scanner/common"
+	"scanner/common/i18n"
+	"scanner/plugins"
 )
 
 // KafkaPlugin Kafka扫描插件（纯 raw TCP 实现，无重型依赖）
@@ -165,7 +165,7 @@ func kafkaSend(conn net.Conn, apiKey, apiVersion int16, body []byte) error {
 	corrID := nextKafkaCorrelationID()
 
 	// 请求格式: [4B len] [2B api_key] [2B api_version] [4B corr_id] [2B client_id_len] [client_id] [body]
-	clientID := "fscan"
+	clientID := "kafka-cli"
 	totalLen := 2 + 2 + 4 + 2 + len(clientID) + len(body)
 	buf := make([]byte, 4+totalLen)
 	binary.BigEndian.PutUint32(buf[0:4], uint32(totalLen))

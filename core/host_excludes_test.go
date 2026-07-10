@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/shadow1ng/fscan/common"
+	"scanner/common"
 )
 
 func TestLoadHostExcludesIncludesExcludeFile(t *testing.T) {

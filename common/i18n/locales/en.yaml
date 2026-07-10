@@ -1,4 +1,4 @@
-# fscan English translation file
+# Scanner English translation file
 # Contains only actually used messages (115)
 
 # ========================= Command Line Arguments (71) =========================
@@ -36,10 +36,8 @@ flag_disable_tcp_probe:
   other: "Disable TCP supplementary probe"
 flag_disable_subnet_probe:
   other: "Disable subnet pre-filter (optimization that skips empty /24 subnets in large scans)"
-flag_local_plugin:
-  other: "Specify local plugin name (e.g.: cleaner, systeminfo, keylogger)"
 flag_debug:
-  other: "Enable debug mode, write logs to fscan_debug.log"
+  other: "Enable debug mode, write logs to debug.log"
 flag_alive_only:
   other: "Alive detection only"
 flag_username:
@@ -117,7 +115,7 @@ flag_max_packet_count:
 flag_icmp_rate:
   other: "ICMP packet rate (ratio to max rate, default 0.1, ~1463 pps)"
 flag_output_file:
-  other: "Output file"
+  other: "Output file (defaults to the first target)"
 flag_output_format:
   other: "Output format: txt, json, csv"
 flag_disable_save:
@@ -132,39 +130,15 @@ flag_disable_progress:
   other: "Disable progress bar"
 flag_perf_stats:
   other: "Output performance stats in JSON"
-flag_shellcode:
-  other: "Shellcode"
-flag_reverse_shell_target:
-  other: "Reverse shell target address:port (e.g.: 192.168.1.100:4444)"
-flag_start_socks5_server:
-  other: "Start SOCKS5 proxy server on port (e.g.: 1080)"
-flag_forward_shell_port:
-  other: "Start forward shell server on port (e.g.: 4444)"
-flag_persistence_file:
-  other: "Linux persistence target file path (supports .elf/.sh files)"
-flag_win_pe_file:
-  other: "Windows persistence target PE file path (supports .exe/.dll files)"
-flag_keylogger_output:
-  other: "Keylogger output file path"
-flag_download_url:
-  other: "URL of the file to download"
-flag_download_path:
-  other: "Save path for downloaded file"
 flag_language:
   other: "Language: zh, en"
 flag_help:
   other: "Show help information"
-flag_web_mode:
-  other: "Start Web management UI"
-flag_web_port:
-  other: "Web server port"
 # ========================= Scan Mode Messages =========================
 scan_mode_service_selected:
   other: "Service scan mode selected"
 scan_mode_alive_selected:
   other: "Alive detection mode selected"
-scan_mode_local_selected:
-  other: "Local scan mode selected"
 scan_mode_web_selected:
   other: "Web scan mode selected"
 scan_info_start:
@@ -215,8 +189,6 @@ progress_duration:
   other: "duration"
 concurrency_plugin:
   other: "Plugins"
-concurrency_local_plugin:
-  other: "Local Plugins"
 concurrency_service_plugin:
   other: "Service Plugins"
 concurrency_web_plugin:
@@ -277,8 +249,6 @@ target_local_mode:
   other: "Local scan mode"
 param_conflict_ao_icmp_both:
   other: "Note: Both -ao and -m icmp specified, both enable alive detection mode"
-param_local_multi_plugin:
-  other: "Only a single local plugin can be specified, multiple plugins separated by '{{.Arg1}}' are not supported"
 param_join_and:
   other: "{{.Arg1}} and {{.Arg2}}"
 
@@ -383,14 +353,6 @@ alive_host_item:
 # ========================= Scanner Messages =========================
 http_client_init_failed:
   other: "HTTP client initialization failed: {{.Arg1}}"
-active_reverse_shell:
-  other: "Active reverse shell detected, keeping program running..."
-active_socks5_proxy:
-  other: "Active SOCKS5 proxy detected, keeping program running..."
-active_forward_shell:
-  other: "Active forward shell detected, keeping program running..."
-press_ctrl_c_exit:
-  other: "Press Ctrl+C to exit"
 received_exit_signal:
   other: "Received exit signal, shutting down..."
 scan_task_complete:
@@ -473,14 +435,6 @@ subnet_prefilter_done:
   other: "Subnet prefilter complete: {{.Arg1}} alive (gateway hits {{.Arg2}}), {{.Arg3}} skipped, {{.Arg4}} hosts remaining"
 
 # ========================= Local Scan Messages =========================
-local_plugin_info:
-  other: "Local plugin: {{.Arg1}}"
-local_plugin_not_specified:
-  other: "Local plugin: Not specified"
-local_plugin_not_found:
-  other: "Error: Local plugin '{{.Arg1}}' does not exist or is not available on current platform"
-
-# ========================= Service Scan Messages =========================
 service_plugin_info:
   other: "Service plugins: {{.Arg1}}"
 service_plugin_custom:
@@ -519,8 +473,6 @@ plugins_info:
   other: "{{.Arg1}}: {{.Arg2}}"
 plugins_none:
   other: "{{.Arg1}}: None available"
-start_local_scan:
-  other: "Starting local scan"
 start_service_scan:
   other: "Starting service scan"
 start_web_scan:
@@ -676,8 +628,6 @@ ms17010_start:
   other: "MS17-010 exploitation started: {{.Arg1}}"
 ms17010_complete:
   other: "MS17-010 exploitation completed: {{.Arg1}}"
-ms17010_shellcode_complete:
-  other: "{{.Arg1}} MS17-010 exploitation completed (Shellcode length: {{.Arg2}})"
 ms17010_protocol_decrypt_error:
   other: "Protocol request decryption error: {{.Arg1}}"
 ms17010_protocol_decode_error:
@@ -700,42 +650,6 @@ ms17010_vuln_banner:
   other: "MS17-010 vulnerability ({{.Arg1}})"
 ms17010_not_vulnerable:
   other: "Target is not vulnerable to MS17-010"
-ms17010_exploit_header:
-  other: "=== MS17-010 exploitation result - {{.Arg1}} ==="
-ms17010_exploit_check_failed:
-  other: "[Vulnerability check failed] {{.Arg1}}"
-ms17010_exploit_not_vulnerable:
-  other: "[Vulnerability status] Target is not vulnerable to MS17-010"
-ms17010_exploit_confirmed:
-  other: "[Vulnerability confirmed] MS17-010 vulnerability exists"
-ms17010_exploit_os:
-  other: "[Operating system] {{.Arg1}}"
-ms17010_exploit_backdoor_found:
-  other: "[Backdoor check] DOUBLEPULSAR backdoor found"
-ms17010_exploit_backdoor_not_found:
-  other: "[Backdoor check] DOUBLEPULSAR backdoor not found"
-ms17010_exploit_mode:
-  other: "[Exploit mode] {{.Arg1}}"
-ms17010_exploit_start_attack:
-  other: "[Exploit status] Starting EternalBlue attack..."
-ms17010_exploit_failed:
-  other: "[Exploit result] Exploit failed: {{.Arg1}}"
-ms17010_exploit_success:
-  other: "[Exploit result] Exploit completed successfully"
-ms17010_exploit_bind_hint:
-  other: "[Connection hint] Use the following command to connect to Bind Shell:"
-ms17010_exploit_add_hint:
-  other: "[Access hint] Administrator account added. Connect with:"
-ms17010_exploit_add_credential:
-  other: "  Username: sysadmin  Password: 1qaz@WSX!@#4"
-ms17010_exploit_guest_hint:
-  other: "[Access hint] Guest account enabled. Remote connection is available"
-ms17010_exploit_detect_only:
-  other: "[Exploit mode] Detection only (shellcode not configured)"
-ms17010_exploit_shellcode_hint:
-  other: "[Hint] Use -sc to configure shellcode for exploitation"
-ms17010_exploit_supported_modes:
-  other: "  Supported modes: bind, add, guest, or custom shellcode"
 ms17010_base64_decode_failed:
   other: "base64 decode failed"
 ms17010_aes_cipher_failed:
@@ -774,18 +688,6 @@ ms17010_read_pipe_error:
   other: "Read pipe response error"
 ms17010_pipe_response_incomplete:
   other: "Pipe response incomplete"
-ms17010_bind_shellcode_decrypt_failed:
-  other: "Failed to decrypt bind shellcode"
-ms17010_add_shellcode_decrypt_failed:
-  other: "Failed to decrypt add shellcode"
-ms17010_guest_shellcode_decrypt_failed:
-  other: "Failed to decrypt guest shellcode"
-ms17010_shellcode_file_read_failed:
-  other: "Failed to read shellcode file"
-ms17010_invalid_shellcode:
-  other: "Invalid shellcode"
-ms17010_shellcode_decode_failed:
-  other: "Shellcode decode failed"
 findnet_discovery_failed:
   other: "Network discovery failed"
 findnet_hostname:
@@ -968,362 +870,6 @@ netbios_header_too_short:
   other: "NetBIOS header too short"
 message_length_too_large:
   other: "Message length too large"
-local_target:
-  other: "Target: {{.Arg1}}"
-local_platform:
-  other: "Platform: {{.Arg1}}"
-local_listen_port:
-  other: "Listen port: {{.Arg1}}"
-local_output_file:
-  other: "Output file: {{.Arg1}}"
-local_start_time:
-  other: "Start time: {{.Arg1}}"
-unsupported_platform:
-  other: "Unsupported platform: {{.Arg1}}"
-unsupported_os:
-  other: "Unsupported operating system: {{.Arg1}}"
-connection_failed_plain:
-  other: "Connection failed"
-listen_port_failed:
-  other: "Failed to listen on port"
-command_timeout:
-  other: "Command execution timed out"
-command_exec_failed:
-  other: "Command execution failed: {{.Arg1}}"
-command_success_no_output:
-  other: "(Command completed successfully with no output)"
-command_error_with_output:
-  other: "Error: {{.Arg1}}\n{{.Arg2}}"
-reverseshell_header:
-  other: "=== Go native reverse shell ==="
-reverseshell_error:
-  other: "Reverse shell error: {{.Arg1}}"
-reverseshell_done:
-  other: "✓ Reverse shell completed"
-forwardshell_header:
-  other: "=== Forward shell server ==="
-forwardshell_server_error:
-  other: "Forward shell server error: {{.Arg1}}"
-forwardshell_done:
-  other: "✓ Forward shell service completed"
-socks5_header:
-  other: "=== SOCKS5 proxy server ==="
-socks5_server_error:
-  other: "SOCKS5 proxy server error: {{.Arg1}}"
-socks5_done:
-  other: "✓ SOCKS5 proxy completed"
-socks5_handshake_read_failed:
-  other: "Failed to read handshake request"
-socks5_unsupported_version:
-  other: "Unsupported SOCKS version"
-socks5_handshake_write_failed:
-  other: "Failed to send handshake response"
-socks5_request_read_failed:
-  other: "Failed to read connection request"
-socks5_invalid_request:
-  other: "Invalid SOCKS5 request"
-socks5_unsupported_command:
-  other: "Unsupported command"
-ipv4_address_invalid:
-  other: "Invalid IPv4 address format"
-domain_format_invalid:
-  other: "Invalid domain format"
-domain_length_invalid:
-  other: "Invalid domain length"
-ipv6_address_invalid:
-  other: "Invalid IPv6 address format"
-socks5_unsupported_address_type:
-  other: "Unsupported address type"
-socks5_target_connect_failed:
-  other: "Failed to connect to target server"
-local_address_unavailable:
-  other: "Unable to get local address"
-socks5_success_response_failed:
-  other: "Failed to send success response"
-socks5_proxy_connection_established:
-  other: "Proxy connection established: {{.Arg1}}"
-keylogger_header:
-  other: "=== Keylogger ==="
-keylogger_output_permission_failed:
-  other: "Output file permission check failed: {{.Arg1}}"
-platform_requirement_failed:
-  other: "Platform requirement check failed: {{.Arg1}}"
-keylogger_failed:
-  other: "Keylogging failed: {{.Arg1}}"
-keylogger_failed_plain:
-  other: "Keylogging failed"
-keylogger_done:
-  other: "✓ Keylogging completed"
-keylogger_event_count:
-  other: "Captured event count: {{.Arg1}}"
-keylogger_log_file:
-  other: "Log file: {{.Arg1}}"
-output_file_create_failed:
-  other: "Unable to create output file {{.Arg1}}"
-output_file_open_failed:
-  other: "Unable to open output file"
-keylogger_log_header:
-  other: "=== Keylog ==="
-keylogger_header_write_failed:
-  other: "Failed to write header information"
-keylogger_entry_write_failed:
-  other: "Failed to write keylog entry"
-keylogger_demo_windows:
-  other: "Demo keylog - Windows platform"
-keylogger_demo_linux:
-  other: "Demo keylog - Linux platform"
-keylogger_demo_darwin:
-  other: "Demo keylog - macOS platform"
-command_read_failed:
-  other: "Failed to read command"
-local_target_file:
-  other: "Target file: {{.Arg1}}"
-persistence_file_required:
-  other: "Specify target file path with -persistence-file"
-target_file_not_specified:
-  other: "Target file not specified"
-target_file_not_exist:
-  other: "Target file does not exist: {{.Arg1}}"
-copy_file_failed:
-  other: "✗ Failed to copy file: {{.Arg1}}"
-file_copied_to:
-  other: "✓ File copied to: {{.Arg1}}"
-persistence_complete_summary:
-  other: "Persistence completed: success({{.Arg1}}) total({{.Arg2}})"
-crontask_linux_only:
-  other: "Cron task persistence only supports Linux"
-crontab_unavailable:
-  other: "crontab command is unavailable"
-crontask_header:
-  other: "=== Cron task persistence ==="
-crontask_user_add_failed:
-  other: "✗ Failed to add user cron task: {{.Arg1}}"
-crontask_user_added:
-  other: "✓ User crontab task added"
-crontask_system_add_failed:
-  other: "✗ Failed to add system cron task: {{.Arg1}}"
-crontask_system_added:
-  other: "✓ System cron task added: {{.Arg1}}"
-crontask_at_add_failed:
-  other: "✗ Failed to add at task: {{.Arg1}}"
-crontask_at_added:
-  other: "✓ at delayed task added"
-crontask_anacron_add_failed:
-  other: "✗ Failed to add anacron task: {{.Arg1}}"
-crontask_anacron_added:
-  other: "✓ anacron task added"
-persistence_dir_create_failed:
-  other: "Unable to create persistence directory"
-crontask_system_create_none:
-  other: "Unable to create any system cron task"
-systemdservice_linux_only:
-  other: "System service persistence only supports Linux"
-systemctl_unavailable:
-  other: "systemctl command is unavailable: {{.Arg1}}"
-systemdservice_header:
-  other: "=== System service persistence ==="
-systemdservice_create_failed:
-  other: "✗ Failed to create systemd service: {{.Arg1}}"
-systemdservice_created:
-  other: "✓ systemd service created: {{.Arg1}}"
-systemdservice_start_failed:
-  other: "✗ Failed to start service: {{.Arg1}}"
-systemdservice_started:
-  other: "✓ Service enabled and started"
-systemdservice_user_create_failed:
-  other: "✗ Failed to create user service: {{.Arg1}}"
-systemdservice_user_created:
-  other: "✓ User service created: {{.Arg1}}"
-systemdservice_timer_create_failed:
-  other: "✗ Failed to create timer service: {{.Arg1}}"
-systemdservice_timer_created:
-  other: "✓ systemd timer created"
-systemdservice_complete_summary:
-  other: "System service persistence completed: success({{.Arg1}}) total({{.Arg2}})"
-service_dir_create_failed:
-  other: "Unable to create service directory"
-systemdservice_create_none:
-  other: "Unable to create any systemd service file"
-service_operation_error:
-  other: "Service operation error"
-ldpreload_linux_only:
-  other: "LD_PRELOAD persistence only supports Linux"
-ldpreload_so_required:
-  other: "Target file must be a .so dynamic library: {{.Arg1}}"
-invalid_file_type:
-  other: "Invalid file type"
-ldpreload_header:
-  other: "=== LD_PRELOAD persistence ==="
-ldpreload_copy_system_failed:
-  other: "✗ Failed to copy file to system directory: {{.Arg1}}"
-ldpreload_env_add_failed:
-  other: "✗ Failed to add environment variable: {{.Arg1}}"
-ldpreload_env_added:
-  other: "✓ Added to global environment variables"
-ldpreload_shell_add_failed:
-  other: "✗ Failed to add shell configuration: {{.Arg1}}"
-ldpreload_shell_added:
-  other: "✓ Added to shell configuration: {{.Arg1}}"
-ldpreload_config_create_failed:
-  other: "✗ Failed to create ld config: {{.Arg1}}"
-ldpreload_config_created:
-  other: "✓ ld preload config created"
-ldpreload_complete_summary:
-  other: "LD_PRELOAD persistence completed: success({{.Arg1}}) total({{.Arg2}})"
-ldpreload_system_lib_dir_not_found:
-  other: "No suitable system library directory found"
-ldpreload_shell_config_modify_none:
-  other: "Unable to modify any shell configuration file"
-cleaner_removed:
-  other: "[Clean] {{.Arg1}}"
-cleaner_history_removed:
-  other: "[Clean] removed fscan records from {{.Arg1}}"
-sshkey_mkdir_failed:
-  other: "[Failed] {{.Arg1}}: unable to create .ssh directory: {{.Arg2}}"
-sshkey_generate_failed:
-  other: "[Failed] {{.Arg1}}: key generation failed: {{.Arg2}}"
-sshkey_authorized_read_failed:
-  other: "[Failed] {{.Arg1}}: failed to read authorized_keys: {{.Arg2}}"
-sshkey_public_exists:
-  other: "[Skip] {{.Arg1}}: public key already exists"
-sshkey_authorized_write_failed:
-  other: "[Failed] {{.Arg1}}: unable to write authorized_keys: {{.Arg2}}"
-sshkey_private_save_failed:
-  other: "[Failed] {{.Arg1}}: failed to save private key: {{.Arg2}}"
-sshkey_injected:
-  other: "[Success] {{.Arg1}}: public key injected into {{.Arg2}}, private key saved as {{.Arg3}}"
-minidump_admin_required:
-  other: "Administrator privileges required"
-minidump_load_dll_failed:
-  other: "Failed to load system DLL: {{.Arg1}}"
-minidump_try_direct:
-  other: "[*] Trying direct memory dump..."
-minidump_av_skip_direct:
-  other: "[*] Security software protection detected, skipping direct dump"
-minidump_try_comsvcs:
-  other: "[*] Trying comsvcs.dll method..."
-minidump_try_regsave:
-  other: "[*] Trying reg save registry export..."
-minidump_all_failed:
-  other: "[!] All methods failed"
-minidump_all_methods_failed:
-  other: "All credential extraction methods failed"
-minidump_find_lsass_failed:
-  other: "  Failed to find lsass.exe: {{.Arg1}}"
-minidump_privilege_failed:
-  other: "  Privilege escalation failed: {{.Arg1}}"
-minidump_direct_failed:
-  other: "  Direct dump failed: {{.Arg1}}"
-minidump_method_direct:
-  other: "Direct memory dump"
-minidump_comsvcs_failed:
-  other: "  comsvcs.dll failed: {{.Arg1}}"
-minidump_hive_export_failed:
-  other: "  ✗ {{.Arg1}} export failed"
-minidump_regsave_done:
-  other: "[+] Registry hive export completed, parse offline with secretsdump"
-minidump_method_success:
-  other: "[+] {{.Arg1}} succeeded: {{.Arg2}} ({{.Arg3}} bytes)"
-minidump_load_named_dll_failed:
-  other: "Failed to load {{.Arg1}}"
-minidump_find_proc_failed:
-  other: "Failed to find {{.Arg1}} function"
-minidump_snapshot_create_failed:
-  other: "Failed to create process snapshot"
-minidump_first_process_failed:
-  other: "Failed to get first process"
-minidump_process_name_convert_failed:
-  other: "Failed to convert process name"
-minidump_process_not_found:
-  other: "Process not found: {{.Arg1}}"
-minidump_open_process_token_failed:
-  other: "Failed to open process token"
-minidump_privilege_name_convert_failed:
-  other: "Failed to convert privilege name"
-minidump_lookup_privilege_failed:
-  other: "Failed to look up privilege value"
-minidump_adjust_token_failed:
-  other: "Failed to adjust token privileges"
-minidump_current_process_failed:
-  other: "Failed to get current process handle"
-minidump_timeout:
-  other: "Memory dump timed out (120 seconds)"
-minidump_write_dump_failed:
-  other: "Failed to write dump file"
-minidump_open_process_failed:
-  other: "Failed to open process"
-file_create_failed:
-  other: "Failed to create file"
-local_step_failed:
-  other: "[Failed] {{.Arg1}}: {{.Arg2}}"
-local_step_success:
-  other: "[Success] {{.Arg1}}"
-local_step_success_detail:
-  other: "[Success] {{.Arg1}} ({{.Arg2}})"
-local_step_success_arrow:
-  other: "[Success] {{.Arg1}} -> {{.Arg2}}"
-winregistry_current_user_run:
-  other: "Current user Run"
-winregistry_local_machine_run:
-  other: "Local machine Run"
-winregistry_current_user_runonce:
-  other: "Current user RunOnce"
-winregistry_step_success:
-  other: "[Success] {{.Arg1}}: {{.Arg2}}\\{{.Arg3}}"
-winifeo_sticky_keys:
-  other: "Sticky Keys (Shift x5)"
-winifeo_accessibility:
-  other: "Accessibility (Win+U)"
-winifeo_narrator:
-  other: "Narrator"
-winlogon_userinit_append:
-  other: "Userinit append"
-winlogon_shell_append:
-  other: "Shell append"
-winbits_create_task_failed:
-  other: "[Failed] Create task: {{.Arg1}}"
-winbits_guid_extract_failed:
-  other: "[Failed] Unable to extract task GUID"
-winbits_task_created:
-  other: "[Success] Created task: {{.Arg1}} ({{.Arg2}})"
-winbits_add_file:
-  other: "Add file"
-winbits_set_callback:
-  other: "Set callback"
-winbits_set_retry:
-  other: "Set retry"
-winbits_resume_task:
-  other: "Resume task"
-winstartup_user_folder:
-  other: "User startup folder"
-winstartup_common_folder:
-  other: "Common startup folder"
-cleaner_restore_winlogon_shell:
-  other: "[Restore] Winlogon Shell: {{.Arg1}} -> {{.Arg2}}"
-cleaner_restore_winlogon_userinit:
-  other: "[Restore] Winlogon Userinit: {{.Arg1}} -> {{.Arg2}}"
-cleaner_ifeo_removed:
-  other: "[Clean] IFEO: {{.Arg1}}"
-cleaner_registry_removed:
-  other: "[Clean] Registry: {{.Arg1}}\\{{.Arg2}}"
-cleaner_schtask_removed:
-  other: "[Clean] Scheduled task: {{.Arg1}}"
-cleaner_service_removed:
-  other: "[Clean] Service: {{.Arg1}}"
-cleaner_startup_removed:
-  other: "[Clean] Startup folder: {{.Arg1}}"
-cleaner_bits_removed:
-  other: "[Clean] BITS: {{.Arg1}}"
-cleaner_wmi_removed:
-  other: "[Clean] WMI event subscription"
-cleaner_prefetch_removed:
-  other: "[Clean] Prefetch: {{.Arg1}}"
-systeminfo_antivirus_process_count:
-  other: "{{.Arg1}} ({{.Arg2}} processes)"
-powershell_exec_failed:
-  other: "PowerShell execution failed"
-command_output:
-  other: "output"
 webtitle_no_fingerprint_skip_poc:
   other: "WebTitle {{.Arg1}} has no matching fingerprint, skipping POC scan"
 webtitle_cdn_waf_skip_poc:
@@ -1367,214 +913,6 @@ redis_cron_success:
 redis_restore_failed:
   other: "Failed to restore database config: {{.Arg1}}"
 
-# ========================= Local Plugin Messages =========================
-# Cron task persistence
-crontask_success:
-  other: "Cron task persistence completed: {{.Arg1}} methods succeeded"
-
-# Keylogger
-keylogger_success:
-  other: "Keylogging completed, captured {{.Arg1}} keyboard events"
-keylogger_save_failed:
-  other: "Failed to save keylog: {{.Arg1}}"
-keylogger_no_input:
-  other: "No keyboard input captured"
-
-
-# Windows WMI
-winwmi_success:
-  other: "Windows WMI event subscription persistence completed: {{.Arg1}} items"
-
-# Cleaner
-cleaner_success:
-  other: "Trace cleaning completed: {{.Arg1}} files, {{.Arg2}} system entries"
-cleaner_history_found:
-  other: "Found history file: {{.Arg1}} (requires manual cleanup)"
-
-
-# Forward shell
-forwardshell_complete:
-  other: "Forward shell service completed - port: {{.Arg1}}"
-forwardshell_started:
-  other: "Forward shell server started on 0.0.0.0:{{.Arg1}}"
-forwardshell_accept_failed:
-  other: "Failed to accept connection: {{.Arg1}}"
-forwardshell_client_connected:
-  other: "Client connected from: {{.Arg1}}"
-forwardshell_read_failed:
-  other: "Failed to read client command: {{.Arg1}}"
-
-# IFEO image hijacking
-winifeo_success:
-  other: "IFEO image hijacking completed: {{.Arg1}} targets"
-
-# BITS persistence
-winbits_success:
-  other: "BITS persistence completed: {{.Arg1}}"
-
-# Winlogon persistence
-winlogon_success:
-  other: "Winlogon persistence completed: {{.Arg1}} entries"
-
-# Windows startup folder
-winstartup_success:
-  other: "Windows startup folder persistence completed: {{.Arg1}} methods"
-
-# Windows service
-winservice_success:
-  other: "Windows service persistence completed: {{.Arg1}} items"
-
-
-# SSH Key injection
-sshkey_success:
-  other: "SSH key injection completed: {{.Arg1}} users"
-
-# LD_PRELOAD
-ldpreload_success:
-  other: "LD_PRELOAD persistence completed: {{.Arg1}} methods succeeded"
-
-# SOCKS5 proxy
-socks5_starting:
-  other: "Starting SOCKS5 proxy on port {{.Arg1}}"
-socks5_complete:
-  other: "SOCKS5 proxy completed - port: {{.Arg1}}"
-socks5_started:
-  other: "SOCKS5 proxy server started on 127.0.0.1:{{.Arg1}}"
-socks5_cancelled:
-  other: "SOCKS5 proxy server cancelled by context"
-socks5_accept_failed:
-  other: "Failed to accept connection: {{.Arg1}}"
-socks5_handshake_failed:
-  other: "SOCKS5 handshake failed: {{.Arg1}}"
-socks5_request_failed:
-  other: "SOCKS5 request handling failed: {{.Arg1}}"
-socks5_connected:
-  other: "SOCKS5 proxy connection established"
-
-# Reverse shell
-reverseshell_complete:
-  other: "Reverse shell completed - target: {{.Arg1}}"
-reverseshell_connected:
-  other: "Reverse shell connected to {{.Arg1}}:{{.Arg2}}"
-
-# Systemd service
-systemdservice_success:
-  other: "Systemd service persistence completed: {{.Arg1}} methods succeeded"
-
-# System info
-minidump_regsave_success:
-  other: "Registry hive export completed (SAM/SECURITY/SYSTEM)"
-
-systeminfo_start:
-  other: "Starting system information collection"
-systeminfo_os:
-  other: "Operating System: {{.Arg1}}"
-systeminfo_arch:
-  other: "Architecture: {{.Arg1}}"
-systeminfo_cpu:
-  other: "CPU Cores: {{.Arg1}}"
-systeminfo_hostname:
-  other: "Hostname: {{.Arg1}}"
-systeminfo_user:
-  other: "Current User: {{.Arg1}}"
-systeminfo_homedir:
-  other: "Home Directory: {{.Arg1}}"
-systeminfo_workdir:
-  other: "Working Directory: {{.Arg1}}"
-systeminfo_tempdir:
-  other: "Temp Directory: {{.Arg1}}"
-systeminfo_pathcount:
-  other: "PATH entries: {{.Arg1}}"
-systeminfo_winver:
-  other: "Windows Version: {{.Arg1}}"
-systeminfo_domain:
-  other: "User Domain: {{.Arg1}}"
-systeminfo_kernel:
-  other: "System Kernel: {{.Arg1}}"
-systeminfo_distro:
-  other: "Distribution: {{.Arg1}}"
-systeminfo_distro_exists:
-  other: "Distribution: /etc/os-release exists"
-systeminfo_whoami:
-  other: "Current User (whoami): {{.Arg1}}"
-systeminfo_iface:
-  other: "Interface {{.Arg1}}: {{.Arg2}} (MAC: {{.Arg3}})"
-systeminfo_privilege:
-  other: "Privilege Level: {{.Arg1}}"
-systeminfo_privilege_group:
-  other: "Admin Group: {{.Arg1}}"
-systeminfo_id_info:
-  other: "User Info: {{.Arg1}}"
-systeminfo_firewall:
-  other: "Firewall: {{.Arg1}}"
-systeminfo_firewall_rules:
-  other: "Firewall Rules: {{.Arg1}}"
-systeminfo_patches:
-  other: "Installed Patches: {{.Arg1}}"
-systeminfo_antivirus:
-  other: "Antivirus Detected: {{.Arg1}}"
-systeminfo_av_process:
-  other: "  - {{.Arg1}}"
-systeminfo_sudo:
-  other: "Sudo Privileges: {{.Arg1}}"
-systeminfo_macos_detail:
-  other: "macOS: {{.Arg1}}"
-systeminfo_sensitive_env:
-  other: "Sensitive Env Var: {{.Arg1}}={{.Arg2}}"
-systeminfo_sensitive_file:
-  other: "Sensitive File: {{.Arg1}}"
-systeminfo_dc_detected:
-  other: "Domain detected: {{.Arg1}}"
-systeminfo_dc_connect_failed:
-  other: "Domain controller connection failed: {{.Arg1}}"
-systeminfo_dc_basedn:
-  other: "Domain Base DN: {{.Arg1}}"
-systeminfo_dc_created:
-  other: "Domain created: {{.Arg1}}"
-systeminfo_dc_func_level:
-  other: "Domain functional level: {{.Arg1}}"
-systeminfo_dc_controllers:
-  other: "Domain controllers: {{.Arg1}}"
-systeminfo_dc_controller_detail:
-  other: "  - {{.Arg1}} ({{.Arg2}}) {{.Arg3}}"
-systeminfo_dc_admins:
-  other: "Domain admins: {{.Arg1}}"
-systeminfo_dc_admin_detail:
-  other: "  - {{.Arg1}} ({{.Arg2}})"
-systeminfo_dc_users:
-  other: "Domain users: {{.Arg1}}"
-systeminfo_dc_computers:
-  other: "Domain computers: {{.Arg1}}"
-systeminfo_dc_computer_detail:
-  other: "  - {{.Arg1}} ({{.Arg2}})"
-systeminfo_dc_gpos:
-  other: "Group policies: {{.Arg1}}"
-systeminfo_dc_gpo_detail:
-  other: "  - {{.Arg1}} [{{.Arg2}}]"
-
-# Windows scheduled task
-winschtask_success:
-  other: "Windows scheduled task persistence completed: {{.Arg1}} items"
-
-# Windows registry
-winregistry_success:
-  other: "Windows registry persistence completed: {{.Arg1}} items"
-
-# Minidump
-minidump_panic:
-  other: "Minidump plugin panic: {{.Arg1}}"
-minidump_success:
-  other: "Successfully dumped lsass.exe memory to file: {{.Arg1}} (size: {{.Arg2}} bytes)"
-
-# Local plugin common errors
-local_pe_not_specified:
-  other: "No PE file specified, use -win-pe parameter"
-local_pe_not_found:
-  other: "PE file not found: {{.Arg1}}"
-local_invalid_pe:
-  other: "Invalid PE file: {{.Arg1}}"
-
-# ========================= WebScan Messages =========================
 webscan_target_url_failed:
   other: "Failed to build target URL: {{.Arg1}}"
 webscan_invalid_url:
@@ -1657,8 +995,8 @@ webscan_poc_dir_read_failed:
   other: "Failed to read POC directory: {{.Arg1}}"
 webscan_unknown_poc_format:
   other: "Unknown POC format"
-webscan_fscan_format_parse_failed:
-  other: "fscan format parse failed"
+webscan_native_format_parse_failed:
+  other: "scanner format parse failed"
 webscan_nuclei_format_parse_failed:
   other: "nuclei format parse failed"
 webscan_nuclei_no_http_rules:
@@ -1698,7 +1036,7 @@ webscan_request_send_error:
 param_error:
   other: "Parameter error: {{.Arg1}}"
 param_exclusive:
-  other: "Parameters {{.Arg1}} are mutually exclusive, specify only one scan target\n  -h: network host scan\n  -u: Web URL scan\n  -local: local information collection"
+  other: "Parameters {{.Arg1}} are mutually exclusive, specify only one scan target\n  -h: network host scan\n  -u: Web URL scan"
 error_generic:
   other: "Error: {{.Arg1}}"
 init_failed:
@@ -1710,13 +1048,6 @@ redis_scan_success:
 rabbitmq_detected:
   other: "RabbitMQ {{.Arg1}} {{.Arg2}}"
 
-# ========================= Web UI Messages =========================
-web_server_started:
-  other: "Web server started on port: {{.Arg1}}"
-web_shutting_down:
-  other: "Web server shutting down..."
-web_mode_not_supported:
-  other: "Web mode not supported in this build, rebuild with: go build -tags web"
 
 # ========================= Debug Messages =========================
 debug_create_profiles_failed:

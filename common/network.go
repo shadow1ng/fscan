@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/common/proxy"
+	"scanner/common/i18n"
+	"scanner/common/proxy"
 )
 
 // =============================================================================

@@ -1,2 +1,0 @@
-FLAG 5 存储在 Redis 中，使用命令获取：
-redis-cli -h 10.10.3.31 -a redis123 GET flag5

@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/shadow1ng/fscan/common/config"
+	"scanner/common/config"
 	"golang.org/x/term"
 )
 
@@ -43,7 +43,6 @@ type FlagVars struct {
 	DisablePing             bool
 	DisableTcpProbe         bool
 	DisableSubnetProbe      bool
-	LocalPlugin             string
 	AliveOnly               bool
 	DisableBrute            bool
 	MaxRetries              int
@@ -98,27 +97,17 @@ type FlagVars struct {
 	ICMPRateExplicit bool
 
 	// 输出控制
-	Outputfile      string
-	OutputFormat    string
-	DisableSave     bool
-	Silent          bool
-	NoColor         bool
-	LogLevel        string
-	Debug           bool
-	DisableProgress bool
-	PerfStats       bool
-	Language        string
-
-	// 高级功能
-	Shellcode             string
-	ReverseShellTarget    string
-	Socks5ProxyPort       int
-	ForwardShellPort      int
-	PersistenceTargetFile string
-	WinPEFile             string
-	KeyloggerOutputFile   string
-	DownloadURL           string
-	DownloadSavePath      string
+	Outputfile         string
+	OutputFileExplicit bool
+	OutputFormat       string
+	DisableSave        bool
+	Silent             bool
+	NoColor            bool
+	LogLevel           string
+	Debug              bool
+	DisableProgress    bool
+	PerfStats          bool
+	Language           string
 
 	// 帮助
 	ShowHelp bool
@@ -156,27 +145,18 @@ func BuildConfigFromFlags(fv *FlagVars) *Config {
 
 		// 扫描模式
 		Mode:               fv.ScanMode,
-		LocalMode:          fv.LocalPlugin != "",
-		LocalPlugin:        fv.LocalPlugin,
 		AliveOnly:          fv.AliveOnly,
 		MaxRetries:         fv.MaxRetries,
 		MaxRetriesExplicit: fv.MaxRetriesExplicit,
 
 		// 高级功能
-		Shellcode:             fv.Shellcode,
-		LocalPluginsList:      nil, // 后续解析
-		DNSLog:                fv.DNSLog,
-		PersistenceTargetFile: fv.PersistenceTargetFile,
-		WinPEFile:             fv.WinPEFile,
-		PortMap:               clonePortMap(config.DefaultPortMap),
-		DefaultMap:            cloneStringSlice(config.DefaultProbeMap),
+		DNSLog:     fv.DNSLog,
+		PortMap:    clonePortMap(config.DefaultPortMap),
+		DefaultMap: cloneStringSlice(config.DefaultProbeMap),
 
 		// 全局超时
 		GlobalTimeout:         time.Duration(fv.GlobalTimeout) * time.Second,
 		GlobalTimeoutExplicit: fv.GlobalTimeoutExplicit,
-
-		// SOCKS5代理端口
-		Socks5ProxyPort: fv.Socks5ProxyPort,
 
 		// 分组配置
 		Credentials: CredentialConfig{
@@ -232,13 +212,6 @@ func BuildConfigFromFlags(fv *FlagVars) *Config {
 			UserAgent: defaultUserAgent(fv.UserAgent),
 			Accept:    fv.Accept,
 		},
-		LocalExploit: LocalExploitConfig{
-			ReverseShellTarget:  fv.ReverseShellTarget,
-			ForwardShellPort:    fv.ForwardShellPort,
-			KeyloggerOutputFile: fv.KeyloggerOutputFile,
-			DownloadURL:         fv.DownloadURL,
-			DownloadSavePath:    fv.DownloadSavePath,
-		},
 		Target: TargetConfig{
 			Ports:        fv.Ports,
 			ExcludePorts: fv.ExcludePorts,
@@ -250,10 +223,10 @@ func isStdoutTerminal() bool {
 	return term.IsTerminal(int(os.Stdout.Fd()))
 }
 
-// defaultUserAgent 用户未通过 -ua 指定时回退到默认 UA，避免发送空 User-Agent 被 WAF 识别
+// defaultUserAgent 用户未通过 -ua 指定时使用稳定默认值。
 func defaultUserAgent(ua string) string {
 	if ua != "" {
 		return ua
 	}
-	return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+	return DefaultHTTPUserAgent
 }

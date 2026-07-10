@@ -6,8 +6,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/plugins"
+	"scanner/common"
+	"scanner/plugins"
 )
 
 type DNSPlugin struct {

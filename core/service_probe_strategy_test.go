@@ -17,8 +17,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/core/portfinger"
+	"scanner/common"
+	"scanner/core/portfinger"
 )
 
 // =============================================================================

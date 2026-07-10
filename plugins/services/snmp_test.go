@@ -6,7 +6,7 @@ import (
 	"encoding/asn1"
 	"testing"
 
-	"github.com/shadow1ng/fscan/common"
+	"scanner/common"
 )
 
 // --- buildSNMPGetRequest ---

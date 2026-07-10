@@ -1,5 +1,0 @@
-root
-admin
-test
-user
-ubuntu

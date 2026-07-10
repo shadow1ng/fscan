@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/shadow1ng/fscan/webscan/fingerprint"
+	"scanner/webscan/fingerprint"
 )
 
 // =============================================================================

@@ -9,7 +9,7 @@ inputs:
   go-version:
     description: 'Go 版本'
     required: false
-    default: '1.20'
+    default: '1.25.12'
   retention-days:
     description: '产物保留天数'
     required: false

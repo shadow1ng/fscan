@@ -9,16 +9,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	commonconfig "github.com/shadow1ng/fscan/common/config"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/common/output"
-	"github.com/shadow1ng/fscan/core"
-	"github.com/shadow1ng/fscan/plugins"
+	"scanner/common"
+	commonconfig "scanner/common/config"
+	"scanner/common/i18n"
+	"scanner/common/output"
+	"scanner/core"
+	"scanner/plugins"
 
-	_ "github.com/shadow1ng/fscan/plugins/local"
-	_ "github.com/shadow1ng/fscan/plugins/services"
-	_ "github.com/shadow1ng/fscan/plugins/web"
+	_ "scanner/plugins/services"
+	_ "scanner/plugins/web"
 )
 
 var defaultSafePlugins = []string{
@@ -117,7 +116,7 @@ func IsSafePlugin(name string) bool {
 	if name == "" || !plugins.Exists(name) {
 		return false
 	}
-	return plugins.IsSafe(name) && !hasPluginCapability(name, PluginCapabilityPOC, PluginCapabilityLocalEffect)
+	return plugins.IsSafe(name) && !hasPluginCapability(name, PluginCapabilityPOC)
 }
 
 // PluginCapabilities returns the SDK-facing behavior classes for a plugin.
@@ -402,47 +401,45 @@ func buildFlagVars(config Config, target Target) *common.FlagVars {
 	}
 
 	return &common.FlagVars{
-		Host:                strings.TrimSpace(target.Host),
-		Ports:               formatPorts(ports),
-		ScanMode:            formatPlugins(config),
-		ThreadNum:           threadNum,
-		ModuleThreadNum:     moduleThreads,
-		TimeoutSec:          timeout,
-		GlobalTimeout:       180,
-		DisablePing:         config.DisablePing,
-		DisableTcpProbe:     config.DisableTCPProbe,
-		DisableSubnetProbe:  config.DisableSubnetProbe,
-		AliveOnly:           false,
-		DisableBrute:        config.DisableBrute,
-		MaxRetries:          maxRetries,
-		Username:            strings.Join(config.Usernames, ","),
-		Password:            strings.Join(config.Passwords, ","),
-		Domain:              config.Domain,
-		SSHKeyPath:          config.SSHKeyPath,
-		TargetURL:           strings.TrimSpace(target.URL),
-		WebTimeout:          webTimeout,
-		MaxRedirects:        maxRedirects,
-		HTTPProxy:           config.HTTPProxy,
-		Socks5Proxy:         config.Socks5Proxy,
-		Iface:               config.Interface,
-		PocPath:             config.POCPath,
-		PocName:             config.POCName,
-		PocFull:             config.POCFull,
-		PocNum:              pocConcurrency,
-		DisablePocScan:      config.DisablePOCScan,
-		PacketRateLimit:     config.PacketRateLimit,
-		MaxPacketCount:      config.MaxPacketCount,
-		ICMPRate:            icmpRate,
-		Outputfile:          "result.txt",
-		OutputFormat:        "txt",
-		DisableSave:         true,
-		Silent:              true,
-		NoColor:             true,
-		LogLevel:            common.LogLevelError,
-		DisableProgress:     true,
-		Language:            language,
-		ForwardShellPort:    4444,
-		KeyloggerOutputFile: "keylog.txt",
+		Host:               strings.TrimSpace(target.Host),
+		Ports:              formatPorts(ports),
+		ScanMode:           formatPlugins(config),
+		ThreadNum:          threadNum,
+		ModuleThreadNum:    moduleThreads,
+		TimeoutSec:         timeout,
+		GlobalTimeout:      180,
+		DisablePing:        config.DisablePing,
+		DisableTcpProbe:    config.DisableTCPProbe,
+		DisableSubnetProbe: config.DisableSubnetProbe,
+		AliveOnly:          false,
+		DisableBrute:       config.DisableBrute,
+		MaxRetries:         maxRetries,
+		Username:           strings.Join(config.Usernames, ","),
+		Password:           strings.Join(config.Passwords, ","),
+		Domain:             config.Domain,
+		SSHKeyPath:         config.SSHKeyPath,
+		TargetURL:          strings.TrimSpace(target.URL),
+		WebTimeout:         webTimeout,
+		MaxRedirects:       maxRedirects,
+		HTTPProxy:          config.HTTPProxy,
+		Socks5Proxy:        config.Socks5Proxy,
+		Iface:              config.Interface,
+		PocPath:            config.POCPath,
+		PocName:            config.POCName,
+		PocFull:            config.POCFull,
+		PocNum:             pocConcurrency,
+		DisablePocScan:     config.DisablePOCScan,
+		PacketRateLimit:    config.PacketRateLimit,
+		MaxPacketCount:     config.MaxPacketCount,
+		ICMPRate:           icmpRate,
+		Outputfile:         "result.txt",
+		OutputFormat:       "txt",
+		DisableSave:        true,
+		Silent:             true,
+		NoColor:            true,
+		LogLevel:           common.LogLevelError,
+		DisableProgress:    true,
+		Language:           language,
 	}
 }
 
@@ -482,8 +479,8 @@ func normalizePlugins(pluginNames []string) []string {
 }
 
 func pluginTypes(name string) []string {
-	types := make([]string, 0, 4)
-	for _, pluginType := range []string{PluginTypeService, PluginTypeWeb, PluginTypeLocal, PluginTypeUDP} {
+	types := make([]string, 0, 3)
+	for _, pluginType := range []string{PluginTypeService, PluginTypeWeb, PluginTypeUDP} {
 		if plugins.HasType(name, pluginType) {
 			types = append(types, pluginType)
 		}
@@ -514,10 +511,6 @@ func pluginCapabilities(name string) []string {
 	if activePOCPlugins[name] || strings.Contains(name, "poc") {
 		add(PluginCapabilityPOC)
 	}
-	if plugins.HasType(name, PluginTypeLocal) {
-		add(PluginCapabilityLocalEffect)
-	}
-
 	capabilities := make([]string, 0, len(capSet))
 	for capability := range capSet {
 		capabilities = append(capabilities, capability)

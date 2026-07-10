@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -488,6 +489,18 @@ func TestMakemsg(t *testing.T) {
 
 // TestWaitAdaptive 测试自适应等待算法
 func TestWaitAdaptive(t *testing.T) {
+	t.Run("context cancellation", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		start := time.Now()
+		aliveHosts := []string{}
+		var mu sync.Mutex
+		waitAdaptiveContext(ctx, []string{"192.0.2.1"}, &aliveHosts, &mu)
+		if elapsed := time.Since(start); elapsed > 100*time.Millisecond {
+			t.Fatalf("cancelled adaptive wait took %s", elapsed)
+		}
+	})
+
 	t.Run("全部响应-立即结束", func(t *testing.T) {
 		hostslist := []string{"192.168.1.1", "192.168.1.2", "192.168.1.3"}
 		aliveHosts := []string{"192.168.1.1", "192.168.1.2", "192.168.1.3"} // 全部存活

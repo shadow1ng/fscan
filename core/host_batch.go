@@ -1,8 +1,8 @@
 package core
 
 import (
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/parsers"
+	"scanner/common"
+	"scanner/common/parsers"
 )
 
 const maxHostBatchSize = 65536

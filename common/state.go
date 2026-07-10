@@ -52,11 +52,6 @@ type State struct {
 	hostPorts []string
 	urlsMu    sync.RWMutex
 
-	// Shell状态（插件设置）
-	forwardShellActive int32 // 使用int32以便原子操作
-	reverseShellActive int32
-	socks5ProxyActive  int32
-
 	// 服务识别缓存（per-session，避免跨扫描污染）
 	// key: "host:port", value: interface{}（core.ServiceInfo 指针）
 	serviceCache sync.Map
@@ -352,52 +347,6 @@ func (s *State) ClearHostPorts() {
 	s.urlsMu.Lock()
 	defer s.urlsMu.Unlock()
 	s.hostPorts = nil
-}
-
-// =============================================================================
-// Shell状态方法
-// =============================================================================
-
-// IsForwardShellActive 检查正向Shell是否活跃
-func (s *State) IsForwardShellActive() bool {
-	return atomic.LoadInt32(&s.forwardShellActive) == 1
-}
-
-// SetForwardShellActive 设置正向Shell活跃状态
-func (s *State) SetForwardShellActive(active bool) {
-	if active {
-		atomic.StoreInt32(&s.forwardShellActive, 1)
-	} else {
-		atomic.StoreInt32(&s.forwardShellActive, 0)
-	}
-}
-
-// IsReverseShellActive 检查反向Shell是否活跃
-func (s *State) IsReverseShellActive() bool {
-	return atomic.LoadInt32(&s.reverseShellActive) == 1
-}
-
-// SetReverseShellActive 设置反向Shell活跃状态
-func (s *State) SetReverseShellActive(active bool) {
-	if active {
-		atomic.StoreInt32(&s.reverseShellActive, 1)
-	} else {
-		atomic.StoreInt32(&s.reverseShellActive, 0)
-	}
-}
-
-// IsSocks5ProxyActive 检查SOCKS5代理是否活跃
-func (s *State) IsSocks5ProxyActive() bool {
-	return atomic.LoadInt32(&s.socks5ProxyActive) == 1
-}
-
-// SetSocks5ProxyActive 设置SOCKS5代理活跃状态
-func (s *State) SetSocks5ProxyActive(active bool) {
-	if active {
-		atomic.StoreInt32(&s.socks5ProxyActive, 1)
-	} else {
-		atomic.StoreInt32(&s.socks5ProxyActive, 0)
-	}
 }
 
 // =============================================================================

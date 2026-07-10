@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/libs/grdp/glog"
-	"github.com/shadow1ng/fscan/libs/grdp/login"
-	"github.com/shadow1ng/fscan/libs/grdp/protocol/x224"
-	"github.com/shadow1ng/fscan/plugins"
+	"scanner/common"
+	"scanner/common/i18n"
+	"scanner/libs/grdp/glog"
+	"scanner/libs/grdp/login"
+	"scanner/libs/grdp/protocol/x224"
+	"scanner/plugins"
 )
 
 // RDPPlugin RDP远程桌面服务扫描插件 - 真实RDP认证和系统指纹识别
