@@ -54,6 +54,7 @@ test_output.txt
 # Build artifacts / 构建产物
 build/
 bin/
+/dist/
 *.exe
 *.dll
 *.so
