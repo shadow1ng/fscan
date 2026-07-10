@@ -1,9 +1,0 @@
-version: '3.8'
-
-services:
-  snmp:
-    build: .
-    ports:
-      - "161:161/udp"
-    container_name: snmp_test
-    restart: unless-stopped

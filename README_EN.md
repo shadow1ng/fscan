@@ -106,7 +106,6 @@ Comprehensive intranet scanning tool for automated vulnerability assessment.
 - **HTTP Redirect Control** - Configurable redirect count limit
 - **Performance Profiling Support** - Added pprof profiling and benchmark tests
 - **TCP Packet Statistics** - Service plugins support TCP packet send statistics
-- **fscan-lab Environment** - Intranet penetration training platform covering all vulnerability scenarios
 - **Redis Exploitation Enhancement** - Ported complete Redis exploitation (write pubkey/crontab/webshell/master-slave RCE)
 - **rsync Plugin Refactoring** - Restructured authentication logic using go-rsync library
 
@@ -238,19 +237,6 @@ yay -S fscan-git
 - Continuously expand service plugin coverage
 - Develop more vulnerability detection and exploitation capabilities for each service plugin
 - Maintain backward compatibility of plugin APIs to ensure legacy POCs remain functional
-
-### Fscan-lite
-- Lightweight version rewritten in C
-- Smaller binary size, fewer dependencies
-- Support for embedded/restricted environments
-- Directory: [fscan-lite](./fscan-lite)
-
-### Fscan-lab
-- Intranet penetration testing lab environment
-- Covers all vulnerability scenarios supported by fscan
-- Development testing and feature verification platform
-- Learning and practice environment for beginners
-- Directory: [fscan-lab](./fscan-lab)
 
 ## Disclaimer
 

@@ -1,9 +1,0 @@
-version: '3.8'
-
-services:
-  smtp:
-    build: .
-    ports:
-      - "25:25"
-    container_name: smtp_test
-    restart: unless-stopped

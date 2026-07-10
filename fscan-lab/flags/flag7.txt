@@ -1,2 +1,0 @@
-FLAG 7 (最终 Flag) 存储在 MongoDB 中，使用命令获取：
-mongosh mongodb://admin:mongo123@10.10.4.43/admin --eval "db.admin_secrets.find({type:'flag'}).pretty()"

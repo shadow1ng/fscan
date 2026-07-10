@@ -1,9 +1,0 @@
-version: '3.8'
-
-services:
-  telnet:
-    build: .
-    ports:
-      - "23:23"
-    container_name: telnet_test
-    restart: unless-stopped

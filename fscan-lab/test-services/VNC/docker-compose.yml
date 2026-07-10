@@ -1,9 +1,0 @@
-version: '3.8'
-
-services:
-  vnc:
-    build: .
-    ports:
-      - "5901:5901"
-    container_name: vnc_test
-    restart: unless-stopped
