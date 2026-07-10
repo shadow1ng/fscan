@@ -7,8 +7,6 @@ import (
 const (
 	// PluginTypeWeb marks web-facing plugins.
 	PluginTypeWeb = "web"
-	// PluginTypeLocal marks plugins that operate on the local host.
-	PluginTypeLocal = "local"
 	// PluginTypeService marks network service plugins.
 	PluginTypeService = "service"
 	// PluginTypeUDP marks UDP protocol plugins that bypass TCP port scanning.
@@ -24,8 +22,6 @@ const (
 	PluginCapabilityBrute = "brute"
 	// PluginCapabilityPOC marks active vulnerability checks or exploitation.
 	PluginCapabilityPOC = "poc"
-	// PluginCapabilityLocalEffect marks plugins that change or inspect local host state.
-	PluginCapabilityLocalEffect = "local-effect"
 )
 
 const (

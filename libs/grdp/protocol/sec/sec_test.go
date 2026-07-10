@@ -3,8 +3,8 @@ package sec
 import (
 	"testing"
 
-	"github.com/shadow1ng/fscan/libs/grdp/glog"
-	"github.com/shadow1ng/fscan/libs/grdp/protocol/t125/gcc"
+	"scanner/libs/grdp/glog"
+	"scanner/libs/grdp/protocol/t125/gcc"
 )
 
 func TestGenerateKeysRejectsShortRandoms(t *testing.T) {

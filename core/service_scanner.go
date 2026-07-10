@@ -8,10 +8,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/common/parsers"
-	"github.com/shadow1ng/fscan/plugins"
+	"scanner/common"
+	"scanner/common/i18n"
+	"scanner/common/parsers"
+	"scanner/plugins"
 )
 
 // ServiceScanStrategy 服务扫描策略

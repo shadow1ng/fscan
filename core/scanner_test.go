@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/plugins"
+	"scanner/common"
+	"scanner/plugins"
 )
 
 /*
@@ -87,12 +87,10 @@ func TestSelectStrategy(t *testing.T) {
 	state := common.GetGlobalState()
 	origAliveOnly := cfg.AliveOnly
 	origMode := cfg.Mode
-	origLocalMode := cfg.LocalMode
 	origURLs := state.GetURLs()
 	defer func() {
 		cfg.AliveOnly = origAliveOnly
 		cfg.Mode = origMode
-		cfg.LocalMode = origLocalMode
 		state.SetURLs(origURLs)
 	}()
 
@@ -107,7 +105,6 @@ func TestSelectStrategy(t *testing.T) {
 			setupConfig: func() {
 				cfg.AliveOnly = true
 				cfg.Mode = ""
-				cfg.LocalMode = false
 				state.SetURLs(nil)
 			},
 			expectedType: "*core.AliveScanStrategy",
@@ -118,29 +115,16 @@ func TestSelectStrategy(t *testing.T) {
 			setupConfig: func() {
 				cfg.AliveOnly = false
 				cfg.Mode = "icmp"
-				cfg.LocalMode = false
 				state.SetURLs(nil)
 			},
 			expectedType: "*core.AliveScanStrategy",
 			info:         common.HostInfo{Host: "192.168.1.1"},
 		},
 		{
-			name: "本地模式-LocalMode",
-			setupConfig: func() {
-				cfg.AliveOnly = false
-				cfg.Mode = ""
-				cfg.LocalMode = true
-				state.SetURLs(nil)
-			},
-			expectedType: "*core.LocalScanStrategy",
-			info:         common.HostInfo{Host: "localhost"},
-		},
-		{
 			name: "Web扫描模式-URLs非空",
 			setupConfig: func() {
 				cfg.AliveOnly = false
 				cfg.Mode = ""
-				cfg.LocalMode = false
 				state.SetURLs([]string{"http://example.com"})
 			},
 			expectedType: "*core.WebScanStrategy",
@@ -151,40 +135,16 @@ func TestSelectStrategy(t *testing.T) {
 			setupConfig: func() {
 				cfg.AliveOnly = false
 				cfg.Mode = ""
-				cfg.LocalMode = false
 				state.SetURLs(nil)
 			},
 			expectedType: "*core.ServiceScanStrategy",
 			info:         common.HostInfo{Host: "192.168.1.1", Port: 22},
 		},
 		{
-			name: "优先级测试-AliveOnly覆盖LocalMode",
-			setupConfig: func() {
-				cfg.AliveOnly = true
-				cfg.Mode = ""
-				cfg.LocalMode = true // 被AliveOnly覆盖
-				state.SetURLs(nil)
-			},
-			expectedType: "*core.AliveScanStrategy",
-			info:         common.HostInfo{Host: "localhost"},
-		},
-		{
-			name: "优先级测试-LocalMode覆盖URLs",
-			setupConfig: func() {
-				cfg.AliveOnly = false
-				cfg.Mode = ""
-				cfg.LocalMode = true
-				state.SetURLs([]string{"http://example.com"}) // 被LocalMode覆盖
-			},
-			expectedType: "*core.LocalScanStrategy",
-			info:         common.HostInfo{Host: "localhost"},
-		},
-		{
 			name: "优先级测试-URLs覆盖默认服务扫描",
 			setupConfig: func() {
 				cfg.AliveOnly = false
 				cfg.Mode = ""
-				cfg.LocalMode = false
 				state.SetURLs([]string{"http://example.com"})
 			},
 			expectedType: "*core.WebScanStrategy",
@@ -221,19 +181,16 @@ func TestSelectStrategy_AllModesDisabled(t *testing.T) {
 	state := common.GetGlobalState()
 	origAliveOnly := cfg.AliveOnly
 	origMode := cfg.Mode
-	origLocalMode := cfg.LocalMode
 	origURLs := state.GetURLs()
 	defer func() {
 		cfg.AliveOnly = origAliveOnly
 		cfg.Mode = origMode
-		cfg.LocalMode = origLocalMode
 		state.SetURLs(origURLs)
 	}()
 
 	// 设置所有模式为禁用状态
 	cfg.AliveOnly = false
 	cfg.Mode = ""
-	cfg.LocalMode = false
 	state.SetURLs(nil)
 
 	info := common.HostInfo{Host: "192.168.1.1"}
@@ -428,18 +385,15 @@ func TestSelectStrategy_EmptyHostInfo(t *testing.T) {
 	state := common.GetGlobalState()
 	origAliveOnly := cfg.AliveOnly
 	origMode := cfg.Mode
-	origLocalMode := cfg.LocalMode
 	origURLs := state.GetURLs()
 	defer func() {
 		cfg.AliveOnly = origAliveOnly
 		cfg.Mode = origMode
-		cfg.LocalMode = origLocalMode
 		state.SetURLs(origURLs)
 	}()
 
 	cfg.AliveOnly = false
 	cfg.Mode = ""
-	cfg.LocalMode = false
 	state.SetURLs(nil)
 
 	emptyInfo := common.HostInfo{}
@@ -521,61 +475,6 @@ func TestBuildScanReport_ZeroState(t *testing.T) {
 	}
 	if report.Duration < 0 {
 		t.Errorf("Duration 不能为负: %v", report.Duration)
-	}
-}
-
-// =============================================================================
-// determineScanMode IsLocalMode 分支测试
-// =============================================================================
-
-// TestDetermineScanMode_IsLocalModeCallback 覆盖 IsLocalMode 回调分支
-func TestDetermineScanMode_IsLocalModeCallback(t *testing.T) {
-	// 保存原始值
-	origIsLocalMode := common.IsLocalMode
-	defer func() { common.IsLocalMode = origIsLocalMode }()
-
-	// 注册回调：mode == "localtest" 时认为是本地模式
-	common.IsLocalMode = func(mode string) bool {
-		return mode == "localtest"
-	}
-
-	cfg := &common.Config{
-		AliveOnly: false,
-		Mode:      "localtest",
-		LocalMode: false,
-	}
-	state := common.NewState()
-
-	mode := determineScanMode(cfg, state)
-	if mode != ScanModeLocal {
-		t.Errorf("determineScanMode() = %v, 期望 ScanModeLocal", mode)
-	}
-	// 回调命中后应同时设置 LocalMode 和 LocalPlugin
-	if !cfg.LocalMode {
-		t.Error("IsLocalMode 命中后应设置 cfg.LocalMode = true")
-	}
-	if cfg.LocalPlugin != "localtest" {
-		t.Errorf("LocalPlugin = %q, 期望 \"localtest\"", cfg.LocalPlugin)
-	}
-}
-
-// TestDetermineScanMode_IsLocalModeCallbackNoMatch 回调不命中时不影响模式
-func TestDetermineScanMode_IsLocalModeCallbackNoMatch(t *testing.T) {
-	origIsLocalMode := common.IsLocalMode
-	defer func() { common.IsLocalMode = origIsLocalMode }()
-
-	common.IsLocalMode = func(mode string) bool { return false }
-
-	cfg := &common.Config{
-		AliveOnly: false,
-		Mode:      "something",
-		LocalMode: false,
-	}
-	state := common.NewState()
-
-	mode := determineScanMode(cfg, state)
-	if mode != ScanModeService {
-		t.Errorf("回调不命中时期望 ScanModeService, 实际 %v", mode)
 	}
 }
 

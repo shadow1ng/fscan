@@ -8,12 +8,12 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/shadow1ng/fscan/libs/grdp/core"
-	"github.com/shadow1ng/fscan/libs/grdp/emission"
-	"github.com/shadow1ng/fscan/libs/grdp/glog"
-	"github.com/shadow1ng/fscan/libs/grdp/protocol/t125/ber"
-	"github.com/shadow1ng/fscan/libs/grdp/protocol/t125/gcc"
-	"github.com/shadow1ng/fscan/libs/grdp/protocol/t125/per"
+	"scanner/libs/grdp/core"
+	"scanner/libs/grdp/emission"
+	"scanner/libs/grdp/glog"
+	"scanner/libs/grdp/protocol/t125/ber"
+	"scanner/libs/grdp/protocol/t125/gcc"
+	"scanner/libs/grdp/protocol/t125/per"
 )
 
 // take idea from https://github.com/Madnikulin50/gordp

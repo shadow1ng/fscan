@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shadow1ng/fscan/libs/grdp/core"
-	"github.com/shadow1ng/fscan/libs/grdp/emission"
-	"github.com/shadow1ng/fscan/libs/grdp/glog"
-	"github.com/shadow1ng/fscan/libs/grdp/protocol/nla"
+	"scanner/libs/grdp/core"
+	"scanner/libs/grdp/emission"
+	"scanner/libs/grdp/glog"
+	"scanner/libs/grdp/protocol/nla"
 )
 
 // take idea from https://github.com/Madnikulin50/gordp

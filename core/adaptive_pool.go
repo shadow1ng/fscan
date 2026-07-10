@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/panjf2000/ants/v2"
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
+	"scanner/common"
+	"scanner/common/i18n"
 )
 
 // HealthSignal 健康评估结果

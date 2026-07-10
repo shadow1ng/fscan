@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
+	"scanner/common"
 )
 
 // TestNewAliveScanStrategy 测试构造函数

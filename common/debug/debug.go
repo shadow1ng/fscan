@@ -10,7 +10,7 @@ import (
 	"runtime/pprof"
 	"runtime/trace"
 
-	"github.com/shadow1ng/fscan/common/i18n"
+	"scanner/common/i18n"
 )
 
 var (

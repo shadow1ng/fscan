@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/plugins"
+	"scanner/common"
+	"scanner/common/i18n"
+	"scanner/plugins"
 )
 
 // ActiveMQPlugin ActiveMQ扫描插件

@@ -1467,7 +1467,7 @@ func (s *oracleSession) writeAuthResponse(auth *oracleAuthObject, nego *oracleTC
 			key  string
 			val  string
 			flag uint8
-		}{"SESSION_CLIENT_DRIVER_NAME", "fscan", 0},
+		}{"SESSION_CLIENT_DRIVER_NAME", "jdbc", 0},
 		struct {
 			key  string
 			val  string

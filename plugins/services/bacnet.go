@@ -7,8 +7,8 @@ import (
 	"encoding/binary"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/plugins"
+	"scanner/common"
+	"scanner/plugins"
 )
 
 var bacnetWhoIs = []byte{0x81, 0x0a, 0x00, 0x0c, 0x01, 0x20, 0xff, 0xff, 0x00, 0xff, 0x10, 0x08}

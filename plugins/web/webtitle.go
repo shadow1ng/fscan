@@ -15,13 +15,13 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/core"
-	"github.com/shadow1ng/fscan/plugins"
-	WebScan "github.com/shadow1ng/fscan/webscan"
-	"github.com/shadow1ng/fscan/webscan/fingerprint"
-	"github.com/shadow1ng/fscan/webscan/lib"
+	"scanner/common"
+	"scanner/common/i18n"
+	"scanner/core"
+	"scanner/plugins"
+	WebScan "scanner/webscan"
+	"scanner/webscan/fingerprint"
+	"scanner/webscan/lib"
 )
 
 const maxWebTitleBodyBytes = 2 << 20
@@ -155,7 +155,7 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 		return "", 0, 0, "", nil, displayURL, err
 	}
 
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	req.Header.Set("User-Agent", common.HTTPUserAgent(config))
 
 	// 先使用不跟随重定向的Client获取原始响应
 	resp, err := clientNR.Do(req)
@@ -192,7 +192,7 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 				// 发送跟随重定向的请求
 				reqRedirect, err := http.NewRequestWithContext(ctx, "GET", redirectURL, nil)
 				if err == nil {
-					reqRedirect.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+					reqRedirect.Header.Set("User-Agent", common.HTTPUserAgent(config))
 					respRedirect, err := clientR.Do(reqRedirect)
 					if err == nil {
 						bodyRedirect, err := readWebTitleBody(respRedirect.Body)
@@ -453,7 +453,11 @@ func (p *WebTitlePlugin) fetchFaviconHashWithSession(ctx context.Context, baseUR
 	if err != nil {
 		return fingerprint.FaviconHashes{}
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	var config *common.Config
+	if session != nil {
+		config = session.Config
+	}
+	req.Header.Set("User-Agent", common.HTTPUserAgent(config))
 
 	_, client := sessionWebTitleHTTPClients(session, false)
 	resp, err := client.Do(req)

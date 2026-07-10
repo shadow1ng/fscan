@@ -4,8 +4,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/plugins"
+	"scanner/common"
+	"scanner/plugins"
 )
 
 // registerTestPlugins 注册测试用插件（名字和服务识别结果一致）

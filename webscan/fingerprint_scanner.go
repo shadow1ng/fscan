@@ -4,7 +4,7 @@ import (
 	"crypto/md5" //nolint:gosec // G501: MD5用于内容指纹识别，非加密用途
 	"fmt"
 
-	"github.com/shadow1ng/fscan/webscan/fingerprint"
+	"scanner/webscan/fingerprint"
 )
 
 // CheckDatas 存储HTTP响应的检查数据

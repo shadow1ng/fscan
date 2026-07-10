@@ -17,9 +17,7 @@ func TestValidateExclusiveParams(t *testing.T) {
 	}{
 		{name: "host only", info: &HostInfo{Host: "127.0.0.1"}, flags: &FlagVars{}},
 		{name: "url only", info: &HostInfo{}, flags: &FlagVars{TargetURL: "http://example.com"}},
-		{name: "local only", info: &HostInfo{}, flags: &FlagVars{LocalPlugin: "sshkey"}},
 		{name: "host and url conflict", info: &HostInfo{Host: "127.0.0.1"}, flags: &FlagVars{TargetURL: "http://example.com"}, wantErr: "-h"},
-		{name: "host url local conflict", info: &HostInfo{Host: "127.0.0.1"}, flags: &FlagVars{TargetURL: "http://example.com", LocalPlugin: "sshkey"}, wantErr: "-local"},
 	}
 
 	for _, tt := range tests {

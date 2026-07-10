@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/shadow1ng/fscan/common/output"
+	"scanner/common/output"
 )
 
 func TestResultHelpers(t *testing.T) {

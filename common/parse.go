@@ -1,7 +1,7 @@
 package common
 
 import (
-	"github.com/shadow1ng/fscan/common/logging"
+	"scanner/common/logging"
 )
 
 // logLevelMap 日志级别字符串到级别的映射
@@ -46,7 +46,7 @@ func applyLogLevel() {
 			LevelColors:  logging.GetDefaultLevelColors(),
 		}
 		if fv.Debug {
-			config.DebugLogFile = "fscan_debug.log"
+			config.DebugLogFile = "debug.log"
 		}
 
 		newLogger := logging.NewLogger(config)

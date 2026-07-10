@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/shadow1ng/fscan/common"
+	"scanner/common"
 )
 
 // Plugin 统一插件接口
@@ -90,7 +90,6 @@ type PluginInfo struct {
 // 插件类型常量
 const (
 	PluginTypeWeb     = "web"     // Web类型插件
-	PluginTypeLocal   = "local"   // 本地类型插件
 	PluginTypeService = "service" // 服务类型插件
 	PluginTypeUDP     = "udp"     // UDP协议插件，跳过TCP端口扫描
 )
@@ -99,24 +98,6 @@ var (
 	plugins = make(map[string]*PluginInfo)
 	mutex   sync.RWMutex
 )
-
-func init() {
-	common.IsLocalMode = func(mode string) bool {
-		if mode == "" || mode == "all" {
-			return false
-		}
-		for _, name := range strings.Split(mode, ",") {
-			name = strings.TrimSpace(name)
-			if name == "" {
-				continue
-			}
-			if !HasType(name, PluginTypeLocal) {
-				return false
-			}
-		}
-		return true
-	}
-}
 
 // RegisterWithPorts 注册带端口信息的插件
 func RegisterWithPorts(name string, factory func() Plugin, ports []int) {
@@ -135,7 +116,7 @@ func IsUDP(pluginName string) bool {
 
 // RegisterWithTypes 注册带类型标签的插件
 func RegisterWithTypes(name string, factory func() Plugin, ports []int, types []string) {
-	RegisterWithOptions(name, factory, ports, types, !hasPluginType(types, PluginTypeLocal))
+	RegisterWithOptions(name, factory, ports, types, true)
 }
 
 // RegisterUnsafeWithTypes 注册不适合默认嵌入式扫描的插件。

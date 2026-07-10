@@ -4,18 +4,15 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/common/output"
-	"github.com/shadow1ng/fscan/common/parsers"
-	"github.com/shadow1ng/fscan/plugins"
-	"github.com/shadow1ng/fscan/webscan/lib"
+	"scanner/common"
+	"scanner/common/i18n"
+	"scanner/common/output"
+	"scanner/common/parsers"
+	"scanner/plugins"
+	"scanner/webscan/lib"
 )
 
 // ScanReport summarizes one scan execution.
@@ -45,7 +42,6 @@ type ScanMode int
 const (
 	ScanModeService ScanMode = iota // 默认：服务扫描
 	ScanModeAlive                   // 仅存活检测
-	ScanModeLocal                   // 本地插件
 	ScanModeWeb                     // Web扫描
 )
 
@@ -57,7 +53,6 @@ type strategyInfo struct {
 
 var strategyRegistry = map[ScanMode]strategyInfo{
 	ScanModeAlive:   {func() ScanStrategy { return NewAliveScanStrategy() }, "scan_mode_alive_selected"},
-	ScanModeLocal:   {func() ScanStrategy { return NewLocalScanStrategy() }, "scan_mode_local_selected"},
 	ScanModeWeb:     {func() ScanStrategy { return NewWebScanStrategy() }, "scan_mode_web_selected"},
 	ScanModeService: {func() ScanStrategy { return NewServiceScanStrategy() }, "scan_mode_service_selected"},
 }
@@ -67,12 +62,6 @@ func determineScanMode(config *common.Config, state *common.State) ScanMode {
 	switch {
 	case config.AliveOnly || config.Mode == "icmp":
 		return ScanModeAlive
-	case config.LocalMode:
-		return ScanModeLocal
-	case common.IsLocalMode != nil && common.IsLocalMode(config.Mode):
-		config.LocalMode = true
-		config.LocalPlugin = config.Mode
-		return ScanModeLocal
 	case len(state.GetURLs()) > 0:
 		return ScanModeWeb
 	default:
@@ -139,32 +128,6 @@ func RunScan(ctx context.Context, info common.HostInfo, session *common.ScanSess
 	// 等待所有扫描完成。取消后只给在途插件一个有界清理窗口，避免不响应
 	// context 的第三方协议库永久阻塞整个扫描。
 	tasksFinished := waitForScanTasks(ctx, &wg)
-
-	// 检查是否有活跃的连接需要维持
-	if state.IsReverseShellActive() || state.IsSocks5ProxyActive() || state.IsForwardShellActive() {
-		if state.IsReverseShellActive() {
-			session.LogInfo(i18n.GetText("active_reverse_shell"))
-		}
-		if state.IsSocks5ProxyActive() {
-			session.LogInfo(i18n.GetText("active_socks5_proxy"))
-		}
-		if state.IsForwardShellActive() {
-			session.LogInfo(i18n.GetText("active_forward_shell"))
-		}
-		session.LogInfo(i18n.GetText("press_ctrl_c_exit"))
-
-		// 优雅等待信号或 context 取消（Web Stop）
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-		select {
-		case <-sigChan:
-			session.LogInfo(i18n.GetText("received_exit_signal"))
-		case <-ctx.Done():
-		}
-		signal.Stop(sigChan)
-		cancel()
-		time.Sleep(500 * time.Millisecond)
-	}
 
 	// Stop late result delivery before global output/progress finalization.
 	if ctx.Err() != nil {
@@ -344,13 +307,6 @@ func countApplicableTasks(targets []common.HostInfo, pluginsToRun []string, isCu
 	return count
 }
 
-// longRunningPlugins 长驻插件，不加入 scan WaitGroup，通过 ctx 取消退出
-var longRunningPlugins = map[string]bool{
-	"forwardshell": true,
-	"socks5proxy":  true,
-	"reverseshell": true,
-}
-
 // executeScanTask 执行单个扫描任务
 func executeScanTask(ctx context.Context, session *common.ScanSession, pluginName string, target common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
 	state := session.State
@@ -366,31 +322,6 @@ func executeScanTask(ctx context.Context, session *common.ScanSession, pluginNam
 		if err := session.PauseGate(ctx); err != nil {
 			return
 		}
-	}
-
-	// 长驻插件不进 WaitGroup，通过 ctx 管理生命周期
-	if longRunningPlugins[pluginName] {
-		finished := make(chan struct{})
-		go func() {
-			defer close(finished)
-			defer func() {
-				if r := recover(); r != nil {
-					session.LogError(i18n.Tr("plugin_panic", pluginName, target.Host, target.Port, r))
-				}
-			}()
-			plugin := plugins.Get(pluginName)
-			if plugin != nil {
-				plugin.Scan(ctx, &target, session)
-			}
-		}()
-		timer := time.NewTimer(500 * time.Millisecond)
-		defer timer.Stop()
-		select {
-		case <-finished:
-		case <-timer.C:
-		case <-ctx.Done():
-		}
-		return
 	}
 
 	wg.Add(1)

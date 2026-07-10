@@ -14,9 +14,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/common/proxy"
+	"scanner/common"
+	"scanner/common/i18n"
+	"scanner/common/proxy"
 	gmtls "github.com/tjfoc/gmsm/gmtls"
 	"gopkg.in/yaml.v2"
 )
@@ -481,7 +481,7 @@ func parsePocYAML(data []byte, fileName string) (*Poc, error) {
 	}
 
 	// 转换为fscan内部格式
-	poc, err := universalPoc.ToFscanPoc()
+	poc, err := universalPoc.ToNativePoc()
 	if err != nil {
 		return nil, fmt.Errorf("%s %s: %w", i18n.GetText("webscan_poc_convert_failed"), fileName, err)
 	}

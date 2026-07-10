@@ -8,15 +8,12 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
-	"github.com/shadow1ng/fscan/common/config"
-	"github.com/shadow1ng/fscan/common/i18n"
+	"scanner/common/config"
+	"scanner/common/i18n"
 )
 
 // ErrShowHelp 表示用户请求显示帮助（正常退出）
 var ErrShowHelp = errors.New("show help requested")
-
-// IsLocalMode 由 plugins 包注册，判断 -m 指定的是否全是本地插件
-var IsLocalMode func(mode string) bool
 
 // Banner 显示程序横幅信息
 func Banner() {
@@ -33,10 +30,10 @@ func Banner() {
 
 	lines := []string{
 		"   ___                              _    ",
-		"  / _ \\     ___  ___ _ __ __ _  ___| | __ ",
-		" / /_\\/____/ __|/ __| '__/ _` |/ __| |/ /",
-		"/ /_\\\\_____\\__ \\ (__| | | (_| | (__|   <    ",
-		"\\____/     |___/\\___|_|  \\__,_|\\___|_|\\_\\   ",
+		"  / _ \\   ___  ___ _ __ __ _  ___| | __",
+		" / /_\\/  / __|/ __| '__/ _` |/ __| |/ /",
+		"/ /_\\\\  \\__ \\ (__| | | (_| | (__|   <  ",
+		"\\____/  |___/\\___|_|  \\__,_|\\___|_|\\_\\  ",
 	}
 
 	// 获取最长行的长度
@@ -72,9 +69,9 @@ func Banner() {
 	fmt.Println(bottomBorder)
 
 	// 打印版本信息
-	versionStr := fmt.Sprintf("      Fscan %s (%s %s)", version, commit, date)
+	versionStr := fmt.Sprintf("      Scanner %s (%s %s)", version, commit, date)
 	if commit == "unknown" {
-		versionStr = fmt.Sprintf("      Fscan %s", version)
+		versionStr = fmt.Sprintf("      Scanner %s", version)
 	}
 	if flagVars.NoColor {
 		fmt.Printf("%s\n\n", versionStr)
@@ -114,7 +111,6 @@ func Flag(Info *HostInfo) error {
 	flag.BoolVar(&fv.DisablePing, "np", false, i18n.GetText("flag_disable_ping"))
 	flag.BoolVar(&fv.DisableTcpProbe, "ntp", false, i18n.GetText("flag_disable_tcp_probe"))
 	flag.BoolVar(&fv.DisableSubnetProbe, "nsp", false, i18n.GetText("flag_disable_subnet_probe"))
-	flag.StringVar(&fv.LocalPlugin, "local", "", i18n.GetText("flag_local_plugin"))
 	flag.BoolVar(&fv.AliveOnly, "ao", false, i18n.GetText("flag_alive_only"))
 
 	// ═════════════════════════════════════════════════
@@ -194,17 +190,6 @@ func Flag(Info *HostInfo) error {
 	// ═════════════════════════════════════════════════
 	// 其他参数
 	// ═════════════════════════════════════════════════
-	flag.StringVar(&fv.Shellcode, "sc", "", i18n.GetText("flag_shellcode"))
-	flag.StringVar(&fv.ReverseShellTarget, "rsh", "", i18n.GetText("flag_reverse_shell_target"))
-	flag.IntVar(&fv.Socks5ProxyPort, "start-socks5", 0, i18n.GetText("flag_start_socks5_server"))
-	flag.IntVar(&fv.ForwardShellPort, "fsh-port", 4444, i18n.GetText("flag_forward_shell_port"))
-	flag.StringVar(&fv.PersistenceTargetFile, "persistence-file", "", i18n.GetText("flag_persistence_file"))
-	flag.StringVar(&fv.WinPEFile, "win-pe", "", i18n.GetText("flag_win_pe_file"))
-	flag.StringVar(&fv.KeyloggerOutputFile, "keylog-output", "keylog.txt", i18n.GetText("flag_keylogger_output"))
-
-	// 文件下载插件参数
-	flag.StringVar(&fv.DownloadURL, "download-url", "", i18n.GetText("flag_download_url"))
-	flag.StringVar(&fv.DownloadSavePath, "download-path", "", i18n.GetText("flag_download_path"))
 	flag.StringVar(&fv.Language, "lang", "zh", i18n.GetText("flag_language"))
 
 	// 帮助参数
@@ -353,16 +338,6 @@ func shouldShowHelp(Info *HostInfo, fv *FlagVars) bool {
 	// 检查是否提供了扫描目标
 	hasTarget := Info.Host != "" || fv.TargetURL != "" || fv.HostsFile != "" || fv.URLsFile != ""
 
-	// 本地模式不需要目标主机
-	if fv.LocalPlugin != "" {
-		return false
-	}
-
-	// -m 指定的全是本地插件时也不需要目标
-	if IsLocalMode != nil && IsLocalMode(fv.ScanMode) {
-		return false
-	}
-
 	// 如果没有提供任何扫描目标，则显示帮助
 	return !hasTarget
 }
@@ -380,17 +355,6 @@ func checkParameterConflicts() error {
 	// 检查 -ao 和 -m icmp 同时指定的情况（向后兼容提示）
 	if fv.AliveOnly && fv.ScanMode == "icmp" {
 		LogInfo(i18n.GetText("param_conflict_ao_icmp_both"))
-	}
-
-	// 检查本地插件参数
-	if fv.LocalPlugin != "" {
-		// 检查是否包含分隔符（确保只能指定单个插件）
-		invalidChars := []string{",", ";", " ", "|", "&"}
-		for _, char := range invalidChars {
-			if strings.Contains(fv.LocalPlugin, char) {
-				return fmt.Errorf("%s", i18n.Tr("param_local_multi_plugin", char))
-			}
-		}
 	}
 
 	return nil

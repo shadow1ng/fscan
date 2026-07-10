@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/shadow1ng/fscan/libs/grdp/glog"
+	"scanner/libs/grdp/glog"
 
 	"github.com/lunixbochs/struc"
-	"github.com/shadow1ng/fscan/libs/grdp/core"
-	"github.com/shadow1ng/fscan/libs/grdp/emission"
-	"github.com/shadow1ng/fscan/libs/grdp/protocol/tpkt"
+	"scanner/libs/grdp/core"
+	"scanner/libs/grdp/emission"
+	"scanner/libs/grdp/protocol/tpkt"
 )
 
 // take idea from https://github.com/Madnikulin50/gordp

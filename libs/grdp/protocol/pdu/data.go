@@ -7,8 +7,8 @@ import (
 	"io"
 
 	"github.com/lunixbochs/struc"
-	"github.com/shadow1ng/fscan/libs/grdp/core"
-	"github.com/shadow1ng/fscan/libs/grdp/glog"
+	"scanner/libs/grdp/core"
+	"scanner/libs/grdp/glog"
 )
 
 const (

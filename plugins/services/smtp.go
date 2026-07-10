@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/plugins"
+	"scanner/common"
+	"scanner/common/i18n"
+	"scanner/plugins"
 )
 
 // SMTPPlugin SMTP扫描插件
@@ -250,7 +250,7 @@ func (p *SMTPPlugin) testAnonymousAccess(ctx context.Context, info *common.HostI
 		}
 		defer func() { _ = client.Quit() }()
 
-		if err := client.Hello("fscan.test"); err != nil {
+		if err := client.Hello("localhost"); err != nil {
 			resultChan <- nil
 			return
 		}
@@ -302,12 +302,12 @@ func (p *SMTPPlugin) testOpenRelay(ctx context.Context, info *common.HostInfo, s
 		}
 		defer func() { _ = client.Quit() }()
 
-		if err := client.Hello("fscan.test"); err != nil {
+		if err := client.Hello("localhost"); err != nil {
 			resultChan <- nil
 			return
 		}
 
-		if err := client.Mail("test@fscan.test"); err != nil {
+		if err := client.Mail("test@localhost.localdomain"); err != nil {
 			resultChan <- nil
 			return
 		}
@@ -349,7 +349,7 @@ func (p *SMTPPlugin) testVRFYCommand(ctx context.Context, info *common.HostInfo,
 
 		_ = conn.SetDeadline(time.Now().Add(session.Config.ModuleTimeout()))
 
-		if _, heloWriteErr := fmt.Fprintf(conn, "HELO fscan.test\r\n"); heloWriteErr != nil {
+		if _, heloWriteErr := fmt.Fprintf(conn, "HELO localhost\r\n"); heloWriteErr != nil {
 			resultChan <- nil
 			return
 		}
@@ -419,7 +419,7 @@ func (p *SMTPPlugin) testEXPNCommand(ctx context.Context, info *common.HostInfo,
 
 		_ = conn.SetDeadline(time.Now().Add(session.Config.ModuleTimeout()))
 
-		if _, heloWriteErr := fmt.Fprintf(conn, "HELO fscan.test\r\n"); heloWriteErr != nil {
+		if _, heloWriteErr := fmt.Fprintf(conn, "HELO localhost\r\n"); heloWriteErr != nil {
 			resultChan <- nil
 			return
 		}

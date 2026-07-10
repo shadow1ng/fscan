@@ -35,7 +35,7 @@ detail:
 	fmt.Printf("   ✓ 格式: %s\n", poc1.GetFormat())
 	fmt.Printf("   ✓ 名称: %s\n", poc1.GetName())
 
-	fscanPoc1, _ := poc1.ToFscanPoc()
+	fscanPoc1, _ := poc1.ToNativePoc()
 	fmt.Printf("   ✓ 规则数: %d\n", len(fscanPoc1.Rules))
 	fmt.Println()
 
@@ -76,7 +76,7 @@ http:
 	fmt.Printf("   ✓ 格式: %s\n", poc2.GetFormat())
 	fmt.Printf("   ✓ 名称: %s\n", poc2.GetName())
 
-	fscanPoc2, _ := poc2.ToFscanPoc()
+	fscanPoc2, _ := poc2.ToNativePoc()
 	fmt.Printf("   ✓ 规则数: %d (Nuclei的2个path转为2个rule)\n", len(fscanPoc2.Rules))
 	fmt.Printf("   ✓ 第一条规则表达式: %s\n", fscanPoc2.Rules[0].Expression[:80]+"...")
 	fmt.Println()
@@ -94,7 +94,7 @@ http:
 			`name: test
 rules:
   - method: GET`,
-			FormatFscan,
+			FormatNative,
 		},
 		{
 			"Nuclei格式",
@@ -154,7 +154,7 @@ http:
 
 	fmt.Println("特性1: Nuclei matcher 转换")
 	poc, _ := LoadUniversalPoc("demo.yaml", []byte(nucleiYaml))
-	fscanPoc, _ := poc.ToFscanPoc()
+	fscanPoc, _ := poc.ToNativePoc()
 
 	fmt.Printf("   原始: Nuclei format with 2 matchers\n")
 	fmt.Printf("   转换: fscan expression\n")
@@ -179,7 +179,7 @@ http:
 `
 
 	poc2, _ := LoadUniversalPoc("multi.yaml", []byte(multiPathYaml))
-	fscanPoc2, _ := poc2.ToFscanPoc()
+	fscanPoc2, _ := poc2.ToNativePoc()
 
 	fmt.Printf("   原始: 3个 path\n")
 	fmt.Printf("   转换: %d 个 rule\n", len(fscanPoc2.Rules))

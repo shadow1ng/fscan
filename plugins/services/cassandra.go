@@ -11,9 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/plugins"
+	"scanner/common"
+	"scanner/common/i18n"
+	"scanner/plugins"
 )
 
 // CassandraPlugin Cassandra扫描插件（纯 raw TCP CQL 协议实现）

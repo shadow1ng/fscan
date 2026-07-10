@@ -5,7 +5,7 @@
 ## Quick Start
 
 ```go
-import fscan "github.com/shadow1ng/fscan/pkg/fscan"
+import fscan "scanner/pkg/fscan"
 
 scanner := fscan.NewScanner(fscan.Config{
     Timeout:      3 * time.Second,

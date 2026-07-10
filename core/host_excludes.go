@@ -3,8 +3,8 @@ package core
 import (
 	"strings"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/parsers"
+	"scanner/common"
+	"scanner/common/parsers"
 )
 
 func loadHostExcludes(params *common.FlagVars) ([]string, error) {

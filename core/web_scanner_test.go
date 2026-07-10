@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
+	"scanner/common"
 )
 
 /*
@@ -734,8 +734,11 @@ func TestDetectHTTPScheme(t *testing.T) {
 	})
 
 	t.Run("HTTP服务器检测", func(t *testing.T) {
+		cfg.HTTP.UserAgent = "Scanner-Test/1.0"
+		seenUserAgent := make(chan string, 1)
 		// 创建HTTP测试服务器
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			seenUserAgent <- r.UserAgent()
 			w.WriteHeader(http.StatusOK)
 		}))
 		defer server.Close()
@@ -751,6 +754,14 @@ func TestDetectHTTPScheme(t *testing.T) {
 		result := DetectHTTPScheme(host, port, cfg, session)
 		if result != "http" {
 			t.Errorf("DetectHTTPScheme() = %q, 期望 'http'", result)
+		}
+		select {
+		case got := <-seenUserAgent:
+			if got != cfg.HTTP.UserAgent {
+				t.Errorf("User-Agent = %q, want %q", got, cfg.HTTP.UserAgent)
+			}
+		case <-time.After(time.Second):
+			t.Fatal("HTTP服务器未收到探测请求")
 		}
 	})
 

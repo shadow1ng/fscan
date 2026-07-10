@@ -7,7 +7,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/shadow1ng/fscan/common/parsers"
+	"scanner/common/parsers"
 )
 
 const maxAutoOutputNameRunes = 120

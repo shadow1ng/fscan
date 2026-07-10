@@ -1,6 +1,6 @@
 package core
 
-import "github.com/shadow1ng/fscan/libs/grdp/emission"
+import "scanner/libs/grdp/emission"
 
 type Transport interface {
 	Read(b []byte) (n int, err error)

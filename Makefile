@@ -1,4 +1,4 @@
-# fscan Makefile
+# Scanner Makefile
 # 提供统一的构建、测试、检查命令
 
 .PHONY: help test test-cover build build-debug build-race lint lint-fix clean ci deps install-tools stress-test
@@ -7,7 +7,7 @@
 .DEFAULT_GOAL := help
 
 # 项目配置
-BINARY_NAME := fscan
+BINARY_NAME := scanner
 GO := go
 GOLANGCI_LINT := golangci-lint
 
@@ -19,7 +19,7 @@ NC := \033[0m # No Color
 
 ## help: 显示帮助信息
 help:
-	@echo "$(BLUE)fscan 构建工具$(NC)"
+	@echo "$(BLUE)Scanner 构建工具$(NC)"
 	@echo ""
 	@echo "$(GREEN)可用命令:$(NC)"
 	@grep -E '^## ' $(MAKEFILE_LIST) | sed 's/^## /  /'
@@ -53,9 +53,9 @@ test-cover:
 	$(GO) tool cover -html=coverage.out -o coverage.html
 	@echo "$(GREEN)✓ 覆盖率报告生成完成$(NC)"
 
-## build: 构建生产版本（无 pprof，优化体积）
+## build: 构建生产版本（不含利用组件）
 build:
-	@echo "$(BLUE)构建生产版本（无 pprof）...$(NC)"
+	@echo "$(BLUE)构建生产版本（默认扫描版，不含利用组件）...$(NC)"
 	$(GO) build -ldflags="-s -w" -trimpath -o $(BINARY_NAME) .
 	@echo "$(GREEN)✓ 构建完成: $(BINARY_NAME)$(NC)"
 

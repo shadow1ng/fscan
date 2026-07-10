@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shadow1ng/fscan/common/output"
+	"scanner/common/output"
 )
 
 func TestScanSessionLogMethodsHonorSilentConfig(t *testing.T) {

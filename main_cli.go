@@ -6,15 +6,14 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/debug"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/core"
+	"scanner/common"
+	"scanner/common/debug"
+	"scanner/common/i18n"
+	"scanner/core"
 
 	// 导入统一插件系统
-	_ "github.com/shadow1ng/fscan/plugins/local"
-	_ "github.com/shadow1ng/fscan/plugins/services"
-	_ "github.com/shadow1ng/fscan/plugins/web"
+	_ "scanner/plugins/services"
+	_ "scanner/plugins/web"
 )
 
 func main() {

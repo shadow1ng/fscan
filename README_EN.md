@@ -4,7 +4,7 @@
 
 Comprehensive intranet scanning tool for automated vulnerability assessment.
 
-**Version**: 2.2.0
+**Version**: 2.2.2
 
 ## Features
 
@@ -28,16 +28,7 @@ Comprehensive intranet scanning tool for automated vulnerability assessment.
 
 ### Exploitation
 - **Redis Exploit** - Write pubkey, crontab, webshell, master-slave RCE
-- **MS17-010 Exploit** - ShellCode injection, add user, execute commands
 - **SSH Command Exec** - Auto command execution after authentication
-
-### Local Modules
-- **Info Gathering** - System info, environment variables, DC info, NIC config
-- **Credential Access** - Memory dump (MiniDump), keylogger, registry export
-- **Persistence** - Systemd service, Windows service, scheduled tasks, startup, LD_PRELOAD
-- **Reverse Shell** - Forward shell, reverse shell, SOCKS5 proxy service
-- **AV Detection** - Identify installed security software
-- **Trace Cleanup** - Log cleaning tool
 
 ### Input/Output
 - **Target Input** - IP/CIDR/domain/URL, batch file import
@@ -53,7 +44,7 @@ Comprehensive intranet scanning tool for automated vulnerability assessment.
 
 ### Extensions
 - **Lab Environment** - Built-in Docker lab for testing and learning
-- **Plugin Architecture** - Service/Web/Local plugins separated, easy to extend
+- **Plugin Architecture** - Service and Web plugins separated, easy to extend
 - **Multi-language** - Chinese/English interface (-lang zh/en)
 - **Performance Stats** - JSON format performance report (-perf)
 
@@ -100,7 +91,7 @@ Comprehensive intranet scanning tool for automated vulnerability assessment.
 - **302 Redirect Dual Detection** - Identify fingerprints from both original and redirected responses
 - **TXT Output URL Summary** - Append web service URL list for batch testing
 - **gonmap Core Integration** - Three improvements: probe strategy/matching engine/version parsing
-- **Selective Plugin Compilation** - Build Tags system for independent service/local/web plugin compilation
+- **Selective Plugin Compilation** - Build Tags system for independent service/web plugin compilation
 - **Default Port Expansion** - Extended from 62 to 133 common ports
 - **Full Port Scan Support** - Expanded port range limits
 - **HTTP Redirect Control** - Configurable redirect count limit
@@ -167,9 +158,6 @@ Comprehensive intranet scanning tool for automated vulnerability assessment.
 
 # Web scanning
 ./fscan -u http://192.168.1.1
-
-# Local plugin
-./fscan -local systeminfo
 
 # Hash authentication
 ./fscan -h 192.168.1.1 -m smb2 -user admin -hash xxxxx

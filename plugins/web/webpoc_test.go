@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/shadow1ng/fscan/common"
+	"scanner/common"
 )
 
 func TestMatchCDNorWAF(t *testing.T) {

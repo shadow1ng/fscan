@@ -9,7 +9,7 @@ output_api.go - 输出系统简化接口
 import (
 	"fmt"
 
-	"github.com/shadow1ng/fscan/common/output"
+	"scanner/common/output"
 )
 
 // ResultOutput 全局输出管理器

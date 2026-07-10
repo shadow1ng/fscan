@@ -27,7 +27,7 @@ func TestResultCallbackLifecycle(t *testing.T) {
 	}
 }
 
-func TestStateRuntimeTargetsAndShellFlags(t *testing.T) {
+func TestStateRuntimeTargets(t *testing.T) {
 	state := NewState()
 
 	urls := []string{"http://example.com", "https://example.org"}
@@ -44,19 +44,5 @@ func TestStateRuntimeTargetsAndShellFlags(t *testing.T) {
 	state.ClearHostPorts()
 	if got := state.GetHostPorts(); got != nil {
 		t.Fatalf("hostPorts after clear = %#v, want nil", got)
-	}
-
-	state.SetForwardShellActive(true)
-	state.SetReverseShellActive(true)
-	state.SetSocks5ProxyActive(true)
-	if !state.IsForwardShellActive() || !state.IsReverseShellActive() || !state.IsSocks5ProxyActive() {
-		t.Fatal("shell/proxy flags should be active")
-	}
-
-	state.SetForwardShellActive(false)
-	state.SetReverseShellActive(false)
-	state.SetSocks5ProxyActive(false)
-	if state.IsForwardShellActive() || state.IsReverseShellActive() || state.IsSocks5ProxyActive() {
-		t.Fatal("shell/proxy flags should be inactive")
 	}
 }

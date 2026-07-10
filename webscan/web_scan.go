@@ -15,10 +15,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/config"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/webscan/lib"
+	"scanner/common"
+	"scanner/common/config"
+	"scanner/common/i18n"
+	"scanner/webscan/lib"
 )
 
 // 常量定义
@@ -261,7 +261,7 @@ func createBaseRequest(ctx context.Context, target string, cfg *common.Config) (
 	}
 
 	// 设置请求头
-	req.Header.Set("User-agent", cfg.HTTP.UserAgent)
+	req.Header.Set("User-Agent", common.HTTPUserAgent(cfg))
 	req.Header.Set("Accept", cfg.HTTP.Accept)
 	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9")
 	if cfg.HTTP.Cookie != "" {

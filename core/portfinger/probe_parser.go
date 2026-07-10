@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shadow1ng/fscan/common/i18n"
+	"scanner/common/i18n"
 )
 
 // 解析指令语法,返回指令结构

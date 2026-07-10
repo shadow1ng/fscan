@@ -8,9 +8,9 @@ import (
 	"time"
 
 	ldaplib "github.com/go-ldap/ldap/v3"
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/plugins"
+	"scanner/common"
+	"scanner/common/i18n"
+	"scanner/plugins"
 )
 
 // LDAPPlugin LDAP扫描插件

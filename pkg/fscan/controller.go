@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
+	"scanner/common"
 )
 
 // ScanController provides pause/resume control and live stats for an

@@ -10,10 +10,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/common/output"
-	"github.com/shadow1ng/fscan/common/parsers"
+	"scanner/common"
+	"scanner/common/i18n"
+	"scanner/common/output"
+	"scanner/common/parsers"
 )
 
 // proxyFailurePatterns 代理连接失败的错误模式（小写）

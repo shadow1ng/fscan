@@ -22,8 +22,8 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter/functions"
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
+	"scanner/common"
+	"scanner/common/i18n"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 

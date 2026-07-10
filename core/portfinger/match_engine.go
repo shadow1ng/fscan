@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/shadow1ng/fscan/common/i18n"
+	"scanner/common/i18n"
 )
 
 // BytesToRegexSafeString 将字节切片转换为 Go regexp 安全的正则表达式模式字符串

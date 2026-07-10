@@ -6,7 +6,7 @@ import (
 	"crypto/rc4"
 	"strings"
 
-	"github.com/shadow1ng/fscan/libs/grdp/core"
+	"scanner/libs/grdp/core"
 	"golang.org/x/crypto/md4"
 )
 

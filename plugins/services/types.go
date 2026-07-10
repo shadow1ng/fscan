@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/plugins"
+	"scanner/common"
+	"scanner/plugins"
 )
 
 // 插件接口定义 - 统一命名风格

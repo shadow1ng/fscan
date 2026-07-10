@@ -12,8 +12,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
+	"scanner/common"
+	"scanner/common/i18n"
 	gmtls "github.com/tjfoc/gmsm/gmtls"
 )
 
@@ -83,7 +83,7 @@ func DetectHTTPSchemeContext(ctx context.Context, host string, port int, config 
 	if err != nil {
 		return ""
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	req.Header.Set("User-Agent", common.HTTPUserAgent(config))
 	req.Header.Set("Accept", "*/*")
 	resp, err := session.HTTPDo(client, req)
 	if err == nil {
@@ -157,12 +157,12 @@ func (w *WebPortDetector) DetectHTTPServiceOnlyContext(ctx context.Context, host
 	client := createHTTPClient(config, session)
 
 	// 尝试HTTP
-	if w.tryHTTP(ctx, client, session, host, port, "http") {
+	if w.tryHTTP(ctx, client, session, config, host, port, "http") {
 		return true
 	}
 
 	// 尝试HTTPS
-	if w.tryHTTP(ctx, client, session, host, port, "https") {
+	if w.tryHTTP(ctx, client, session, config, host, port, "https") {
 		return true
 	}
 
@@ -184,7 +184,7 @@ func isPortReachable(ctx context.Context, host string, port int, config *common.
 }
 
 // tryHTTP 尝试HTTP请求 - 简化的核心逻辑
-func (w *WebPortDetector) tryHTTP(ctx context.Context, client *http.Client, session *common.ScanSession, host string, port int, protocol string) bool {
+func (w *WebPortDetector) tryHTTP(ctx context.Context, client *http.Client, session *common.ScanSession, config *common.Config, host string, port int, protocol string) bool {
 	// 构造URL
 	targetURL := (&url.URL{Scheme: protocol, Host: net.JoinHostPort(host, strconv.Itoa(port))}).String()
 
@@ -194,7 +194,7 @@ func (w *WebPortDetector) tryHTTP(ctx context.Context, client *http.Client, sess
 		return false
 	}
 
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	req.Header.Set("User-Agent", common.HTTPUserAgent(config))
 	req.Header.Set("Accept", "*/*")
 
 	resp, err := session.HTTPDo(client, req)

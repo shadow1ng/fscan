@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	fscanconfig "github.com/shadow1ng/fscan/common/config"
+	scfg "scanner/common/config"
 )
 
 func TestParsePasswordsKeepsPrimaryPasswordLiteral(t *testing.T) {
@@ -59,29 +59,29 @@ func TestBuildConfigDefaultsAreIndependentCopies(t *testing.T) {
 		t.Fatalf("BuildConfig error = %v", err)
 	}
 
-	defaultSSHUsers := fscanconfig.DefaultUserDict["ssh"]
+	defaultSSHUsers := scfg.DefaultUserDict["ssh"]
 	if len(defaultSSHUsers) == 1 && defaultSSHUsers[0] == "custom-user" {
 		t.Fatal("BuildConfig mutated DefaultUserDict")
 	}
 
 	cfg.Credentials.Userdict["ssh"][0] = "mutated-user"
-	if fscanconfig.DefaultUserDict["ssh"][0] == "mutated-user" {
+	if scfg.DefaultUserDict["ssh"][0] == "mutated-user" {
 		t.Fatal("Config userdict shares backing storage with DefaultUserDict")
 	}
 
 	cfg.Credentials.Passwords[0] = "mutated-password"
-	if fscanconfig.DefaultPasswords[0] == "mutated-password" {
+	if scfg.DefaultPasswords[0] == "mutated-password" {
 		t.Fatal("Config passwords share backing storage with DefaultPasswords")
 	}
 
 	port := 80
 	cfg.PortMap[port][0] = "mutated-probe"
-	if fscanconfig.DefaultPortMap[port][0] == "mutated-probe" {
+	if scfg.DefaultPortMap[port][0] == "mutated-probe" {
 		t.Fatal("Config port map shares backing storage with DefaultPortMap")
 	}
 
 	cfg.DefaultMap[0] = "mutated-default-probe"
-	if fscanconfig.DefaultProbeMap[0] == "mutated-default-probe" {
+	if scfg.DefaultProbeMap[0] == "mutated-default-probe" {
 		t.Fatal("Config default map shares backing storage with DefaultProbeMap")
 	}
 }
@@ -126,23 +126,23 @@ func TestNewConfigDefaultsAreIndependentCopies(t *testing.T) {
 	cfg := NewConfig()
 
 	cfg.Credentials.Userdict["ssh"][0] = "mutated-user"
-	if fscanconfig.DefaultUserDict["ssh"][0] == "mutated-user" {
+	if scfg.DefaultUserDict["ssh"][0] == "mutated-user" {
 		t.Fatal("NewConfig userdict shares backing storage with DefaultUserDict")
 	}
 
 	cfg.Credentials.Passwords[0] = "mutated-password"
-	if fscanconfig.DefaultPasswords[0] == "mutated-password" {
+	if scfg.DefaultPasswords[0] == "mutated-password" {
 		t.Fatal("NewConfig passwords share backing storage with DefaultPasswords")
 	}
 
 	port := 80
 	cfg.PortMap[port][0] = "mutated-probe"
-	if fscanconfig.DefaultPortMap[port][0] == "mutated-probe" {
+	if scfg.DefaultPortMap[port][0] == "mutated-probe" {
 		t.Fatal("NewConfig port map shares backing storage with DefaultPortMap")
 	}
 
 	cfg.DefaultMap[0] = "mutated-default-probe"
-	if fscanconfig.DefaultProbeMap[0] == "mutated-default-probe" {
+	if scfg.DefaultProbeMap[0] == "mutated-default-probe" {
 		t.Fatal("NewConfig default map shares backing storage with DefaultProbeMap")
 	}
 }

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/config"
-	"github.com/shadow1ng/fscan/plugins/services"
+	"scanner/common"
+	"scanner/common/config"
+	"scanner/plugins/services"
 )
 
 const (

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shadow1ng/fscan/common"
+	"scanner/common"
 )
 
 func TestPostgreSQLConnStringEscapesIPv6AndCredentials(t *testing.T) {

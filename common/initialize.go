@@ -3,7 +3,7 @@ package common
 import (
 	"fmt"
 
-	"github.com/shadow1ng/fscan/common/i18n"
+	"scanner/common/i18n"
 )
 
 /*
@@ -53,7 +53,7 @@ func Initialize(info *HostInfo) (*InitResult, error) {
 }
 
 // ValidateExclusiveParams 验证互斥参数
-// 检查 -h、-u、-local 只能指定一个
+// 检查 -h、-u 只能指定一个
 func ValidateExclusiveParams(info *HostInfo) error {
 	paramCount := 0
 	var activeParam string
@@ -72,15 +72,6 @@ func ValidateExclusiveParams(info *HostInfo) error {
 			activeParam = "-u"
 		}
 	}
-	if fv.LocalPlugin != "" {
-		paramCount++
-		if activeParam != "" {
-			activeParam = i18n.Tr("param_join_and", activeParam, "-local")
-		} else {
-			activeParam = "-local"
-		}
-	}
-
 	if paramCount > 1 {
 		return fmt.Errorf("%s", i18n.Tr("param_exclusive", activeParam))
 	}

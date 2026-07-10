@@ -15,14 +15,14 @@ import (
 
 	"github.com/lunixbochs/struc"
 
-	"github.com/shadow1ng/fscan/libs/grdp/protocol/nla"
+	"scanner/libs/grdp/protocol/nla"
 
-	"github.com/shadow1ng/fscan/libs/grdp/core"
-	"github.com/shadow1ng/fscan/libs/grdp/emission"
-	"github.com/shadow1ng/fscan/libs/grdp/glog"
-	"github.com/shadow1ng/fscan/libs/grdp/protocol/lic"
-	"github.com/shadow1ng/fscan/libs/grdp/protocol/t125"
-	"github.com/shadow1ng/fscan/libs/grdp/protocol/t125/gcc"
+	"scanner/libs/grdp/core"
+	"scanner/libs/grdp/emission"
+	"scanner/libs/grdp/glog"
+	"scanner/libs/grdp/protocol/lic"
+	"scanner/libs/grdp/protocol/t125"
+	"scanner/libs/grdp/protocol/t125/gcc"
 )
 
 /**

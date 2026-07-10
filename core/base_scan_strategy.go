@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/common/i18n"
-	"github.com/shadow1ng/fscan/plugins"
+	"scanner/common"
+	"scanner/common/i18n"
+	"scanner/plugins"
 )
 
 // PluginFilterType 插件过滤类型
@@ -17,9 +17,7 @@ type PluginFilterType int
 const (
 	// FilterNone 不过滤
 	FilterNone PluginFilterType = iota
-	// FilterLocal 仅本地插件
-	FilterLocal
-	// FilterService 仅服务插件（排除本地）
+	// FilterService 仅服务插件
 	FilterService
 	// FilterWeb 仅Web插件
 	FilterWeb
@@ -113,16 +111,8 @@ func (b *BaseScanStrategy) isWebPlugin(pluginName string) bool {
 	return plugins.HasType(pluginName, plugins.PluginTypeWeb)
 }
 
-func (b *BaseScanStrategy) isLocalPlugin(pluginName string) bool {
-	return plugins.HasType(pluginName, plugins.PluginTypeLocal)
-}
-
 func (b *BaseScanStrategy) isUDPPlugin(pluginName string) bool {
 	return plugins.IsUDP(pluginName)
-}
-
-func (b *BaseScanStrategy) isLocalPluginExplicitlySpecified(pluginName string, config *common.Config) bool {
-	return config.LocalPlugin == pluginName
 }
 
 // isPluginApplicableToPortWithHost 检查插件是否适用于指定端口
@@ -182,29 +172,19 @@ func (b *BaseScanStrategy) isPluginPassesFilterType(pluginName string, isCustomM
 
 	// 应用过滤器类型检查
 	switch b.filterType {
-	case FilterLocal:
-		// 本地扫描策略：只允许本地插件且必须通过-local参数明确指定
-		if b.isLocalPlugin(pluginName) {
-			return b.isLocalPluginExplicitlySpecified(pluginName, config)
-		}
-		return false
 	case FilterService:
-		// 服务扫描策略：排除本地插件和UDP插件（UDP有独立分发路径）
-		return !b.isLocalPlugin(pluginName) && !b.isUDPPlugin(pluginName)
+		// UDP插件有独立分发路径
+		return !b.isUDPPlugin(pluginName)
 	case FilterWeb:
 		// Web扫描策略：只允许Web插件
 		return b.isWebPlugin(pluginName)
 	default:
-		// 无过滤器：本地插件需要明确指定，其他插件都允许
-		if b.isLocalPlugin(pluginName) {
-			return b.isLocalPluginExplicitlySpecified(pluginName, config)
-		}
 		return true
 	}
 }
 
 // LogPluginInfo 默认不输出插件信息（service 默认端口模式有意保持安静，减少干扰）。
-// 子类 LocalScanStrategy / ServiceScanStrategy 按需重写。
+// 子类 ServiceScanStrategy 按需重写。
 func (b *BaseScanStrategy) LogPluginInfo(config *common.Config, session *common.ScanSession) {
 }
 
@@ -224,10 +204,8 @@ func (b *BaseScanStrategy) ValidateConfiguration() error {
 // LogScanStart 输出扫描开始信息（已精简，仅在非服务扫描模式下显示）
 func (b *BaseScanStrategy) LogScanStart(session *common.ScanSession) {
 	// 服务扫描模式下不显示（插件信息已足够说明）
-	// 仅在本地/Web等特殊模式下显示
+	// 仅在 Web 等特殊模式下显示
 	switch b.filterType {
-	case FilterLocal:
-		session.LogInfo(i18n.GetText("start_local_scan"))
 	case FilterWeb:
 		session.LogInfo(i18n.GetText("start_web_scan"))
 	}
@@ -239,17 +217,10 @@ func (b *BaseScanStrategy) getPluginsByFilterType() []string {
 	var filteredPlugins []string
 
 	switch b.filterType {
-	case FilterLocal:
-		// 本地扫描策略：只返回本地插件
-		for _, pluginName := range allPlugins {
-			if b.isLocalPlugin(pluginName) {
-				filteredPlugins = append(filteredPlugins, pluginName)
-			}
-		}
 	case FilterService:
-		// 服务扫描策略：排除本地插件和UDP插件，保留TCP服务插件
+		// 服务扫描策略：排除UDP插件，保留TCP服务插件
 		for _, pluginName := range allPlugins {
-			if !b.isLocalPlugin(pluginName) && !b.isUDPPlugin(pluginName) {
+			if !b.isUDPPlugin(pluginName) {
 				filteredPlugins = append(filteredPlugins, pluginName)
 			}
 		}

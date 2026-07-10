@@ -3,7 +3,7 @@ package core
 import (
 	"testing"
 
-	"github.com/shadow1ng/fscan/common"
+	"scanner/common"
 )
 
 /*

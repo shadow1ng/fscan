@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/shadow1ng/fscan/common/proxy"
+	"scanner/common/proxy"
 )
 
 func TestNetworkFacadeProxyState(t *testing.T) {

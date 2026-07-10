@@ -3,8 +3,8 @@ package core
 import (
 	"testing"
 
-	"github.com/shadow1ng/fscan/common"
-	"github.com/shadow1ng/fscan/plugins"
+	"scanner/common"
+	"scanner/plugins"
 )
 
 // =============================================================================
@@ -277,7 +277,6 @@ func TestOrderWebPlugins(t *testing.T) {
 
 func TestBaseScanStrategyPluginSelectionAndApplicability(t *testing.T) {
 	registerTestPlugins(t)
-	plugins.RegisterWithOptions("core_test_local", func() plugins.Plugin { return nil }, nil, []string{plugins.PluginTypeLocal}, false)
 	plugins.RegisterWithOptions("core_test_udp", func() plugins.Plugin { return nil }, []int{161}, []string{plugins.PluginTypeUDP}, true)
 	clearServiceCache()
 
@@ -297,7 +296,7 @@ func TestBaseScanStrategyPluginSelectionAndApplicability(t *testing.T) {
 	if custom {
 		t.Fatal("all mode should not be custom")
 	}
-	if !containsString(servicePlugins, "ssh") || containsString(servicePlugins, "core_test_local") || containsString(servicePlugins, "core_test_udp") {
+	if !containsString(servicePlugins, "ssh") || containsString(servicePlugins, "core_test_udp") {
 		t.Fatalf("service filtered plugins = %#v", servicePlugins)
 	}
 
@@ -320,27 +319,16 @@ func TestBaseScanStrategyPluginSelectionAndApplicability(t *testing.T) {
 }
 
 func TestBaseScanStrategyFilterTypes(t *testing.T) {
-	plugins.RegisterWithOptions("core_test_local_filter", func() plugins.Plugin { return nil }, nil, []string{plugins.PluginTypeLocal}, false)
 	plugins.RegisterWithOptions("core_test_web_filter", func() plugins.Plugin { return nil }, nil, []string{plugins.PluginTypeWeb}, true)
 	plugins.RegisterWithOptions("core_test_udp_filter", func() plugins.Plugin { return nil }, []int{53}, []string{plugins.PluginTypeUDP}, true)
 
 	cfg := common.NewConfig()
-	localStrategy := NewBaseScanStrategy("local", FilterLocal)
-	if localStrategy.isPluginPassesFilterType("core_test_local_filter", false, cfg) {
-		t.Fatal("local plugin should require explicit -local selection")
-	}
-	cfg.LocalPlugin = "core_test_local_filter"
-	if !localStrategy.isPluginPassesFilterType("core_test_local_filter", false, cfg) {
-		t.Fatal("explicit local plugin should pass local filter")
-	}
-
 	serviceStrategy := NewBaseScanStrategy("service", FilterService)
 	if !serviceStrategy.isPluginPassesFilterType("ssh", false, cfg) {
 		t.Fatal("service plugin should pass service filter")
 	}
-	if serviceStrategy.isPluginPassesFilterType("core_test_local_filter", false, cfg) ||
-		serviceStrategy.isPluginPassesFilterType("core_test_udp_filter", false, cfg) {
-		t.Fatal("service filter should reject local and UDP plugins")
+	if serviceStrategy.isPluginPassesFilterType("core_test_udp_filter", false, cfg) {
+		t.Fatal("service filter should reject UDP plugins")
 	}
 
 	webStrategy := NewBaseScanStrategy("web", FilterWeb)
@@ -384,11 +372,6 @@ func TestNewBaseScanStrategy(t *testing.T) {
 			filterType:   FilterNone,
 		},
 		{
-			name:         "FilterLocal",
-			strategyName: "本地扫描",
-			filterType:   FilterLocal,
-		},
-		{
 			name:         "FilterService",
 			strategyName: "服务扫描",
 			filterType:   FilterService,
@@ -424,7 +407,6 @@ func TestPluginFilterTypeConstants(t *testing.T) {
 	// 验证常量值的唯一性和连续性
 	filterTypes := []PluginFilterType{
 		FilterNone,
-		FilterLocal,
 		FilterService,
 		FilterWeb,
 	}
@@ -441,9 +423,8 @@ func TestPluginFilterTypeConstants(t *testing.T) {
 	// 验证预期值
 	expectedValues := map[PluginFilterType]int{
 		FilterNone:    0,
-		FilterLocal:   1,
-		FilterService: 2,
-		FilterWeb:     3,
+		FilterService: 1,
+		FilterWeb:     2,
 	}
 
 	for ft, expectedVal := range expectedValues {
@@ -546,12 +527,6 @@ func TestIsPluginPassesFilterType_CustomMode(t *testing.T) {
 	registerTestPlugins(t)
 	cfg := common.NewConfig()
 
-	// FilterLocal 策略下 custom mode 也应通过
-	localStrategy := NewBaseScanStrategy("local", FilterLocal)
-	if !localStrategy.isPluginPassesFilterType("ssh", true, cfg) {
-		t.Error("custom mode 下非 UDP 插件应直接返回 true")
-	}
-
 	// FilterService 策略下 custom mode 也应通过
 	serviceStrategy := NewBaseScanStrategy("service", FilterService)
 	if !serviceStrategy.isPluginPassesFilterType("ssh", true, cfg) {
@@ -572,24 +547,5 @@ func TestIsPluginPassesFilterType_FilterNoneNonLocal(t *testing.T) {
 	}
 	if !noneStrategy.isPluginPassesFilterType("redis", false, cfg) {
 		t.Error("FilterNone + 非 local 插件 redis 应返回 true")
-	}
-}
-
-// TestIsPluginPassesFilterType_FilterNoneLocalPlugin FilterNone + local 插件：需要 -local 显式指定
-func TestIsPluginPassesFilterType_FilterNoneLocalPlugin(t *testing.T) {
-	plugins.RegisterWithOptions("core_test_local_none", func() plugins.Plugin { return nil }, nil, []string{plugins.PluginTypeLocal}, false)
-	cfg := common.NewConfig()
-
-	noneStrategy := NewBaseScanStrategy("none", FilterNone)
-
-	// 未指定 LocalPlugin，应返回 false
-	if noneStrategy.isPluginPassesFilterType("core_test_local_none", false, cfg) {
-		t.Error("FilterNone + local 插件未显式指定时应返回 false")
-	}
-
-	// 指定后应返回 true
-	cfg.LocalPlugin = "core_test_local_none"
-	if !noneStrategy.isPluginPassesFilterType("core_test_local_none", false, cfg) {
-		t.Error("FilterNone + local 插件显式指定后应返回 true")
 	}
 }

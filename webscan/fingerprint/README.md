@@ -83,7 +83,7 @@ fscan现在集成了[FingerprintHub](https://github.com/0x727/FingerprintHub)的
 
 ### 基本用法
 ```go
-import "github.com/shadow1ng/fscan/webscan/fingerprint"
+import "scanner/webscan/fingerprint"
 
 // 自动加载并匹配
 body := []byte("<html>...</html>")
