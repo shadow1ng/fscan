@@ -181,7 +181,7 @@ func Flag(Info *HostInfo) error {
 	// ═════════════════════════════════════════════════
 	// 输出与显示控制参数
 	// ═════════════════════════════════════════════════
-	flag.StringVar(&fv.Outputfile, "o", "result.txt", i18n.GetText("flag_output_file"))
+	flag.StringVar(&fv.Outputfile, "o", "", i18n.GetText("flag_output_file"))
 	flag.StringVar(&fv.OutputFormat, "f", "txt", i18n.GetText("flag_output_format"))
 	flag.BoolVar(&fv.DisableSave, "no", false, i18n.GetText("flag_disable_save"))
 	flag.BoolVar(&fv.Silent, "silent", false, i18n.GetText("flag_silent_mode"))
@@ -232,6 +232,8 @@ func Flag(Info *HostInfo) error {
 			fv.ICMPRateExplicit = true
 		case "num":
 			fv.PocNumExplicit = true
+		case "o":
+			fv.OutputFileExplicit = true
 		}
 	})
 
@@ -348,11 +350,6 @@ func preProcessLanguage() {
 
 // shouldShowHelp 检查是否应该显示帮助信息
 func shouldShowHelp(Info *HostInfo, fv *FlagVars) bool {
-	// Web模式不需要目标参数
-	if WebMode {
-		return false
-	}
-
 	// 检查是否提供了扫描目标
 	hasTarget := Info.Host != "" || fv.TargetURL != "" || fv.HostsFile != "" || fv.URLsFile != ""
 

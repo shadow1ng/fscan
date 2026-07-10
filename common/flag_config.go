@@ -98,16 +98,17 @@ type FlagVars struct {
 	ICMPRateExplicit bool
 
 	// 输出控制
-	Outputfile      string
-	OutputFormat    string
-	DisableSave     bool
-	Silent          bool
-	NoColor         bool
-	LogLevel        string
-	Debug           bool
-	DisableProgress bool
-	PerfStats       bool
-	Language        string
+	Outputfile         string
+	OutputFileExplicit bool
+	OutputFormat       string
+	DisableSave        bool
+	Silent             bool
+	NoColor            bool
+	LogLevel           string
+	Debug              bool
+	DisableProgress    bool
+	PerfStats          bool
+	Language           string
 
 	// 高级功能
 	Shellcode             string

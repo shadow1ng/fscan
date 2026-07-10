@@ -117,7 +117,7 @@ flag_max_packet_count:
 flag_icmp_rate:
   other: "ICMP发包速率 (相对于最大速率的比例，默认0.1，约1463 pps)"
 flag_output_file:
-  other: "输出文件"
+  other: "输出文件（默认按第一个目标自动命名）"
 flag_output_format:
   other: "输出格式: txt, json, csv"
 flag_disable_save:
@@ -154,10 +154,6 @@ flag_language:
   other: "语言: zh, en"
 flag_help:
   other: "显示帮助信息"
-flag_web_mode:
-  other: "启动Web管理界面"
-flag_web_port:
-  other: "Web服务器端口"
 # ========================= 扫描模式消息 =========================
 scan_mode_service_selected:
   other: "已选择服务扫描模式"
@@ -1707,13 +1703,6 @@ redis_scan_success:
 rabbitmq_detected:
   other: "RabbitMQ {{.Arg1}} {{.Arg2}}"
 
-# ========================= Web UI消息 =========================
-web_server_started:
-  other: "Web服务器已启动，端口: {{.Arg1}}"
-web_shutting_down:
-  other: "Web服务器正在关闭..."
-web_mode_not_supported:
-  other: "当前版本不支持Web模式，请使用 -tags web 重新编译"
 
 # ========================= Debug消息 =========================
 debug_create_profiles_failed:

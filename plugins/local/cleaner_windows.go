@@ -53,9 +53,10 @@ func fixWinlogon(output *strings.Builder) int {
 	if out, err := exec.Command("reg", "query", key, "/v", "Shell").CombinedOutput(); err == nil {
 		val := extractRegValue(string(out))
 		if val != "explorer.exe" && val != "" {
-			exec.Command("reg", "add", key, "/v", "Shell", "/t", "REG_SZ", "/d", "explorer.exe", "/f").Run()
-			output.WriteString(i18n.Tr("cleaner_restore_winlogon_shell", val, "explorer.exe") + "\n")
-			cleaned++
+			if err := exec.Command("reg", "add", key, "/v", "Shell", "/t", "REG_SZ", "/d", "explorer.exe", "/f").Run(); err == nil {
+				output.WriteString(i18n.Tr("cleaner_restore_winlogon_shell", val, "explorer.exe") + "\n")
+				cleaned++
+			}
 		}
 	}
 
@@ -64,9 +65,10 @@ func fixWinlogon(output *strings.Builder) int {
 		val := extractRegValue(string(out))
 		defaultVal := `C:\Windows\system32\userinit.exe,`
 		if val != defaultVal && val != strings.TrimSuffix(defaultVal, ",") && val != "" {
-			exec.Command("reg", "add", key, "/v", "Userinit", "/t", "REG_SZ", "/d", defaultVal, "/f").Run()
-			output.WriteString(i18n.Tr("cleaner_restore_winlogon_userinit", val, defaultVal) + "\n")
-			cleaned++
+			if err := exec.Command("reg", "add", key, "/v", "Userinit", "/t", "REG_SZ", "/d", defaultVal, "/f").Run(); err == nil {
+				output.WriteString(i18n.Tr("cleaner_restore_winlogon_userinit", val, defaultVal) + "\n")
+				cleaned++
+			}
 		}
 	}
 	return cleaned
@@ -78,9 +80,10 @@ func cleanIFEO(output *strings.Builder) int {
 	for _, t := range targets {
 		key := fmt.Sprintf(`HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\%s`, t)
 		if out, err := exec.Command("reg", "query", key, "/v", "Debugger").CombinedOutput(); err == nil && strings.Contains(string(out), "Debugger") {
-			exec.Command("reg", "delete", key, "/f").Run()
-			output.WriteString(i18n.Tr("cleaner_ifeo_removed", t) + "\n")
-			cleaned++
+			if err := exec.Command("reg", "delete", key, "/f").Run(); err == nil {
+				output.WriteString(i18n.Tr("cleaner_ifeo_removed", t) + "\n")
+				cleaned++
+			}
 		}
 	}
 	return cleaned
@@ -105,9 +108,10 @@ func cleanRegistryRun(output *strings.Builder) int {
 				if strings.Contains(line, m) {
 					fields := strings.Fields(strings.TrimSpace(line))
 					if len(fields) > 0 {
-						exec.Command("reg", "delete", key, "/v", fields[0], "/f").Run()
-						output.WriteString(i18n.Tr("cleaner_registry_removed", key, fields[0]) + "\n")
-						cleaned++
+						if err := exec.Command("reg", "delete", key, "/v", fields[0], "/f").Run(); err == nil {
+							output.WriteString(i18n.Tr("cleaner_registry_removed", key, fields[0]) + "\n")
+							cleaned++
+						}
 					}
 					break
 				}
@@ -130,9 +134,10 @@ func cleanScheduledTasks(output *strings.Builder) int {
 				parts := strings.Split(line, ",")
 				if len(parts) > 0 {
 					name := strings.Trim(parts[0], "\"\\")
-					exec.Command("schtasks", "/delete", "/tn", name, "/f").Run()
-					output.WriteString(i18n.Tr("cleaner_schtask_removed", name) + "\n")
-					cleaned++
+					if err := exec.Command("schtasks", "/delete", "/tn", name, "/f").Run(); err == nil {
+						output.WriteString(i18n.Tr("cleaner_schtask_removed", name) + "\n")
+						cleaned++
+					}
 				}
 				break
 			}
@@ -152,10 +157,11 @@ func cleanServices(output *strings.Builder) int {
 		for _, line := range strings.Split(string(out), "\n") {
 			if strings.Contains(line, "SERVICE_NAME") && strings.Contains(line, m) {
 				name := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "SERVICE_NAME:"))
-				exec.Command("sc", "stop", name).Run()
-				exec.Command("sc", "delete", name).Run()
-				output.WriteString(i18n.Tr("cleaner_service_removed", name) + "\n")
-				cleaned++
+				_ = exec.Command("sc", "stop", name).Run()
+				if err := exec.Command("sc", "delete", name).Run(); err == nil {
+					output.WriteString(i18n.Tr("cleaner_service_removed", name) + "\n")
+					cleaned++
+				}
 			}
 		}
 	}
@@ -192,9 +198,10 @@ func cleanBITS(output *strings.Builder) int {
 			if idx := strings.Index(line, "{"); idx != -1 {
 				if end := strings.Index(line[idx:], "}"); end != -1 {
 					guid := line[idx : idx+end+1]
-					exec.Command("bitsadmin", "/cancel", guid).Run()
-					output.WriteString(i18n.Tr("cleaner_bits_removed", guid) + "\n")
-					cleaned++
+					if err := exec.Command("bitsadmin", "/cancel", guid).Run(); err == nil {
+						output.WriteString(i18n.Tr("cleaner_bits_removed", guid) + "\n")
+						cleaned++
+					}
 				}
 			}
 		}

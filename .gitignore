@@ -59,13 +59,7 @@ bin/
 *.so
 *.dylib
 /fscan_cli
-/fscan_web
 /embed-agent
-
-# Web UI build / Web前端构建
-web-ui/node_modules/
-web-ui/dist/
-!web/dist/
 
 # Go specific / Go 相关
 vendor/

@@ -53,7 +53,6 @@
 
 ### 扩展功能
 - **SDK嵌入** - `pkg/fscan`提供Go SDK，可嵌入Agent或安全平台，支持任务控制(Pause/Resume)、实时进度回调、TaskID追溯
-- **Web管理界面** - 可视化扫描任务管理(条件编译 -tags web)
 - **Lab靶场环境** - 内置Docker靶场用于测试学习
 - **插件化架构** - 服务插件/Web插件/本地插件分离，易于扩展
 - **多语言支持** - 中英文界面切换(-lang zh/en)
@@ -86,7 +85,6 @@
 - **并发安全优化** - 优化锁粒度和内存分配
 
 ### 新功能
-- **Web管理界面** - 可视化扫描任务管理，响应式布局和进度显示
 - **多格式POC适配** - 支持xray和afrog格式POC
 - **智能扫描模式** - 布隆过滤器去重+代理优化
 - **增强指纹库** - 集成FingerprintHub(3139条指纹)
@@ -188,8 +186,6 @@
 # 标准编译
 go build -ldflags="-s -w" -trimpath -o fscan .
 
-# 带Web管理界面
-go build -tags web -ldflags="-s -w" -trimpath -o fscan-web .
 ```
 
 ## 安装

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/shadow1ng/fscan/common"
 	"github.com/shadow1ng/fscan/common/i18n"
@@ -212,7 +213,7 @@ func (w *WebPortDetector) tryHTTP(ctx context.Context, client *http.Client, sess
 
 // globalState 全局 State 兼容指针（向后兼容不接受 State 的旧调用方）
 // 新代码应通过 State 方法访问服务缓存
-var globalState *common.State
+var globalState atomic.Pointer[common.State]
 
 // IsWebServiceByFingerprint 基于服务指纹判断Web服务 - 保持API兼容
 // 服务识别规则 - 编译期常量，避免运行时分配
@@ -280,14 +281,14 @@ func isDefinitelyNonWeb(serviceInfo *ServiceInfo) bool {
 
 // SetGlobalState 设置全局 State（RunScan 入口调用，兼容旧代码路径）
 func SetGlobalState(state *common.State) {
-	globalState = state
+	globalState.Store(state)
 }
 
 func resolveState(state *common.State) *common.State {
 	if state != nil {
 		return state
 	}
-	return globalState
+	return globalState.Load()
 }
 
 // CacheServiceInfoWithState 缓存服务信息到指定 State
@@ -488,7 +489,11 @@ func (s *WebScanStrategy) createTargetFromURLWithSession(baseInfo common.HostInf
 	}
 
 	// 标记为Web服务，确保Web插件能识别此目标
-	MarkAsWebService(urlInfo.Host, urlInfo.Port, &ServiceInfo{Name: "http"})
+	if session != nil {
+		CacheServiceInfoWithState(session.State, urlInfo.Host, urlInfo.Port, &ServiceInfo{Name: "http"})
+	} else {
+		MarkAsWebService(urlInfo.Host, urlInfo.Port, &ServiceInfo{Name: "http"})
+	}
 
 	return &urlInfo
 }
@@ -514,4 +519,3 @@ func hasMalformedURLPort(host string) bool {
 	}
 	return strings.Contains(host, ":")
 }
-

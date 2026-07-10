@@ -39,6 +39,14 @@ func TestScanSessionLogMethodsHonorSilentConfig(t *testing.T) {
 	}
 }
 
+func TestScanSessionDeactivateRejectsLateResults(t *testing.T) {
+	session := NewScanSession(NewConfig(), NewState(), &FlagVars{})
+	session.Deactivate()
+	if err := session.SaveResult(&output.ScanResult{}); err == nil {
+		t.Fatal("SaveResult() error = nil after Deactivate()")
+	}
+}
+
 func TestScanSessionDialerCacheIsTimeoutAware(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Timeout = 5 * time.Second

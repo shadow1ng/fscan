@@ -52,7 +52,7 @@ func InitOutput() error {
 	}
 
 	// 如果使用默认文件名但格式不是txt，自动修正扩展名
-	if outputFile == "result.txt" && outputFormat != "txt" {
+	if outputFile == "result.txt" && outputFormat != "txt" && !fv.OutputFileExplicit {
 		outputFile = "result." + outputFormat
 	}
 

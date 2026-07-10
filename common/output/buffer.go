@@ -38,7 +38,7 @@ func (b *ResultBuffer) Add(result *ScanResult) {
 		return
 	}
 
-	key := b.generateKey(result)
+	key := resultKey(result)
 
 	switch result.Type {
 	case TypeHost:
@@ -56,9 +56,9 @@ func (b *ResultBuffer) Add(result *ScanResult) {
 			b.seenServices[key] = len(b.ServiceResults)
 			b.ServiceResults = append(b.ServiceResults, result)
 		} else {
-			b.mergeDetails(b.ServiceResults[idx], result)
+			mergeResultDetails(b.ServiceResults[idx], result)
 			// 保留信息更完整的记录，同时保留另一条记录补充的字段
-			if b.isMoreComplete(result, b.ServiceResults[idx]) {
+			if resultCompleteness(result) > resultCompleteness(b.ServiceResults[idx]) {
 				b.ServiceResults[idx] = result
 			}
 		}
@@ -70,7 +70,7 @@ func (b *ResultBuffer) Add(result *ScanResult) {
 	}
 }
 
-func (b *ResultBuffer) mergeDetails(oldResult, newResult *ScanResult) {
+func mergeResultDetails(oldResult, newResult *ScanResult) {
 	if oldResult == nil || newResult == nil {
 		return
 	}
@@ -92,8 +92,10 @@ func (b *ResultBuffer) mergeDetails(oldResult, newResult *ScanResult) {
 	}
 }
 
-// generateKey 生成结果的唯一键（用于去重）
-func (b *ResultBuffer) generateKey(result *ScanResult) string {
+func resultKey(result *ScanResult) string {
+	if result == nil {
+		return ""
+	}
 	switch result.Type {
 	case TypeHost:
 		return result.Target
@@ -113,15 +115,14 @@ func (b *ResultBuffer) generateKey(result *ScanResult) string {
 	}
 }
 
-// isMoreComplete 判断新记录是否比旧记录信息更完整
-func (b *ResultBuffer) isMoreComplete(newResult, oldResult *ScanResult) bool {
-	return b.CalculateCompleteness(newResult) > b.CalculateCompleteness(oldResult)
-}
-
 // CalculateCompleteness 计算记录的信息完整度
 func (b *ResultBuffer) CalculateCompleteness(result *ScanResult) int {
+	return resultCompleteness(result)
+}
+
+func resultCompleteness(result *ScanResult) int {
 	score := 0
-	if result.Details == nil {
+	if result == nil || result.Details == nil {
 		return score
 	}
 

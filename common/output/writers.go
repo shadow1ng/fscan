@@ -14,6 +14,83 @@ import (
 	"github.com/shadow1ng/fscan/common/i18n"
 )
 
+const (
+	realtimeSyncBatchSize = 128
+	realtimeSyncInterval  = time.Second
+)
+
+func maybeSyncRealtime(file *os.File, pending *int, lastSync *time.Time, force bool) error {
+	if file == nil || pending == nil || lastSync == nil || *pending == 0 {
+		return nil
+	}
+	if !force && *pending < realtimeSyncBatchSize && time.Since(*lastSync) < realtimeSyncInterval {
+		return nil
+	}
+	if err := file.Sync(); err != nil {
+		return err
+	}
+	*pending = 0
+	*lastSync = time.Now()
+	return nil
+}
+
+func syncStreamingArtifacts(store *diskResultStore, realtimeFile *os.File, pending *int, lastSync *time.Time) error {
+	if store != nil {
+		if err := store.Sync(); err != nil {
+			return err
+		}
+	}
+	return maybeSyncRealtime(realtimeFile, pending, lastSync, true)
+}
+
+func closeStreamingArtifacts(store *diskResultStore, realtimeFile *os.File, realtimePath string, pending *int, lastSync *time.Time, finalOK bool) error {
+	var firstErr error
+	if store != nil {
+		if err := store.Close(); err != nil {
+			firstErr = err
+		}
+	}
+	if realtimeFile != nil {
+		if err := maybeSyncRealtime(realtimeFile, pending, lastSync, true); err != nil && firstErr == nil {
+			firstErr = err
+		}
+		if err := realtimeFile.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	if finalOK && firstErr == nil {
+		if store != nil {
+			if err := store.Remove(); err != nil && firstErr == nil {
+				firstErr = err
+			}
+		}
+		if err := os.Remove(realtimePath); err != nil && !os.IsNotExist(err) && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
+func sanitizeCSVCell(value string) string {
+	trimmed := strings.TrimLeft(value, " \t\r\n")
+	if trimmed == "" {
+		return value
+	}
+	switch trimmed[0] {
+	case '=', '+', '-', '@':
+		return "'" + value
+	default:
+		return value
+	}
+}
+
+func sanitizeCSVRecord(record []string) []string {
+	for i := range record {
+		record[i] = sanitizeCSVCell(record[i])
+	}
+	return record
+}
+
 // escapeControlChars 转义控制字符
 func escapeControlChars(s string) string {
 	s = strings.ToValidUTF8(s, "?")
@@ -75,15 +152,17 @@ func targetWithPort(target string, port interface{}) string {
 // TXTWriter - 文本格式写入器
 // =============================================================================
 
-// TXTWriter 文本格式写入器（分类缓冲，按类型聚合输出）
+// TXTWriter 文本格式写入器（磁盘分类存储，按类型聚合输出）
 type TXTWriter struct {
 	file         *os.File
 	bufWriter    *bufio.Writer
 	mu           sync.Mutex
 	closed       bool
-	buffer       *ResultBuffer // 内存分类缓冲
-	realtimeFile *os.File      // 实时备份文件
-	realtimePath string        // 实时备份文件路径
+	store        *diskResultStore
+	realtimeFile *os.File // 实时备份文件
+	realtimePath string   // 实时备份文件路径
+	pendingSync  int
+	lastSync     time.Time
 }
 
 // NewTXTWriter 创建文本写入器
@@ -100,13 +179,21 @@ func NewTXTWriter(filePath string) (*TXTWriter, error) {
 		file.Close()
 		return nil, fmt.Errorf("failed to create realtime backup file: %w", err)
 	}
+	store, err := newDiskResultStore(filePath)
+	if err != nil {
+		_ = realtimeFile.Close()
+		_ = os.Remove(realtimePath)
+		_ = file.Close()
+		return nil, err
+	}
 
 	return &TXTWriter{
 		file:         file,
 		bufWriter:    bufio.NewWriter(file),
-		buffer:       NewResultBuffer(),
+		store:        store,
 		realtimeFile: realtimeFile,
 		realtimePath: realtimePath,
+		lastSync:     time.Now(),
 	}, nil
 }
 
@@ -127,8 +214,10 @@ func (w *TXTWriter) Write(result *ScanResult) error {
 		return fmt.Errorf("result cannot be nil")
 	}
 
-	// 1. 加入内存分类缓冲（用于最终有序输出）
-	w.buffer.Add(result)
+	// 1. 写入磁盘分类存储（保持去重和最终分组输出）
+	if err := w.store.Add(result); err != nil {
+		return err
+	}
 
 	// 2. 实时写入备份文件（防崩溃丢数据）
 	if w.realtimeFile != nil {
@@ -136,7 +225,8 @@ func (w *TXTWriter) Write(result *ScanResult) error {
 		if _, err := w.realtimeFile.WriteString(line + "\n"); err != nil {
 			return fmt.Errorf("failed to write realtime backup: %w", err)
 		}
-		if err := w.realtimeFile.Sync(); err != nil {
+		w.pendingSync++
+		if err := maybeSyncRealtime(w.realtimeFile, &w.pendingSync, &w.lastSync, false); err != nil {
 			return fmt.Errorf("failed to sync realtime backup: %w", err)
 		}
 	}
@@ -324,6 +414,9 @@ func (w *TXTWriter) Flush() error {
 	if err := w.bufWriter.Flush(); err != nil {
 		return err
 	}
+	if err := syncStreamingArtifacts(w.store, w.realtimeFile, &w.pendingSync, &w.lastSync); err != nil {
+		return err
+	}
 	return w.file.Sync()
 }
 
@@ -336,26 +429,22 @@ func (w *TXTWriter) Close() error {
 		return nil
 	}
 
-	// 按顺序写入所有分类结果
-	w.writeSection(TypeHost, w.buffer.HostResults)
-	w.writeSection(TypePort, w.buffer.PortResults)
-	w.writeSection(TypeService, w.buffer.ServiceResults)
-	w.writeSection(TypeVuln, w.buffer.VulnResults)
-
-	// 单独输出 Web 服务列表（便于复制测试）
-	w.writeWebServices()
-
+	var firstErr error
+	for _, resultType := range storedResultTypes {
+		if err := w.writeSection(resultType); err != nil {
+			firstErr = err
+			break
+		}
+	}
+	if firstErr == nil {
+		firstErr = w.writeWebServices()
+	}
 	w.closed = true
 
-	// 关闭并删除实时备份文件（正常结束，不再需要）
-	if w.realtimeFile != nil {
-		w.realtimeFile.Close()
-		os.Remove(w.realtimePath)
-	}
-
-	var firstErr error
 	if err := w.bufWriter.Flush(); err != nil {
-		firstErr = err
+		if firstErr == nil {
+			firstErr = err
+		}
 	}
 	if err := w.file.Sync(); err != nil && firstErr == nil {
 		firstErr = err
@@ -363,50 +452,65 @@ func (w *TXTWriter) Close() error {
 	if err := w.file.Close(); err != nil && firstErr == nil {
 		firstErr = err
 	}
+
+	finalOK := firstErr == nil
+	if err := closeStreamingArtifacts(w.store, w.realtimeFile, w.realtimePath, &w.pendingSync, &w.lastSync, finalOK); err != nil && firstErr == nil {
+		firstErr = err
+	}
 	return firstErr
 }
 
 // writeSection 写入一个分类的所有结果
-func (w *TXTWriter) writeSection(resultType ResultType, results []*ScanResult) {
-	if len(results) == 0 {
-		return
-	}
-
-	separator := w.getSeparator(resultType)
-	_, _ = w.bufWriter.WriteString(separator + "\n")
-
-	for _, result := range results {
+func (w *TXTWriter) writeSection(resultType ResultType) error {
+	wroteHeader := false
+	err := w.store.ForEach(resultType, func(result *ScanResult) error {
+		if !wroteHeader {
+			if _, err := w.bufWriter.WriteString(w.getSeparator(resultType) + "\n"); err != nil {
+				return err
+			}
+			wroteHeader = true
+		}
 		line := w.formatLine(result)
 		if line != "" {
-			_, _ = w.bufWriter.WriteString(line + "\n")
+			if _, err := w.bufWriter.WriteString(line + "\n"); err != nil {
+				return err
+			}
 		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
-	_, _ = w.bufWriter.WriteString("\n")
+	if wroteHeader {
+		_, err = w.bufWriter.WriteString("\n")
+	}
+	return err
 }
 
 // writeWebServices 单独输出 Web 服务 URL 列表
-func (w *TXTWriter) writeWebServices() {
-	var urls []string
-
-	for _, result := range w.buffer.ServiceResults {
+func (w *TXTWriter) writeWebServices() error {
+	wroteHeader := false
+	err := w.store.ForEach(TypeService, func(result *ScanResult) error {
 		if !w.isWebService(result) {
-			continue
+			return nil
 		}
-
+		if !wroteHeader {
+			if _, err := w.bufWriter.WriteString(i18n.GetText("output_section_web_services") + "\n"); err != nil {
+				return err
+			}
+			wroteHeader = true
+		}
 		target := targetWithPort(result.Target, w.getDetail(result, "port"))
-
-		urls = append(urls, fmt.Sprintf("%s://%s", w.webProtocol(result, target), target))
+		_, err := fmt.Fprintf(w.bufWriter, "%s://%s\n", w.webProtocol(result, target), target)
+		return err
+	})
+	if err != nil {
+		return err
 	}
-
-	if len(urls) == 0 {
-		return
+	if wroteHeader {
+		_, err = w.bufWriter.WriteString("\n")
 	}
-
-	_, _ = w.bufWriter.WriteString(i18n.GetText("output_section_web_services") + "\n")
-	for _, url := range urls {
-		_, _ = w.bufWriter.WriteString(url + "\n")
-	}
-	_, _ = w.bufWriter.WriteString("\n")
+	return err
 }
 
 // isWebService 判断是否为 Web 服务
@@ -446,15 +550,17 @@ func (w *TXTWriter) GetFormat() Format {
 // JSONWriter - JSON格式写入器
 // =============================================================================
 
-// JSONWriter JSON格式写入器（分类去重，输出完整JSON）
-// 双写机制：内存分类缓冲 + 实时NDJSON备份
+// JSONWriter JSON格式写入器（磁盘分类去重，流式生成完整JSON）
+// 双写机制：磁盘事务存储 + 实时NDJSON备份
 type JSONWriter struct {
 	file         *os.File
 	mu           sync.Mutex
 	closed       bool
-	buffer       *ResultBuffer
+	store        *diskResultStore
 	realtimeFile *os.File // 实时备份文件（NDJSON格式）
 	realtimePath string   // 实时备份文件路径
+	pendingSync  int
+	lastSync     time.Time
 }
 
 // JSONOutput JSON输出结构
@@ -489,12 +595,20 @@ func NewJSONWriter(filePath string) (*JSONWriter, error) {
 		file.Close()
 		return nil, fmt.Errorf("failed to create realtime backup file: %w", err)
 	}
+	store, err := newDiskResultStore(filePath)
+	if err != nil {
+		_ = realtimeFile.Close()
+		_ = os.Remove(realtimePath)
+		_ = file.Close()
+		return nil, err
+	}
 
 	return &JSONWriter{
 		file:         file,
-		buffer:       NewResultBuffer(),
+		store:        store,
 		realtimeFile: realtimeFile,
 		realtimePath: realtimePath,
+		lastSync:     time.Now(),
 	}, nil
 }
 
@@ -515,8 +629,10 @@ func (w *JSONWriter) Write(result *ScanResult) error {
 		return fmt.Errorf("result cannot be nil")
 	}
 
-	// 1. 加入内存分类缓冲（用于最终有序输出）
-	w.buffer.Add(result)
+	// 1. 写入磁盘分类存储（用于最终有序输出）
+	if err := w.store.Add(result); err != nil {
+		return err
+	}
 
 	// 2. 实时写入备份文件（NDJSON格式，防崩溃丢失）
 	if w.realtimeFile != nil {
@@ -527,7 +643,8 @@ func (w *JSONWriter) Write(result *ScanResult) error {
 		if _, err := w.realtimeFile.Write(append(data, '\n')); err != nil {
 			return fmt.Errorf("failed to write realtime backup: %w", err)
 		}
-		if err := w.realtimeFile.Sync(); err != nil {
+		w.pendingSync++
+		if err := maybeSyncRealtime(w.realtimeFile, &w.pendingSync, &w.lastSync, false); err != nil {
 			return fmt.Errorf("failed to sync realtime backup: %w", err)
 		}
 	}
@@ -537,7 +654,12 @@ func (w *JSONWriter) Write(result *ScanResult) error {
 
 // Flush 刷新写入器
 func (w *JSONWriter) Flush() error {
-	return nil
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.closed {
+		return nil
+	}
+	return syncStreamingArtifacts(w.store, w.realtimeFile, &w.pendingSync, &w.lastSync)
 }
 
 // Close 关闭写入器（写入完整JSON，删除临时备份）
@@ -549,38 +671,90 @@ func (w *JSONWriter) Close() error {
 		return nil
 	}
 
-	hosts, ports, services, vulns := w.buffer.Summary()
-	output := JSONOutput{
-		ScanTime: time.Now(),
-		Summary: JSONSummary{
-			TotalHosts:    hosts,
-			TotalPorts:    ports,
-			TotalServices: services,
-			TotalVulns:    vulns,
-		},
-		Hosts:    w.buffer.HostResults,
-		Ports:    w.buffer.PortResults,
-		Services: w.buffer.ServiceResults,
-		Vulns:    w.buffer.VulnResults,
+	w.closed = true
+
+	var firstErr error
+	if err := w.writeJSONOutput(); err != nil {
+		firstErr = err
+	}
+	if err := w.file.Sync(); err != nil && firstErr == nil {
+		firstErr = err
+	}
+	if err := w.file.Close(); err != nil && firstErr == nil {
+		firstErr = err
 	}
 
-	data, err := json.MarshalIndent(output, JSONIndentPrefix, JSONIndentString)
+	finalOK := firstErr == nil
+	if err := closeStreamingArtifacts(w.store, w.realtimeFile, w.realtimePath, &w.pendingSync, &w.lastSync, finalOK); err != nil && firstErr == nil {
+		firstErr = err
+	}
+	return firstErr
+}
+
+func (w *JSONWriter) writeJSONOutput() error {
+	hosts, ports, services, vulns, err := w.store.Summary()
 	if err != nil {
 		return err
 	}
-
-	w.closed = true
-
-	// 关闭并删除实时备份文件（正常结束，不再需要）
-	if w.realtimeFile != nil {
-		w.realtimeFile.Close()
-		os.Remove(w.realtimePath)
-	}
-
-	if _, err := w.file.Write(data); err != nil {
+	scanTime, err := json.Marshal(time.Now())
+	if err != nil {
 		return err
 	}
-	return w.file.Close()
+	summary, err := json.Marshal(JSONSummary{
+		TotalHosts:    hosts,
+		TotalPorts:    ports,
+		TotalServices: services,
+		TotalVulns:    vulns,
+	})
+	if err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w.file, "{\n  \"scan_time\": %s,\n  \"summary\": %s", scanTime, summary); err != nil {
+		return err
+	}
+
+	sections := []struct {
+		name       string
+		resultType ResultType
+		count      int
+	}{
+		{name: "hosts", resultType: TypeHost, count: hosts},
+		{name: "ports", resultType: TypePort, count: ports},
+		{name: "services", resultType: TypeService, count: services},
+		{name: "vulns", resultType: TypeVuln, count: vulns},
+	}
+	for _, section := range sections {
+		if section.count == 0 {
+			continue
+		}
+		if _, err := fmt.Fprintf(w.file, ",\n  %q: [", section.name); err != nil {
+			return err
+		}
+		first := true
+		if err := w.store.ForEach(section.resultType, func(result *ScanResult) error {
+			data, err := json.Marshal(result)
+			if err != nil {
+				return err
+			}
+			separator := ",\n"
+			if first {
+				separator = "\n"
+				first = false
+			}
+			if _, err := w.file.WriteString(separator + "    "); err != nil {
+				return err
+			}
+			_, err = w.file.Write(data)
+			return err
+		}); err != nil {
+			return err
+		}
+		if _, err := w.file.WriteString("\n  ]"); err != nil {
+			return err
+		}
+	}
+	_, err = w.file.WriteString("\n}")
+	return err
 }
 
 // GetFormat 获取格式类型
@@ -592,17 +766,19 @@ func (w *JSONWriter) GetFormat() Format {
 // CSVWriter - CSV格式写入器
 // =============================================================================
 
-// CSVWriter CSV格式写入器（分类去重）
-// 双写机制：内存分类缓冲 + 实时NDJSON备份
+// CSVWriter CSV格式写入器（磁盘分类去重）
+// 双写机制：磁盘事务存储 + 实时NDJSON备份
 type CSVWriter struct {
 	file         *os.File
 	bufWriter    *bufio.Writer
 	csvWriter    *csv.Writer
 	mu           sync.Mutex
 	closed       bool
-	buffer       *ResultBuffer
+	store        *diskResultStore
 	realtimeFile *os.File // 实时备份文件（NDJSON格式）
 	realtimePath string   // 实时备份文件路径
+	pendingSync  int
+	lastSync     time.Time
 }
 
 // NewCSVWriter 创建CSV写入器
@@ -619,6 +795,13 @@ func NewCSVWriter(filePath string) (*CSVWriter, error) {
 		file.Close()
 		return nil, fmt.Errorf("failed to create realtime backup file: %w", err)
 	}
+	store, err := newDiskResultStore(filePath)
+	if err != nil {
+		_ = realtimeFile.Close()
+		_ = os.Remove(realtimePath)
+		_ = file.Close()
+		return nil, err
+	}
 
 	bufWriter := bufio.NewWriter(file)
 	csvWriter := csv.NewWriter(bufWriter)
@@ -627,9 +810,10 @@ func NewCSVWriter(filePath string) (*CSVWriter, error) {
 		file:         file,
 		bufWriter:    bufWriter,
 		csvWriter:    csvWriter,
-		buffer:       NewResultBuffer(),
+		store:        store,
 		realtimeFile: realtimeFile,
 		realtimePath: realtimePath,
+		lastSync:     time.Now(),
 	}, nil
 }
 
@@ -650,8 +834,10 @@ func (w *CSVWriter) Write(result *ScanResult) error {
 		return fmt.Errorf("result cannot be nil")
 	}
 
-	// 1. 加入内存分类缓冲（用于最终有序输出）
-	w.buffer.Add(result)
+	// 1. 写入磁盘分类存储（用于最终有序输出）
+	if err := w.store.Add(result); err != nil {
+		return err
+	}
 
 	// 2. 实时写入备份文件（NDJSON格式，防崩溃丢失）
 	if w.realtimeFile != nil {
@@ -662,7 +848,8 @@ func (w *CSVWriter) Write(result *ScanResult) error {
 		if _, err := w.realtimeFile.Write(append(data, '\n')); err != nil {
 			return fmt.Errorf("failed to write realtime backup: %w", err)
 		}
-		if err := w.realtimeFile.Sync(); err != nil {
+		w.pendingSync++
+		if err := maybeSyncRealtime(w.realtimeFile, &w.pendingSync, &w.lastSync, false); err != nil {
 			return fmt.Errorf("failed to sync realtime backup: %w", err)
 		}
 	}
@@ -672,7 +859,12 @@ func (w *CSVWriter) Write(result *ScanResult) error {
 
 // Flush 刷新写入器
 func (w *CSVWriter) Flush() error {
-	return nil
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.closed {
+		return nil
+	}
+	return syncStreamingArtifacts(w.store, w.realtimeFile, &w.pendingSync, &w.lastSync)
 }
 
 // Close 关闭写入器（按类型分组写入，删除临时备份）
@@ -684,42 +876,68 @@ func (w *CSVWriter) Close() error {
 		return nil
 	}
 
-	// 写入各分类
-	w.writeSection("# Hosts", []string{"Target"}, w.buffer.HostResults, w.formatHostRecord)
-	w.writeSection("# Ports", []string{"Target", "Port", "Status"}, w.buffer.PortResults, w.formatPortRecord)
-	w.writeSection("# Services", []string{"Target", "Service", "Version", "Title", "Status", "Server", "Fingerprints", "Banner"}, w.buffer.ServiceResults, w.formatServiceRecord)
-	w.writeSection("# Vulns", []string{"Target", "Type", "Details"}, w.buffer.VulnResults, w.formatVulnRecord)
-
 	w.closed = true
 
-	// 关闭并删除实时备份文件（正常结束，不再需要）
-	if w.realtimeFile != nil {
-		w.realtimeFile.Close()
-		os.Remove(w.realtimePath)
+	var firstErr error
+	sections := []struct {
+		title      string
+		headers    []string
+		resultType ResultType
+		formatter  func(*ScanResult) []string
+	}{
+		{title: "# Hosts", headers: []string{"Target"}, resultType: TypeHost, formatter: w.formatHostRecord},
+		{title: "# Ports", headers: []string{"Target", "Port", "Status"}, resultType: TypePort, formatter: w.formatPortRecord},
+		{title: "# Services", headers: []string{"Target", "Service", "Version", "Title", "Status", "Server", "Fingerprints", "Banner"}, resultType: TypeService, formatter: w.formatServiceRecord},
+		{title: "# Vulns", headers: []string{"Target", "Type", "Details"}, resultType: TypeVuln, formatter: w.formatVulnRecord},
+	}
+	for _, section := range sections {
+		if err := w.writeSection(section.title, section.headers, section.resultType, section.formatter); err != nil {
+			firstErr = err
+			break
+		}
+	}
+	w.csvWriter.Flush()
+	if err := w.csvWriter.Error(); err != nil && firstErr == nil {
+		firstErr = err
+	}
+	if err := w.bufWriter.Flush(); err != nil && firstErr == nil {
+		firstErr = err
+	}
+	if err := w.file.Sync(); err != nil && firstErr == nil {
+		firstErr = err
+	}
+	if err := w.file.Close(); err != nil && firstErr == nil {
+		firstErr = err
 	}
 
-	w.csvWriter.Flush()
-	if err := w.csvWriter.Error(); err != nil {
-		return err
+	finalOK := firstErr == nil
+	if err := closeStreamingArtifacts(w.store, w.realtimeFile, w.realtimePath, &w.pendingSync, &w.lastSync, finalOK); err != nil && firstErr == nil {
+		firstErr = err
 	}
-	if err := w.bufWriter.Flush(); err != nil {
-		return err
-	}
-	return w.file.Close()
+	return firstErr
 }
 
-func (w *CSVWriter) writeSection(title string, headers []string, results []*ScanResult, formatter func(*ScanResult) []string) {
-	if len(results) == 0 {
-		return
+func (w *CSVWriter) writeSection(title string, headers []string, resultType ResultType, formatter func(*ScanResult) []string) error {
+	wroteHeader := false
+	err := w.store.ForEach(resultType, func(result *ScanResult) error {
+		if !wroteHeader {
+			if err := w.csvWriter.Write([]string{title}); err != nil {
+				return err
+			}
+			if err := w.csvWriter.Write(headers); err != nil {
+				return err
+			}
+			wroteHeader = true
+		}
+		return w.csvWriter.Write(sanitizeCSVRecord(formatter(result)))
+	})
+	if err != nil {
+		return err
 	}
-
-	_ = w.csvWriter.Write([]string{title})
-	_ = w.csvWriter.Write(headers)
-
-	for _, result := range results {
-		_ = w.csvWriter.Write(formatter(result))
+	if wroteHeader {
+		return w.csvWriter.Write([]string{})
 	}
-	_ = w.csvWriter.Write([]string{})
+	return nil
 }
 
 func (w *CSVWriter) formatHostRecord(result *ScanResult) []string {

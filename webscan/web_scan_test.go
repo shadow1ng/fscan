@@ -9,6 +9,24 @@ import (
 	"github.com/shadow1ng/fscan/webscan/lib"
 )
 
+func TestEmbeddedPocsArePreparedAtLoadTime(t *testing.T) {
+	entries, err := pocsFS.ReadDir("pocs")
+	if err != nil {
+		t.Fatalf("ReadDir(pocs) error = %v", err)
+	}
+	want := 0
+	for _, entry := range entries {
+		if isPocFile(entry.Name()) {
+			want++
+		}
+	}
+
+	pocs := loadEmbeddedPocs()
+	if len(pocs) != want {
+		t.Fatalf("prepared embedded POCs = %d, want %d", len(pocs), want)
+	}
+}
+
 func TestBuildTargetURL(t *testing.T) {
 	tests := []struct {
 		name        string

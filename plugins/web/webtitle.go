@@ -138,7 +138,7 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 	baseURL := webTitleURL(urlScheme, info.Host, info.Port)
 
 	// 选择对应的 HTTP 客户端
-	clientNR, clientR := webTitleHTTPClients(isGM)
+	clientNR, clientR := sessionWebTitleHTTPClients(session, isGM)
 
 	// 构建显示用URL（隐藏标准端口）
 	var displayURL string
@@ -175,7 +175,7 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 	checkDataList = append(checkDataList, WebScan.CheckDatas{
 		Body:    body,
 		Headers: p.formatHeaders(resp.Header),
-		Favicon: p.fetchFaviconHash(ctx, baseURL),
+		Favicon: p.fetchFaviconHashWithSession(ctx, baseURL, session),
 	})
 
 	title := p.extractTitle(string(body))
@@ -202,7 +202,7 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 							checkDataList = append(checkDataList, WebScan.CheckDatas{
 								Body:    bodyRedirect,
 								Headers: p.formatHeaders(respRedirect.Header),
-								Favicon: p.fetchFaviconHash(ctx, redirectURL),
+								Favicon: p.fetchFaviconHashWithSession(ctx, redirectURL, session),
 							})
 
 							// 如果原始页面没有标题，使用跳转后页面的标题
@@ -300,10 +300,21 @@ func (p *WebTitlePlugin) triggerPocScan(ctx context.Context, info *common.HostIn
 }
 
 func webTitleHTTPClients(isGM bool) (*http.Client, *http.Client) {
-	if isGM {
-		return firstHTTPClient(lib.ClientNoRedirectGM, defaultNoRedirectClient()), firstHTTPClient(lib.ClientGM, http.DefaultClient)
+	return sessionWebTitleHTTPClients(nil, isGM)
+}
+
+func sessionWebTitleHTTPClients(session *common.ScanSession, isGM bool) (*http.Client, *http.Client) {
+	if session != nil {
+		if isGM {
+			return firstHTTPClient(session.HTTPClientNoRedirectGM, defaultNoRedirectClient()), firstHTTPClient(session.HTTPClientGM, http.DefaultClient)
+		}
+		return firstHTTPClient(session.HTTPClientNoRedirect, defaultNoRedirectClient()), firstHTTPClient(session.HTTPClient, http.DefaultClient)
 	}
-	return firstHTTPClient(lib.ClientNoRedirect, defaultNoRedirectClient()), firstHTTPClient(lib.Client, http.DefaultClient)
+	clients := lib.GetHTTPClientSet()
+	if isGM {
+		return firstHTTPClient(clients.ClientNoRedirectGM, defaultNoRedirectClient()), firstHTTPClient(clients.ClientGM, http.DefaultClient)
+	}
+	return firstHTTPClient(clients.ClientNoRedirect, defaultNoRedirectClient()), firstHTTPClient(clients.Client, http.DefaultClient)
 }
 
 func firstHTTPClient(clients ...*http.Client) *http.Client {
@@ -353,7 +364,11 @@ func (p *WebTitlePlugin) detectProtocol(ctx context.Context, info *common.HostIn
 	host := info.Host
 	port := info.Port
 
-	serviceInfo, exists := core.GetWebServiceInfo(host, port)
+	var state *common.State
+	if session != nil {
+		state = session.State
+	}
+	serviceInfo, exists := core.GetWebServiceInfoWithState(state, host, port)
 
 	if exists {
 		// 第一优先级：检查已缓存的协议检测结果
@@ -365,11 +380,6 @@ func (p *WebTitlePlugin) detectProtocol(ctx context.Context, info *common.HostIn
 		// 注意：普通的"http"服务名不直接返回，因为可能是-u模式默认添加的协议
 		serviceName := strings.ToLower(serviceInfo.Name)
 		if common.ContainsAny(serviceName, "https-gm", "https", "ssl", "tls") {
-			// 缓存协议信息到Extras
-			if serviceInfo.Extras == nil {
-				serviceInfo.Extras = make(map[string]string)
-			}
-			serviceInfo.Extras["protocol"] = "https"
 			return "https"
 		}
 	}
@@ -380,10 +390,13 @@ func (p *WebTitlePlugin) detectProtocol(ctx context.Context, info *common.HostIn
 	if detected != "" {
 		// 缓存检测结果（避免重复检测）
 		if exists {
-			if serviceInfo.Extras == nil {
-				serviceInfo.Extras = make(map[string]string)
+			updated := *serviceInfo
+			updated.Extras = make(map[string]string, len(serviceInfo.Extras)+1)
+			for key, value := range serviceInfo.Extras {
+				updated.Extras[key] = value
 			}
-			serviceInfo.Extras["protocol"] = detected
+			updated.Extras["protocol"] = detected
+			core.CacheServiceInfoWithState(state, host, port, &updated)
 		}
 		return detected
 	}
@@ -424,6 +437,10 @@ func truncateRunes(s string, maxRunes int) string {
 
 // fetchFaviconHash 下载 favicon.ico 并计算 hash
 func (p *WebTitlePlugin) fetchFaviconHash(ctx context.Context, baseURL string) fingerprint.FaviconHashes {
+	return p.fetchFaviconHashWithSession(ctx, baseURL, nil)
+}
+
+func (p *WebTitlePlugin) fetchFaviconHashWithSession(ctx context.Context, baseURL string, session *common.ScanSession) fingerprint.FaviconHashes {
 	// 构造 favicon URL
 	u, err := url.Parse(baseURL)
 	if err != nil {
@@ -438,7 +455,8 @@ func (p *WebTitlePlugin) fetchFaviconHash(ctx context.Context, baseURL string) f
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 
-	resp, err := lib.Client.Do(req)
+	_, client := sessionWebTitleHTTPClients(session, false)
+	resp, err := client.Do(req)
 	if err != nil {
 		return fingerprint.FaviconHashes{}
 	}

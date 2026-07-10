@@ -115,27 +115,8 @@ builds:
     ldflags: -s -w -X github.com/shadow1ng/fscan/common.version={{ .Version }} -X github.com/shadow1ng/fscan/common.commit={{ .ShortCommit }} -X github.com/shadow1ng/fscan/common.date={{ .Date }}
     mod_timestamp: "{{ .CommitTimestamp }}"
 
-  # WebUI版 - 主流平台即可
-  - id: fscan-web
-    binary: fscan
-    main: .
-    env:
-      - CGO_ENABLED=0
-    goos: [windows, linux, darwin]
-    goarch: [amd64, arm64, "386"]
-    goarm: ["7"]
-    ignore:
-      - goos: darwin
-        goarch: "386"
-      - goos: windows
-        goarch: arm64
-    flags: [-trimpath]
-    tags: [web]
-    ldflags: -s -w -X github.com/shadow1ng/fscan/common.version={{ .Version }} -X github.com/shadow1ng/fscan/common.commit={{ .ShortCommit }} -X github.com/shadow1ng/fscan/common.date={{ .Date }}
-    mod_timestamp: "{{ .CommitTimestamp }}"
-
 upx:
-  - ids: [fscan, fscan-nolocal, fscan-web]
+  - ids: [fscan, fscan-nolocal]
     enabled: true
     goos: [windows, linux]
     goarch: [amd64, "386", arm64]
@@ -165,20 +146,6 @@ archives:
     allow_different_binary_count: true
     name_template: >-
       fscan-nolocal_{{ .Version }}_
-      {{- if eq .Os "darwin" }}mac
-      {{- else }}{{ .Os }}{{ end }}_
-      {{- if eq .Arch "amd64" }}x64
-      {{- else if eq .Arch "386" }}x32
-      {{- else }}{{ .Arch }}{{ end }}
-      {{- if .Arm }}v{{ .Arm }}{{ end }}
-
-  # WebUI版归档
-  - id: fscan-web
-    ids: [fscan-web]
-    formats: [binary]
-    allow_different_binary_count: true
-    name_template: >-
-      fscan-web_{{ .Version }}_
       {{- if eq .Os "darwin" }}mac
       {{- else }}{{ .Os }}{{ end }}_
       {{- if eq .Arch "amd64" }}x64
@@ -225,7 +192,6 @@ release:
     |------|------|
     | **fscan** | 标准版，包含全部插件（推荐） |
     | **fscan-nolocal** | 精简版，不含本地模块（体积更小） |
-    | **fscan-web** | WebUI版，带Web管理界面（主流平台） |
 
     ### 平台支持
 

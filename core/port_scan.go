@@ -67,26 +67,44 @@ type resultCollector struct {
 	mu     sync.Mutex
 	addrs  map[string]struct{}
 	stream chan<- string
+	ctx    context.Context
 }
 
-func newResultCollector(stream chan<- string) *resultCollector {
+func newResultCollector(ctx context.Context, stream chan<- string) *resultCollector {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return &resultCollector{
 		addrs:  make(map[string]struct{}),
 		stream: stream,
+		ctx:    ctx,
 	}
 }
 
-func (c *resultCollector) Add(addr string) {
+func (c *resultCollector) Add(addr string) bool {
 	c.mu.Lock()
+	if c.addrs == nil {
+		c.addrs = make(map[string]struct{})
+	}
 	if _, dup := c.addrs[addr]; dup {
 		c.mu.Unlock()
-		return
+		return true
 	}
 	c.addrs[addr] = struct{}{}
 	c.mu.Unlock()
 	if c.stream != nil {
-		c.stream <- addr
+		ctx := c.ctx
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		select {
+		case c.stream <- addr:
+			return true
+		case <-ctx.Done():
+			return false
+		}
 	}
+	return true
 }
 
 func (c *resultCollector) GetAll() []string {
@@ -211,7 +229,7 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 	adaptiveTO := NewAdaptiveTimeout(to)
 	metrics := &ScanMetrics{}
 	var count atomic.Int64
-	collector := newResultCollector(stream)
+	collector := newResultCollector(ctx, stream)
 	failedCollector := &failedPortCollector{}
 	var wg sync.WaitGroup
 
@@ -243,7 +261,7 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 
 	session.LogDebug(i18n.GetText("port_scan_debug_schedule_start"))
 	// 滑动窗口调度
-	slidingWindowSchedule(iter, pool, &wg)
+	slidingWindowSchedule(ctx, iter, pool, &wg)
 	session.LogDebug(i18n.GetText("port_scan_debug_schedule_done"))
 
 	// 收集结果
@@ -289,8 +307,15 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 
 // slidingWindowSchedule 滑动窗口调度器
 // ants.PoolWithFunc.Invoke 在池满时阻塞，天然提供反压，无需额外 semaphore
-func slidingWindowSchedule(iter *SocketIterator, pool *AdaptivePool, wg *sync.WaitGroup) {
+func slidingWindowSchedule(ctx context.Context, iter *SocketIterator, pool *AdaptivePool, wg *sync.WaitGroup) {
 	for {
+		select {
+		case <-ctx.Done():
+			wg.Wait()
+			return
+		default:
+		}
+
 		host, port, ok := iter.Next()
 		if !ok {
 			break
@@ -302,8 +327,12 @@ func slidingWindowSchedule(iter *SocketIterator, pool *AdaptivePool, wg *sync.Wa
 			port: port,
 			addr: net.JoinHostPort(host, fmtPort(port)),
 		}
-		if err := pool.Invoke(task); err != nil {
+		if err := pool.InvokeContext(ctx, task); err != nil {
 			wg.Done()
+			if ctx.Err() != nil {
+				wg.Wait()
+				return
+			}
 		}
 	}
 
@@ -351,7 +380,13 @@ func connectWithRetry(ctx context.Context, session *common.ScanSession, addr str
 		// 指数退避：200ms → 600ms → 1200ms
 		if attempt < maxRetries-1 {
 			waitTime := time.Duration(200*(1<<uint(attempt))) * time.Millisecond
-			time.Sleep(waitTime)
+			timer := time.NewTimer(waitTime)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return nil, ctx.Err()
+			case <-timer.C:
+			}
 		}
 	}
 
@@ -496,7 +531,7 @@ func scanSinglePort(ctx context.Context, host string, port int, addr string, ada
 	timeout := adaptiveTO.Timeout()
 	// 步骤1：建立连接
 	start := time.Now()
-	conn, err := connectWithRetry(ctx, session, addr, timeout, 2)
+	conn, err := connectWithRetry(ctx, session, addr, timeout, config.MaxRetries)
 	if err != nil {
 		rtt := time.Since(start)
 		switch {
@@ -527,7 +562,7 @@ func scanSinglePort(ctx context.Context, host string, port int, addr string, ada
 	if session.ProxyEnabled() && verifyMethod != "direct" {
 		_ = conn.Close()
 		// 重新建立干净的连接用于服务识别
-		conn, err = connectWithRetry(ctx, session, addr, timeout, 2)
+		conn, err = connectWithRetry(ctx, session, addr, timeout, config.MaxRetries)
 		if err != nil {
 			handleConnectionFailure(err, host, port, addr, failedCollector)
 			return
@@ -726,7 +761,7 @@ func processServiceResult(ctx context.Context, host string, port int, addr strin
 	correctServiceByBanner(serviceInfo)
 
 	// 缓存指纹识别结果，供插件按服务类型匹配（解决非标准端口问题）
-	CacheServiceInfo(host, port, serviceInfo)
+	CacheServiceInfoWithState(session.State, host, port, serviceInfo)
 
 	// 保存并输出服务信息
 	details := buildServiceDetails(port, serviceInfo)
@@ -803,7 +838,7 @@ func tryHTTPFallbackDetection(ctx context.Context, host string, port int, addr s
 		Banner:  "",
 		Extras:  map[string]string{"detected_by": "http_probe"},
 	}
-	MarkAsWebService(host, port, webServiceInfo)
+	CacheServiceInfoWithState(session.State, host, port, webServiceInfo)
 
 	// 保存HTTP服务结果
 	details := map[string]interface{}{
@@ -877,8 +912,12 @@ func probeSubnets(ctx context.Context, hosts []string, timeout time.Duration, se
 		for _, suffix := range gatewayOffsets {
 			gw := prefix + suffix
 			for _, port := range gatewayProbePorts {
-				wg.Add(1)
-				limiter <- struct{}{}
+				select {
+				case limiter <- struct{}{}:
+					wg.Add(1)
+				case <-ctx.Done():
+					goto gatewayDone
+				}
 				go func(pfx, addr string) {
 					defer func() { <-limiter; wg.Done() }()
 					conn, err := session.DialTCP(ctx, "tcp", addr, subnetProbeTimeout)
@@ -890,7 +929,12 @@ func probeSubnets(ctx context.Context, hosts []string, timeout time.Duration, se
 			}
 		}
 	}
+
+gatewayDone:
 	wg.Wait()
+	if ctx.Err() != nil {
+		return nil
+	}
 
 	// 统计阶段 1 命中
 	gwHits := 0
@@ -914,8 +958,12 @@ func probeSubnets(ctx context.Context, hosts []string, timeout time.Duration, se
 			}
 
 			port := subnetProbePorts[i%len(subnetProbePorts)]
-			wg.Add(1)
-			limiter <- struct{}{}
+			select {
+			case limiter <- struct{}{}:
+				wg.Add(1)
+			case <-ctx.Done():
+				goto done
+			}
 
 			go func(pfx, h string, p int) {
 				defer func() { <-limiter; wg.Done() }()

@@ -1,7 +1,6 @@
 package core
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -14,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/ratelimit"
 	"github.com/shadow1ng/fscan/common"
 	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/common/output"
@@ -22,22 +22,6 @@ import (
 
 // pingForbiddenChars 命令注入防护 - 禁止的字符
 var pingForbiddenChars = []string{";", "&", "|", "`", "$", "\\", "'", "%", "\"", "\n"}
-
-// pingErrorKeywords ping 失败的关键词（跨平台）
-var pingErrorKeywords = []string{
-	// Windows
-	"TTL expired",
-	"Destination host unreachable",
-	"Destination net unreachable",
-	"Request timed out",
-	"General failure",
-	"transmit failed",
-	// Linux/macOS
-	"Time to live exceeded",
-	"100% packet loss",
-	"Network is unreachable",
-	"No route to host",
-}
 
 // CheckLive 检测主机存活状态
 // 支持 ICMP/Ping 探测，并在响应率过低时自动启用 TCP 补充探测
@@ -61,9 +45,9 @@ func CheckLive(ctx context.Context, hostslist []string, Ping bool, session *comm
 	// 根据Ping参数选择检测方式
 	if Ping {
 		// 使用ping方式探测
-		RunPing(hostslist, chanHosts, &livewg)
+		RunPing(ctx, hostslist, chanHosts, &livewg)
 	} else {
-		probeWithICMP(hostslist, chanHosts, &aliveHosts, &aliveHostsMu, config, state, &livewg)
+		probeWithICMP(ctx, hostslist, chanHosts, &aliveHosts, &aliveHostsMu, config, state, &livewg)
 	}
 
 	// 等待所有检测完成
@@ -165,21 +149,21 @@ func handleAliveHosts(chanHosts chan string, hostslist []string, isPing bool, al
 }
 
 // probeWithICMP 使用ICMP方式探测
-func probeWithICMP(hostslist []string, chanHosts chan string, aliveHosts *[]string, aliveHostsMu *sync.Mutex, config *common.Config, state *common.State, livewg *sync.WaitGroup) {
+func probeWithICMP(ctx context.Context, hostslist []string, chanHosts chan string, aliveHosts *[]string, aliveHostsMu *sync.Mutex, config *common.Config, state *common.State, livewg *sync.WaitGroup) {
 	// 代理模式下自动禁用ICMP，直接降级为Ping
 	// ICMP在代理环境无法正常工作
 	if shouldDisableICMP() {
 		if !config.Output.Silent {
 			common.LogInfo(i18n.GetText("proxy_mode_disable_icmp"))
 		}
-		RunPing(hostslist, chanHosts, livewg)
+		RunPing(ctx, hostslist, chanHosts, livewg)
 		return
 	}
 
 	// 尝试监听本地ICMP
 	conn, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
 	if err == nil {
-		RunIcmp1(hostslist, conn, chanHosts, aliveHosts, aliveHostsMu, config, state, livewg)
+		RunIcmp1(ctx, hostslist, conn, chanHosts, aliveHosts, aliveHostsMu, config, state, livewg)
 		return
 	}
 
@@ -187,14 +171,14 @@ func probeWithICMP(hostslist []string, chanHosts chan string, aliveHosts *[]stri
 	conn2, err := net.DialTimeout("ip4:icmp", "127.0.0.1", 3*time.Second)
 	if err == nil {
 		defer func() { _ = conn2.Close() }()
-		RunIcmp2(hostslist, chanHosts, config, state, livewg)
+		RunIcmp2(ctx, hostslist, chanHosts, config, state, livewg)
 		return
 	}
 
 	common.LogInfo(i18n.GetText("switching_to_ping"))
 
 	// 降级使用ping探测
-	RunPing(hostslist, chanHosts, livewg)
+	RunPing(ctx, hostslist, chanHosts, livewg)
 }
 
 // shouldDisableICMP 检查是否应该禁用ICMP
@@ -258,6 +242,10 @@ const (
 //   - 只有"连续 500ms 无新响应"才提前结束
 //   - 保留原有最大等待时间作为兜底
 func waitAdaptive(hostslist []string, aliveHosts *[]string, aliveHostsMu *sync.Mutex) {
+	waitAdaptiveContext(context.Background(), hostslist, aliveHosts, aliveHostsMu)
+}
+
+func waitAdaptiveContext(ctx context.Context, hostslist []string, aliveHosts *[]string, aliveHostsMu *sync.Mutex) {
 	totalHosts := len(hostslist)
 
 	// 根据主机数量设置最大超时时间（保持原有逻辑作为兜底）
@@ -271,7 +259,18 @@ func waitAdaptive(hostslist []string, aliveHosts *[]string, aliveHostsMu *sync.M
 	lastChangeTime := start
 
 	for {
-		time.Sleep(icmpCheckInterval) // 避免 CPU 空转
+		timer := time.NewTimer(icmpCheckInterval)
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			return
+		}
 
 		// 读取当前存活数
 		aliveHostsMu.Lock()
@@ -315,7 +314,7 @@ func waitAdaptive(hostslist []string, aliveHosts *[]string, aliveHostsMu *sync.M
 }
 
 // RunIcmp1 使用ICMP批量探测主机存活(监听模式)
-func RunIcmp1(hostslist []string, conn *icmp.PacketConn, chanHosts chan string, aliveHosts *[]string, aliveHostsMu *sync.Mutex, config *common.Config, state *common.State, livewg *sync.WaitGroup) {
+func RunIcmp1(ctx context.Context, hostslist []string, conn *icmp.PacketConn, chanHosts chan string, aliveHosts *[]string, aliveHostsMu *sync.Mutex, config *common.Config, state *common.State, livewg *sync.WaitGroup) {
 	// 使用atomic.Bool保证并发安全
 	var endflag atomic.Bool
 	var listenerWg sync.WaitGroup
@@ -334,7 +333,7 @@ func RunIcmp1(hostslist []string, conn *icmp.PacketConn, chanHosts chan string, 
 		}()
 
 		for {
-			if endflag.Load() {
+			if endflag.Load() || ctx.Err() != nil {
 				return
 			}
 
@@ -388,14 +387,16 @@ func RunIcmp1(hostslist []string, conn *icmp.PacketConn, chanHosts chan string, 
 
 	limiter := state.GetICMPLimiter(config.Network.ICMPRate)
 	for i := range packets {
-		limiter.Wait(1)
+		if !waitForRateLimit(ctx, limiter) {
+			break
+		}
 		_, _ = conn.WriteTo(packets[i].data, packets[i].dst)
 	}
 
 	// 自适应等待响应
 	// 算法：监控响应增量，连续一段时间无新响应则提前结束
 	// 保守原则：保留最大等待时间兜底，确保不漏掉慢响应主机
-	waitAdaptive(hostslist, aliveHosts, aliveHostsMu)
+	waitAdaptiveContext(ctx, hostslist, aliveHosts, aliveHostsMu)
 
 	endflag.Store(true)
 	_ = conn.Close()
@@ -403,7 +404,7 @@ func RunIcmp1(hostslist []string, conn *icmp.PacketConn, chanHosts chan string, 
 }
 
 // RunIcmp2 使用ICMP并发探测主机存活(无监听模式)
-func RunIcmp2(hostslist []string, chanHosts chan string, config *common.Config, state *common.State, livewg *sync.WaitGroup) {
+func RunIcmp2(ctx context.Context, hostslist []string, chanHosts chan string, config *common.Config, state *common.State, livewg *sync.WaitGroup) {
 	// 控制并发数
 	num := 1000
 	if len(hostslist) < num {
@@ -416,8 +417,13 @@ func RunIcmp2(hostslist []string, chanHosts chan string, config *common.Config, 
 
 	// 并发探测
 	for _, host := range hostslist {
-		wg.Add(1)
-		limiter <- struct{}{}
+		select {
+		case limiter <- struct{}{}:
+			wg.Add(1)
+		case <-ctx.Done():
+			wg.Wait()
+			return
+		}
 
 		go func(host string) {
 			defer func() {
@@ -425,8 +431,10 @@ func RunIcmp2(hostslist []string, chanHosts chan string, config *common.Config, 
 				wg.Done()
 			}()
 
-			rateLimiter.Wait(1) // 等待令牌，控制发包速率
-			if icmpalive(host) {
+			if !waitForRateLimit(ctx, rateLimiter) {
+				return
+			}
+			if icmpalive(ctx, host) {
 				livewg.Add(1)
 				select {
 				case chanHosts <- host:
@@ -444,15 +452,18 @@ func RunIcmp2(hostslist []string, chanHosts chan string, config *common.Config, 
 }
 
 // icmpalive 检测主机ICMP是否存活
-func icmpalive(host string) bool {
+func icmpalive(ctx context.Context, host string) bool {
 	startTime := time.Now()
 
 	// 建立ICMP连接
-	conn, err := net.DialTimeout("ip4:icmp", host, 6*time.Second)
+	dialer := net.Dialer{Timeout: 6 * time.Second}
+	conn, err := dialer.DialContext(ctx, "ip4:icmp", host)
 	if err != nil {
 		return false
 	}
 	defer func() { _ = conn.Close() }()
+	stopCancel := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer stopCancel()
 
 	// 设置超时时间
 	if err := conn.SetDeadline(startTime.Add(6 * time.Second)); err != nil {
@@ -475,7 +486,7 @@ func icmpalive(host string) bool {
 }
 
 // RunPing 使用系统Ping命令并发探测主机存活
-func RunPing(hostslist []string, chanHosts chan string, livewg *sync.WaitGroup) {
+func RunPing(ctx context.Context, hostslist []string, chanHosts chan string, livewg *sync.WaitGroup) {
 	var wg sync.WaitGroup
 	// 并发数根据主机数动态调整，上限 200
 	concurrency := len(hostslist)
@@ -486,8 +497,13 @@ func RunPing(hostslist []string, chanHosts chan string, livewg *sync.WaitGroup) 
 
 	// 并发探测
 	for _, host := range hostslist {
-		wg.Add(1)
-		limiter <- struct{}{}
+		select {
+		case limiter <- struct{}{}:
+			wg.Add(1)
+		case <-ctx.Done():
+			wg.Wait()
+			return
+		}
 
 		go func(host string) {
 			defer func() {
@@ -495,7 +511,7 @@ func RunPing(hostslist []string, chanHosts chan string, livewg *sync.WaitGroup) 
 				wg.Done()
 			}()
 
-			if ExecCommandPing(host) {
+			if ExecCommandPingContext(ctx, host) {
 				livewg.Add(1)
 				select {
 				case chanHosts <- host:
@@ -511,19 +527,14 @@ func RunPing(hostslist []string, chanHosts chan string, livewg *sync.WaitGroup) 
 	wg.Wait()
 }
 
-// containsPingError 检查 ping 输出是否包含错误关键词
-func containsPingError(output string) bool {
-	outputLower := strings.ToLower(output)
-	for _, keyword := range pingErrorKeywords {
-		if strings.Contains(outputLower, strings.ToLower(keyword)) {
-			return true
-		}
-	}
-	return false
-}
-
 // ExecCommandPing 执行系统Ping命令检测主机存活
 func ExecCommandPing(ip string) bool {
+	return ExecCommandPingContext(context.Background(), ip)
+}
+
+// ExecCommandPingContext runs ping without a shell and terminates it when the
+// scan context is cancelled.
+func ExecCommandPingContext(ctx context.Context, ip string) bool {
 	// 过滤黑名单字符（命令注入防护）
 	for _, char := range pingForbiddenChars {
 		if strings.Contains(ip, char) {
@@ -535,29 +546,32 @@ func ExecCommandPing(ip string) bool {
 	// 根据操作系统选择不同的ping命令
 	switch runtime.GOOS {
 	case "windows":
-		command = exec.Command("cmd", "/c", "ping -n 1 -w 1 "+ip+" && echo true || echo false")
+		command = exec.CommandContext(ctx, "ping", "-n", "1", "-w", "1000", ip)
 	case "darwin":
-		command = exec.Command("/bin/bash", "-c", "ping -c 1 -W 1 "+ip+" && echo true || echo false")
+		command = exec.CommandContext(ctx, "ping", "-c", "1", "-W", "1000", ip)
 	default: // linux
-		command = exec.Command("/bin/bash", "-c", "ping -c 1 -w 1 "+ip+" && echo true || echo false")
+		command = exec.CommandContext(ctx, "ping", "-c", "1", "-W", "1", ip)
 	}
 
-	// 捕获命令输出
-	var outinfo bytes.Buffer
-	command.Stdout = &outinfo
+	return command.Run() == nil
+}
 
-	// 执行命令
-	if err := command.Start(); err != nil {
+func waitForRateLimit(ctx context.Context, limiter *ratelimit.Bucket) bool {
+	if limiter == nil {
+		return ctx.Err() == nil
+	}
+	delay := limiter.Take(1)
+	if delay <= 0 {
+		return ctx.Err() == nil
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return true
+	case <-ctx.Done():
 		return false
 	}
-
-	if err := command.Wait(); err != nil {
-		return false
-	}
-
-	// 分析输出结果
-	output := outinfo.String()
-	return strings.Contains(output, "true") && strings.Count(output, ip) > 2 && !containsPingError(output)
 }
 
 // makemsg 构造ICMP echo请求消息
@@ -738,8 +752,13 @@ func runTcpProbeForHosts(ctx context.Context, hosts []string, session *common.Sc
 	limiter := make(chan struct{}, concurrency)
 
 	for _, host := range hosts {
-		wg.Add(1)
-		limiter <- struct{}{}
+		select {
+		case limiter <- struct{}{}:
+			wg.Add(1)
+		case <-ctx.Done():
+			wg.Wait()
+			return aliveHosts
+		}
 
 		go func(h string) {
 			defer func() {

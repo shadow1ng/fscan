@@ -2,7 +2,9 @@ package lib
 
 import (
 	"testing"
+	"time"
 
+	"github.com/shadow1ng/fscan/common"
 	"gopkg.in/yaml.v2"
 )
 
@@ -128,5 +130,45 @@ func TestNormalizeHTTPProxyURL(t *testing.T) {
 				t.Fatalf("normalizeHTTPProxyURL(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestInitSessionHTTPKeepsScansIsolated(t *testing.T) {
+	globalBefore := GetHTTPClientSet()
+
+	cfgA := common.NewConfig()
+	cfgA.Network.WebTimeout = 2 * time.Second
+	cfgA.Network.MaxRedirects = 1
+	sessionA := common.NewScanSession(cfgA, common.NewState(), &common.FlagVars{})
+	if err := InitSessionHTTP(cfgA, sessionA); err != nil {
+		t.Fatalf("InitSessionHTTP(A): %v", err)
+	}
+	defer sessionA.Deactivate()
+
+	cfgB := common.NewConfig()
+	cfgB.Network.WebTimeout = 9 * time.Second
+	cfgB.Network.MaxRedirects = 4
+	sessionB := common.NewScanSession(cfgB, common.NewState(), &common.FlagVars{})
+	if err := InitSessionHTTP(cfgB, sessionB); err != nil {
+		t.Fatalf("InitSessionHTTP(B): %v", err)
+	}
+	defer sessionB.Deactivate()
+
+	if sessionA.HTTPClient == nil || sessionB.HTTPClient == nil {
+		t.Fatal("session HTTP clients were not initialized")
+	}
+	if sessionA.HTTPClient == sessionB.HTTPClient {
+		t.Fatal("independent sessions unexpectedly share an HTTP client")
+	}
+	if sessionA.HTTPClient.Timeout != 2*time.Second || sessionB.HTTPClient.Timeout != 9*time.Second {
+		t.Fatalf("session timeouts = %s and %s", sessionA.HTTPClient.Timeout, sessionB.HTTPClient.Timeout)
+	}
+	if requestClient(sessionA, true) != sessionA.HTTPClient || requestClient(sessionB, false) != sessionB.HTTPClientNoRedirect {
+		t.Fatal("request client selection did not prefer the session")
+	}
+
+	globalAfter := GetHTTPClientSet()
+	if globalAfter != globalBefore {
+		t.Fatal("session initialization mutated compatibility HTTP clients")
 	}
 }

@@ -52,7 +52,6 @@ Comprehensive intranet scanning tool for automated vulnerability assessment.
 - **Concurrency** - Port scan threads, service scan threads independent config
 
 ### Extensions
-- **Web Management UI** - Visual scan task management (build with -tags web)
 - **Lab Environment** - Built-in Docker lab for testing and learning
 - **Plugin Architecture** - Service/Web/Local plugins separated, easy to extend
 - **Multi-language** - Chinese/English interface (-lang zh/en)
@@ -85,7 +84,6 @@ Comprehensive intranet scanning tool for automated vulnerability assessment.
 - **Concurrency Safety Optimization** - Optimized lock granularity and memory allocation
 
 ### New Features
-- **Web Management UI** - Visual scan task management with responsive layout and progress display
 - **Multi-format POC Adapter** - Support for xray and afrog format POCs
 - **Smart Scan Mode** - Bloom filter deduplication + proxy optimization
 - **Enhanced Fingerprint Library** - Integrated FingerprintHub (3139 fingerprints)
@@ -187,8 +185,6 @@ Comprehensive intranet scanning tool for automated vulnerability assessment.
 # Standard build
 go build -ldflags="-s -w" -trimpath -o fscan .
 
-# With Web UI
-go build -tags web -ldflags="-s -w" -trimpath -o fscan-web .
 ```
 
 ## Install

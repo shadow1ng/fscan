@@ -1,6 +1,8 @@
 package core
 
 import (
+	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -70,7 +72,7 @@ func NewAdaptivePool(target, ceiling int, fn func(interface{}), metrics *ScanMet
 		initial = target
 	}
 
-	pool, err := ants.NewPoolWithFunc(initial, fn)
+	pool, err := ants.NewPoolWithFunc(initial, fn, ants.WithNonblocking(true))
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +97,33 @@ func NewAdaptivePool(target, ceiling int, fn func(interface{}), metrics *ScanMet
 
 // Invoke 提交任务
 func (ap *AdaptivePool) Invoke(task interface{}) error {
-	ap.maybeAdjust()
-	return ap.pool.Invoke(task)
+	return ap.InvokeContext(context.Background(), task)
+}
+
+// InvokeContext 提交任务，并在池满时允许调用方通过 context 取消等待。
+func (ap *AdaptivePool) InvokeContext(ctx context.Context, task interface{}) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	for {
+		ap.maybeAdjust()
+		err := ap.pool.Invoke(task)
+		if err == nil {
+			return nil
+		}
+		if !errors.Is(err, ants.ErrPoolOverload) {
+			return err
+		}
+
+		timer := time.NewTimer(5 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
 }
 
 // maybeAdjust 周期性检查并调整并发数

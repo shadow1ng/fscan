@@ -129,7 +129,7 @@ jobs:
         uses: ./.github/actions/build-release
         with:
           mode: ${{ inputs.snapshot && 'snapshot' || 'release' }}
-          go-version: '1.25'
+          go-version: '1.25.12'
           retention-days: '90'
           release-args: ${{ inputs.draft && '--draft' || '' }}
 

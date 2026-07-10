@@ -189,7 +189,7 @@ func (p *MiniDumpPlugin) tryRegSave(output *strings.Builder, session *common.Sca
 	for hive, path := range files {
 		if err := exec.Command("reg", "save", fmt.Sprintf("HKLM\\%s", hive), path, "/y").Run(); err == nil {
 			if fi, err := os.Stat(path); err == nil {
-				output.WriteString(fmt.Sprintf("  ✓ %s → %s (%d bytes)\n", hive, path, fi.Size()))
+				fmt.Fprintf(output, "  ✓ %s → %s (%d bytes)\n", hive, path, fi.Size())
 				saved++
 			}
 		} else {
@@ -560,7 +560,9 @@ func (p *MiniDumpPlugin) isAVBlocking() bool {
 	if handle == INVALID_HANDLE_VALUE {
 		return false
 	}
-	defer p.kernel32.MustFindProc("CloseHandle").Call(handle)
+	defer func() {
+		_, _, _ = p.kernel32.MustFindProc("CloseHandle").Call(handle)
+	}()
 
 	first, _ := p.kernel32.FindProc("Process32FirstW")
 	next, _ := p.kernel32.FindProc("Process32NextW")

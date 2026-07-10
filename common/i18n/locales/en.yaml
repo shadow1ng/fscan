@@ -117,7 +117,7 @@ flag_max_packet_count:
 flag_icmp_rate:
   other: "ICMP packet rate (ratio to max rate, default 0.1, ~1463 pps)"
 flag_output_file:
-  other: "Output file"
+  other: "Output file (defaults to the first target)"
 flag_output_format:
   other: "Output format: txt, json, csv"
 flag_disable_save:
@@ -154,10 +154,6 @@ flag_language:
   other: "Language: zh, en"
 flag_help:
   other: "Show help information"
-flag_web_mode:
-  other: "Start Web management UI"
-flag_web_port:
-  other: "Web server port"
 # ========================= Scan Mode Messages =========================
 scan_mode_service_selected:
   other: "Service scan mode selected"
@@ -1710,13 +1706,6 @@ redis_scan_success:
 rabbitmq_detected:
   other: "RabbitMQ {{.Arg1}} {{.Arg2}}"
 
-# ========================= Web UI Messages =========================
-web_server_started:
-  other: "Web server started on port: {{.Arg1}}"
-web_shutting_down:
-  other: "Web server shutting down..."
-web_mode_not_supported:
-  other: "Web mode not supported in this build, rebuild with: go build -tags web"
 
 # ========================= Debug Messages =========================
 debug_create_profiles_failed:

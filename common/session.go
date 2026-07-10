@@ -2,11 +2,13 @@ package common
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/shadow1ng/fscan/common/i18n"
@@ -26,10 +28,16 @@ type ScanSession struct {
 	ResultSink ResultSink // 可选，覆盖全局输出
 	PauseGate  func(ctx context.Context) error
 
+	HTTPClient             *http.Client
+	HTTPClientNoRedirect   *http.Client
+	HTTPClientGM           *http.Client
+	HTTPClientNoRedirectGM *http.Client
+
 	// 每会话 dialer（按 timeout 懒初始化，取决于代理配置）
 	dialerMu   sync.Mutex
 	dialers    map[time.Duration]proxy.Dialer
 	dialerErrs map[time.Duration]error
+	closed     atomic.Bool
 }
 
 // NewScanSession 从已构建的 Config、State 和 FlagVars 创建会话
@@ -44,10 +52,47 @@ func NewScanSession(config *Config, state *State, params *FlagVars) *ScanSession
 // SaveResult saves a scan result through the session sink if present, otherwise
 // falls back to the process-wide output pipeline used by the CLI.
 func (s *ScanSession) SaveResult(result *output.ScanResult) error {
-	if s != nil && s.ResultSink != nil {
-		return s.ResultSink(result)
+	if s != nil && s.closed.Load() {
+		return context.Canceled
 	}
-	return SaveResult(result)
+	var err error
+	if s != nil && s.ResultSink != nil {
+		err = s.ResultSink(result)
+	} else {
+		err = SaveResult(result)
+	}
+	if err != nil && !errors.Is(err, context.Canceled) && s != nil {
+		s.LogError(fmt.Sprintf("save result failed: %v", err))
+	}
+	return err
+}
+
+// Deactivate prevents late results from tasks that outlive a cancelled scan.
+func (s *ScanSession) Deactivate() {
+	if s != nil {
+		s.closed.Store(true)
+		s.DeactivateHTTPClients()
+	}
+}
+
+// DeactivateHTTPClients closes idle connections held by the session clients.
+// It is also used before replacing an already initialized client set.
+func (s *ScanSession) DeactivateHTTPClients() {
+	if s == nil {
+		return
+	}
+	clients := []*http.Client{s.HTTPClient, s.HTTPClientNoRedirect, s.HTTPClientGM, s.HTTPClientNoRedirectGM}
+	seen := make(map[*http.Client]struct{}, len(clients))
+	for _, client := range clients {
+		if client == nil {
+			continue
+		}
+		if _, ok := seen[client]; ok {
+			continue
+		}
+		seen[client] = struct{}{}
+		client.CloseIdleConnections()
+	}
 }
 
 func (s *ScanSession) loggingEnabled() bool {

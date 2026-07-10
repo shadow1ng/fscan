@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/shadow1ng/fscan/common"
@@ -39,7 +40,15 @@ var (
 	ClientNoRedirectGM *http.Client      // 国密TLS 不跟随重定向
 	dialTimeout        = 5 * time.Second // 连接超时时间
 	keepAlive          = 5 * time.Second // 连接保持时间
+	clientMu           sync.Mutex
 )
+
+type HTTPClientSet struct {
+	Client             *http.Client
+	ClientNoRedirect   *http.Client
+	ClientGM           *http.Client
+	ClientNoRedirectGM *http.Client
+}
 
 // Inithttp 初始化HTTP客户端配置
 func Inithttp(cfg *common.Config) error {
@@ -55,6 +64,40 @@ func Inithttp(cfg *common.Config) error {
 		return fmt.Errorf("%s: %w", i18n.GetText("webscan_http_client_init_failed"), err)
 	}
 	return nil
+}
+
+// InitSessionHTTP creates HTTP clients owned by a single scan session.
+func InitSessionHTTP(cfg *common.Config, session *common.ScanSession) error {
+	if cfg == nil || session == nil {
+		return fmt.Errorf("scan config and session are required")
+	}
+	pocNum := cfg.POC.Num
+	if pocNum <= 0 {
+		pocNum = 20
+	}
+	clients, err := buildHTTPClientSet(pocNum, cfg.Network.HTTPProxy, cfg.Network.WebTimeout, cfg.Network.MaxRedirects, &cfg.Network)
+	if err != nil {
+		return fmt.Errorf("%s: %w", i18n.GetText("webscan_http_client_init_failed"), err)
+	}
+	session.DeactivateHTTPClients()
+	session.HTTPClient = clients.Client
+	session.HTTPClientNoRedirect = clients.ClientNoRedirect
+	session.HTTPClientGM = clients.ClientGM
+	session.HTTPClientNoRedirectGM = clients.ClientNoRedirectGM
+	return nil
+}
+
+// GetHTTPClientSet returns a consistent snapshot of the compatibility clients.
+// New scan code should prefer the clients attached to common.ScanSession.
+func GetHTTPClientSet() HTTPClientSet {
+	clientMu.Lock()
+	defer clientMu.Unlock()
+	return HTTPClientSet{
+		Client:             Client,
+		ClientNoRedirect:   ClientNoRedirect,
+		ClientGM:           ClientGM,
+		ClientNoRedirectGM: ClientNoRedirectGM,
+	}
 }
 
 // configureHTTPProxy 统一配置HTTP代理（SOCKS5优先于HTTP代理）
@@ -137,6 +180,26 @@ func normalizeHTTPProxyURL(proxyURL string) string {
 
 // InitHTTPClient 创建HTTP客户端
 func InitHTTPClient(ThreadsNum int, DownProxy string, Timeout time.Duration, maxRedirects int, networkConfig *common.NetworkConfig) error {
+	clients, err := buildHTTPClientSet(ThreadsNum, DownProxy, Timeout, maxRedirects, networkConfig)
+	if err != nil {
+		return err
+	}
+
+	clientMu.Lock()
+	defer clientMu.Unlock()
+	for _, old := range []*http.Client{Client, ClientNoRedirect, ClientGM, ClientNoRedirectGM} {
+		if old != nil {
+			old.CloseIdleConnections()
+		}
+	}
+	Client = clients.Client
+	ClientNoRedirect = clients.ClientNoRedirect
+	ClientGM = clients.ClientGM
+	ClientNoRedirectGM = clients.ClientNoRedirectGM
+	return nil
+}
+
+func buildHTTPClientSet(ThreadsNum int, DownProxy string, Timeout time.Duration, maxRedirects int, networkConfig *common.NetworkConfig) (*HTTPClientSet, error) {
 	// 配置基础连接参数
 	dialer := &net.Dialer{
 		Timeout:   dialTimeout,
@@ -173,11 +236,11 @@ func InitHTTPClient(ThreadsNum int, DownProxy string, Timeout time.Duration, max
 
 	// 统一配置代理
 	if err := configureHTTPProxy(tr, DownProxy, networkConfig); err != nil {
-		return err
+		return nil, err
 	}
 
 	// 创建标准HTTP客户端（限制重定向次数）
-	Client = &http.Client{
+	client := &http.Client{
 		Transport: tr,
 		Timeout:   Timeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -189,7 +252,7 @@ func InitHTTPClient(ThreadsNum int, DownProxy string, Timeout time.Duration, max
 	}
 
 	// 创建不跟随重定向的HTTP客户端
-	ClientNoRedirect = &http.Client{
+	clientNoRedirect := &http.Client{
 		Transport:     tr,
 		Timeout:       Timeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
@@ -215,7 +278,7 @@ func InitHTTPClient(ThreadsNum int, DownProxy string, Timeout time.Duration, max
 		DisableKeepAlives:   false,
 	}
 
-	ClientGM = &http.Client{
+	clientGM := &http.Client{
 		Transport: trGM,
 		Timeout:   Timeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -226,13 +289,18 @@ func InitHTTPClient(ThreadsNum int, DownProxy string, Timeout time.Duration, max
 		},
 	}
 
-	ClientNoRedirectGM = &http.Client{
+	clientNoRedirectGM := &http.Client{
 		Transport:     trGM,
 		Timeout:       Timeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
 	}
 
-	return nil
+	return &HTTPClientSet{
+		Client:             client,
+		ClientNoRedirect:   clientNoRedirect,
+		ClientGM:           clientGM,
+		ClientNoRedirectGM: clientNoRedirectGM,
+	}, nil
 }
 
 // Poc 定义漏洞检测配置结构
@@ -243,6 +311,10 @@ type Poc struct {
 	Rules  []Rules `yaml:"rules"`  // 检测规则列表
 	Groups RuleMap `yaml:"groups"` // 规则组映射
 	Detail Detail  `yaml:"detail"` // 漏洞详情
+
+	prepareOnce sync.Once
+	prepared    *preparedPoc
+	prepareErr  error
 }
 
 // MapSlice 用于解析YAML的通用映射类型
@@ -412,6 +484,9 @@ func parsePocYAML(data []byte, fileName string) (*Poc, error) {
 	poc, err := universalPoc.ToFscanPoc()
 	if err != nil {
 		return nil, fmt.Errorf("%s %s: %w", i18n.GetText("webscan_poc_convert_failed"), fileName, err)
+	}
+	if err := poc.Prepare(); err != nil {
+		return nil, fmt.Errorf("prepare POC %s: %w", fileName, err)
 	}
 
 	return poc, nil

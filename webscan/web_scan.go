@@ -52,9 +52,6 @@ var globalPocStore = &pocStore{cache: make(map[string][]*lib.Poc)}
 
 // WebScan 执行Web漏洞扫描
 func WebScan(ctx context.Context, info *common.HostInfo, cfg *common.Config, session *common.ScanSession) {
-	// 初始化POC配置（用于CEL回调函数）
-	lib.InitPOCConfig(cfg.DNSLog)
-
 	// 加载POC（按 PocPath 缓存，不同路径独立加载）
 	pocs := globalPocStore.getOrLoad(cfg.POC.PocPath)
 
@@ -355,7 +352,11 @@ func loadPocsConcurrently(pocFiles []string, isEmbedded bool, pocPath string) []
 				poc, err = lib.LoadPocbyPath(filename)
 			}
 
-			if err == nil && poc != nil {
+			if err != nil {
+				common.LogError(i18n.Tr("webscan_poc_load_one_failed", filename, err))
+				return
+			}
+			if poc != nil {
 				results <- poc
 			}
 		}(file)

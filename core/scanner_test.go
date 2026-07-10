@@ -57,6 +57,29 @@ func TestWebResultSerializerPreservesDetectedProtocol(t *testing.T) {
 	}
 }
 
+func TestValidateRunSessionRejectsInvalidRuntimeLimits(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*common.Config)
+	}{
+		{name: "zero threads", mutate: func(cfg *common.Config) { cfg.ThreadNum = 0 }},
+		{name: "negative global timeout", mutate: func(cfg *common.Config) { cfg.GlobalTimeout = -time.Second }},
+		{name: "zero retries", mutate: func(cfg *common.Config) { cfg.MaxRetries = 0 }},
+		{name: "zero POC concurrency", mutate: func(cfg *common.Config) { cfg.POC.Num = 0 }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := common.NewConfig()
+			tt.mutate(cfg)
+			session := common.NewScanSession(cfg, common.NewState(), &common.FlagVars{})
+			if err := validateRunSession(session); err == nil {
+				t.Fatal("validateRunSession() error = nil")
+			}
+		})
+	}
+}
+
 // TestSelectStrategy 测试策略选择逻辑
 func TestSelectStrategy(t *testing.T) {
 	// 保存原始配置

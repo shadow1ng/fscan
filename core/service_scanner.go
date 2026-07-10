@@ -226,23 +226,21 @@ func (s *ServiceScanStrategy) scanHostBatch(ctx context.Context, session *common
 
 	go EnhancedPortScan(ctx, hosts, config.Target.Ports, int64(config.Timeout.Seconds()), session, stream)
 
-	cancelled := false
-	for addr := range stream {
-		if cancelled {
-			continue
-		}
+	for {
 		select {
 		case <-ctx.Done():
-			cancelled = true
-			continue
-		default:
-		}
+			return
+		case addr, ok := <-stream:
+			if !ok {
+				return
+			}
 
-		infos := s.convertToTargetInfos([]string{addr}, info)
-		for _, target := range infos {
-			for _, pluginName := range pluginsToRun {
-				if s.IsPluginApplicableByName(pluginName, target.Host, target.Port, isCustomMode, config) {
-					executeScanTask(ctx, session, pluginName, target, ch, wg)
+			infos := s.convertToTargetInfos([]string{addr}, info)
+			for _, target := range infos {
+				for _, pluginName := range pluginsToRun {
+					if s.IsPluginApplicableByName(pluginName, target.Host, target.Port, isCustomMode, config) {
+						executeScanTask(ctx, session, pluginName, target, ch, wg)
+					}
 				}
 			}
 		}
