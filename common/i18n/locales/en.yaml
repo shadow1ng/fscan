@@ -429,6 +429,12 @@ port_open_http:
   other: "Port open {{.Arg1}} [http](HTTP probe)"
 port_scan_no_alive_subnet:
   other: "Subnet probe found no alive subnets, skipping port scan"
+port_scan_timeout_retry:
+  other: "[PortScan] {{.Arg1}} adaptive timeout({{.Arg2}}) failed, retrying with full timeout({{.Arg3}})"
+port_scan_task_dropped:
+  other: "[PortScan] task dropped: {{.Arg1}} ({{.Arg2}}), port may be missed"
+port_scan_tasks_dropped_total:
+  other: "[PortScan] {{.Arg1}} tasks dropped total, these ports may be missed"
 network_rate_limited_pattern:
   other: "Rate limited"
 port_scan_debug_start:
