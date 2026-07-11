@@ -290,6 +290,7 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 // slidingWindowSchedule 滑动窗口调度器
 // ants.PoolWithFunc.Invoke 在池满时阻塞，天然提供反压，无需额外 semaphore
 func slidingWindowSchedule(iter *SocketIterator, pool *AdaptivePool, wg *sync.WaitGroup) {
+	var dropped int64
 	for {
 		host, port, ok := iter.Next()
 		if !ok {
@@ -304,11 +305,17 @@ func slidingWindowSchedule(iter *SocketIterator, pool *AdaptivePool, wg *sync.Wa
 		}
 		if err := pool.Invoke(task); err != nil {
 			wg.Done()
+			dropped++
+			common.LogError(i18n.Tr("port_scan_task_dropped", task.addr, err))
 		}
 	}
 
 	// 等待所有任务完成
 	wg.Wait()
+
+	if dropped > 0 {
+		common.LogError(i18n.Tr("port_scan_tasks_dropped_total", dropped))
+	}
 }
 
 // fmtPort 无分配的端口号格式化
@@ -327,8 +334,11 @@ func fmtPort(port int) string {
 	return string(buf[i:])
 }
 
-// connectWithRetry 带重试的TCP连接 - 只对资源耗尽错误重试
-func connectWithRetry(ctx context.Context, session *common.ScanSession, addr string, timeout time.Duration, maxRetries int) (net.Conn, error) {
+// connectWithRetry 带重试的TCP连接
+// - 资源耗尽错误：指数退避重试（maxRetries 次）
+// - 超时错误：用 fallbackTimeout（完整超时）重试一次，避免自适应超时过低导致开放端口被漏扫（issue #503）
+// - 其他错误（如 connection refused）：直接返回，端口确实关闭
+func connectWithRetry(ctx context.Context, session *common.ScanSession, addr string, timeout time.Duration, maxRetries int, fallbackTimeout time.Duration) (net.Conn, error) {
 	var lastErr error
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
@@ -340,9 +350,19 @@ func connectWithRetry(ctx context.Context, session *common.ScanSession, addr str
 
 		lastErr = err
 
+		// 超时错误：用完整超时重试一次（自适应超时可能过低）
+		if isTimeoutError(err) && attempt == 0 && fallbackTimeout > timeout {
+			session.LogDebug(i18n.Tr("port_scan_timeout_retry", addr, timeout, fallbackTimeout))
+			conn, err = session.DialTCP(ctx, "tcp", addr, fallbackTimeout)
+			if err == nil {
+				return conn, nil
+			}
+			lastErr = err
+		}
+
 		// 只对资源耗尽类错误重试，端口关闭直接返回
 		if !isResourceExhaustedError(err) {
-			return nil, err
+			return nil, lastErr
 		}
 
 		// 记录资源耗尽错误
@@ -496,7 +516,7 @@ func scanSinglePort(ctx context.Context, host string, port int, addr string, ada
 	timeout := adaptiveTO.Timeout()
 	// 步骤1：建立连接
 	start := time.Now()
-	conn, err := connectWithRetry(ctx, session, addr, timeout, 2)
+	conn, err := connectWithRetry(ctx, session, addr, timeout, 2, adaptiveTO.MaxTimeout())
 	if err != nil {
 		rtt := time.Since(start)
 		switch {
@@ -527,7 +547,7 @@ func scanSinglePort(ctx context.Context, host string, port int, addr string, ada
 	if session.ProxyEnabled() && verifyMethod != "direct" {
 		_ = conn.Close()
 		// 重新建立干净的连接用于服务识别
-		conn, err = connectWithRetry(ctx, session, addr, timeout, 2)
+		conn, err = connectWithRetry(ctx, session, addr, timeout, 2, adaptiveTO.MaxTimeout())
 		if err != nil {
 			handleConnectionFailure(err, host, port, addr, failedCollector)
 			return
