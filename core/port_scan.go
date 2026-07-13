@@ -335,10 +335,10 @@ func fmtPort(port int) string {
 }
 
 // connectWithRetry 带重试的TCP连接
-// - 资源耗尽错误：指数退避重试（maxRetries 次）
-// - 超时错误：用 fallbackTimeout（完整超时）重试一次，避免自适应超时过低导致开放端口被漏扫（issue #503）
-// - 其他错误（如 connection refused）：直接返回，端口确实关闭
-func connectWithRetry(ctx context.Context, session *common.ScanSession, addr string, timeout time.Duration, maxRetries int, fallbackTimeout time.Duration) (net.Conn, error) {
+//   - 资源耗尽错误：指数退避重试（maxRetries 次）
+//   - 其他错误（如 connection refused、timeout）：直接返回
+//     timeout 是正常的扫描结果（防火墙 drop / filtered），不盲目重试
+func connectWithRetry(ctx context.Context, session *common.ScanSession, addr string, timeout time.Duration, maxRetries int) (net.Conn, error) {
 	var lastErr error
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
@@ -350,17 +350,7 @@ func connectWithRetry(ctx context.Context, session *common.ScanSession, addr str
 
 		lastErr = err
 
-		// 超时错误：用完整超时重试一次（自适应超时可能过低）
-		if isTimeoutError(err) && attempt == 0 && fallbackTimeout > timeout {
-			session.LogDebug(i18n.Tr("port_scan_timeout_retry", addr, timeout, fallbackTimeout))
-			conn, err = session.DialTCP(ctx, "tcp", addr, fallbackTimeout)
-			if err == nil {
-				return conn, nil
-			}
-			lastErr = err
-		}
-
-		// 只对资源耗尽类错误重试，端口关闭直接返回
+		// 只对资源耗尽类错误重试，端口关闭或超时直接返回
 		if !isResourceExhaustedError(err) {
 			return nil, lastErr
 		}
@@ -516,7 +506,7 @@ func scanSinglePort(ctx context.Context, host string, port int, addr string, ada
 	timeout := adaptiveTO.Timeout()
 	// 步骤1：建立连接
 	start := time.Now()
-	conn, err := connectWithRetry(ctx, session, addr, timeout, 2, adaptiveTO.MaxTimeout())
+	conn, err := connectWithRetry(ctx, session, addr, timeout, 2)
 	if err != nil {
 		rtt := time.Since(start)
 		switch {
@@ -547,7 +537,7 @@ func scanSinglePort(ctx context.Context, host string, port int, addr string, ada
 	if session.ProxyEnabled() && verifyMethod != "direct" {
 		_ = conn.Close()
 		// 重新建立干净的连接用于服务识别
-		conn, err = connectWithRetry(ctx, session, addr, timeout, 2, adaptiveTO.MaxTimeout())
+		conn, err = connectWithRetry(ctx, session, addr, timeout, 2)
 		if err != nil {
 			handleConnectionFailure(err, host, port, addr, failedCollector)
 			return

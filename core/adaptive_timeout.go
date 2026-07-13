@@ -41,11 +41,6 @@ func NewAdaptiveTimeout(maxTimeout time.Duration) *AdaptiveTimeout {
 	}
 }
 
-// MaxTimeout 返回配置的最大超时值（用于超时重试时回退到完整超时）
-func (a *AdaptiveTimeout) MaxTimeout() time.Duration {
-	return a.maxTO
-}
-
 // Record 记录一次成功连接的 RTT
 func (a *AdaptiveTimeout) Record(rtt time.Duration) {
 	a.mu.Lock()
