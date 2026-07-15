@@ -24,4 +24,4 @@ rules:
       response.body.bcontains(b"<?xml") &&
       response.body.bcontains(b"encoding") &&
       response.body.bcontains(b"NC Portal")
-expression: r0()+
+expression: r0()

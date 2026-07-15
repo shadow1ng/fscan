@@ -1,13 +1,13 @@
 # Third-party POC notices
 
-The 50 `.yaml` POC files added for the fscan 2.2.1 trial set were selected
+The 100 `.yaml` POC files added for the fscan 2.2.1 trial sets were selected
 from `zan8in/afrog` commit `9f792687ed156d63344016f8bf658946079fb494`:
 
 https://github.com/zan8in/afrog
 
-Only non-destructive detection, unauthorized-access, information-disclosure,
-and path-read checks were selected. The original project is licensed under
-the MIT License:
+The first set focused on non-destructive checks. The second set also includes
+RCE, file-write, and file-upload verification rules. The original project is
+licensed under the MIT License:
 
 MIT License
 

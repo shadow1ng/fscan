@@ -18,4 +18,4 @@ rules:
         Command1: show running-config
         Confirm1: n
     expression: response.status == 200 && response.body.bcontains(b"Building configuration") && response.body.bcontains(b"Current configuration")
-expression: r0()+
+expression: r0()

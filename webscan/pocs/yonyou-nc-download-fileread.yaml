@@ -23,4 +23,4 @@ rules:
       response.status == 200 &&
       response.body.bcontains(b"response.addHeader") &&
       response.body.bcontains(b"request.getSession")
-expression: r0()+
+expression: r0()

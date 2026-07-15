@@ -20,4 +20,4 @@ rules:
     expression: |
       response.status == 200 && 
       response.raw_header.bcontains(b'org.zip')
-expression: r0()+
+expression: r0()

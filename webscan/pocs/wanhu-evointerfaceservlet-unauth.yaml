@@ -18,4 +18,4 @@ rules:
       response.body.bcontains(b'result:') &&
       response.body.bcontains(b'data:') &&
       response.body.bcontains(b'"userList":')
-expression: r0()+
+expression: r0()

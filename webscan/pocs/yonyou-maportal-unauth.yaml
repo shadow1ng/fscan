@@ -16,4 +16,4 @@ rules:
       method: GET
       path: /maportal/
     expression: response.status == 200 && response.body.bcontains(b"欢迎你") && response.body.bcontains(b"管理员")
-expression: r0()+
+expression: r0()

