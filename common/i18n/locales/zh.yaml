@@ -429,6 +429,10 @@ port_open_http:
   other: "端口开放 {{.Arg1}} [http](HTTP探测)"
 port_scan_no_alive_subnet:
   other: "网段预筛未发现存活子网，跳过端口扫描"
+port_scan_task_dropped:
+  other: "[PortScan] 任务被丢弃: {{.Arg1}} ({{.Arg2}})，该端口可能被漏扫"
+port_scan_tasks_dropped_total:
+  other: "[PortScan] 共有 {{.Arg1}} 个任务被丢弃，这些端口可能被漏扫"
 network_rate_limited_pattern:
   other: "发包受限"
 port_scan_debug_start:
