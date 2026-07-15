@@ -1,0 +1,25 @@
+id: elasticsearch-unauth
+
+info:
+  name: ElasticSearch Information Disclosure
+  author: p0wd3r
+  severity: high
+  verified: true
+  description: |-
+    /_nodes #查看节点数据
+    /_cat/indices #索引
+    _cat/indices
+    /_plugin/head
+    /_nodes/
+    /_status
+    /_search?pretty
+  tags: elasticsearch,unauth
+  created: 2023/07/07
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /_cat
+    expression: response.status == 200 && response.body.bcontains(b"/_cat/master")
+expression: r0()

@@ -216,6 +216,25 @@ func TestBuildTargetURL(t *testing.T) {
 	}
 }
 
+func TestEmbeddedPocsLoad(t *testing.T) {
+	entries, err := pocsFS.ReadDir("pocs")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, entry := range entries {
+		if !isPocFile(entry.Name()) {
+			continue
+		}
+
+		t.Run(entry.Name(), func(t *testing.T) {
+			if _, err := lib.LoadPoc(entry.Name(), pocsFS); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func TestBuildTargetURLErrors(t *testing.T) {
 	tests := []struct {
 		name     string

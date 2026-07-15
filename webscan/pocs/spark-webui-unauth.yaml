@@ -1,0 +1,21 @@
+id: spark-webui-unauth
+info:
+  name: Spark WebUI Unauthenticated
+  author: princechaddha
+  severity: medium
+  verified: false
+  reference:
+    - https://github.com/vulhub/vulhub/tree/master/spark/unacc
+    - https://www.secpod.com/blog/unauthenticated-access-to-apache-spark-web-ui/
+  description: |-
+    Apache Spark WebUI Unauthenticated
+  tags: spark,webui,unauth
+  created: 2023/07/07
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /
+    expression: response.status == 200 && response.body.bcontains(b"<title>Spark Master at spark://") && response.body.bcontains(b"<strong>URL:</strong>")
+expression: r0()

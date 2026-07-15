@@ -1,0 +1,19 @@
+id: apache-druid-unauth
+
+info:
+  name: Apache Druid Unauth
+  author: zan8in
+  severity: high
+  verified: true
+  description: |-
+    app="Apache Druid"
+  tags: druid,unauth
+  created: 2024/01/07
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /unified-console.html
+    expression: response.status == 200 && response.body.ibcontains(b'<title>Apache Druid</title>')
+expression: r0()
