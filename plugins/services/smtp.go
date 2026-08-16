@@ -3,9 +3,12 @@
 package services
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"net"
 	"net/smtp"
+	"net/textproto"
 	"strings"
 	"time"
 
@@ -23,6 +26,65 @@ func NewSMTPPlugin() *SMTPPlugin {
 	return &SMTPPlugin{
 		BasePlugin: plugins.NewBasePlugin("smtp"),
 	}
+}
+
+// smtpClientIdentity returns a standards-compliant address literal for the
+// client side of the connection. It avoids bare names such as "localhost",
+// which strict SMTP servers commonly reject in EHLO/HELO.
+func smtpClientIdentity(addr net.Addr) string {
+	var ip net.IP
+	if tcpAddr, ok := addr.(*net.TCPAddr); ok {
+		ip = tcpAddr.IP
+	} else if addr != nil {
+		host, _, err := net.SplitHostPort(addr.String())
+		if err == nil {
+			ip = net.ParseIP(strings.Trim(host, "[]"))
+		}
+	}
+
+	if ip4 := ip.To4(); ip4 != nil {
+		return "[" + ip4.String() + "]"
+	}
+	if ip != nil {
+		return "[IPv6:" + ip.String() + "]"
+	}
+	return "localhost.localdomain"
+}
+
+// smtpHandshake consumes the server greeting before sending EHLO. Servers
+// that do not implement ESMTP receive a HELO fallback over the same session.
+// Returning the textproto reader also preserves bytes buffered while parsing
+// a multi-line greeting or EHLO response.
+func smtpHandshake(conn net.Conn) (*textproto.Reader, error) {
+	reader := textproto.NewReader(bufio.NewReader(conn))
+	if _, _, err := reader.ReadResponse(220); err != nil {
+		return nil, fmt.Errorf("read SMTP greeting: %w", err)
+	}
+
+	identity := smtpClientIdentity(conn.LocalAddr())
+	if _, err := fmt.Fprintf(conn, "EHLO %s\r\n", identity); err != nil {
+		return nil, fmt.Errorf("write SMTP EHLO: %w", err)
+	}
+	code, _, err := reader.ReadResponse(0)
+	if err != nil {
+		return nil, fmt.Errorf("read SMTP EHLO response: %w", err)
+	}
+	if code >= 200 && code < 300 {
+		return reader, nil
+	}
+
+	if _, err := fmt.Fprintf(conn, "HELO %s\r\n", identity); err != nil {
+		return nil, fmt.Errorf("write SMTP HELO: %w", err)
+	}
+	code, _, err = reader.ReadResponse(0)
+	if err != nil {
+		return nil, fmt.Errorf("read SMTP HELO response: %w", err)
+	}
+	if code < 200 || code >= 300 {
+		return nil, fmt.Errorf("SMTP HELO rejected with status %d", code)
+	}
+
+	return reader, nil
 }
 
 func (p *SMTPPlugin) Scan(ctx context.Context, info *common.HostInfo, session *common.ScanSession) *ScanResult {
@@ -349,20 +411,8 @@ func (p *SMTPPlugin) testVRFYCommand(ctx context.Context, info *common.HostInfo,
 
 		_ = conn.SetDeadline(time.Now().Add(session.Config.ModuleTimeout()))
 
-		if _, heloWriteErr := fmt.Fprintf(conn, "HELO localhost\r\n"); heloWriteErr != nil {
-			resultChan <- nil
-			return
-		}
-
-		buffer := make([]byte, 1024)
-		n, err := conn.Read(buffer)
+		reader, err := smtpHandshake(conn)
 		if err != nil {
-			resultChan <- nil
-			return
-		}
-		response := string(buffer[:n])
-
-		if !strings.HasPrefix(response, "250") {
 			resultChan <- nil
 			return
 		}
@@ -374,14 +424,12 @@ func (p *SMTPPlugin) testVRFYCommand(ctx context.Context, info *common.HostInfo,
 				continue
 			}
 
-			n, err := conn.Read(buffer)
+			code, _, err := reader.ReadResponse(0)
 			if err != nil {
 				continue
 			}
 
-			vrfyResponse := strings.TrimSpace(string(buffer[:n]))
-
-			if strings.HasPrefix(vrfyResponse, "250") {
+			if code == 250 {
 				resultChan <- &ScanResult{
 					Success: true,
 					Type:    plugins.ResultTypeVuln,
@@ -419,20 +467,8 @@ func (p *SMTPPlugin) testEXPNCommand(ctx context.Context, info *common.HostInfo,
 
 		_ = conn.SetDeadline(time.Now().Add(session.Config.ModuleTimeout()))
 
-		if _, heloWriteErr := fmt.Fprintf(conn, "HELO localhost\r\n"); heloWriteErr != nil {
-			resultChan <- nil
-			return
-		}
-
-		buffer := make([]byte, 1024)
-		n, err := conn.Read(buffer)
+		reader, err := smtpHandshake(conn)
 		if err != nil {
-			resultChan <- nil
-			return
-		}
-
-		response := string(buffer[:n])
-		if !strings.HasPrefix(response, "250") {
 			resultChan <- nil
 			return
 		}
@@ -444,14 +480,12 @@ func (p *SMTPPlugin) testEXPNCommand(ctx context.Context, info *common.HostInfo,
 				continue
 			}
 
-			n, err := conn.Read(buffer)
+			code, _, err := reader.ReadResponse(0)
 			if err != nil {
 				continue
 			}
 
-			expnResponse := strings.TrimSpace(string(buffer[:n]))
-
-			if strings.HasPrefix(expnResponse, "250") {
+			if code == 250 {
 				resultChan <- &ScanResult{
 					Success: true,
 					Type:    plugins.ResultTypeVuln,

@@ -41,19 +41,31 @@ func TestWebResultSerializerPreservesDetectedProtocol(t *testing.T) {
 	serializer := resultSerializers[plugins.ResultTypeWeb]
 	details := map[string]interface{}{}
 	result := &plugins.Result{
-		Type:    plugins.ResultTypeWeb,
-		Success: true,
-		Output:  "https://192.168.1.1:8443",
+		Type:            plugins.ResultTypeWeb,
+		Success:         true,
+		Output:          "https://192.168.1.1:8443",
+		Length:          4096,
+		CredentialHints: []string{"admin/admin"},
 	}
 	info := &common.HostInfo{Host: "192.168.1.1", Port: 8443}
 
 	serializer.fillDetail(result, info, details)
+	addCommonDetails(result, details)
 
 	if details["protocol"] != "https" {
 		t.Fatalf("protocol = %v, 期望 https", details["protocol"])
 	}
 	if details["url"] != "https://192.168.1.1:8443" {
 		t.Fatalf("url = %v, 期望检测出的URL", details["url"])
+	}
+	if details["length"] != 4096 {
+		t.Fatalf("length = %v, want 4096", details["length"])
+	}
+	if got := details["credential_hints"].([]string); len(got) != 1 || got[0] != "admin/admin" {
+		t.Fatalf("credential_hints = %#v", got)
+	}
+	if details["credential_hints_verified"] != false {
+		t.Fatalf("credential_hints_verified = %#v, want false", details["credential_hints_verified"])
 	}
 }
 

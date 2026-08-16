@@ -23,6 +23,48 @@ func TestExtractTitleTruncatesByRune(t *testing.T) {
 	}
 }
 
+func TestExtractTitleHandlesWhitespaceMarkupAndEntities(t *testing.T) {
+	p := NewWebTitlePlugin()
+	got := p.extractTitle("<html><head><TITLE>  Device &amp; <b>Console</b>\n Login  </TITLE></head></html>")
+	if got != "Device & Console Login" {
+		t.Fatalf("extractTitle() = %q, want %q", got, "Device & Console Login")
+	}
+}
+
+func TestExtractResponseTitleConvertsDeclaredCharset(t *testing.T) {
+	p := NewWebTitlePlugin()
+	body := []byte("<html><title>Caf\xe9</title></html>")
+	got := p.extractResponseTitle(body, "text/html; charset=iso-8859-1")
+	if got != "Café" {
+		t.Fatalf("extractResponseTitle() = %q, want %q", got, "Café")
+	}
+}
+
+func TestExtractResponseTitlePreservesUTF8WithoutContentType(t *testing.T) {
+	p := NewWebTitlePlugin()
+	got := p.extractResponseTitle([]byte("<html><title>内网管理平台</title></html>"), "")
+	if got != "内网管理平台" {
+		t.Fatalf("extractResponseTitle() = %q, want %q", got, "内网管理平台")
+	}
+}
+
+func TestFormatWebAssetIsSelfDescribing(t *testing.T) {
+	got := formatWebAsset("https://example.com", 200, 1234, "Admin Portal", "nginx", []string{"nginx", "Vue.js"}, []string{"admin/admin"})
+	for _, want := range []string{
+		"[WEB] https://example.com",
+		"status=200",
+		`title="Admin Portal"`,
+		"length=1234",
+		`server="nginx"`,
+		`tech="nginx, Vue.js"`,
+		`默认密码："admin/admin"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("formatWebAsset() missing %q in %q", want, got)
+		}
+	}
+}
+
 func (rt *faviconRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	rt.called = true
 	<-req.Context().Done()

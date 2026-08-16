@@ -1,0 +1,18 @@
+id: h3c-hci-management
+
+info:
+  name: H3C 超融合管理平台
+  author: zan8in
+  severity: info
+  verified: true
+  tags: h3c,hci-management,panel
+  created: 2023/07/21
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /uis/login
+      follow_redirects: true
+    expression: response.status == 200 && response.body.bcontains(b"'/uis/spring_check?'")
+expression: r0()

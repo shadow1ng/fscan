@@ -2,7 +2,10 @@
 
 ## 概述
 
-fscan现在集成了[FingerprintHub](https://github.com/0x727/FingerprintHub)的Web指纹库，实现**双指纹库并行识别**，识别能力提升**12.5倍**。
+当前版本并行使用基础规则、[FingerprintHub](https://github.com/0x727/FingerprintHub)
+和 [ProjectDiscovery WappalyzerGo](https://github.com/projectdiscovery/wappalyzergo)
+进行 Web 指纹识别。Wappalyzer 数据固定为 `v0.2.93`，覆盖中间件、框架、CMS、
+前端组件、分析平台和托管服务等 7,553 种技术。
 
 ## 指纹库规模
 
@@ -18,14 +21,23 @@ fscan现在集成了[FingerprintHub](https://github.com/0x727/FingerprintHub)的
 - **特点**: 国内外主流应用，社区维护
 - **文件**: `web_fingerprint_v4.json` (1.3MB)
 
+### Wappalyzer 技术指纹库
+- **技术数量**: 7,553条
+- **来源**: ProjectDiscovery WappalyzerGo v0.2.93
+- **特点**: HTTP Header、Cookie、HTML、Meta、Script URL及技术依赖推导
+- **兼容性**: 完整覆盖对比程序使用的 WappalyzerGo v0.0.71（3,459条），并保留30种技术的40条旧版静态规则
+- **限制**: 不运行浏览器或执行页面 JavaScript，因此纯运行时 JS/DOM 属性规则不会单独触发
+
 ### 总计
 ```
 基础指纹:  272条
 增强指纹:  3,139条
+Wappalyzer: 7,553条
 ─────────────────
-总计:      3,411条
-提升倍数:  12.5x
+合计规则源: 10,964条
 ```
+
+不同数据库存在交叉和别名，因此合计表示规则源规模，不表示互不重复的技术数量。
 
 ---
 

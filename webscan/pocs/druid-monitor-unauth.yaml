@@ -1,0 +1,17 @@
+id: druid-monitor-unauth
+
+info:
+  name: Druid Monitor Unauth
+  author: met7or
+  severity: high
+  verified: true
+  tags: druid,monitor,unauth
+  created: 2023/07/07
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /druid/index.html
+    expression: response.status == 200 && response.body.bcontains(b"Druid Stat Index") && response.body.bcontains(b"DruidVersion") && response.body.bcontains(b"DruidDrivers")
+expression: r0()

@@ -10,7 +10,7 @@ before:
 builds:
   # 标准版 - 全部插件（全架构）
   - id: scanner
-    binary: scanner
+    binary: fscan_lll
     main: .
     env:
       - CGO_ENABLED=0
@@ -68,7 +68,7 @@ archives:
     formats: [binary]
     allow_different_binary_count: true
     name_template: >-
-      scanner_{{ .Version }}_
+      fscan_lll_{{ .Version }}_
       {{- if eq .Os "darwin" }}mac
       {{- else }}{{ .Os }}{{ end }}_
       {{- if eq .Arch "amd64" }}x64

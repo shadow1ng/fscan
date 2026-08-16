@@ -3,6 +3,8 @@ package WebScan
 import (
 	"crypto/md5" //nolint:gosec
 	"fmt"
+	"net/http"
+	"strings"
 	"testing"
 
 	"scanner/webscan/fingerprint"
@@ -27,6 +29,38 @@ func TestRemoveDuplicateElement_Basic(t *testing.T) {
 			t.Errorf("元素 %q 出现了多次", v)
 		}
 	}
+}
+
+func TestInfoCheckIncludesWappalyzerTechnologies(t *testing.T) {
+	data := []CheckDatas{{
+		Body:        []byte(`<meta name="generator" content="WordPress 6.8">`),
+		HTTPHeaders: http.Header{"Server": {"nginx/1.24.0"}},
+	}}
+
+	matches := InfoCheck("http://example.test", &data)
+	if !hasFingerprintTechnology(matches, "WordPress") || !hasFingerprintTechnology(matches, "Nginx") {
+		t.Fatalf("InfoCheck did not merge Wappalyzer matches: %v", matches)
+	}
+}
+
+func TestCheckDataHTTPHeadersFallsBackToFormattedHeaders(t *testing.T) {
+	headers := checkDataHTTPHeaders(CheckDatas{Headers: "Server: nginx/1.24.0\nSet-Cookie: test=1\n"})
+	if headers.Get("Server") != "nginx/1.24.0" || headers.Get("Set-Cookie") != "test=1" {
+		t.Fatalf("unexpected parsed headers: %#v", headers)
+	}
+}
+
+func hasFingerprintTechnology(matches []string, technology string) bool {
+	for _, match := range matches {
+		base := match
+		if index := strings.IndexByte(base, ':'); index >= 0 {
+			base = base[:index]
+		}
+		if strings.EqualFold(base, technology) {
+			return true
+		}
+	}
+	return false
 }
 
 func TestRemoveDuplicateElement_Empty(t *testing.T) {
@@ -64,6 +98,20 @@ func TestRemoveDuplicateElement_PreservesOrder(t *testing.T) {
 	// 第一次出现的顺序应被保留
 	if result[0] != "c" || result[1] != "a" || result[2] != "b" {
 		t.Errorf("顺序不符合预期: %v", result)
+	}
+}
+
+func TestMergeFingerprintResultsPrefersVersionAndIgnoresCase(t *testing.T) {
+	result := mergeFingerprintResults([]string{"nginx", "Nginx", "Nginx:1.24.0", "WordPress", "WordPress/6.8"})
+	if len(result) != 2 || result[0] != "Nginx:1.24.0" || result[1] != "WordPress/6.8" {
+		t.Fatalf("unexpected merged fingerprints: %v", result)
+	}
+}
+
+func TestMergeFingerprintResultsDoesNotTreatURLAsVersion(t *testing.T) {
+	result := mergeFingerprintResults([]string{"Product/http", "Product"})
+	if len(result) != 2 {
+		t.Fatalf("non-version slash was incorrectly merged: %v", result)
 	}
 }
 

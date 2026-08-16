@@ -148,8 +148,11 @@ func TestCSVWriterFormatRecords(t *testing.T) {
 	if service[6] != "fp1,fp2" {
 		t.Fatalf("fingerprints = %q, want fp1,fp2", service[6])
 	}
-	if !utf8.ValidString(service[7]) || len([]rune(service[7])) != 103 || !strings.HasSuffix(service[7], "...") {
-		t.Fatalf("truncated banner = len %d value %q", len(service[7]), service[7])
+	if service[7] != "" {
+		t.Fatalf("credential hints = %q, want empty", service[7])
+	}
+	if !utf8.ValidString(service[8]) || len([]rune(service[8])) != 103 || !strings.HasSuffix(service[8], "...") {
+		t.Fatalf("truncated banner = len %d value %q", len(service[8]), service[8])
 	}
 
 	vuln := writer.formatVulnRecord(&ScanResult{
@@ -1378,7 +1381,7 @@ func TestCSVWriter_WebServiceFields(t *testing.T) {
 
 	content := readFileContent(t, filePath)
 	for _, want := range []string{
-		"Target,Service,Version,Title,Status,Server,Fingerprints,Banner",
+		"Target,Service,Version,Title,Status,Server,Fingerprints,默认密码：,Banner",
 		"webtitle",
 		"Home",
 		"200",
@@ -1427,6 +1430,14 @@ func TestTXTWriter_WebServiceProtocolFromDetails(t *testing.T) {
 	}
 	if strings.Contains(content, "http://192.168.1.1:8443") {
 		t.Fatalf("TXT输出不应把HTTPS目标降级为HTTP，内容:\n%s", content)
+	}
+	for _, want := range []string{`status=200`, `title="Home"`} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("TXT Web资产输出缺少 %q，内容:\n%s", want, content)
+		}
+	}
+	if strings.Count(content, "https://192.168.1.1:8443") != 1 {
+		t.Fatalf("TXT Web资产不应在服务区重复，内容:\n%s", content)
 	}
 }
 

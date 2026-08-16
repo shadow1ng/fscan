@@ -25,10 +25,21 @@ type AdaptiveTimeout struct {
 // NewAdaptiveTimeout 创建自适应超时计算器
 // maxTimeout: 用户配置的超时上限（即原始固定超时）
 func NewAdaptiveTimeout(maxTimeout time.Duration) *AdaptiveTimeout {
+	// Keep the adaptive floor high enough to absorb scheduler and TCP backlog
+	// tail latency under high concurrency. A floor that converges to 100ms can
+	// misclassify an open port as closed even on a low-RTT network.
+	minTimeout := maxTimeout / 5
+	if minTimeout < 500*time.Millisecond {
+		minTimeout = 500 * time.Millisecond
+	}
+	if minTimeout > maxTimeout {
+		minTimeout = maxTimeout
+	}
+
 	return &AdaptiveTimeout{
 		samples: make([]float64, 64),
 		size:    64,
-		minTO:   100 * time.Millisecond,
+		minTO:   minTimeout,
 		maxTO:   maxTimeout,
 		warmup:  10,
 	}

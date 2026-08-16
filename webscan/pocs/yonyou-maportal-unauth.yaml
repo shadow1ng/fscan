@@ -1,0 +1,19 @@
+id: yonyou-maportal-unauth
+
+info:
+  name: 用友移动系统管理 maportal 未授权访问
+  author: zan8in
+  severity: high
+  verified: true
+  description: |-
+    Fofa: "移动系统管理"
+  tags: yonyou,unauth
+  created: 2024/01/07
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /maportal/
+    expression: response.status == 200 && response.body.bcontains(b"欢迎你") && response.body.bcontains(b"管理员")
+expression: r0()

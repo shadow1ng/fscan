@@ -3,15 +3,18 @@ package WebScan
 import (
 	"crypto/md5" //nolint:gosec // G501: MD5用于内容指纹识别，非加密用途
 	"fmt"
+	"net/http"
+	"strings"
 
 	"scanner/webscan/fingerprint"
 )
 
 // CheckDatas 存储HTTP响应的检查数据
 type CheckDatas struct {
-	Body    []byte                   // 响应体
-	Headers string                   // 响应头
-	Favicon fingerprint.FaviconHashes // Favicon hash（mmh3 + MD5）
+	Body        []byte                    // 响应体
+	Headers     string                    // 格式化后的响应头，供现有规则使用
+	HTTPHeaders http.Header               // 原始响应头，供结构化技术识别使用
+	Favicon     fingerprint.FaviconHashes // Favicon hash（mmh3 + MD5）
 }
 
 // InfoCheck 检查URL的指纹信息
@@ -33,6 +36,11 @@ func InfoCheck(URL string, CheckData *[]CheckDatas) []string {
 		enhanced := fingerprint.MatchEnhancedFingerprints(data.Body, data.Headers, data.Favicon)
 		matchedInfos = append(matchedInfos, enhanced...)
 
+		// Wappalyzer 技术栈识别：覆盖中间件、框架、CMS、前端库和托管平台。
+		// 优先使用原始 http.Header；保留对仅提供 Headers 字符串的嵌入调用兼容性。
+		wappalyzerMatches := fingerprint.MatchWappalyzerFingerprints(data.Body, checkDataHTTPHeaders(data))
+		matchedInfos = append(matchedInfos, wappalyzerMatches...)
+
 		// 版本提取：从响应中提取软件版本信息
 		versions := fingerprint.ExtractVersions(string(data.Body), data.Headers)
 		for _, v := range versions {
@@ -40,12 +48,72 @@ func InfoCheck(URL string, CheckData *[]CheckDatas) []string {
 		}
 	}
 
-	// 去重处理
-	matchedInfos = removeDuplicateElement(matchedInfos)
+	// 合并同名技术。不同指纹库的命名大小写和版本分隔符可能不同，
+	// 例如 nginx、Nginx 和 Nginx:1.24.0；优先保留带版本的结果。
+	matchedInfos = mergeFingerprintResults(matchedInfos)
 
 	// 指纹信息已在 WebTitle 日志中统一输出，此处不再单独输出
 
 	return matchedInfos
+}
+
+func mergeFingerprintResults(items []string) []string {
+	result := make([]string, 0, len(items))
+	indexByKey := make(map[string]int, len(items))
+	for _, item := range items {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		key, versioned := fingerprintResultKey(item)
+		if index, exists := indexByKey[key]; exists {
+			_, existingVersioned := fingerprintResultKey(result[index])
+			if versioned && !existingVersioned {
+				result[index] = item
+			}
+			continue
+		}
+		indexByKey[key] = len(result)
+		result = append(result, item)
+	}
+	return result
+}
+
+func fingerprintResultKey(item string) (string, bool) {
+	name := item
+	versioned := false
+	for _, separator := range []byte{':', '/'} {
+		if index := strings.LastIndexByte(item, separator); index > 0 && looksLikeVersion(item[index+1:]) {
+			name = item[:index]
+			versioned = true
+			break
+		}
+	}
+	return strings.ToLower(strings.TrimSpace(name)), versioned
+}
+
+func looksLikeVersion(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false
+	}
+	return value[0] >= '0' && value[0] <= '9'
+}
+
+func checkDataHTTPHeaders(data CheckDatas) http.Header {
+	if len(data.HTTPHeaders) > 0 {
+		return data.HTTPHeaders
+	}
+
+	headers := make(http.Header)
+	for line := range strings.SplitSeq(data.Headers, "\n") {
+		name, value, ok := strings.Cut(strings.TrimSpace(line), ":")
+		if !ok || strings.TrimSpace(name) == "" {
+			continue
+		}
+		headers.Add(strings.TrimSpace(name), strings.TrimSpace(value))
+	}
+	return headers
 }
 
 // matchByRegex 使用正则规则匹配指纹

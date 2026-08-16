@@ -1,0 +1,20 @@
+id: gitlab-public-repos
+
+info:
+  name: GitLab Public Repositories
+  author: ldionmarcil
+  severity: info
+  reference:
+    - https://github.com/ldionmarcil/gitlab-unauth-parser
+  tags: gitlab,public,repos
+  created: 2023/07/20
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /api/v4/projects
+      headers:
+        Cookie: _gitlab_session=
+    expression: response.status == 200 && response.body.bcontains(b'name_with_namespace')
+expression: r0()

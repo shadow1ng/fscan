@@ -1,0 +1,31 @@
+id: kubernetes-pods-api
+
+info:
+  name: Kubernetes Pods API Unauthenticated Access
+  author: ilovebinbash,geeknik,0xtavian
+  severity: critical
+  reference:
+    - https://github.com/officialhocc/Kubernetes-Kubelet-RCE
+    - https://blog.binaryedge.io/2018/12/06/kubernetes-being-hijacked-worldwide/
+  tags: k8,unauth,kubernetes,devops,misconfig
+  created: 2025/07/14
+
+rules:
+  r0:
+    brute:
+      mode: clusterbomb
+      commit: winner
+      continue: false
+      p:
+        - /pods
+        - /api/v1/pods
+        - /runningpods/
+    request:
+      method: GET
+      path: "{{p}}"
+    expression: |
+      response.status == 200 &&
+      response.body.bcontains(b'"apiVersion":') &&
+      response.body.bcontains(b'"items":') &&
+      response.body.bcontains(b'"kind":')
+expression: r0()

@@ -436,6 +436,7 @@ var resultSerializers = map[plugins.ResultType]resultSerializer{
 		fillDetail: func(r *plugins.Result, info *common.HostInfo, d map[string]interface{}) {
 			d["is_web"] = true
 			d["port"] = info.Port
+			d["length"] = r.Length
 			if r.Output == "" {
 				return
 			}
@@ -495,6 +496,10 @@ func savePluginResult(session *common.ScanSession, info *common.HostInfo, plugin
 func addCommonDetails(result *plugins.Result, details map[string]interface{}) {
 	if len(result.Fingerprints) > 0 {
 		details["fingerprints"] = result.Fingerprints
+	}
+	if len(result.CredentialHints) > 0 {
+		details["credential_hints"] = result.CredentialHints
+		details["credential_hints_verified"] = false
 	}
 	if result.Title != "" {
 		details["title"] = result.Title

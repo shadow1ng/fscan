@@ -31,10 +31,16 @@ type ndjsonRecord struct {
 	Port    int        `json:"port,omitempty"`
 	Service string     `json:"service,omitempty"`
 	// 通用可选字段
-	Protocol string `json:"protocol,omitempty"`
-	Banner   string `json:"banner,omitempty"`
-	Title    string `json:"title,omitempty"`
-	URL      string `json:"url,omitempty"`
+	Protocol                string   `json:"protocol,omitempty"`
+	Banner                  string   `json:"banner,omitempty"`
+	Title                   string   `json:"title,omitempty"`
+	URL                     string   `json:"url,omitempty"`
+	HTTPStatus              int      `json:"http_status,omitempty"`
+	ContentLength           int      `json:"content_length,omitempty"`
+	Server                  string   `json:"server,omitempty"`
+	Fingerprints            []string `json:"fingerprints,omitempty"`
+	CredentialHints         []string `json:"credential_hints,omitempty"`
+	CredentialHintsVerified *bool    `json:"credential_hints_verified,omitempty"`
 	// 漏洞/弱口令
 	Vulnerability string `json:"vulnerability,omitempty"`
 	Username      string `json:"username,omitempty"`
@@ -97,6 +103,18 @@ func (w *StdoutNDJSONWriter) flatten(r *ScanResult) *ndjsonRecord {
 	}
 	rec.Title = strVal(d, "title")
 	rec.URL = strVal(d, "url")
+	rec.HTTPStatus, _ = toInt(d["status"])
+	rec.ContentLength, _ = toInt(d["length"])
+	rec.Server = strVal(d, "server")
+	rec.Fingerprints = stringSliceVal(d["fingerprints"])
+	rec.CredentialHints = stringSliceVal(d["credential_hints"])
+	if len(rec.CredentialHints) > 0 {
+		verified := false
+		if value, ok := d["credential_hints_verified"].(bool); ok {
+			verified = value
+		}
+		rec.CredentialHintsVerified = &verified
+	}
 	rec.Vulnerability = strVal(d, "vulnerability")
 	if rec.Vulnerability == "" {
 		rec.Vulnerability = strVal(d, "vulnerability_name")
@@ -138,6 +156,24 @@ func toInt(v interface{}) (int, bool) {
 		return int(n), true
 	}
 	return 0, false
+}
+
+func stringSliceVal(v interface{}) []string {
+	switch values := v.(type) {
+	case []string:
+		return append([]string(nil), values...)
+	case []interface{}:
+		result := make([]string, 0, len(values))
+		for _, value := range values {
+			text := strings.TrimSpace(fmt.Sprint(value))
+			if text != "" {
+				result = append(result, text)
+			}
+		}
+		return result
+	default:
+		return nil
+	}
 }
 
 func splitHostPort(target string) (string, int, bool) {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -310,27 +311,38 @@ func (w *TXTWriter) formatServiceLine(result *ScanResult) string {
 func (w *TXTWriter) formatWebServiceLine(result *ScanResult) string {
 	target := targetWithPort(result.Target, w.getDetail(result, "port"))
 
-	url := fmt.Sprintf("%s://%s", w.webProtocol(result, target), target)
+	webURL := w.getDetailStr(result, "url")
+	if webURL == "" {
+		webURL = fmt.Sprintf("%s://%s", w.webProtocol(result, target), target)
+	}
 	title := w.getDetailStr(result, "title")
+	if title == "" {
+		title = "-"
+	}
 	status := w.getDetail(result, "status")
 	server := w.getDetailStr(result, "server")
-	fingerprints := w.getFingerprints(result)
+	length := w.getDetail(result, "length")
+	fingerprints := formatFingerprints(w.getDetail(result, "fingerprints"))
+	credentialHints := formatStringList(w.getDetail(result, "credential_hints"))
 
-	var parts []string
-	parts = append(parts, url)
-	if title != "" {
-		parts = append(parts, fmt.Sprintf("[%s]", title))
-	}
+	parts := []string{webURL}
 	if status != nil && status != 0 {
-		parts = append(parts, fmt.Sprintf("%v", status))
+		parts = append(parts, fmt.Sprintf("status=%v", status))
+	}
+	parts = append(parts, "title="+strconv.Quote(strings.ToValidUTF8(title, "?")))
+	if length != nil {
+		parts = append(parts, fmt.Sprintf("length=%v", length))
 	}
 	if server != "" {
-		parts = append(parts, server)
+		parts = append(parts, "server="+strconv.Quote(strings.ToValidUTF8(server, "?")))
 	}
-	if len(fingerprints) > 0 {
-		parts = append(parts, fingerprints)
+	if fingerprints != "" {
+		parts = append(parts, "tech="+strconv.Quote(fingerprints))
 	}
-	return strings.Join(parts, " ")
+	if credentialHints != "" {
+		parts = append(parts, "默认密码："+strconv.Quote(credentialHints))
+	}
+	return strings.Join(parts, " | ")
 }
 
 // getFingerprints 获取指纹信息并格式化
@@ -430,7 +442,7 @@ func (w *TXTWriter) Close() error {
 	}
 
 	var firstErr error
-	for _, resultType := range storedResultTypes {
+	for _, resultType := range []ResultType{TypeHost, TypePort, TypeService} {
 		if err := w.writeSection(resultType); err != nil {
 			firstErr = err
 			break
@@ -438,6 +450,9 @@ func (w *TXTWriter) Close() error {
 	}
 	if firstErr == nil {
 		firstErr = w.writeWebServices()
+	}
+	if firstErr == nil {
+		firstErr = w.writeSection(TypeVuln)
 	}
 	w.closed = true
 
@@ -464,6 +479,9 @@ func (w *TXTWriter) Close() error {
 func (w *TXTWriter) writeSection(resultType ResultType) error {
 	wroteHeader := false
 	err := w.store.ForEach(resultType, func(result *ScanResult) error {
+		if resultType == TypeService && w.isWebService(result) {
+			return nil
+		}
 		if !wroteHeader {
 			if _, err := w.bufWriter.WriteString(w.getSeparator(resultType) + "\n"); err != nil {
 				return err
@@ -500,8 +518,8 @@ func (w *TXTWriter) writeWebServices() error {
 			}
 			wroteHeader = true
 		}
-		target := targetWithPort(result.Target, w.getDetail(result, "port"))
-		_, err := fmt.Fprintf(w.bufWriter, "%s://%s\n", w.webProtocol(result, target), target)
+		line := w.formatWebServiceLine(result)
+		_, err := w.bufWriter.WriteString(line + "\n")
 		return err
 	})
 	if err != nil {
@@ -887,7 +905,7 @@ func (w *CSVWriter) Close() error {
 	}{
 		{title: "# Hosts", headers: []string{"Target"}, resultType: TypeHost, formatter: w.formatHostRecord},
 		{title: "# Ports", headers: []string{"Target", "Port", "Status"}, resultType: TypePort, formatter: w.formatPortRecord},
-		{title: "# Services", headers: []string{"Target", "Service", "Version", "Title", "Status", "Server", "Fingerprints", "Banner"}, resultType: TypeService, formatter: w.formatServiceRecord},
+		{title: "# Services", headers: []string{"Target", "Service", "Version", "Title", "Status", "Server", "Fingerprints", "默认密码：", "Banner"}, resultType: TypeService, formatter: w.formatServiceRecord},
 		{title: "# Vulns", headers: []string{"Target", "Type", "Details"}, resultType: TypeVuln, formatter: w.formatVulnRecord},
 	}
 	for _, section := range sections {
@@ -955,7 +973,7 @@ func (w *CSVWriter) formatPortRecord(result *ScanResult) []string {
 }
 
 func (w *CSVWriter) formatServiceRecord(result *ScanResult) []string {
-	service, version, title, status, server, fingerprints, banner := "", "", "", "", "", "", ""
+	service, version, title, status, server, fingerprints, credentialHints, banner := "", "", "", "", "", "", "", ""
 	if result.Details != nil {
 		if s, ok := result.Details["service"].(string); ok {
 			service = s
@@ -979,6 +997,7 @@ func (w *CSVWriter) formatServiceRecord(result *ScanResult) []string {
 			server = escapeControlChars(s)
 		}
 		fingerprints = formatFingerprints(result.Details["fingerprints"])
+		credentialHints = formatStringList(result.Details["credential_hints"])
 		if b, ok := result.Details["banner"].(string); ok {
 			banner = escapeControlChars(b)
 			banner = truncateString(banner, 100)
@@ -988,10 +1007,14 @@ func (w *CSVWriter) formatServiceRecord(result *ScanResult) []string {
 	if result.Details != nil {
 		target = targetWithPort(target, result.Details["port"])
 	}
-	return []string{target, service, version, title, status, server, fingerprints, banner}
+	return []string{target, service, version, title, status, server, fingerprints, credentialHints, banner}
 }
 
 func formatFingerprints(value interface{}) string {
+	return formatStringList(value)
+}
+
+func formatStringList(value interface{}) string {
 	switch v := value.(type) {
 	case []string:
 		return strings.Join(v, ",")

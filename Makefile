@@ -7,7 +7,7 @@
 .DEFAULT_GOAL := help
 
 # 项目配置
-BINARY_NAME := scanner
+BINARY_NAME := fscan_lll
 GO := go
 GOLANGCI_LINT := golangci-lint
 
