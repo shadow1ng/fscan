@@ -408,7 +408,7 @@ func buildFlagVars(config Config, target Target) *common.FlagVars {
 		ThreadNum:           threadNum,
 		ModuleThreadNum:     moduleThreads,
 		TimeoutSec:          timeout,
-		GlobalTimeout:       180,
+		GlobalTimeout:       0,
 		DisablePing:         config.DisablePing,
 		DisableTcpProbe:     config.DisableTCPProbe,
 		DisableSubnetProbe:  config.DisableSubnetProbe,
