@@ -230,11 +230,11 @@ func TestIsWebServiceByFingerprint(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "SSL/TLS服务",
+			name: "通用TLS服务不是Web",
 			serviceInfo: &ServiceInfo{
 				Name: "ssl",
 			},
-			expected: true,
+			expected: false,
 		},
 		{
 			name: "包含非Web关键字-postgresql",

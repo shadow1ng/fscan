@@ -61,12 +61,11 @@ func (p *TelnetPlugin) Scan(ctx context.Context, info *common.HostInfo, session 
 
 	// 检测未授权访问
 	if result := p.testUnauthAccess(ctx, info, session); result != nil && result.Success {
-		session.LogVuln(i18n.Tr("telnet_service", target, result.Banner))
-		// 验证命令执行能力
 		if ok, osType, evidence := p.verifyCommandExecution(ctx, info, "", "", session); ok {
+			session.LogVuln(i18n.Tr("telnet_service", target, result.Banner))
 			session.LogVuln(i18n.Tr("telnet_unauth_rce", target, osType, evidence))
+			return result
 		}
-		return result
 	}
 
 	// 生成密码字典

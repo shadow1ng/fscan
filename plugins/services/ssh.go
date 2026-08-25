@@ -3,6 +3,7 @@
 package services
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -308,19 +309,27 @@ func (p *SSHPlugin) identifyService(ctx context.Context, info *common.HostInfo, 
 func (p *SSHPlugin) readSSHBanner(conn net.Conn, config *common.Config) string {
 	_ = conn.SetReadDeadline(time.Now().Add(config.ModuleTimeout()))
 
-	banner := make([]byte, 256)
-	n, err := conn.Read(banner)
-	if err != nil || n < 4 {
-		return ""
-	}
-
-	bannerStr := strings.TrimSpace(string(banner[:n]))
-
-	if strings.HasPrefix(bannerStr, "SSH-") {
-		if matched := sshBannerRegex.FindStringSubmatch(bannerStr); len(matched) >= 3 {
-			return fmt.Sprintf("SSH %s (%s)", matched[1], matched[2])
+	// RFC 4253 permits servers to send informational lines before the SSH
+	// identification string. Read bounded lines until the protocol banner is
+	// found instead of requiring SSH- at the first byte of the first read.
+	reader := bufio.NewReaderSize(conn, 256)
+	for range 50 {
+		line, err := reader.ReadString('\n')
+		if len(line) > 255 {
+			return ""
 		}
-		return i18n.Tr("ssh_service_banner", bannerStr)
+
+		banner := strings.TrimSpace(line)
+		if strings.HasPrefix(banner, "SSH-") {
+			if matched := sshBannerRegex.FindStringSubmatch(banner); len(matched) >= 3 {
+				return fmt.Sprintf("SSH %s (%s)", matched[1], matched[2])
+			}
+			return i18n.Tr("ssh_service_banner", banner)
+		}
+
+		if err != nil {
+			return ""
+		}
 	}
 
 	return ""
