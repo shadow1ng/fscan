@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/shadow1ng/fscan/common"
@@ -30,6 +31,8 @@ const (
 	// ProxySocks5URL SOCKS5代理地址
 	ProxySocks5URL = "socks5://127.0.0.1:1080"
 )
+
+var gmtlsStdoutMu sync.Mutex
 
 // 全局HTTP客户端变量
 var (
@@ -202,10 +205,20 @@ func InitHTTPClient(ThreadsNum int, DownProxy string, Timeout time.Duration, max
 				Timeout:   dialTimeout,
 				KeepAlive: keepAlive,
 			}
-			return gmtls.DialWithDialer(dialer, network, addr, &gmtls.Config{
+			// 抑制 gmtls 库的 fmt.Println("handshake error") 噪声
+			gmtlsStdoutMu.Lock()
+			orig := os.Stdout
+			if devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0); err == nil {
+				os.Stdout = devNull
+				defer devNull.Close()
+			}
+			conn, err := gmtls.DialWithDialer(dialer, network, addr, &gmtls.Config{
 				GMSupport:          gmtls.NewGMSupport(),
 				InsecureSkipVerify: true,
 			})
+			os.Stdout = orig
+			gmtlsStdoutMu.Unlock()
+			return conn, err
 		},
 		MaxConnsPerHost:     20,
 		MaxIdleConns:        20,
