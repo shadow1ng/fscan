@@ -477,6 +477,13 @@ func (t *TPKT) recvFastPath(s []byte, err error) {
 		return
 	}
 
+	// NLA-only authentication can receive a Fast-Path packet before the PDU
+	// layer installs a listener. Treat it as an ignorable early packet instead
+	// of dereferencing a nil interface and crashing the whole scan.
+	if t.fastPathListener == nil {
+		return
+	}
+
 	t.fastPathListener.RecvFastPath(t.secFlag, s)
 	core.StartReadBytes(2, t.Conn, t.recvHeader)
 }

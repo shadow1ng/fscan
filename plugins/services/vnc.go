@@ -34,6 +34,15 @@ func (p *VNCPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 		return result
 	}
 
+	// -nobr 仅保留未授权访问检测，不继续尝试密码。
+	if config.DisableBrute {
+		return &ScanResult{
+			Type:    plugins.ResultTypeService,
+			Success: true,
+			Service: "vnc",
+		}
+	}
+
 	// 生成密码列表
 	var credentials []Credential
 	if config.Credentials.Passwords != nil {

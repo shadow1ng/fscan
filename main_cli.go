@@ -20,6 +20,10 @@ import (
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	// 启动 pprof（仅调试版本）
 	debug.Start()
 	defer debug.Stop()
@@ -28,23 +32,23 @@ func main() {
 	var info common.HostInfo
 	if err := common.Flag(&info); err != nil {
 		if err == common.ErrShowHelp {
-			os.Exit(0) // 显示帮助是正常退出
+			return 0 // 显示帮助是正常退出
 		}
 		common.LogError(i18n.Tr("param_error", err))
-		os.Exit(1)
+		return 1
 	}
 
 	// 检查参数互斥性
 	if err := common.ValidateExclusiveParams(&info); err != nil {
 		common.LogError(i18n.Tr("error_generic", err))
-		os.Exit(1)
+		return 1
 	}
 
 	// 统一初始化：解析 → 配置 → 输出
 	result, err := common.Initialize(&info)
 	if err != nil {
 		common.LogError(i18n.Tr("init_failed", err))
-		os.Exit(1)
+		return 1
 	}
 
 	// 设置信号处理，确保 Ctrl+C 时能正确保存结果
@@ -62,6 +66,8 @@ func main() {
 	// 执行扫描
 	if _, err := core.RunScan(context.Background(), *result.Info, result.Session); err != nil {
 		common.LogError(i18n.Tr("error_generic", err))
-		os.Exit(1)
+		return 1
 	}
+
+	return 0
 }

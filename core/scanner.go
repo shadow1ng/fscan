@@ -13,7 +13,6 @@ import (
 	"github.com/shadow1ng/fscan/common"
 	"github.com/shadow1ng/fscan/common/i18n"
 	"github.com/shadow1ng/fscan/common/output"
-	"github.com/shadow1ng/fscan/common/parsers"
 	"github.com/shadow1ng/fscan/plugins"
 	"github.com/shadow1ng/fscan/webscan/lib"
 )
@@ -96,15 +95,6 @@ func selectStrategy(config *common.Config, state *common.State, info common.Host
 func RunScan(ctx context.Context, info common.HostInfo, session *common.ScanSession) (ScanReport, error) {
 	start := time.Now()
 	config := session.Config
-
-	// 全局超时自适应：用户未显式指定 -gt 时，根据扫描规模自动调大
-	if !config.GlobalTimeoutExplicit && config.GlobalTimeout > 0 {
-		if adjusted := estimateGlobalTimeout(config, session); adjusted > config.GlobalTimeout {
-			session.LogInfo(i18n.Tr("global_timeout_adjusted",
-				int(config.GlobalTimeout.Seconds()), int(adjusted.Seconds())))
-			config.GlobalTimeout = adjusted
-		}
-	}
 
 	// 全局超时：-gt 参数设置整个扫描的硬性截止时间
 	var cancel context.CancelFunc
@@ -498,53 +488,4 @@ func addCommonDetails(result *plugins.Result, details map[string]interface{}) {
 	if result.Server != "" {
 		details["server"] = result.Server
 	}
-}
-
-func estimateGlobalTimeout(config *common.Config, session *common.ScanSession) time.Duration {
-	portCount := int64(len(parsers.ParsePort(config.Target.Ports)))
-	if portCount == 0 {
-		portCount = 10
-	}
-
-	var hostFile string
-	var hostStr string
-	if session.Params != nil {
-		hostFile = session.Params.HostsFile
-		hostStr = session.Params.Host
-	}
-	hostCount := parsers.EstimateHostCount(hostStr, hostFile)
-	if hostCount <= 0 {
-		hostCount = 1
-	}
-
-	totalTasks := hostCount * portCount
-	threads := int64(config.ThreadNum)
-	if threads <= 0 {
-		threads = 600
-	}
-
-	// 端口扫描：平均每个任务约 50ms（大部分连接快速失败）
-	portScanSec := float64(totalTasks) * 0.05 / float64(threads)
-
-	// 插件扫描：开放率随端口数下降（全端口约 0.1%，少量端口约 5%）
-	openRate := 0.05
-	if portCount > 1000 {
-		openRate = 0.002
-	} else if portCount > 100 {
-		openRate = 0.01
-	}
-	moduleThreads := float64(config.ModuleThreadNum)
-	if moduleThreads <= 0 {
-		moduleThreads = 20
-	}
-	pluginSec := float64(totalTasks) * openRate * 2.0 / moduleThreads
-	// 总估算 + 20% 余量
-	estimatedSec := (portScanSec + pluginSec) * 1.2
-
-	const maxTimeout = 2 * time.Hour
-	estimated := time.Duration(estimatedSec) * time.Second
-	if estimated > maxTimeout {
-		estimated = maxTimeout
-	}
-	return estimated
 }

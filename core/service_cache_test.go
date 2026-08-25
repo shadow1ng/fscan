@@ -88,8 +88,8 @@ func TestCacheServiceInfo_BasicCRUD(t *testing.T) {
 func TestWebServiceFiltering(t *testing.T) {
 	clearServiceCache()
 
-	webNames := []string{"http", "https", "ssl", "tls", "nginx", "apache", "iis", "tomcat"}
-	nonWebNames := []string{"ssh", "mysql", "postgresql", "redis", "mongodb", "ftp", "smtp", "telnet", "vnc", "rdp"}
+	webNames := []string{"http", "https", "nginx", "apache", "iis", "tomcat"}
+	nonWebNames := []string{"ssl", "tls", "ssh", "mysql", "postgresql", "redis", "mongodb", "ftp", "smtp", "telnet", "vnc", "rdp"}
 
 	for _, name := range webNames {
 		clearServiceCache()

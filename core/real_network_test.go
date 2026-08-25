@@ -440,11 +440,15 @@ func TestReal_AdaptiveTimeout_Convergence(t *testing.T) {
 	if converged >= 3*time.Second {
 		t.Errorf("采样后 Timeout = %v, 应该 < 3s", converged)
 	}
-	if converged < 100*time.Millisecond {
-		t.Logf("Timeout 收敛到 %v（localhost，正常）", converged)
+
+	// minTO 下限断言：max(500ms, 3s/5) = 600ms
+	// localhost RTT 极低，收敛值应贴在地板上（issue #503）
+	minFloor := 600 * time.Millisecond
+	if converged < minFloor {
+		t.Errorf("收敛后 Timeout = %v, 不应低于 minTO 下限 %v", converged, minFloor)
 	}
 
-	t.Logf("AdaptiveTimeout 收敛: 3s -> %v (%d 个样本)", converged, 20)
+	t.Logf("AdaptiveTimeout 收敛: 3s -> %v (%d 个样本), minTO=%v", converged, 20, minFloor)
 }
 
 // =============================================================================

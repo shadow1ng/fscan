@@ -667,6 +667,9 @@ func TestBuildFlagVarsCustomValues(t *testing.T) {
 	if fv.TimeoutSec != 10 {
 		t.Fatalf("TimeoutSec = %d, want 10", fv.TimeoutSec)
 	}
+	if fv.GlobalTimeout != 0 {
+		t.Fatalf("GlobalTimeout = %d, want disabled", fv.GlobalTimeout)
+	}
 	if fv.WebTimeout != 15 {
 		t.Fatalf("WebTimeout = %d, want 15", fv.WebTimeout)
 	}

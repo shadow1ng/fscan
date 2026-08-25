@@ -34,7 +34,7 @@ func TestBuildConfigFromFlags_ScanControl(t *testing.T) {
 				ThreadNum:       600,
 				ModuleThreadNum: 20,
 				TimeoutSec:      3,
-				GlobalTimeout:   180,
+				GlobalTimeout:   0,
 			},
 			validate: func(t *testing.T, cfg *Config) {
 				if cfg.Mode != "all" {
@@ -48,6 +48,9 @@ func TestBuildConfigFromFlags_ScanControl(t *testing.T) {
 				}
 				if cfg.Timeout != 3*time.Second {
 					t.Errorf("Timeout = %v, want %v", cfg.Timeout, 3*time.Second)
+				}
+				if cfg.GlobalTimeout != 0 {
+					t.Errorf("GlobalTimeout = %v, want disabled", cfg.GlobalTimeout)
 				}
 			},
 		},

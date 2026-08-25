@@ -4,8 +4,46 @@ package services
 
 import (
 	"errors"
+	"net"
 	"testing"
+	"time"
+
+	"github.com/shadow1ng/fscan/common"
 )
+
+func TestReadSSHBannerAllowsPreBannerLines(t *testing.T) {
+	client, server := net.Pipe()
+	defer client.Close()
+	defer server.Close()
+
+	go func() {
+		_, _ = server.Write([]byte("Authorized access only\r\nSSH-2.0-OpenSSH_9.6\r\n"))
+	}()
+
+	cfg := common.NewConfig()
+	cfg.Timeout = time.Second
+	got := NewSSHPlugin().readSSHBanner(client, cfg)
+	if got != "SSH 2.0 (OpenSSH_9.6)" {
+		t.Fatalf("readSSHBanner() = %q", got)
+	}
+}
+
+func TestReadSSHBannerRejectsNonSSHService(t *testing.T) {
+	client, server := net.Pipe()
+	defer client.Close()
+	defer server.Close()
+
+	go func() {
+		_, _ = server.Write([]byte("HTTP/1.1 200 OK\r\n"))
+		_ = server.Close()
+	}()
+
+	cfg := common.NewConfig()
+	cfg.Timeout = time.Second
+	if got := NewSSHPlugin().readSSHBanner(client, cfg); got != "" {
+		t.Fatalf("readSSHBanner() = %q, want empty", got)
+	}
+}
 
 func TestClassifySSHErrorType(t *testing.T) {
 	tests := []struct {

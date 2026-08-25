@@ -222,7 +222,7 @@ var (
 		"telnet", "ftp", "smtp", "pop3", "imap", "ldap", "snmp", "vnc", "rdp", "smb",
 	}
 	webKeywords = []string{
-		"http", "https", "ssl", "tls", "nginx", "apache", "iis", "tomcat",
+		"http", "https", "nginx", "apache", "iis", "tomcat",
 		"jetty", "nodejs", "php", "asp", "jsp",
 	}
 	bannerKeywords = []string{"server:", "http/", "content-type:"}
@@ -514,4 +514,3 @@ func hasMalformedURLPort(host string) bool {
 	}
 	return strings.Contains(host, ":")
 }
-

@@ -1,0 +1,33 @@
+id: kubernetes-pods-api
+
+info:
+  name: Kubernetes Pods - API Discovery & Remote Code Execution
+  author: ilovebinbash,geeknik,0xtavian
+  severity: critical
+  description: |-
+    A Kubernetes Pods API was discovered. When the service port is available, unauthenticated users can execute commands inside the container.
+  reference:
+    - https://github.com/officialhocc/Kubernetes-Kubelet-RCE
+    - https://blog.binaryedge.io/2018/12/06/kubernetes-being-hijacked-worldwide/
+  tags: k8,unauth,kubernetes,devops,misconfig
+  created: 2025/07/14
+
+rules:
+  r0:
+    brute:
+      mode: clusterbomb
+      commit: winner
+      continue: false
+      p:
+        - /pods
+        - /api/v1/pods
+        - /runningpods/
+    request:
+      method: GET
+      path: "{{p}}"
+    expression: |
+      response.status == 200 && 
+      response.body.bcontains(b'"apiVersion":') &&
+      response.body.bcontains(b'"items":') &&
+      response.body.bcontains(b'"kind":')
+expression: r0()

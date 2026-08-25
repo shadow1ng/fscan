@@ -290,6 +290,7 @@ func EnhancedPortScan(ctx context.Context, hosts []string, ports string, timeout
 // slidingWindowSchedule 滑动窗口调度器
 // ants.PoolWithFunc.Invoke 在池满时阻塞，天然提供反压，无需额外 semaphore
 func slidingWindowSchedule(iter *SocketIterator, pool *AdaptivePool, wg *sync.WaitGroup) {
+	var dropped int64
 	for {
 		host, port, ok := iter.Next()
 		if !ok {
@@ -304,11 +305,17 @@ func slidingWindowSchedule(iter *SocketIterator, pool *AdaptivePool, wg *sync.Wa
 		}
 		if err := pool.Invoke(task); err != nil {
 			wg.Done()
+			dropped++
+			common.LogError(i18n.Tr("port_scan_task_dropped", task.addr, err))
 		}
 	}
 
 	// 等待所有任务完成
 	wg.Wait()
+
+	if dropped > 0 {
+		common.LogError(i18n.Tr("port_scan_tasks_dropped_total", dropped))
+	}
 }
 
 // fmtPort 无分配的端口号格式化
@@ -327,7 +334,10 @@ func fmtPort(port int) string {
 	return string(buf[i:])
 }
 
-// connectWithRetry 带重试的TCP连接 - 只对资源耗尽错误重试
+// connectWithRetry 带重试的TCP连接
+//   - 资源耗尽错误：指数退避重试（maxRetries 次）
+//   - 其他错误（如 connection refused、timeout）：直接返回
+//     timeout 是正常的扫描结果（防火墙 drop / filtered），不盲目重试
 func connectWithRetry(ctx context.Context, session *common.ScanSession, addr string, timeout time.Duration, maxRetries int) (net.Conn, error) {
 	var lastErr error
 
@@ -340,9 +350,9 @@ func connectWithRetry(ctx context.Context, session *common.ScanSession, addr str
 
 		lastErr = err
 
-		// 只对资源耗尽类错误重试，端口关闭直接返回
+		// 只对资源耗尽类错误重试，端口关闭或超时直接返回
 		if !isResourceExhaustedError(err) {
-			return nil, err
+			return nil, lastErr
 		}
 
 		// 记录资源耗尽错误

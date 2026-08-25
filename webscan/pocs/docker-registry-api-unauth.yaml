@@ -1,0 +1,21 @@
+id: docker-registry-api-unauth
+
+info:
+  name: docker registry api 未经批准
+  author: p0wd3r
+  severity: critical
+  tags: docker,unauth
+  created: 2024/01/12
+
+rules:
+    r0:
+        request:
+            method: GET
+            path: /v2/
+        expression: response.status == 200 && "docker-distribution-api-version" in response.headers && response.headers["docker-distribution-api-version"].contains("registry/2.0")
+    r1:
+        request:
+            method: GET
+            path: /v2/_catalog
+        expression: response.status == 200 && response.content_type.contains("application/json") && response.body.bcontains(b"repositories")
+expression: r0() && r1()

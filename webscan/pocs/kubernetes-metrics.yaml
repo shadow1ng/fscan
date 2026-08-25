@@ -1,0 +1,21 @@
+id: kubernetes-metrics
+
+info:
+  name: Detect Kubernetes Exposed Metrics
+  author: pussycat0x
+  severity: low
+  verified: false
+  description: |-
+    Information Disclosure of Garbage Collection
+  reference:
+    - https://kubernetes.io/docs/concepts/cluster-administration/system-metrics/#metrics-in-kubernetes
+  tags: kubernetes,metrics,detect
+  created: 2024/01/05
+
+rules:
+  r0:
+    request:
+      method: GET
+      path: /metrics
+    expression: response.status == 200 && response.body.bcontains(b"namespace") && response.body.bcontains(b"HELP") && response.body.bcontains(b"TYPE") && response.body.bcontains(b"kube")
+expression: r0()

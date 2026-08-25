@@ -25,10 +25,17 @@ type AdaptiveTimeout struct {
 // NewAdaptiveTimeout 创建自适应超时计算器
 // maxTimeout: 用户配置的超时上限（即原始固定超时）
 func NewAdaptiveTimeout(maxTimeout time.Duration) *AdaptiveTimeout {
+	// minTO: 自适应超时下限，取 max(500ms, maxTimeout/5)
+	// 依据：高并发下 TCP 握手存在尾延迟（OS 调度抖动、backlog 溢出、端口竞争），
+	//       过低的下限会导致开放端口被误判为关闭（issue #503）
+	minTO := maxTimeout / 5
+	if minTO < 500*time.Millisecond {
+		minTO = 500 * time.Millisecond
+	}
 	return &AdaptiveTimeout{
 		samples: make([]float64, 64),
 		size:    64,
-		minTO:   100 * time.Millisecond,
+		minTO:   minTO,
 		maxTO:   maxTimeout,
 		warmup:  10,
 	}
