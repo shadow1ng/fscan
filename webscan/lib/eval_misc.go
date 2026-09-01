@@ -21,6 +21,10 @@ func registerMiscDeclarations() []*exprpb.Decl {
 			decls.NewOverload("tongda_date",
 				[]*exprpb.Type{},
 				decls.String)),
+		decls.NewFunction("timestamp_second",
+			decls.NewOverload("timestamp_second_zero",
+				[]*exprpb.Type{},
+				decls.Int)),
 	}
 }
 
@@ -45,6 +49,12 @@ func registerMiscImplementations() []*functions.Overload {
 			Operator: "tongda_date",
 			Function: func(value ...ref.Val) ref.Val {
 				return types.String(time.Now().Format("0601"))
+			},
+		},
+		{
+			Operator: "timestamp_second_zero",
+			Function: func(value ...ref.Val) ref.Val {
+				return types.Int(time.Now().Unix())
 			},
 		},
 	}
