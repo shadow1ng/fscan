@@ -243,6 +243,9 @@ func (p *SMTPPlugin) testAnonymousAccess(ctx context.Context, info *common.HostI
 		}
 		defer func() { _ = conn.Close() }()
 
+		// 修复: 设置读写超时, 防止对只accept不发送banner的服务器(tarpit)永久阻塞
+		_ = conn.SetDeadline(time.Now().Add(session.Config.ModuleTimeout()))
+
 		client, err := smtp.NewClient(conn, info.Host)
 		if err != nil {
 			resultChan <- nil
@@ -294,6 +297,9 @@ func (p *SMTPPlugin) testOpenRelay(ctx context.Context, info *common.HostInfo, s
 			return
 		}
 		defer func() { _ = conn.Close() }()
+
+		// 修复: 设置读写超时, 防止对只accept不发送banner的服务器(tarpit)永久阻塞
+		_ = conn.SetDeadline(time.Now().Add(session.Config.ModuleTimeout()))
 
 		client, err := smtp.NewClient(conn, info.Host)
 		if err != nil {
