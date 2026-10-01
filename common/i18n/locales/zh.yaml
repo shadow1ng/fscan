@@ -9,7 +9,7 @@ flag_exclude_hosts:
 flag_exclude_hosts_file:
   other: "排除主机文件"
 flag_ports:
-  other: "端口: 默认1000个常用端口"
+  other: "端口: 指定模块时默认使用模块端口，否则使用常用端口"
 flag_exclude_ports:
   other: "排除端口"
 flag_hosts_file:
@@ -17,7 +17,11 @@ flag_hosts_file:
 flag_ports_file:
   other: "端口文件"
 flag_scan_mode:
-  other: "扫描模式: all(全部), icmp(存活探测), 或指定插件名称"
+  other: "扫描模式: all(全部), icmp(存活探测), 或指定插件名称（-list-plugins 查看）"
+flag_list_plugins:
+  other: "列出当前构建可用的模块、类型、默认端口和调用方式后退出"
+plugin_list_header:
+  other: "模块\t类型\t默认端口\t调用方式"
 flag_thread_num:
   other: "端口扫描线程数"
 flag_timeout:
@@ -311,6 +315,8 @@ config_read_passwords_failed:
   other: "读取密码文件 {{.Arg1}} 失败: {{.Arg2}}"
 config_read_urls_failed:
   other: "读取URL文件 {{.Arg1}} 失败: {{.Arg2}}"
+config_read_ports_failed:
+  other: "读取端口文件 {{.Arg1}} 失败: {{.Arg2}}"
 
 # ========================= 插件扫描消息 (带参数) =========================
 scan_plugin_not_found:

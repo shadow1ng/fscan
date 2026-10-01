@@ -38,11 +38,21 @@ func run() int {
 		return 1
 	}
 
+	flags := common.GetFlagVars()
+	if flags.ListPlugins {
+		if err := printPluginList(os.Stdout); err != nil {
+			common.LogError(i18n.Tr("error_generic", err))
+			return 1
+		}
+		return 0
+	}
+
 	// 检查参数互斥性
 	if err := common.ValidateExclusiveParams(&info); err != nil {
 		common.LogError(i18n.Tr("error_generic", err))
 		return 1
 	}
+	setPluginDefaultPorts(flags)
 
 	// 统一初始化：解析 → 配置 → 输出
 	result, err := common.Initialize(&info)

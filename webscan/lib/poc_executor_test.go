@@ -608,16 +608,16 @@ func stringMatrixEqual(a, b [][]string) bool {
 
 func TestBuildVulnDetails(t *testing.T) {
 	tests := []struct {
-		name          string
-		pocDef        *Poc
-		vulName       string
-		params        StrMap
-		wantKeys      []string
-		wantNoKeys    []string
-		wantVulnType  string
-		wantVulnName  string
-		wantParamVal  string
-		wantParamKey  string
+		name         string
+		pocDef       *Poc
+		vulName      string
+		params       StrMap
+		wantKeys     []string
+		wantNoKeys   []string
+		wantVulnType string
+		wantVulnName string
+		wantParamVal string
+		wantParamKey string
 	}{
 		{
 			name:         "最小Poc只有Name",
@@ -647,15 +647,15 @@ func TestBuildVulnDetails(t *testing.T) {
 			wantVulnName: "Full Vuln",
 		},
 		{
-			name:   "有params则details含parameters字段",
-			pocDef: &Poc{Name: "poc-yaml-params"},
+			name:    "有params则details含parameters字段",
+			pocDef:  &Poc{Name: "poc-yaml-params"},
 			vulName: "Params Vuln",
 			params: StrMap{
 				{Key: "user", Value: "admin"},
 				{Key: "pass", Value: "123456"},
 			},
-			wantKeys:    []string{"vulnerability_type", "vulnerability_name", "parameters"},
-			wantNoKeys:  []string{"author"},
+			wantKeys:     []string{"vulnerability_type", "vulnerability_name", "parameters"},
+			wantNoKeys:   []string{"author"},
 			wantParamKey: "user",
 			wantParamVal: "admin",
 		},
@@ -864,4 +864,34 @@ func TestCollectVarDeclarations(t *testing.T) {
 			t.Errorf("期望 Object 类型，实际 %v", tp)
 		}
 	})
+}
+
+func TestEvalSetTreatsEncodedValuesAsLiterals(t *testing.T) {
+	env := GetBaseEnv()
+	tests := []string{
+		"fsHspZw/92PrS3XrPW+vxw==",
+		"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJuYWNvcyJ9.feetKmWoPnMkAebjkNnyuKo6c21_hzTgu0dfNqbdpZQ",
+	}
+
+	for _, value := range tests {
+		variables := map[string]interface{}{}
+		got, err := evalset(env, variables, "token", value)
+		if err != nil {
+			t.Fatalf("evalset(%q) error = %v", value, err)
+		}
+		if got != value || variables["token"] != value {
+			t.Fatalf("evalset(%q) = %q, stored %v", value, got, variables["token"])
+		}
+	}
+}
+
+func TestEvalSetStillEvaluatesExpressions(t *testing.T) {
+	variables := map[string]interface{}{}
+	got, err := evalset(GetBaseEnv(), variables, "token", "randomLowercase(6)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 6 {
+		t.Fatalf("randomLowercase result length = %d, want 6", len(got))
+	}
 }

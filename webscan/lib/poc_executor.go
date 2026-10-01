@@ -869,6 +869,10 @@ func cloneMap(tags map[string]string) map[string]string {
 
 // evalset 执行CEL表达式并处理特殊类型结果
 func evalset(env *cel.Env, variableMap map[string]interface{}, k string, expression string) (string, error) {
+	if isPlainLiteral(expression, variableMap) {
+		variableMap[k] = expression
+		return expression, nil
+	}
 	out, err := Evaluate(env, expression, variableMap)
 	if err != nil {
 		variableMap[k] = ""
@@ -915,6 +919,11 @@ func isPlainLiteral(expr string, variableMap map[string]interface{}) bool {
 	if _, exists := variableMap[expr]; exists {
 		return false
 	}
+	// Base64/JWT 常量常包含 +、/、= 或 .，这些字符在 CEL 中也是语法符号。
+	// 先识别编码值，避免把密钥和令牌误当成表达式编译。
+	if isEncodedLiteral(expr) {
+		return true
+	}
 	// 含 CEL 语法特征的需要走 CEL 编译
 	for _, c := range expr {
 		switch c {
@@ -923,6 +932,35 @@ func isPlainLiteral(expr string, variableMap map[string]interface{}) bool {
 		}
 	}
 	return true
+}
+
+func isEncodedLiteral(value string) bool {
+	if strings.Count(value, ".") == 2 {
+		parts := strings.Split(value, ".")
+		for _, part := range parts {
+			if part == "" || strings.IndexFunc(part, func(r rune) bool {
+				return !isASCIIAlphaNumeric(r) && r != '-' && r != '_'
+			}) >= 0 {
+				return false
+			}
+		}
+		return true
+	}
+
+	if len(value) < 4 || len(value)%4 != 0 {
+		return false
+	}
+	padding := strings.TrimRight(value, "=")
+	if len(value)-len(padding) > 2 {
+		return false
+	}
+	return strings.IndexFunc(padding, func(r rune) bool {
+		return !isASCIIAlphaNumeric(r) && r != '+' && r != '/'
+	}) < 0
+}
+
+func isASCIIAlphaNumeric(r rune) bool {
+	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9'
 }
 
 // CheckInfoPoc 检查POC信息并返回别名
