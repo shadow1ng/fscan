@@ -71,6 +71,25 @@ func targetWithPort(target string, port interface{}) string {
 	return net.JoinHostPort(target, portText)
 }
 
+// closeOutputFiles 仅在最终结果完整落盘并关闭后删除恢复备份。
+func closeOutputFiles(file, backup *os.File, backupPath string, writeErr error) error {
+	if writeErr == nil {
+		writeErr = file.Sync()
+	}
+	if err := file.Close(); err != nil && writeErr == nil {
+		writeErr = err
+	}
+	if backup != nil {
+		if err := backup.Close(); err != nil && writeErr == nil {
+			writeErr = err
+		}
+		if writeErr == nil {
+			writeErr = os.Remove(backupPath)
+		}
+	}
+	return writeErr
+}
+
 // =============================================================================
 // TXTWriter - 文本格式写入器
 // =============================================================================
@@ -347,23 +366,7 @@ func (w *TXTWriter) Close() error {
 
 	w.closed = true
 
-	// 关闭并删除实时备份文件（正常结束，不再需要）
-	if w.realtimeFile != nil {
-		w.realtimeFile.Close()
-		os.Remove(w.realtimePath)
-	}
-
-	var firstErr error
-	if err := w.bufWriter.Flush(); err != nil {
-		firstErr = err
-	}
-	if err := w.file.Sync(); err != nil && firstErr == nil {
-		firstErr = err
-	}
-	if err := w.file.Close(); err != nil && firstErr == nil {
-		firstErr = err
-	}
-	return firstErr
+	return closeOutputFiles(w.file, w.realtimeFile, w.realtimePath, w.bufWriter.Flush())
 }
 
 // writeSection 写入一个分类的所有结果
@@ -565,22 +568,11 @@ func (w *JSONWriter) Close() error {
 	}
 
 	data, err := json.MarshalIndent(output, JSONIndentPrefix, JSONIndentString)
-	if err != nil {
-		return err
-	}
-
 	w.closed = true
-
-	// 关闭并删除实时备份文件（正常结束，不再需要）
-	if w.realtimeFile != nil {
-		w.realtimeFile.Close()
-		os.Remove(w.realtimePath)
+	if err == nil {
+		_, err = w.file.Write(data)
 	}
-
-	if _, err := w.file.Write(data); err != nil {
-		return err
-	}
-	return w.file.Close()
+	return closeOutputFiles(w.file, w.realtimeFile, w.realtimePath, err)
 }
 
 // GetFormat 获取格式类型
@@ -692,20 +684,12 @@ func (w *CSVWriter) Close() error {
 
 	w.closed = true
 
-	// 关闭并删除实时备份文件（正常结束，不再需要）
-	if w.realtimeFile != nil {
-		w.realtimeFile.Close()
-		os.Remove(w.realtimePath)
-	}
-
 	w.csvWriter.Flush()
-	if err := w.csvWriter.Error(); err != nil {
-		return err
+	err := w.csvWriter.Error()
+	if err == nil {
+		err = w.bufWriter.Flush()
 	}
-	if err := w.bufWriter.Flush(); err != nil {
-		return err
-	}
-	return w.file.Close()
+	return closeOutputFiles(w.file, w.realtimeFile, w.realtimePath, err)
 }
 
 func (w *CSVWriter) writeSection(title string, headers []string, results []*ScanResult, formatter func(*ScanResult) []string) {

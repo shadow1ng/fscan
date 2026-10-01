@@ -34,14 +34,14 @@ type ScanRequest struct {
 	ExcludePorts string `json:"exclude_ports"`
 
 	// 扫描控制
-	ScanMode        string `json:"scan_mode"`
-	ThreadNum       int    `json:"thread_num"`
-	Timeout         int    `json:"timeout"`
-	ModuleThreadNum int    `json:"module_thread_num"`
-	DisablePing        bool `json:"disable_ping"`
-	DisableBrute       bool `json:"disable_brute"`
-	DisableSubnetProbe bool `json:"disable_subnet_probe"`
-	AliveOnly       bool   `json:"alive_only"`
+	ScanMode           string `json:"scan_mode"`
+	ThreadNum          int    `json:"thread_num"`
+	Timeout            int    `json:"timeout"`
+	ModuleThreadNum    int    `json:"module_thread_num"`
+	DisablePing        bool   `json:"disable_ping"`
+	DisableBrute       bool   `json:"disable_brute"`
+	DisableSubnetProbe bool   `json:"disable_subnet_probe"`
+	AliveOnly          bool   `json:"alive_only"`
 
 	// 认证
 	Username string `json:"username"`
@@ -169,6 +169,47 @@ func (h *ScanHandler) runScan(req ScanRequest) {
 		})
 	}()
 
+	info, session, err := buildScanSession(req)
+	if err != nil {
+		common.LogError(err.Error())
+		return
+	}
+	state := session.State
+
+	// 过渡桥：全局状态同步（待 Phase 5 移除）
+	common.SetGlobalConfig(session.Config)
+	common.SetGlobalState(state)
+
+	// 项目缓存注入：把已知的 host:port 加入扫描目标
+	if req.ProjectID != "" {
+		if cached := globalProjectStore.CachedHostPorts(req.ProjectID); len(cached) > 0 {
+			state.SetHostPorts(append(state.GetHostPorts(), cached...))
+		}
+	}
+
+	// 设置WebSocket结果回调
+	common.SetResultCallback(func(result interface{}) {
+		item := h.results.Add(result)
+		if item != nil {
+			h.hub.Broadcast(ws.MsgScanResult, item)
+		}
+	})
+
+	// 执行扫描
+	if _, err := core.RunScan(ctx, info, session); err != nil && !errors.Is(err, context.Canceled) {
+		common.LogError(err.Error())
+	}
+
+	// 项目缓存回写：合并本次扫描结果
+	if req.ProjectID != "" {
+		items := h.results.List()
+		if len(items) > 0 {
+			_ = globalProjectStore.MergeResults(req.ProjectID, items)
+		}
+	}
+}
+
+func buildScanSession(req ScanRequest) (common.HostInfo, *common.ScanSession, error) {
 	// 构建HostInfo
 	info := common.HostInfo{
 		Host: req.Host,
@@ -218,41 +259,12 @@ func (h *ScanHandler) runScan(req ScanRequest) {
 	}
 
 	// 构建Config和Session
-	config := common.BuildConfigFromFlags(fv)
-	state := common.NewState()
+	config, state, err := common.BuildConfig(fv, &info)
+	if err != nil {
+		return info, nil, err
+	}
 	session := common.NewScanSession(config, state, fv)
-
-	// 过渡桥：全局状态同步（待 Phase 5 移除）
-	common.SetGlobalConfig(config)
-	common.SetGlobalState(state)
-
-	// 项目缓存注入：把已知的 host:port 加入扫描目标
-	if req.ProjectID != "" {
-		if cached := globalProjectStore.CachedHostPorts(req.ProjectID); len(cached) > 0 {
-			state.SetHostPorts(cached)
-		}
-	}
-
-	// 设置WebSocket结果回调
-	common.SetResultCallback(func(result interface{}) {
-		item := h.results.Add(result)
-		if item != nil {
-			h.hub.Broadcast(ws.MsgScanResult, item)
-		}
-	})
-
-	// 执行扫描
-	if _, err := core.RunScan(ctx, info, session); err != nil && !errors.Is(err, context.Canceled) {
-		common.LogError(err.Error())
-	}
-
-	// 项目缓存回写：合并本次扫描结果
-	if req.ProjectID != "" {
-		items := h.results.List()
-		if len(items) > 0 {
-			_ = globalProjectStore.MergeResults(req.ProjectID, items)
-		}
-	}
+	return info, session, nil
 }
 
 // Stop 停止扫描

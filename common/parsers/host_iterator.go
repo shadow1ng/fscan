@@ -73,6 +73,11 @@ func (it *HostIterator) Close() error {
 	return firstErr
 }
 
+// IsExcluded 检查单个主机是否匹配当前迭代器的排除规则。
+func (it *HostIterator) IsExcluded(host string) bool {
+	return it.exclude != nil && it.exclude.match(host)
+}
+
 func (it *HostIterator) Next() (string, bool, error) {
 	for {
 		if it.current == nil {
@@ -94,7 +99,7 @@ func (it *HostIterator) Next() (string, bool, error) {
 			it.current = nil
 			continue
 		}
-		if it.exclude != nil && it.exclude.match(host) {
+		if it.IsExcluded(host) {
 			continue
 		}
 		return host, true, nil

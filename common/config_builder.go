@@ -238,8 +238,20 @@ func parseHashes(fv *FlagVars) ([]string, [][]byte, error) {
 // =============================================================================
 
 func parseTargets(fv *FlagVars, info *HostInfo, cfg *Config, state *State) error {
-	// 检查是否为 host:port 格式
 	ports := fv.Ports
+	if fv.PortsFile != "" {
+		lines, err := parsers.ReadLinesFromFile(fv.PortsFile)
+		if err != nil {
+			return fmt.Errorf("%s", i18n.Tr("config_read_ports_failed", fv.PortsFile, err))
+		}
+		ports = strings.Join(lines, ",")
+		if len(parsers.ParsePort(ports)) == 0 {
+			return fmt.Errorf("%s", i18n.Tr("invalid_port", ports))
+		}
+		cfg.Target.Ports = ports
+	}
+
+	// 检查是否为 host:port 格式
 	if info.Host != "" && strings.Contains(info.Host, ":") {
 		if _, portStr, err := net.SplitHostPort(info.Host); err == nil {
 			if port, portErr := strconv.Atoi(portStr); portErr == nil && port >= 1 && port <= 65535 {

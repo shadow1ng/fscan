@@ -106,9 +106,10 @@ func (s *ServiceScanStrategy) Description() string {
 // Execute 执行服务扫描策略
 func (s *ServiceScanStrategy) Execute(ctx context.Context, session *common.ScanSession, info common.HostInfo, ch chan struct{}, wg *sync.WaitGroup) {
 	config := session.Config
+	s.SetState(session.State)
 
-	// 验证扫描目标（需要同时检查 -h 和 -hf 参数）
-	if info.Host == "" && session.Params.HostsFile == "" {
+	// host:port 已在配置解析阶段转入 State。
+	if info.Host == "" && session.Params.HostsFile == "" && len(session.State.GetHostPorts()) == 0 {
 		session.LogError(i18n.GetText("parse_error_target_empty"))
 		return
 	}
@@ -209,7 +210,11 @@ func (s *ServiceScanStrategy) performHostScan(ctx context.Context, session *comm
 	if len(hostPorts) > 0 {
 		merged := mergeHostPorts(nil, hostPorts)
 		targets := s.convertToTargetInfos(merged, info)
+		excludedPorts := portSet(config.Target.ExcludePorts)
 		for _, target := range targets {
+			if iter.IsExcluded(target.Host) || excludedPorts[target.Port] {
+				continue
+			}
 			for _, pluginName := range pluginsToRun {
 				if s.IsPluginApplicableByName(pluginName, target.Host, target.Port, isCustomMode, config) {
 					executeScanTask(ctx, session, pluginName, target, ch, wg)
@@ -277,17 +282,14 @@ func (s *ServiceScanStrategy) dispatchUDPPlugins(ctx context.Context, session *c
 	// 用户指定 -p 时，只调度端口有交集的 UDP 插件
 	var userPorts map[int]bool
 	if config.Target.Ports != "" && config.Target.Ports != "all" {
-		parsed := parsers.ParsePort(config.Target.Ports)
-		userPorts = make(map[int]bool, len(parsed))
-		for _, p := range parsed {
-			userPorts[p] = true
-		}
+		userPorts = portSet(config.Target.Ports)
 	}
+	excludedPorts := portSet(config.Target.ExcludePorts)
 
 	for _, host := range hosts {
 		for _, pluginName := range udpPlugins {
 			for _, port := range plugins.GetPluginPorts(pluginName) {
-				if userPorts != nil && !userPorts[port] {
+				if excludedPorts[port] || (userPorts != nil && !userPorts[port]) {
 					continue
 				}
 				target := baseInfo
@@ -297,6 +299,15 @@ func (s *ServiceScanStrategy) dispatchUDPPlugins(ctx context.Context, session *c
 			}
 		}
 	}
+}
+
+func portSet(ports string) map[int]bool {
+	parsed := parsers.ParsePort(ports)
+	set := make(map[int]bool, len(parsed))
+	for _, port := range parsed {
+		set[port] = true
+	}
+	return set
 }
 
 // PrepareTargets 准备目标信息

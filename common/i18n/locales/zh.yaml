@@ -311,6 +311,8 @@ config_read_passwords_failed:
   other: "读取密码文件 {{.Arg1}} 失败: {{.Arg2}}"
 config_read_urls_failed:
   other: "读取URL文件 {{.Arg1}} 失败: {{.Arg2}}"
+config_read_ports_failed:
+  other: "读取端口文件 {{.Arg1}} 失败: {{.Arg2}}"
 
 # ========================= 插件扫描消息 (带参数) =========================
 scan_plugin_not_found:
