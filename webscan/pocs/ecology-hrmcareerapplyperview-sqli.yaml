@@ -12,7 +12,7 @@ info:
   created: 2025/06/11
 
 set:
-  randstr: randLowercase(6)
+  randstr: randomLowercase(6)
 rules:
   r0:
     request:

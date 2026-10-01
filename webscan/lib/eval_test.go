@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/cel-go/common/types"
 )
@@ -1391,5 +1392,21 @@ func TestMakeVarDecl(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestTimestampSecond(t *testing.T) {
+	before := time.Now().Unix()
+	result, err := Evaluate(GetBaseEnv(), "timestamp_second()", map[string]interface{}{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := result.Value().(int64)
+	if !ok {
+		t.Fatalf("timestamp_second() type = %T, want int64", result.Value())
+	}
+	after := time.Now().Unix()
+	if got < before || got > after {
+		t.Fatalf("timestamp_second() = %d, want [%d, %d]", got, before, after)
 	}
 }
