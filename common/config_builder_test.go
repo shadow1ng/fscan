@@ -1,12 +1,112 @@
 package common
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
 
 	fscanconfig "github.com/shadow1ng/fscan/common/config"
 )
+
+func TestBuildConfigAdditionalCredentials(t *testing.T) {
+	original := NewConfig().Credentials
+	dir := t.TempDir()
+	usersFile := filepath.Join(dir, "users.txt")
+	passwordsFile := filepath.Join(dir, "passwords.txt")
+	if err := os.WriteFile(usersFile, []byte("file-user\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(passwordsFile, []byte("file-password\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name        string
+		flags       FlagVars
+		users       []string
+		passwords   []string
+		appendUsers bool
+	}{
+		{name: "defaults"},
+		{
+			name: "append to defaults",
+			flags: FlagVars{
+				AddUsers:     "extra-user,extra-user",
+				AddPasswords: "extra-password extra-password",
+			},
+			users:       []string{"extra-user"},
+			passwords:   append(append([]string(nil), fscanconfig.DefaultPasswords...), "extra-password"),
+			appendUsers: true,
+		},
+		{
+			name:  "default password is not duplicated",
+			flags: FlagVars{AddPasswords: "123456,123456"},
+		},
+		{
+			name: "append to command line overrides",
+			flags: FlagVars{
+				Username: "custom-user", Password: "primary password",
+				AddUsers: "extra-user,custom-user", AddPasswords: "extra-password extra-password",
+			},
+			users:     []string{"custom-user", "extra-user"},
+			passwords: []string{"primary password", "extra-password"},
+		},
+		{
+			name: "append to file overrides",
+			flags: FlagVars{
+				UsersFile: usersFile, PasswordsFile: passwordsFile,
+				AddUsers: "extra-user,file-user", AddPasswords: "extra-password file-password",
+			},
+			users:     []string{"file-user", "extra-user"},
+			passwords: []string{"file-password", "extra-password"},
+		},
+		{
+			name: "command line and files still replace defaults",
+			flags: FlagVars{
+				Username: "custom-user", Password: "primary password",
+				UsersFile: usersFile, PasswordsFile: passwordsFile,
+				AddUsers: "extra-user", AddPasswords: "extra-password",
+			},
+			users:     []string{"custom-user", "file-user", "extra-user"},
+			passwords: []string{"primary password", "file-password", "extra-password"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, _, err := BuildConfig(&tt.flags, &HostInfo{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantPasswords := tt.passwords
+			if wantPasswords == nil {
+				wantPasswords = append([]string(nil), fscanconfig.DefaultPasswords...)
+			}
+			if !reflect.DeepEqual(cfg.Credentials.Passwords, wantPasswords) {
+				t.Errorf("passwords = %v, want %v", cfg.Credentials.Passwords, wantPasswords)
+			}
+			for service, defaults := range fscanconfig.DefaultUserDict {
+				wantUsers := tt.users
+				if wantUsers == nil || tt.appendUsers {
+					wantUsers = append(append([]string{}, defaults...), wantUsers...)
+				}
+				if !reflect.DeepEqual(cfg.Credentials.Userdict[service], wantUsers) {
+					t.Errorf("%s users = %v, want %v", service, cfg.Credentials.Userdict[service], wantUsers)
+				}
+			}
+		})
+	}
+	defaults, _, err := BuildConfig(&FlagVars{}, &HostInfo{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(defaults.Credentials.Passwords, original.Passwords) ||
+		!reflect.DeepEqual(defaults.Credentials.Userdict, original.Userdict) {
+		t.Fatal("additional credentials leaked into a later config")
+	}
+}
 
 func TestParsePasswordsKeepsPrimaryPasswordLiteral(t *testing.T) {
 	fv := &FlagVars{

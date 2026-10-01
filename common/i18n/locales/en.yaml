@@ -9,7 +9,7 @@ flag_exclude_hosts:
 flag_exclude_hosts_file:
   other: "Exclude hosts file"
 flag_ports:
-  other: "Ports: default 1000 common ports"
+  other: "Ports: defaults to selected plugins' ports, otherwise common ports"
 flag_exclude_ports:
   other: "Exclude ports"
 flag_hosts_file:
@@ -17,7 +17,11 @@ flag_hosts_file:
 flag_ports_file:
   other: "Ports file"
 flag_scan_mode:
-  other: "Scan mode: all(all plugins), icmp(alive detection), or specific plugin names"
+  other: "Scan mode: all(all plugins), icmp(alive detection), or specific plugin names (see -list-plugins)"
+flag_list_plugins:
+  other: "List available plugins, types, default ports and usage, then exit"
+plugin_list_header:
+  other: "Plugin\tType\tDefault ports\tUsage"
 flag_thread_num:
   other: "Port scan thread count"
 flag_timeout:

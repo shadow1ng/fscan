@@ -36,13 +36,9 @@ func (p *NetBIOSPlugin) Scan(ctx context.Context, info *common.HostInfo, session
 	state := session.State
 	target := info.Target()
 
-	// 检查端口类型
+	// 多模块扫描会共享端口列表，跳过其他模块的端口。
 	if info.Port != 137 && info.Port != 139 {
-		return &ScanResult{
-			Success: false,
-			Service: "netbios",
-			Error:   fmt.Errorf("%s", i18n.GetText("netbios_port_only")),
-		}
+		return &ScanResult{Skipped: true, Service: "netbios"}
 	}
 
 	var netbiosInfo *NetBIOSInfo
