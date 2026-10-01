@@ -209,6 +209,7 @@ func Flag(Info *HostInfo) error {
 
 	// 帮助参数
 	flag.BoolVar(&fv.ShowHelp, "help", false, i18n.GetText("flag_help"))
+	flag.BoolVar(&fv.ListPlugins, "list-plugins", false, i18n.GetText("flag_list_plugins"))
 
 	// 解析命令行参数
 	if err := parseCommandLineArgs(); err != nil {
@@ -218,6 +219,8 @@ func Flag(Info *HostInfo) error {
 	// 检测用户是否显式指定了 -t
 	flag.Visit(func(f *flag.Flag) {
 		switch f.Name {
+		case "p":
+			fv.PortsExplicit = true
 		case "t":
 			fv.ThreadNumExplicit = true
 		case "time":
@@ -348,6 +351,10 @@ func preProcessLanguage() {
 
 // shouldShowHelp 检查是否应该显示帮助信息
 func shouldShowHelp(Info *HostInfo, fv *FlagVars) bool {
+	if fv.ListPlugins {
+		return false
+	}
+
 	// Web模式不需要目标参数
 	if WebMode {
 		return false

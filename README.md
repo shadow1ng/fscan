@@ -201,6 +201,11 @@ yay -S fscan-git
 
 ## 运行截图
 
+使用 `fscan -list-plugins` 查看当前构建可用的模块名称、类型、默认端口和调用方式。
+通过 `-m` 指定有固定端口的模块且未传 `-p/-pf` 时，扫描范围使用所选模块默认端口的并集；
+例如 `fscan -hf ip.txt -m netbios` 使用 `137,139`。指定 `-p` 可扫描非标准端口，Web 模块仍使用通用端口范围。
+`-pwda/-usera` 追加到默认字典；与 `-pwd/-user` 或 `-pwdf/-userf` 同用时，追加到指定字典。
+
 `fscan.exe -h 192.168.x.x`
 ![](image/1.png)
 

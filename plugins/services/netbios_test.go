@@ -3,10 +3,23 @@
 package services
 
 import (
+	"context"
 	"encoding/binary"
 	"testing"
 	"unicode/utf16"
+
+	"github.com/shadow1ng/fscan/common"
 )
+
+func TestNetBIOSSkipsUnrelatedPorts(t *testing.T) {
+	session := common.NewScanSession(common.NewConfig(), common.NewState(), &common.FlagVars{})
+	for _, port := range []int{22, 80, 443} {
+		result := NewNetBIOSPlugin().Scan(context.Background(), &common.HostInfo{Host: "127.0.0.1", Port: port}, session)
+		if result == nil || !result.Skipped || result.Success || result.Error != nil {
+			t.Errorf("port %d: result = %+v, want skipped without error", port, result)
+		}
+	}
+}
 
 func TestParseNTLMInfoUsesFullTargetInfoOffset(t *testing.T) {
 	p := NewNetBIOSPlugin()

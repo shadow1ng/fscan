@@ -26,6 +26,7 @@ type FlagVars struct {
 	ExcludeHosts     string
 	ExcludeHostsFile string
 	Ports            string
+	PortsExplicit    bool
 	ExcludePorts     string
 	HostsFile        string
 	PortsFile        string
@@ -121,7 +122,8 @@ type FlagVars struct {
 	DownloadSavePath      string
 
 	// 帮助
-	ShowHelp bool
+	ShowHelp    bool
+	ListPlugins bool
 }
 
 // =============================================================================

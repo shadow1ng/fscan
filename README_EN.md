@@ -200,6 +200,11 @@ yay -S fscan-git
 
 ## Screenshots
 
+Use `fscan -list-plugins` to list the plugins available in the current build, their types, default ports and usage.
+When `-m` selects plugins with fixed ports and neither `-p` nor `-pf` is supplied, scanning uses the union of their default ports;
+for example, `fscan -hf ip.txt -m netbios` uses `137,139`. Use `-p` for nonstandard ports. Web plugins retain the common port range.
+`-pwda/-usera` append to the default dictionaries, or to the supplied dictionaries when used with `-pwd/-user` or `-pwdf/-userf`.
+
 `fscan.exe -h 192.168.x.x`
 ![](image/1.png)
 

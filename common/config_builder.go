@@ -55,8 +55,12 @@ func parseCredentials(fv *FlagVars, cfg *Config) error {
 		return err
 	}
 	if len(usernames) > 0 {
-		for serviceName := range cfg.Credentials.Userdict {
-			cfg.Credentials.Userdict[serviceName] = usernames
+		for serviceName, defaults := range cfg.Credentials.Userdict {
+			if fv.Username == "" && fv.UsersFile == "" {
+				cfg.Credentials.Userdict[serviceName] = removeDuplicate(append(defaults, usernames...))
+			} else {
+				cfg.Credentials.Userdict[serviceName] = usernames
+			}
 		}
 	}
 
@@ -66,6 +70,9 @@ func parseCredentials(fv *FlagVars, cfg *Config) error {
 		return err
 	}
 	if len(passwords) > 0 {
+		if fv.Password == "" && fv.PasswordsFile == "" {
+			passwords = removeDuplicate(append(cfg.Credentials.Passwords, passwords...))
+		}
 		cfg.Credentials.Passwords = passwords
 	}
 
