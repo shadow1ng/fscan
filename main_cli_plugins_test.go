@@ -18,6 +18,10 @@ import (
 )
 
 func TestCLIPluginDefaultPorts(t *testing.T) {
+	portsFile := filepath.Join(t.TempDir(), "ports.txt")
+	if err := os.WriteFile(portsFile, []byte("9139\n8445\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	tests := []struct {
 		name string
 		args []string
@@ -27,7 +31,7 @@ func TestCLIPluginDefaultPorts(t *testing.T) {
 		{name: "multiple plugins", args: []string{"-m", "ssh, netbios,ssh,"}, want: "22,137,139,2200,2222,22222"},
 		{name: "nonstandard port", args: []string{"-m", "ssh", "-p", "2222"}, want: "2222"},
 		{name: "explicit common ports", args: []string{"-m", "netbios", "-p", config.MainPorts}, want: config.MainPorts},
-		{name: "ports file", args: []string{"-m", "netbios", "-pf", "ports.txt"}, want: config.MainPorts},
+		{name: "ports file", args: []string{"-m", "netbios", "-pf", portsFile}, want: "9139,8445"},
 		{name: "all", args: []string{"-m", "all"}, want: config.MainPorts},
 		{name: "web plugin", args: []string{"-m", "webtitle"}, want: config.MainPorts},
 		{name: "web and service", args: []string{"-m", "ssh,webtitle"}, want: config.MainPorts},
