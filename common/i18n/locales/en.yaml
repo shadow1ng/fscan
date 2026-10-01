@@ -315,6 +315,8 @@ config_read_passwords_failed:
   other: "Failed to read password file {{.Arg1}}: {{.Arg2}}"
 config_read_urls_failed:
   other: "Failed to read URL file {{.Arg1}}: {{.Arg2}}"
+config_read_ports_failed:
+  other: "Failed to read port file {{.Arg1}}: {{.Arg2}}"
 
 # ========================= Plugin Scan Messages (with parameters) =========================
 scan_plugin_not_found:

@@ -206,6 +206,7 @@ func (s *Scanner) scanEach(ctx context.Context, opts scanOpts, handle ResultHand
 	ctrl := opts.controller
 	if ctrl == nil && s.config.OnProgress != nil {
 		ctrl = newScanController()
+		opts.controller = ctrl
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
