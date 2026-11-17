@@ -225,12 +225,22 @@ func probeTarget(ctx context.Context, host string, port int, timeout time.Durati
 		session.LogDebug(i18n.Tr("smbv1_negotiate_read_failed", err))
 	}
 
-	// 检查是否支持SMBv1
-	if len(r1) > 0 {
-		return probeSMBv1(conn, target, timeout)
+	// 检查SMBv1协商响应：完整帧含4字节NBSS头，DialectIndex在[37:39]（4+32字节SMB1头+1字节WordCount），至少39字节
+	// [4:8]为\xffSMB表示SMBv1，\xfeSMB表示SMB2
+	// DialectIndex为0xFFFF表示无匹配方言（如Samba禁用NT1），转SMBv2
+	if len(r1) >= 39 && bytes.Equal(r1[4:8], []byte{0xff, 0x53, 0x4d, 0x42}) && bytesToUint16(r1[37:39]) != 0xffff {
+		info, err := probeSMBv1(conn, target, timeout)
+		if err == nil {
+			return info, nil
+		}
+		session.LogDebug(fmt.Sprintf("%s: %v", target, err))
 	}
 
 	// SMBv2路径
+	_ = conn.Close()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	return probeSMBv2(ctx, target, timeout, session)
 }
 

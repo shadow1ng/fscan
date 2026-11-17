@@ -39,17 +39,22 @@ func (p *SmbPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	}
 
 	// 1. 协议探测和信息收集
-	smbTarget, err := probeTarget(ctx, info.Host, info.Port, config.ModuleTimeout(), session)
-	if err != nil {
+	smbTarget, probeErr := probeTarget(ctx, info.Host, info.Port, config.ModuleTimeout(), session)
+	if err := ctx.Err(); err != nil {
 		return &ScanResult{
 			Success: false,
 			Service: "smb",
-			Error:   fmt.Errorf("%s: %w", i18n.GetText("smb_probe_failed"), err),
+			Error:   err,
 		}
 	}
 
 	// 输出信息收集结果
-	p.logSMBInfo(target, smbTarget, session)
+	if probeErr != nil {
+		session.LogDebug(fmt.Sprintf("%s %s: %v", target, i18n.GetText("smb_probe_failed"), probeErr))
+		smbTarget = &SMBTarget{Protocol: SMBProtocolUnknown}
+	} else {
+		p.logSMBInfo(target, smbTarget, session)
+	}
 
 	// 2. 漏洞检测 (仅SMBv2+且端口445)
 	if smbTarget.Protocol == SMBProtocol2 && info.Port == 445 {
@@ -61,7 +66,7 @@ func (p *SmbPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 
 	// 如果禁用暴力破解，只返回信息收集结果
 	if config.DisableBrute {
-		return p.buildInfoResult(smbTarget)
+		return p.buildInfoResult(smbTarget, probeErr)
 	}
 
 	// 3. 根据协议版本选择认证器
@@ -82,7 +87,7 @@ func (p *SmbPlugin) Scan(ctx context.Context, info *common.HostInfo, session *co
 	// 5. 弱密码检测
 	credentials := plugins.GenerateCredentials("smb", config)
 	if len(credentials) == 0 {
-		return p.buildInfoResult(smbTarget)
+		return p.buildInfoResult(smbTarget, probeErr)
 	}
 
 	creds := make([]Credential, len(credentials))
@@ -178,7 +183,10 @@ func (p *SmbPlugin) logSMBInfo(target string, info *SMBTarget, session *common.S
 }
 
 // buildInfoResult 构建信息收集结果
-func (p *SmbPlugin) buildInfoResult(info *SMBTarget) *ScanResult {
+func (p *SmbPlugin) buildInfoResult(info *SMBTarget, probeErr error) *ScanResult {
+	if probeErr != nil {
+		return &ScanResult{Success: false, Service: "smb", Error: fmt.Errorf("%s: %w", i18n.GetText("smb_probe_failed"), probeErr)}
+	}
 	result := &ScanResult{
 		Success: true,
 		Type:    plugins.ResultTypeService,
